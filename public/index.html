@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Work Order Breakdown</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f0f0f0;
+            color: #333;
+            position: relative;
+        }
+        .top-border {
+            position: fixed; /* Change to fixed */
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 128px;
+            background-color: rgba(146, 208, 80, 1);
+            z-index: 2;
+			display: flex;
+			justify-content: flex-start; /* Align the image to the right with flex-end*/
+			align-items: center; /* Vertically center the image */
+			padding-right: 20px; /* Add some padding for spacing */
+        }
+		.top-border img {
+			max-height: 100px; /* Adjust the height of the image as needed */
+			width: auto;
+			object-fit: contain; /* Maintain aspect ratio */
+		}
+		.right-top-image {
+    		position: fixed; /* Fixed position */
+    		top: 0; /* Align to the top */
+    		right: 0; /* Align to the right */
+    		padding: 10px; /* Add some padding */
+			z-index: 3;
+		}
+		.right-top-image img {
+    		height: 100px; /* Adjust the height as needed */
+    		width: auto; /* Maintain aspect ratio */
+		}
+        .left-border {
+            position: fixed; /* Change to fixed */
+            top: 0;
+            left: 0;
+            width: 128px;
+            height: 100%;
+            background-color: rgba(146, 208, 80, 1);
+            z-index: 1; /* Adjust the z-index to be below the top border */
+        }
+        .container {
+            max-width: 1200px;
+            margin: 160px 20px 20px 160px; /* Adjust margins to match border width and height */
+            padding: 20px;
+            background-color: #fff;
+            box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+            position: relative; /* Add this line to ensure content respects the container */
+            z-index: 1; /* Add this line to ensure the container is above the borders */
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+            color: rgba(37, 64, 143, 1);
+        }
+        input[type="text"] {
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: rgba(37, 64, 143, 1);
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            border: 1px solid #ddd;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        .logo {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+			max-width: 200px;
+			max-height: 200x;
+            width: auto; /* Adjust the width of the logo, could be 100px */
+            height: auto;
+        }
+		/* Add a new style for the "pressed" state */
+		button:active {
+        background-color: rgba(37, 64, 143, 0.8); /* Lighter color when pressed */
+		}
+    </style>
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" charset="utf-8">
+</head>
+<body>
+    <div class="top-border">
+		<img src="https://raw.githubusercontent.com/ryanm-plastic-recycling/logo/main/pri-logo-vector.png" alt="PRILogo" class="logo">
+	</div>
+<div class="right-top-image">
+    <img src="https://raw.githubusercontent.com/ryanm-plastic-recycling/logo/main/Innovation Triangle Last.png" alt="InnoLogo">
+	</div>
+    <div class="left-border"></div>
+    <div class="container">
+        <h1>Work Order Status</h1>
+
+        <!-- User input section -->
+        <div>
+            <!--<input type="text" id="input-value" placeholder="Enter a value">-->
+            <!--<button id="fetch-button">Fetch Work Orders</button>-->
+			<button id="refresh-button">Refresh</button>
+        </div>
+
+        <!-- Work order breakdown table -->
+        <table>
+            <thead>
+                <tr>
+                    <th>Location ID</th>
+					<th>Task ID</th>
+					<th>Asset ID</th>
+					<th>Priority</th>
+					<th>Name</th>
+					<th>Description</th>
+					<th>Type</th>
+					<th>Created Date</th>
+                    <th>Due Date</th>
+                    <th>Status ID</th>
+                    <th>Team ID</th>
+                </tr>
+            </thead>
+            <tbody id="work-order-data">
+                <!-- Work order data will be inserted here -->
+            </tbody>
+        </table>
+    </div>
+	
+	<!-- Load the JavaScript code for fetching data through the server -->
+    
+	<script>
+    // User input section
+    //const fetchButton = document.getElementById('fetch-button');
+    //const inputValue = document.getElementById('input-value');
+    //const workOrderDataContainer = document.getElementById('work-order-data');
+	const refreshButton = document.getElementById('refresh-button');
+    const workOrderDataContainer = document.getElementById('work-order-data');
+	
+	// Fetch and load the data when the page loads
+    fetchData();
+	
+	// Function to format Unix timestamp to "YYYY-MM-DD" format
+	function formatDate(timestamp) {
+		const date = new Date(timestamp * 1000); // Convert to milliseconds
+		const year = date.getFullYear();
+		const month = String(date.getMonth() + 1).padStart(2, '0'); // Month is 0-indexed
+		const day = String(date.getDate()).padStart(2, '0');
+		return `${year}-${month}-${day}`;
+	}
+	// Function to format Unix timestamp to "YYYY-MM-DD" format with hour and minute
+	function formatDateTime(timestamp) {
+		const date = new Date(timestamp * 1000); // Convert to milliseconds
+		const year = date.getFullYear();
+		const month = String(date.getMonth() + 1).padStart(2, '0'); // Month is 0-indexed
+		const day = String(date.getDate()).padStart(2, '0');
+		const hours = String(date.getHours()).padStart(2, '0');
+		const minutes = String(date.getMinutes()).padStart(2, '0');
+		return `${year}-${month}-${day} ${hours}:${minutes}`;
+	}
+
+
+    refreshButton.addEventListener('click', () => {
+		// Temporarily change the button's background color to indicate pressing
+		refreshButton.style.backgroundColor = 'rgba(37, 64, 143, 0.8)';
+
+        // Reload the page to refresh the data
+        location.reload();
+    });
+
+    function fetchData() {
+		// Make API request with user-input value and authorization header
+		// You need to fetch the asset data first to swap ID for Name
+		fetch('/api/assets') // Use the endpoint for fetching assets
+        .then(response => response.json())
+        .then(assetsData => {
+            // Create a mapping of assetID to assetName
+            const assetMapping = {};
+            assetsData.forEach(asset => {
+                assetMapping[asset.assetID] = asset.name;
+            });
+			
+			fetch('/api/task') // Use the endpoint you set up on the server		
+				.then(response => {
+					console.log('Response status:', response.status);
+					return response.json();
+				})
+			
+			//.then(response => response.json())
+			.then(data => {
+				//***console.log('Received data:', data);
+				
+				// Process data and update the table
+				const tasks = data;
+
+				// Clear existing table rows
+				workOrderDataContainer.innerHTML = '';
+				
+				// Define your mappings
+				const statusMapping = {
+					0: 'Created',
+					1: 'Open',
+					2: 'In Progress',
+					3: 'Completed',
+				};
+				const typeMapping = {
+					1: 'Preventative Maintanance (PM)',
+					2: 'Unplanned Work Order (WO)',
+					4: 'Planned Work Order (WO)',
+					5: 'Cycle Count',
+					6: 'Work Request (WR)',
+					7: 'Min Part Threshold',
+					8: 'Materials Request',
+				};
+				const locationMapping = {
+					0: 'N/A',
+					13425: 'Rockville',
+				};
+				const teamMapping = {
+					29560: 'Work Request Production',
+					29569: 'PM Crew',
+					30278: 'Contractor Tasking',
+					30846: 'Vehicles',
+					30848: 'Production Crew (Primary)',
+					31196: 'Engineering Projects',
+					55341: 'Production Crew Primary',
+					61415: 'PM Crew',
+					61416: 'Production Crew (Primary)',
+					61417: 'Work Request Production',
+					61418: 'Contractor Tasking',
+					67362: 'Work Request Production',
+					99793: 'Operator PM',
+					109588: 'Maintenance Crew Primary',
+					118719: 'Facilities',
+					175226: 'PM Crew',
+				};
+				const priorityMapping = {
+					0: 'Low Priority',
+					1: 'Low Priority',
+					2: 'Medium Priority',
+					3: 'Medium Priority',
+					4: 'High Priority',
+					5: 'High Priority',
+					6: 'On Hold',
+				};
+				
+				// Filter and display the relevant data
+				tasks.forEach(task => {
+					const row = document.createElement('tr');
+					row.innerHTML = `
+						<td>${locationMapping[task.locationID]}</td>
+						<td>${task.taskID}</td>
+						<td>${assetMapping[task.assetID]}</td>
+						<td>${priorityMapping[task.priority]}</td>
+						<td>${task.name}</td>
+						<td>${task.description}</td>
+						<td>${typeMapping[task.type]}</td>
+						<td>${formatDateTime(task.createdDate)}</td>
+						<td>${formatDate(task.due)}</td>
+						<td>${statusMapping[task.statusID]}</td>
+						<td>${teamMapping[task.teamID]}</td>
+					`;
+					workOrderDataContainer.appendChild(row);
+				});
+			})
+			.catch(error => {
+				console.error('Error fetching tasks:', error);
+				// Display error message on webpage
+				workOrderDataContainer.innerHTML = 'Error fetching data.';
+			});
+    })
+	.catch(error => {
+            console.error('Error fetching assets:', error);
+            workOrderDataContainer.innerHTML = 'Error fetching data.';
+        });
+	}
+	refreshButton.addEventListener('click', () => {
+        // Fetch and load the data without reloading the page
+        fetchData();
+    });
+
+    // Fetch and load the data when the page loads
+    //fetchData();
+</script>
+</body>
+</html>
