@@ -1,0 +1,48 @@
+{
+  "status": {
+    "0": "Created",
+    "1": "Open",
+    "2": "In Progress",
+    "3": "Completed"
+  },
+  "type": {
+    "1": "Preventative Maintanance (PM)",
+    "2": "Unplanned Work Order (WO)",
+    "4": "Planned Work Order (WO)",
+    "5": "Cycle Count",
+    "6": "Work Request (WR)",
+    "7": "Min Part Threshold",
+    "8": "Materials Request"
+  },
+  "location": {
+    "0": "N/A",
+    "13425": "Rockville"
+  },
+  "team": {
+    "29560": "Work Request Production",
+    "29569": "PM Crew",
+    "30278": "Contractor Tasking",
+    "30846": "Vehicles",
+    "30848": "Production Crew (Primary)",
+    "31196": "Engineering Projects",
+    "55341": "Production Crew Primary",
+    "61415": "PM Crew",
+    "61416": "Production Crew (Primary)",
+    "61417": "Work Request Production",
+    "61418": "Contractor Tasking",
+    "67362": "Work Request Production",
+    "99793": "Operator PM",
+    "109588": "Maintenance Crew Primary",
+    "118719": "Facilities",
+    "175226": "PM Crew"
+  },
+  "priority": {
+    "0": "Low Priority",
+    "1": "Low Priority",
+    "2": "Medium Priority",
+    "3": "Medium Priority",
+    "4": "High Priority",
+    "5": "High Priority",
+    "6": "On Hold"
+  }
+}

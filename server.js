@@ -1,15 +1,17 @@
 import express from 'express';
-import { fileURLToPath } from 'url'; // Import the 'fileURLToPath' function from the 'url' module
+import { fileURLToPath } from 'url';
 import path from 'path';
 import fetch from 'node-fetch';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url); // Convert import.meta.url to __filename
 const __dirname = path.dirname(__filename); // Derive __dirname from __filename
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-// Get your local IP address (replace with your actual IP)
-const localIP = '192.168.0.5'; // Replace with your local IP address
+const LOCAL_IP = process.env.LOCAL_IP || '0.0.0.0';
 
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -20,9 +22,8 @@ app.get('/', (req, res) => {
 
 app.get('/api/assets', async (req, res) => {
     try {
-        // Replace 'your_client_id' and 'your_client_secret' with your actual credentials
-        const clientId = 'X7XBEI853G3G7T2C8K0CUO84FHW9RB3Z';
-        const clientSecret = 'IQFFNDNDCN6HFZ01DED83Q5F1LEISF1M';
+        const clientId = process.env.CLIENT_ID;
+        const clientSecret = process.env.CLIENT_SECRET;
         const credentials = { id: clientId, secret: clientSecret };
 
         // Construct the authorization header
@@ -46,8 +47,8 @@ app.get('/api/assets', async (req, res) => {
 app.get('/api/task', async (req, res) => {
     try {
         // Replace 'your_client_id' and 'your_client_secret' with your actual credentials
-        const clientId = 'X7XBEI853G3G7T2C8K0CUO84FHW9RB3Z';
-        const clientSecret = 'IQFFNDNDCN6HFZ01DED83Q5F1LEISF1M';
+        const clientId = process.env.CLIENT_ID;
+        const clientSecret = process.env.CLIENT_SECRET;
         const credentials = { id: clientId, secret: clientSecret };
 
         // Construct the authorization header
@@ -71,8 +72,8 @@ app.get('/api/task', async (req, res) => {
 app.get('/api/taskpm', async (req, res) => {
     try {
         // Replace 'your_client_id' and 'your_client_secret' with your actual credentials
-        const clientId = 'X7XBEI853G3G7T2C8K0CUO84FHW9RB3Z';
-        const clientSecret = 'IQFFNDNDCN6HFZ01DED83Q5F1LEISF1M';
+        const clientId = process.env.CLIENT_ID;
+        const clientSecret = process.env.CLIENT_SECRET;
         const credentials = { id: clientId, secret: clientSecret };
 
         // Construct the authorization header
@@ -96,8 +97,8 @@ app.get('/api/taskpm', async (req, res) => {
 app.get('/api/hours', async (req, res) => {
     try {
         // Replace 'your_client_id' and 'your_client_secret' with your actual credentials
-        const clientId = 'X7XBEI853G3G7T2C8K0CUO84FHW9RB3Z';
-        const clientSecret = 'IQFFNDNDCN6HFZ01DED83Q5F1LEISF1M';
+        const clientId = process.env.CLIENT_ID;
+        const clientSecret = process.env.CLIENT_SECRET;
         const credentials = { id: clientId, secret: clientSecret };
 
         // Construct the authorization header
@@ -118,6 +119,10 @@ app.get('/api/hours', async (req, res) => {
     }
 });
 
-app.listen(PORT, '0.0.0.0', () => {
-    console.log(`NOICE! Contact Ryan McCauley before stopping this service! Server running at http://0.0.0.0:${PORT}/`);
-});
+if (process.env.NODE_ENV !== 'test') {
+    app.listen(PORT, LOCAL_IP, () => {
+        console.log(`NOICE! Contact Ryan McCauley before stopping this service! Server running at http://${LOCAL_IP}:${PORT}/`);
+    });
+}
+
+export default app;
