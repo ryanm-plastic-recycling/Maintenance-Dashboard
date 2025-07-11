@@ -21,6 +21,10 @@ shows a live list of work orders for a configured location.
   - `/api/hours` returns labor hour data.
   These endpoints proxy requests to Limble using credentials provided through
   environment variables.
+- **7‑day weather forecast** – a sidebar displays the week's forecast with large icons and
+  temperatures. Severe conditions such as heat, freeze or storms appear as alerts above the table.
+- **Large date and time** – the header shows the current date and time in a large
+  font centered in the banner.
 
 The dashboard itself lives in `public/index.html` and is styled with basic CSS.
 JavaScript in the page fetches data from the endpoints above and renders it in a

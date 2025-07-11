@@ -12,17 +12,16 @@
             position: relative;
         }
         .top-border {
-            position: fixed; /* Change to fixed */
+            position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 96px;
             background-color: rgba(146, 208, 80, 1);
             z-index: 2;
-                        display: flex;
-                        justify-content: flex-start; /* Align the image to the right with flex-end*/
-                        align-items: center; /* Vertically center the image */
-                        padding-right: 20px; /* Add some padding for spacing */
+            display: flex;
+            align-items: center;
+            padding-right: 20px;
         }
                 .top-border img {
                         max-height: 75px; /* Adjust the height of the image as needed */
@@ -41,8 +40,13 @@
                 width: auto; /* Maintain aspect ratio */
                 }
         #clock {
-            margin-left: auto;
-            padding-right: 20px;
+            flex: 1;
+            text-align: center;
+            font-size: 48px;
+            font-weight: bold;
+        }
+        .clock-date {
+            display: block;
             font-size: 20px;
         }
         .left-border {
@@ -62,10 +66,32 @@
             gap: 10px;
             font-size: 14px;
         }
-        .weather-entry {
+        .weather-day {
+            width: 100px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            padding: 5px;
+            background: #fff;
             display: flex;
             flex-direction: column;
             align-items: center;
+            gap: 4px;
+        }
+        .weather-icon {
+            font-size: 32px;
+        }
+        .weather-temp {
+            font-size: 24px;
+            font-weight: bold;
+        }
+        .alert-container {
+            display: none;
+            background-color: #ffcccc;
+            color: #a00;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+            font-weight: bold;
         }
         .container {
             max-width: 1200px;
@@ -138,6 +164,7 @@
         <div id="weather-container" class="weather-container"></div>
     </div>
     <div class="container">
+        <div id="alert-container" class="alert-container"></div>
         <h1>PM Work Orders</h1>
 
         <!-- User input section -->
@@ -219,9 +246,21 @@
         }
 
         function updateClock() {
-            const options = { timeZone: 'America/Indiana/Indianapolis', hour: 'numeric', minute: '2-digit', second: '2-digit' };
-            const formatter = new Intl.DateTimeFormat('en-US', options);
-            document.getElementById('clock').textContent = formatter.format(new Date());
+            const now = new Date();
+            const dateFmt = new Intl.DateTimeFormat('en-US', {
+                timeZone: 'America/Indiana/Indianapolis',
+                weekday: 'short',
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric'
+            });
+            const timeFmt = new Intl.DateTimeFormat('en-US', {
+                timeZone: 'America/Indiana/Indianapolis',
+                hour: 'numeric',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+            document.getElementById('clock').innerHTML = `<span class="clock-date">${dateFmt.format(now)}</span>${timeFmt.format(now)}`;
         }
         setInterval(updateClock, 1000);
         updateClock();
@@ -234,21 +273,42 @@
             if (d.includes('snow')) return '❄️';
             return '🌡️';
         }
+        function displayAlerts(alerts) {
+            const alertContainer = document.getElementById('alert-container');
+            if (alerts.length) {
+                alertContainer.innerHTML = alerts.map(a => `<div>${a}</div>`).join('');
+                alertContainer.style.display = 'block';
+            } else {
+                alertContainer.style.display = 'none';
+            }
+        }
+
         function fetchWeather() {
             fetch('https://wttr.in/Indianapolis?format=j1')
                 .then(res => res.json())
                 .then(data => {
                     const container = document.getElementById('weather-container');
                     container.innerHTML = '';
-                    const days = data.weather.slice(0, 2);
+                    const alerts = [];
+                    const days = data.weather.slice(0, 7);
                     days.forEach(day => {
                         const entry = document.createElement('div');
-                        entry.className = 'weather-entry';
-                        const icon = getWeatherIcon(day.hourly[0].weatherDesc[0].value);
+                        entry.className = 'weather-day';
+                        const iconDesc = day.hourly[0].weatherDesc[0].value;
+                        const icon = getWeatherIcon(iconDesc);
                         const temp = day.maxtempF;
-                        entry.innerHTML = `<div>${day.date}</div><div>${icon} ${temp}°F</div>`;
+                        const dow = new Date(day.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short' });
+                        entry.innerHTML = `<div>${day.date}</div><div>${dow}</div><div class="weather-icon">${icon}</div><div class="weather-temp">${temp}°F</div>`;
                         container.appendChild(entry);
+
+                        const high = parseInt(day.maxtempF, 10);
+                        const low = parseInt(day.mintempF, 10);
+                        const desc = iconDesc.toLowerCase();
+                        if (high >= 95) alerts.push(`Heat alert: High ${high}°F on ${day.date}`);
+                        if (low <= 32) alerts.push(`Freeze alert: Low ${low}°F on ${day.date}`);
+                        if (/(thunder|tornado|flood|snow|storm)/.test(desc)) alerts.push(`Severe weather: ${iconDesc} on ${day.date}`);
                     });
+                    displayAlerts(alerts);
                 })
                 .catch(err => console.error('Weather error', err));
         }
