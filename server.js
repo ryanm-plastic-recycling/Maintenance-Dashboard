@@ -1,6 +1,7 @@
 import express from 'express';
 import { fileURLToPath } from 'url';
 import path from 'path';
+import fs from 'fs';
 import fetch from 'node-fetch';
 import dotenv from 'dotenv';
 
@@ -10,6 +11,7 @@ const __filename = fileURLToPath(import.meta.url); // Convert import.meta.url to
 const __dirname = path.dirname(__filename); // Derive __dirname from __filename
 
 const app = express();
+app.use(express.json());
 const PORT = process.env.PORT || 3000;
 const LOCAL_IP = process.env.LOCAL_IP || '0.0.0.0';
 
@@ -18,6 +20,44 @@ app.use(express.static(path.join(__dirname, 'public')));
 // Serve the HTML file for the root path
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+app.get('/pm', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'pm.html'));
+});
+
+app.get('/admin', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+});
+
+app.get('/api/config', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'config.json'));
+});
+
+app.post('/api/config', (req, res) => {
+    if (req.body.password !== process.env.ADMIN_PASSWORD) {
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
+    fs.writeFile(path.join(__dirname, 'public', 'config.json'), JSON.stringify(req.body.config, null, 2), err => {
+        if (err) {
+            console.error('Config save error:', err);
+            return res.status(500).json({ error: 'Failed to save config' });
+        }
+        res.json({ status: 'ok' });
+    });
+});
+
+app.post('/api/mappings', (req, res) => {
+    if (req.body.password !== process.env.ADMIN_PASSWORD) {
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
+    fs.writeFile(path.join(__dirname, 'public', 'mappings.json'), JSON.stringify(req.body.mappings, null, 2), err => {
+        if (err) {
+            console.error('Mappings save error:', err);
+            return res.status(500).json({ error: 'Failed to save mappings' });
+        }
+        res.json({ status: 'ok' });
+    });
 });
 
 app.get('/api/assets', async (req, res) => {

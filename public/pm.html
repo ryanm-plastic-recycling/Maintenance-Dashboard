@@ -138,7 +138,7 @@
         <div id="weather-container" class="weather-container"></div>
     </div>
     <div class="container">
-        <h1>Work Order Status</h1>
+        <h1>PM Work Orders</h1>
 
         <!-- User input section -->
         <div>
@@ -256,7 +256,7 @@
 
         function applyColumnConfig() {
             if (!config.columns) return;
-            const page = window.location.pathname.split('/').pop() || 'index.html';
+            const page = window.location.pathname.split('/').pop() || 'pm.html';
             const cols = config.columns[page] || [];
             document.querySelectorAll('th').forEach(th => {
                 if (!cols.includes(th.dataset.col)) th.style.display = 'none'; else th.style.display = '';
@@ -270,7 +270,7 @@
 
         function rotatePages() {
             if (!config.pages) return;
-            const page = window.location.pathname.split('/').pop() || 'index.html';
+            const page = window.location.pathname.split('/').pop() || 'pm.html';
             const pages = config.pages;
             const interval = config.interval || 15000;
             const next = pages[(pages.indexOf(page) + 1) % pages.length];
@@ -295,7 +295,7 @@
                 }
             });
 			
-			fetch('/api/task') // Use the endpoint you set up on the server		
+			fetch('/api/taskpm') // Use the endpoint you set up on the server		
 				.then(response => {
 					console.log('Response status:', response.status);
 					return response.json();
@@ -319,9 +319,9 @@
                                 const priorityMapping = mappings.priority || {};
 				
 				// Filter and display the relevant data
-                               tasks.forEach(task => {
-                                       const row = document.createElement('tr');
-                                       row.innerHTML = `
+				tasks.forEach(task => {
+					const row = document.createElement('tr');
+                                        row.innerHTML = `
                                                 <td data-col="locationID">${locationMapping[task.locationID] || task.locationID}</td>
                                                 <td data-col="taskID">${task.taskID}</td>
                                                 <td data-col="assetID">${assetMapping[task.assetID] || task.assetID}</td>
@@ -333,12 +333,12 @@
                                                 <td data-col="due">${formatDate(task.due)}</td>
                                                 <td data-col="statusID">${statusMapping[task.statusID] || task.statusID}</td>
                                                 <td data-col="teamID">${teamMapping[task.teamID] || task.teamID}</td>
-                                               <td data-col="assignedTo">${task.assignedTo || task.assignedUser || ""}</td>
-                                       `;
-                                       workOrderDataContainer.appendChild(row);
-                               });
-                                applyColumnConfig();
-                        })
+                                                <td data-col="assignedTo">${task.assignedTo || task.assignedUser || ""}</td>
+                                        `;
+                                        applyColumnConfig();
+					workOrderDataContainer.appendChild(row);
+				});
+			})
 			.catch(error => {
 				console.error('Error fetching tasks:', error);
 				// Display error message on webpage
