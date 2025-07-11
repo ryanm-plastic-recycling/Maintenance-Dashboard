@@ -16,19 +16,19 @@
             top: 0;
             left: 0;
             width: 100%;
-            height: 128px;
+            height: 96px;
             background-color: rgba(146, 208, 80, 1);
             z-index: 2;
-			display: flex;
-			justify-content: flex-start; /* Align the image to the right with flex-end*/
-			align-items: center; /* Vertically center the image */
-			padding-right: 20px; /* Add some padding for spacing */
+                        display: flex;
+                        justify-content: flex-start; /* Align the image to the right with flex-end*/
+                        align-items: center; /* Vertically center the image */
+                        padding-right: 20px; /* Add some padding for spacing */
         }
-		.top-border img {
-			max-height: 100px; /* Adjust the height of the image as needed */
-			width: auto;
-			object-fit: contain; /* Maintain aspect ratio */
-		}
+                .top-border img {
+                        max-height: 75px; /* Adjust the height of the image as needed */
+                        width: auto;
+                        object-fit: contain; /* Maintain aspect ratio */
+                }
 		.right-top-image {
     		position: fixed; /* Fixed position */
     		top: 0; /* Align to the top */
@@ -36,10 +36,15 @@
     		padding: 10px; /* Add some padding */
 			z-index: 3;
 		}
-		.right-top-image img {
-    		height: 100px; /* Adjust the height as needed */
-    		width: auto; /* Maintain aspect ratio */
-		}
+                .right-top-image img {
+                height: 75px; /* Adjust the height as needed */
+                width: auto; /* Maintain aspect ratio */
+                }
+        #clock {
+            margin-left: auto;
+            padding-right: 20px;
+            font-size: 20px;
+        }
         .left-border {
             position: fixed; /* Change to fixed */
             top: 0;
@@ -49,9 +54,22 @@
             background-color: rgba(146, 208, 80, 1);
             z-index: 1; /* Adjust the z-index to be below the top border */
         }
+        .weather-container {
+            margin-top: 140px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            font-size: 14px;
+        }
+        .weather-entry {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
         .container {
             max-width: 1200px;
-            margin: 160px 20px 20px 160px; /* Adjust margins to match border width and height */
+            margin: 120px 20px 20px 160px; /* Adjust margins to match border width and height */
             padding: 20px;
             background-color: #fff;
             box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.1);
@@ -110,12 +128,15 @@
 </head>
 <body>
     <div class="top-border">
-		<img src="https://raw.githubusercontent.com/ryanm-plastic-recycling/logo/main/pri-logo-vector.png" alt="PRILogo" class="logo">
-	</div>
-<div class="right-top-image">
-    <img src="https://raw.githubusercontent.com/ryanm-plastic-recycling/logo/main/Innovation Triangle Last.png" alt="InnoLogo">
-	</div>
-    <div class="left-border"></div>
+        <img src="https://raw.githubusercontent.com/ryanm-plastic-recycling/logo/main/pri-logo-vector.png" alt="PRILogo" class="logo">
+        <div id="clock"></div>
+    </div>
+    <div class="right-top-image">
+        <img src="https://raw.githubusercontent.com/ryanm-plastic-recycling/logo/main/Innovation Triangle Last.png" alt="InnoLogo">
+    </div>
+    <div class="left-border">
+        <div id="weather-container" class="weather-container"></div>
+    </div>
     <div class="container">
         <h1>Work Order Status</h1>
 
@@ -180,24 +201,53 @@
 		return `${year}-${month}-${day}`;
 	}
 	// Function to format Unix timestamp to "YYYY-MM-DD" format with hour and minute
-	function formatDateTime(timestamp) {
-		const date = new Date(timestamp * 1000); // Convert to milliseconds
-		const year = date.getFullYear();
-		const month = String(date.getMonth() + 1).padStart(2, '0'); // Month is 0-indexed
-		const day = String(date.getDate()).padStart(2, '0');
-		const hours = String(date.getHours()).padStart(2, '0');
-		const minutes = String(date.getMinutes()).padStart(2, '0');
-		return `${year}-${month}-${day} ${hours}:${minutes}`;
-	}
+        function formatDateTime(timestamp) {
+                const date = new Date(timestamp * 1000); // Convert to milliseconds
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, '0'); // Month is 0-indexed
+                const day = String(date.getDate()).padStart(2, '0');
+                const hours = String(date.getHours()).padStart(2, '0');
+                const minutes = String(date.getMinutes()).padStart(2, '0');
+                return `${year}-${month}-${day} ${hours}:${minutes}`;
+        }
+
+        function updateClock() {
+            const options = { timeZone: 'America/Indiana/Indianapolis', hour: 'numeric', minute: '2-digit', second: '2-digit' };
+            const formatter = new Intl.DateTimeFormat('en-US', options);
+            document.getElementById('clock').textContent = formatter.format(new Date());
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        function getWeatherIcon(desc) {
+            const d = desc.toLowerCase();
+            if (d.includes('sun')) return '☀️';
+            if (d.includes('cloud')) return '☁️';
+            if (d.includes('rain')) return '🌧️';
+            if (d.includes('snow')) return '❄️';
+            return '🌡️';
+        }
+        function fetchWeather() {
+            fetch('https://wttr.in/Indianapolis?format=j1')
+                .then(res => res.json())
+                .then(data => {
+                    const container = document.getElementById('weather-container');
+                    container.innerHTML = '';
+                    const days = data.weather.slice(0, 2);
+                    days.forEach(day => {
+                        const entry = document.createElement('div');
+                        entry.className = 'weather-entry';
+                        const icon = getWeatherIcon(day.hourly[0].weatherDesc[0].value);
+                        const temp = day.maxtempF;
+                        entry.innerHTML = `<div>${day.date}</div><div>${icon} ${temp}°F</div>`;
+                        container.appendChild(entry);
+                    });
+                })
+                .catch(err => console.error('Weather error', err));
+        }
+        fetchWeather();
 
 
-    refreshButton.addEventListener('click', () => {
-		// Temporarily change the button's background color to indicate pressing
-		refreshButton.style.backgroundColor = 'rgba(37, 64, 143, 0.8)';
-
-        // Reload the page to refresh the data
-        location.reload();
-    });
 
     function fetchData() {
 		// Make API request with user-input value and authorization header
@@ -206,9 +256,11 @@
         .then(response => response.json())
         .then(assetsData => {
             // Create a mapping of assetID to assetName
-            const assetMapping = {};
+            const assetMapping = mappings.asset ? { ...mappings.asset } : {};
             assetsData.forEach(asset => {
-                assetMapping[asset.assetID] = asset.name;
+                if (!assetMapping[asset.assetID]) {
+                    assetMapping[asset.assetID] = asset.name;
+                }
             });
 			
 			fetch('/api/task') // Use the endpoint you set up on the server		
@@ -237,19 +289,19 @@
 				// Filter and display the relevant data
 				tasks.forEach(task => {
 					const row = document.createElement('tr');
-					row.innerHTML = `
-						<td>${locationMapping[task.locationID]}</td>
-						<td>${task.taskID}</td>
-						<td>${assetMapping[task.assetID]}</td>
-						<td>${priorityMapping[task.priority]}</td>
-						<td>${task.name}</td>
-						<td>${task.description}</td>
-						<td>${typeMapping[task.type]}</td>
-						<td>${formatDateTime(task.createdDate)}</td>
-						<td>${formatDate(task.due)}</td>
-						<td>${statusMapping[task.statusID]}</td>
-						<td>${teamMapping[task.teamID]}</td>
-					`;
+                                        row.innerHTML = `
+                                                <td>${locationMapping[task.locationID] || task.locationID}</td>
+                                                <td>${task.taskID}</td>
+                                                <td>${assetMapping[task.assetID] || task.assetID}</td>
+                                                <td>${priorityMapping[task.priority] || task.priority}</td>
+                                                <td>${task.name}</td>
+                                                <td>${task.description}</td>
+                                                <td>${typeMapping[task.type] || task.type}</td>
+                                                <td>${formatDateTime(task.createdDate)}</td>
+                                                <td>${formatDate(task.due)}</td>
+                                                <td>${statusMapping[task.statusID] || task.statusID}</td>
+                                                <td>${teamMapping[task.teamID] || task.teamID}</td>
+                                        `;
 					workOrderDataContainer.appendChild(row);
 				});
 			})
