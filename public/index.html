@@ -145,10 +145,29 @@
             width: auto; /* Adjust the width of the logo, could be 100px */
             height: auto;
         }
-		/* Add a new style for the "pressed" state */
-		button:active {
-        background-color: rgba(37, 64, 143, 0.8); /* Lighter color when pressed */
-		}
+        /* Add a new style for the "pressed" state */
+        button:active {
+            background-color: rgba(37, 64, 143, 0.8); /* Lighter color when pressed */
+        }
+
+        /* Simple tab navigation */
+        .tabs {
+            margin: 10px 0;
+        }
+        .tabs a {
+            text-decoration: none;
+            color: #000;
+            padding: 8px 12px;
+            border: 1px solid #ccc;
+            border-bottom: none;
+            background: #eee;
+            border-radius: 4px 4px 0 0;
+            margin-right: 4px;
+        }
+        .tabs a.active {
+            background: #fff;
+            font-weight: bold;
+        }
     </style>
 	<meta name="viewport" content="width=device-width, initial-scale=1.0" charset="utf-8">
 </head>
@@ -166,6 +185,11 @@
     <div class="container">
         <div id="alert-container" class="alert-container"></div>
         <h1>Work Order Status</h1>
+        <div class="tabs">
+            <a href="/index.html" class="active">Work Orders</a>
+            <a href="/pm.html">PM Work Orders</a>
+            <a href="/admin">Admin</a>
+        </div>
 
         <!-- User input section -->
         <div>
@@ -418,6 +442,5 @@
     // Fetch and load the data when the page loads
     //fetchData();
 </script>
-<a href="/admin" style="position:fixed;bottom:5px;right:5px;font-size:12px;color:#888;">Admin</a>
 </body>
 </html>
