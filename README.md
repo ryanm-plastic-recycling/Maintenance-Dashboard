@@ -1,6 +1,30 @@
 # Maintenance Dashboard
 
-This project provides a simple dashboard that displays data from Limble CMMS.
+This project provides a simple dashboard that displays data from the Limble CMMS
+API. It is built with Node and Express and serves a single-page dashboard that
+shows a live list of work orders for a configured location.
+
+## Features
+
+- **Live work order table** – the dashboard pulls the latest tasks from Limble
+  whenever the page is loaded.
+- **Asset name mapping** – asset IDs are converted to human readable names by
+  first querying the `/api/assets` endpoint.
+- **Status and priority decoding** – `public/mappings.json` translates status,
+  type, priority, team and location IDs into meaningful text.
+- **Refresh button** – quickly reload the data without restarting the server.
+- **REST endpoints** – the server exposes several endpoints used by the
+  frontend:
+  - `/api/assets` fetches asset information.
+  - `/api/task` returns recent open work orders.
+  - `/api/taskpm` returns open preventative maintenance tasks.
+  - `/api/hours` returns labor hour data.
+  These endpoints proxy requests to Limble using credentials provided through
+  environment variables.
+
+The dashboard itself lives in `public/index.html` and is styled with basic CSS.
+JavaScript in the page fetches data from the endpoints above and renders it in a
+table.
 
 ## Setup
 
