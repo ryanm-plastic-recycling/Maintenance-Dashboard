@@ -48,5 +48,9 @@
     "4": "High Priority",
     "5": "High Priority",
     "6": "On Hold"
+  },
+  "asset": {
+    "1001": "Conveyor 1",
+    "1002": "Conveyor 2"
   }
 }
