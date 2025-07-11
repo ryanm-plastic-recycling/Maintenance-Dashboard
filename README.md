@@ -37,7 +37,7 @@ table.
    cp .env.example .env
    # edit .env and fill CLIENT_ID and CLIENT_SECRET
    ```
-3. (Optional) Adjust `PORT` and `LOCAL_IP` in `.env` to change where the server listens. Set `LOCAL_IP` to `192.168.48.255` to host on that address.
+3. (Optional) Adjust `PORT` and `LOCAL_IP` in `.env` to change where the server listens. Set `LOCAL_IP` to `192.168.48.255` to host on that address. Set `ADMIN_PASSWORD` for accessing the admin page.
 4. Start the server:
    ```bash
    npm start
@@ -55,3 +55,4 @@ table.
   ```
 
 The dashboard will be available at `http://<LOCAL_IP>:<PORT>/` when running.
+The admin interface is available at `http://<LOCAL_IP>:<PORT>/admin`.

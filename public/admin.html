@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Admin</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin:20px; }
+        #config-form { display:none; margin-top:20px; }
+        label { display:block; margin-top:10px; }
+    </style>
+</head>
+<body>
+    <h1>Admin</h1>
+    <div id="login-section">
+        <label>Password: <input type="password" id="admin-pass"></label>
+        <button id="login-btn">Login</button>
+    </div>
+    <form id="config-form">
+        <label>Pages (comma separated): <input type="text" id="pages"></label>
+        <label>Rotate Interval ms: <input type="number" id="interval"></label>
+        <label>Columns for index.html: <input type="text" id="cols-index"></label>
+        <label>Columns for pm.html: <input type="text" id="cols-pm"></label>
+        <button type="submit">Save Config</button>
+    </form>
+    <div id="mapping-section" style="display:none;">
+        <label>Update mappings.json: <input type="file" id="mapping-file"></label>
+        <button id="upload-map">Upload Mapping</button>
+    </div>
+    <script>
+        let adminPass = '';
+        document.getElementById('login-btn').onclick = async () => {
+            adminPass = document.getElementById('admin-pass').value;
+            const res = await fetch('/api/config');
+            const cfg = await res.json();
+            document.getElementById('pages').value = cfg.pages.join(',');
+            document.getElementById('interval').value = cfg.interval;
+            document.getElementById('cols-index').value = (cfg.columns['index.html'] || []).join(',');
+            document.getElementById('cols-pm').value = (cfg.columns['pm.html'] || []).join(',');
+            document.getElementById('config-form').style.display = 'block';
+            document.getElementById('mapping-section').style.display = 'block';
+            document.getElementById('login-section').style.display = 'none';
+        };
+        document.getElementById('config-form').onsubmit = async e => {
+            e.preventDefault();
+            const cfg = {
+                pages: document.getElementById('pages').value.split(',').map(s=>s.trim()).filter(Boolean),
+                interval: parseInt(document.getElementById('interval').value,10),
+                columns: {
+                    'index.html': document.getElementById('cols-index').value.split(',').map(s=>s.trim()).filter(Boolean),
+                    'pm.html': document.getElementById('cols-pm').value.split(',').map(s=>s.trim()).filter(Boolean)
+                }
+            };
+            await fetch('/api/config', {
+                method:'POST',
+                headers:{'Content-Type':'application/json'},
+                body: JSON.stringify({password: adminPass, config: cfg})
+            });
+            alert('Config saved');
+        };
+        document.getElementById('upload-map').onclick = async () => {
+            const file = document.getElementById('mapping-file').files[0];
+            if(!file) return;
+            const text = await file.text();
+            await fetch('/api/mappings', {
+                method:'POST',
+                headers:{'Content-Type':'application/json'},
+                body: JSON.stringify({password: adminPass, mappings: JSON.parse(text)})
+            });
+            alert('Mappings updated');
+        };
+    </script>
+</body>
+</html>
