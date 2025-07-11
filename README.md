@@ -25,6 +25,8 @@ shows a live list of work orders for a configured location.
   temperatures. Severe conditions such as heat, freeze or storms appear as alerts above the table.
 - **Large date and time** – the header shows the current date and time in a large
   font centered in the banner.
+- **Page tabs** – navigation links at the top of each page allow switching between
+  the work order view, the PM view and the admin interface.
 
 The dashboard itself lives in `public/index.html` and is styled with basic CSS.
 JavaScript in the page fetches data from the endpoints above and renders it in a
