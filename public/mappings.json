@@ -38,7 +38,8 @@
     "99793": "Operator PM",
     "109588": "Maintenance Crew Primary",
     "118719": "Facilities",
-    "175226": "PM Crew"
+    "175226": "PM Crew",
+    "0": "Technician"
   },
   "priority": {
     "0": "Low Priority",
