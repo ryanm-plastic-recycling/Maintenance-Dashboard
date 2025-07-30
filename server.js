@@ -4,16 +4,19 @@ import path from 'path';
 import fs from 'fs';
 import fetch from 'node-fetch';
 import dotenv from 'dotenv';
+import os from 'os';
 
 dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url); // Convert import.meta.url to __filename
 const __dirname = path.dirname(__filename); // Derive __dirname from __filename
-
+const nets = os.networkInterfaces();
+const ipv4 = Object.values(nets)
+  .flat()
+  .find(i => i.family === 'IPv4' && !i.internal)?.address;
 const app = express();
 app.use(express.json());
 const PORT = process.env.PORT || 3000;
-const LOCAL_IP = process.env.LOCAL_IP || '0.0.0.0';
 
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -160,8 +163,10 @@ app.get('/api/hours', async (req, res) => {
 });
 
 if (process.env.NODE_ENV !== 'test') {
-    app.listen(PORT, LOCAL_IP, () => {
-        console.log(`NOICE! Contact Ryan McCauley before stopping this service! Server running at http://${LOCAL_IP}:${PORT}/`);
+    app.listen(PORT, () => {
+	console.log(`Local:  http://localhost:${PORT}/`);
+    	console.log(`On LAN: http://${ipv4}:${PORT}/`);
+        console.log(`NOICE! Server running at ${PORT}.`);
     });
 }
 
