@@ -1,2 +1,2 @@
-echo %DATE% %TIME%: Starting script > C:\Dashboard\Maintenance\log.txt
-node C:\Dashboard\Maintenance\server.js
+echo %DATE% %TIME%: Starting script > C:\Users\ryanm\OneDrive - Plastic Recycling\Documents\GitHub\Maintenance-Dashboard\log.txt
+node C:\Users\ryanm\OneDrive - Plastic Recycling\Documents\GitHub\Maintenance-Dashboard\server.js
