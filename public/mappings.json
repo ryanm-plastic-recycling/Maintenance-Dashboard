@@ -355,5 +355,14 @@
     "5": "yellow",
     "6": "green",
     "7": "red"
+  },
+  "statusTextMapping": {
+    "1": "Available for Production",
+    "2": "In Maintenance Repair",
+    "3": "In Preventive Maintenance",
+    "4": "Running Production",
+    "5": "Alarmed & Running",
+    "6": "Available",
+    "7": "Unavailable"
   }
 }
