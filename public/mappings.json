@@ -1,16 +1,16 @@
 {
   "status": {
-    "0": "Created",
-    "1": "Open",
-    "2": "In Progress",
-    "3": "Completed"
+    "0": "0-Created",
+    "1": "1-Open",
+    "2": "2-In Progress",
+    "3": "3-Completed"
   },
   "type": {
-    "1": "Preventative Maintanance (PM)",
-    "2": "Unplanned Work Order (WO)",
-    "4": "Planned Work Order (WO)",
+    "1": "PM",
+    "2": "Unplanned WO",
+    "4": "Planned WO",
     "5": "Cycle Count",
-    "6": "Work Request (WR)",
+    "6": "Work Request",
     "7": "Min Part Threshold",
     "8": "Materials Request"
   },
@@ -42,12 +42,12 @@
     "0": "Technician"
   },
   "priority": {
-    "0": "Low Priority",
-    "1": "Low Priority",
-    "2": "Medium Priority",
-    "3": "Medium Priority",
-    "4": "High Priority",
-    "5": "High Priority",
+    "0": "Low",
+    "1": "Low",
+    "2": "Medium",
+    "3": "Medium",
+    "4": "High",
+    "5": "High",
     "6": "On Hold"
   },
   "asset": {
