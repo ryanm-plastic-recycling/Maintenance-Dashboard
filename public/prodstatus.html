@@ -513,5 +513,37 @@ Promise.all([
   });
 });
 </script>
+<script>
+Promise.all([
+  fetch('/mappings.json').then(r => r.json()),
+  fetch('/api/assets').then(r => r.json())
+]).then(([mappings, assets]) => {
+  const tbody = document.getElementById('status-data');
+
+  mappings.productionAssets.forEach(item => {
+    // find the matching asset object
+    const a = assets.find(x => x.assetID === item.id);
+    if (!a) {
+      console.warn(`Asset ${item.id} (“${item.name}”) not found in API response.`);
+      return;
+    }
+
+    // depending on your API it might be a.assetStatus or a.statusID or a.status
+    const code = a.assetStatus ?? a.statusID ?? a.status;
+    
+    const text = mappings.statusTextMapping?.[code] || String(code);
+    const bg   = mappings.statusColorMapping?.[code]  || 'transparent';
+
+    const tr = document.createElement('tr');
+    tr.style.backgroundColor = bg;
+    tr.innerHTML = `
+      <td style="font-weight:bold;">${item.name}</td>
+      <td>${text}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+})
+.catch(err => console.error('Failed to render production status:', err));
+</script>
 </body>
 </html>
