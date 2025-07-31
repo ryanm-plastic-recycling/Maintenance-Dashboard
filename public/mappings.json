@@ -5,13 +5,13 @@
     "2": "Completed"
   },
   "type": {
-    "1": "1PM",
-    "2": "2Unplanned WO",
-    "4": "4Planned WO",
-    "5": "5Cycle Count",
-    "6": "6Work Request",
-    "7": "7Min Part Threshold",
-    "8": "8Materials Request"
+    "1": "PM",
+    "2": "Unplanned WO",
+    "4": "Planned WO",
+    "5": "Cycle Count",
+    "6": "Work Request",
+    "7": "Min Part Threshold",
+    "8": "Materials Request"
   },
   "location": {
     "0": "N/A",
