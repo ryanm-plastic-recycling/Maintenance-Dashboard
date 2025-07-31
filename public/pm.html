@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
     <title>Work Order Breakdown</title>
+    <link rel="stylesheet" href="style.css">
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -175,11 +176,25 @@
 </head>
 <body>
     <div class="top-border">
-        <img src="https://raw.githubusercontent.com/ryanm-plastic-recycling/logo/main/pri-logo-vector.png" alt="PRILogo" class="logo">
+        <img src="img/pri-logo.png" alt="PRI Logo" class="logo">
+        <div class="header-kpi">
+            <div class="kpi-title">Maintenance Uptime</div>
+            <div id="uptime-value" class="kpi-value">--%</div>
+        </div>
+        <div class="header-mt">
+            <div class="kpi-title">MTTR</div>
+            <div id="mttr-value" class="kpi-value">--h</div>
+            <div class="kpi-title mtbf-title">MTBF</div>
+            <div id="mtbf-value" class="kpi-value">--h</div>
+        </div>
         <div id="clock"></div>
+        <div class="header-kpi">
+            <div class="kpi-title">Planned vs Unplanned</div>
+            <div id="planned-vs-unplanned" class="kpi-value">--% vs --%</div>
+        </div>
     </div>
     <div class="right-top-image">
-        <img src="https://raw.githubusercontent.com/ryanm-plastic-recycling/logo/main/Innovation Triangle Last.png" alt="InnoLogo">
+        <img src="img/innovation-logo.png" alt="Innovation Logo">
     </div>
     <div class="left-border">
         <div id="weather-container" class="weather-container"></div>
@@ -443,6 +458,21 @@
 
     // Fetch and load the data when the page loads
     //fetchData();
+</script>
+<script>
+    async function updateKPIs() {
+        try {
+            const res = await fetch('/api/kpis');
+            const k = await res.json();
+            document.getElementById('uptime-value').innerText       = k.uptimePct + '%';
+            document.getElementById('mttr-value').innerText         = k.mttrHrs + 'h';
+            document.getElementById('mtbf-value').innerText         = k.mtbfHrs + 'h';
+            document.getElementById('planned-vs-unplanned').innerText =
+                `${ ((k.plannedCount/(k.plannedCount+k.unplannedCount))*100).toFixed(0) }% vs ${ ((k.unplannedCount/(k.plannedCount+k.unplannedCount))*100).toFixed(0) }%`;
+        } catch (err) { console.error('Failed to load KPIs', err); }
+    }
+    updateKPIs();
+    setInterval(updateKPIs, 60000);
 </script>
 </body>
 </html>

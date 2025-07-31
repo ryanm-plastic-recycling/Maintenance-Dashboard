@@ -3,14 +3,139 @@
 <head>
     <meta charset="UTF-8">
     <title>Admin</title>
+    <link rel="stylesheet" href="style.css">
     <style>
-        body { font-family: Arial, sans-serif; margin:20px; }
-        #config-form { display:none; margin-top:20px; }
-        label { display:block; margin-top:10px; }
-
-        /* Simple tab navigation */
-        .tabs {
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f0f0f0;
+            color: #333;
+            position: relative;
+        }
+        .top-border {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 96px;
+            background-color: rgba(146, 208, 80, 1);
+            z-index: 2;
+            display: flex;
+            align-items: center;
+            padding-right: 20px;
+        }
+                .top-border img {
+                        max-height: 75px;
+                        width: auto;
+                        object-fit: contain;
+                }
+                .right-top-image {
+                position: fixed;
+                top: 0;
+                right: 0;
+                padding: 10px;
+                        z-index: 3;
+                }
+                .right-top-image img {
+                height: 75px;
+                width: auto;
+                }
+        #clock {
+            flex: 1;
+            text-align: center;
+            font-size: 48px;
+            font-weight: bold;
+        }
+        .clock-date {
+            display: block;
+            font-size: 20px;
+        }
+        .left-border {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 128px;
+            height: 100%;
+            background-color: rgba(146, 208, 80, 1);
+            z-index: 1;
+        }
+        .weather-container {
+            margin-top: 140px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            font-size: 14px;
+        }
+        .weather-day {
+            width: 100px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            padding: 5px;
+            background: #fff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+        }
+        .weather-icon {
+            font-size: 32px;
+        }
+        .weather-temp {
+            font-size: 24px;
+            font-weight: bold;
+        }
+        .alert-container {
+            display: none;
+            background-color: #ffcccc;
+            color: #a00;
+            padding: 10px;
             margin-bottom: 10px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 120px 20px 20px 160px;
+            padding: 20px;
+            background-color: #fff;
+            box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+            position: relative;
+            z-index: 1;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+            color: rgba(37, 64, 143, 1);
+        }
+        input[type="text"] {
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: rgba(37, 64, 143, 1);
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .logo {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            max-width: 200px;
+            max-height: 200x;
+            width: auto;
+            height: auto;
+        }
+        .tabs {
+            margin: 10px 0;
         }
         .tabs a {
             text-decoration: none;
@@ -26,16 +151,43 @@
             background: #fff;
             font-weight: bold;
         }
+        #config-form { display:none; margin-top:20px; }
+        label { display:block; margin-top:10px; }
     </style>
 </head>
 <body>
-    <h1>Admin</h1>
-    <div class="tabs">
-        <a href="/index.html">Work Orders</a>
-        <a href="/pm.html">PM Work Orders</a>
-        <a href="/admin" class="active">Admin</a>
+    <div class="top-border">
+        <img src="img/pri-logo.png" alt="PRI Logo" class="logo">
+        <div class="header-kpi">
+            <div class="kpi-title">Maintenance Uptime</div>
+            <div id="uptime-value" class="kpi-value">--%</div>
+        </div>
+        <div class="header-mt">
+            <div class="kpi-title">MTTR</div>
+            <div id="mttr-value" class="kpi-value">--h</div>
+            <div class="kpi-title mtbf-title">MTBF</div>
+            <div id="mtbf-value" class="kpi-value">--h</div>
+        </div>
+        <div id="clock"></div>
+        <div class="header-kpi">
+            <div class="kpi-title">Planned vs Unplanned</div>
+            <div id="planned-vs-unplanned" class="kpi-value">--% vs --%</div>
+        </div>
     </div>
-    <div id="login-section">
+    <div class="right-top-image">
+        <img src="img/innovation-logo.png" alt="Innovation Logo">
+    </div>
+    <div class="left-border">
+        <div id="weather-container" class="weather-container"></div>
+    </div>
+    <div class="container">
+        <h1>Admin</h1>
+        <div class="tabs">
+            <a href="/index.html">Work Orders</a>
+            <a href="/pm.html">PM Work Orders</a>
+            <a href="/admin" class="active">Admin</a>
+        </div>
+        <div id="login-section">
         <label>Password: <input type="password" id="admin-pass"></label>
         <button id="login-btn">Login</button>
     </div>
@@ -49,6 +201,7 @@
     <div id="mapping-section" style="display:none;">
         <label>Update mappings.json: <input type="file" id="mapping-file"></label>
         <button id="upload-map">Upload Mapping</button>
+    </div>
     </div>
     <script>
         let adminPass = '';
@@ -93,5 +246,41 @@
             alert('Mappings updated');
         };
     </script>
+<script>
+    function updateClock() {
+        const now = new Date();
+        const dateFmt = new Intl.DateTimeFormat('en-US', {
+            timeZone: 'America/Indiana/Indianapolis',
+            weekday: 'short',
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric'
+        });
+        const timeFmt = new Intl.DateTimeFormat('en-US', {
+            timeZone: 'America/Indiana/Indianapolis',
+            hour: 'numeric',
+            minute: '2-digit',
+            second: '2-digit'
+        });
+        document.getElementById('clock').innerHTML =
+            `<span class="clock-date">${dateFmt.format(now)}</span>${timeFmt.format(now)}`;
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    async function updateKPIs() {
+        try {
+            const res = await fetch('/api/kpis');
+            const k = await res.json();
+            document.getElementById('uptime-value').innerText       = k.uptimePct + '%';
+            document.getElementById('mttr-value').innerText         = k.mttrHrs + 'h';
+            document.getElementById('mtbf-value').innerText         = k.mtbfHrs + 'h';
+            document.getElementById('planned-vs-unplanned').innerText =
+                `${ ((k.plannedCount/(k.plannedCount+k.unplannedCount))*100).toFixed(0) }% vs ${ ((k.unplannedCount/(k.plannedCount+k.unplannedCount))*100).toFixed(0) }%`;
+        } catch (err) { console.error('Failed to load KPIs', err); }
+    }
+    updateKPIs();
+    setInterval(updateKPIs, 60000);
+</script>
 </body>
 </html>
