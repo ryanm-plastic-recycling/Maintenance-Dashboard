@@ -15,9 +15,7 @@
       "type",
       "createdDate",
       "due",
-      "statusID",
-      "teamID",
-      "assignedTo"
+      "statusID"
     ],
     "pm.html": [
       "locationID",
@@ -29,9 +27,7 @@
       "type",
       "createdDate",
       "due",
-      "statusID",
-      "teamID",
-      "assignedTo"
+      "statusID"
     ]
   }
 }
