@@ -178,11 +178,18 @@ app.get('/api/kpis', async (req, res) => {
     const start = moment().subtract(30, 'days').unix();
     const end = moment().unix();
     const taskRes = await fetch(`https://api.limblecmms.com:443/v2/tasks?locations=13425&status=2&dateCompletedGte=${start}&dateCompletedLte=${end}`, { headers });
-    // pull out the real tasks array
-   const tasksJson = await taskRes.json();
-   const tasks     = Array.isArray(tasksJson)
-                    ? tasksJson
-                    : tasksJson.data || [];
+    const tasksJson = await taskRes.json();
+    console.log("Raw KPI‐tasks payload:", JSON.stringify(tasksJson, null, 2));
+   // pull out the real array of completed tasks
+    const tasks = Array.isArray(tasksJson) 
+                ? tasksJson 
+                : Array.isArray(tasksJson.data) 
+                  ? tasksJson.data 
+                  : Array.isArray(tasksJson.data?.tasks) 
+                    ? tasksJson.data.tasks 
+                    : [];
+    // now you can safely do:
+    const unplanned = tasks.filter(t => t.type === 2);
     const laborRes = await fetch(`https://api.limblecmms.com:443/v2/tasks/labor?locations=13425&start=${start}`, { headers });
     const labor = await laborRes.json();
 
