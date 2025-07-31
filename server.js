@@ -18,7 +18,7 @@ const ipv4 = Object.values(nets)
   .find(i => i.family === 'IPv4' && !i.internal)?.address;
 const app = express();
 app.use(express.json());
-const PORT = process.env.PORT || 7601;
+const PORT = process.env.PORT || 3000;
 
 app.use(express.static(path.join(__dirname, 'public')));
 
