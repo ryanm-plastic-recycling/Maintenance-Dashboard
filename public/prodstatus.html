@@ -507,8 +507,8 @@ Promise.all([
   tbody.innerHTML = '';
 
   mappings.productionAssets.forEach(item => {
-    // look up by the Limble field name (here 'id')
-    const a = assets.find(x => x.id === item.id);
+    // assets from the API use `assetID` for the identifier
+    const a = assets.find(x => x.assetID === item.id);
     if (!a) {
       console.warn(`Asset ${item.id} (“${item.name}”) not in API response.`);
       return;

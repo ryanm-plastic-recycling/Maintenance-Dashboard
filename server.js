@@ -20,7 +20,10 @@ const rawMappings = fs.readFileSync(
   'utf8'
 );
 const mappings = JSON.parse(rawMappings);
-const assetIDs = Object.keys(mappings).join(',');  // "2399,2400,..."
+// Build a comma separated list of asset IDs used for production status/KPIs
+const assetIDs = Array.isArray(mappings.productionAssets)
+  ? mappings.productionAssets.map(a => a.id).join(',')
+  : '';
 
 // ─── network info ─────────────────────────────────────────────────────────
 const nets = os.networkInterfaces();
