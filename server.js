@@ -11,6 +11,12 @@ import mappings from './public/mappings.json'
 
 dotenv.config();
 
+// ─── Load mappings and build comma-separated assetID list ───────────────
+const mappingsPath = path.join(__dirname, 'public', 'mappings.json');
+const mappings     = JSON.parse(fs.readFileSync(mappingsPath, 'utf8'));
+const assetIDs     = Object.keys(mappings).join(',');  
+// e.g. "2399,2400,2401,...,2408"
+
 const __filename = fileURLToPath(import.meta.url); // Convert import.meta.url to __filename
 const __dirname = path.dirname(__filename); // Derive __dirname from __filename
 const nets = os.networkInterfaces();
@@ -78,11 +84,44 @@ app.get('/api/assets', async (req, res) => {
     const basicAuth    = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
     const headers      = { 'Authorization': `Basic ${basicAuth}` };
 
-    // Fetch only the IDs in our mappings.json
-    const url      = `https://api.limblecmms.com:443/v2/assets/?assets=${assetIDs}`;
-    const response = await fetch(url, { headers });
-    const data     = await response.json();
-    res.json(data);
+    // 1) Fetch the assets themselves
+    const assetsUrl  = `https://api.limblecmms.com:443/v2/assets/?assets=${assetIDs}`;
+    const assetsRes  = await fetch(assetsUrl, { headers });
+    const assetsData = await assetsRes.json();
+
+    // 2) Page through the fields for those assets
+    let page      = 1;
+    const limit   = 500;
+    let allFields = [];
+
+    while (true) {
+      const fieldsUrl = 
+        `https://api.limblecmms.com:443/v2/assets/fields/` +
+        `?assets=${assetIDs}` +
+        `&limit=${limit}` +
+        `&page=${page}`;
+      const fieldsRes = await fetch(fieldsUrl, { headers });
+      const batch     = await fieldsRes.json();
+      if (!Array.isArray(batch) || batch.length === 0) break;
+      allFields = allFields.concat(batch);
+      page++;
+    }
+
+    // 3) Build a lookup of Asset Status by assetID
+    const statusMap = allFields
+      .filter(f => f.field === 'Asset Status')
+      .reduce((map, f) => {
+        map[f.assetID] = f.value;
+        return map;
+      }, {});
+
+    // 4) Merge status into each asset record
+    const enriched = assetsData.map(asset => ({
+      ...asset,
+      assetStatus: statusMap[asset.assetID] || 'Unknown'
+    }));
+
+    res.json(enriched);
   } catch (error) {
     console.error('Error fetching assets:', error);
     res.status(500).json({ error: 'An error occurred while fetching assets.' });
