@@ -334,5 +334,26 @@
     "2443": "Shredding Line 6- WEIMA",
     "2454": "Training & Compliance",
     "2456": "Filter Screen Changer"
+  },
+  "productionAssets": [
+    { "id": 2399, "name": "Extrusion Line E1" },
+    { "id": 2400, "name": "Extrusion Line E2" },
+    { "id": 2401, "name": "Extrusion Line E3" },
+    { "id": 2402, "name": "Extrusion Line E4" },
+    { "id": 2403, "name": "Extrusion Line E5" },
+    { "id": 2404, "name": "Extrusion Line E6" },
+    { "id": 2405, "name": "Extrusion Line E7" },
+    { "id": 2406, "name": "NGR" },
+    { "id": 2407, "name": "New Extrusion Line NL1" },
+    { "id": 2408, "name": "New Extrusion Line NL2" }
+  ],
+  "statusColorMapping": {
+    "1": "green",
+    "2": "red",
+    "3": "blue",
+    "4": "green",
+    "5": "yellow",
+    "6": "green",
+    "7": "red"
   }
 }
