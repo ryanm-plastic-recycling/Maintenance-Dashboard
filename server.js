@@ -178,7 +178,11 @@ app.get('/api/kpis', async (req, res) => {
     const start = moment().subtract(30, 'days').unix();
     const end = moment().unix();
     const taskRes = await fetch(`https://api.limblecmms.com:443/v2/tasks?locations=13425&status=2&dateCompletedGte=${start}&dateCompletedLte=${end}`, { headers });
-    const tasks = await taskRes.json();
+    // pull out the real tasks array
+   const tasksJson = await taskRes.json();
+   const tasks     = Array.isArray(tasksJson)
+                    ? tasksJson
+                    : tasksJson.data || [];
     const laborRes = await fetch(`https://api.limblecmms.com:443/v2/tasks/labor?locations=13425&start=${start}`, { headers });
     const labor = await laborRes.json();
 
