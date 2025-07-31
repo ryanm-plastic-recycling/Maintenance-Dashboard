@@ -128,13 +128,11 @@
             width: 100%;
             border-collapse: collapse;
             border: 1px solid #ddd;
-            table-layout: fixed; /* Ensure columns expand to fill width */
         }
         th, td {
             padding: 12px;
             text-align: left;
             border-bottom: 1px solid #ddd;
-            word-wrap: break-word; /* Prevent overflow when width is fixed */
         }
         th {
             background-color: #f2f2f2;
@@ -178,43 +176,53 @@
         .top-border .header-kpi:last-of-type {
             margin-right: 160px;
         }
+        #status-table tr {
+            height: 60px;
+        }
     </style>
 	<meta name="viewport" content="width=device-width, initial-scale=1.0" charset="utf-8">
 </head>
 <body>
     <div class="top-border">
-        <img src="img/pri-logo.png" alt="PRI Logo" class="logo">
-        <div class="header-kpi">
-            <div class="kpi-title">Maintenance Uptime</div>
-            <div id="uptime-value" class="kpi-value">--%</div>
-        </div>
-        <div class="header-mt">
-            <div class="kpi-title">MTTR</div>
-            <div id="mttr-value" class="kpi-value">--h</div>
-            <div class="kpi-title mtbf-title">MTBF</div>
-            <div id="mtbf-value" class="kpi-value">--h</div>
-        </div>
-        <div id="clock"></div>
-        <div class="header-kpi">
-            <div class="kpi-title">Planned vs Unplanned</div>
-            <div id="planned-vs-unplanned" class="kpi-value">--% vs --%</div>
-        </div>
+      <img src="img/pri-logo.png" alt="PRI Logo" class="logo" />
+      <div class="header-kpi">
+        <div class="kpi-title">Maintenance Uptime</div>
+        <div id="uptime-value" class="kpi-value">--%</div>
+      </div>
+      <div class="header-mt">
+        <div class="kpi-title">MTTR</div>
+        <div id="mttr-value" class="kpi-value">--h</div>
+        <div class="kpi-title mtbf-title">MTBF</div>
+        <div id="mtbf-value" class="kpi-value">--h</div>
+      </div>
+      <div id="clock">--:--:--</div>
+      <div class="header-kpi">
+        <div class="kpi-title">Planned vs Unplanned</div>
+        <div id="planned-vs-unplanned" class="kpi-value">--% vs --%</div>
+      </div>
     </div>
     <div class="right-top-image">
-        <img src="img/innovation-logo.png" alt="Innovation Logo">
+      <img src="img/innovation-logo.png" alt="Innovation Logo" />
     </div>
     <div class="left-border">
         <div id="weather-container" class="weather-container"></div>
     </div>
     <div class="container">
         <div id="alert-container" class="alert-container"></div>
-        <h1>PM Work Orders</h1>
+        <h1>Production Status</h1>
         <div class="tabs">
             <a href="/index.html">Work Orders</a>
-            <a href="/pm.html" class="active">PM Work Orders</a>
-            <a href="/prodstatus.html">Production Status</a>
+            <a href="/pm.html">PM Work Orders</a>
+            <a href="/prodstatus.html" class="active">Production Status</a>
             <a href="/admin">Admin</a>
         </div>
+
+        <table id="status-table" class="status-table">
+          <thead>
+            <tr><th>Asset</th><th>Status</th></tr>
+          </thead>
+          <tbody id="status-data"></tbody>
+        </table>
 
         <!-- User input section -->
         <div>
@@ -294,25 +302,6 @@
                 return `${year}-${month}-${day} ${hours}:${minutes}`;
         }
 
-        function updateClock() {
-            const now = new Date();
-            const dateFmt = new Intl.DateTimeFormat('en-US', {
-                timeZone: 'America/Indiana/Indianapolis',
-                weekday: 'short',
-                month: 'short',
-                day: 'numeric',
-                year: 'numeric'
-            });
-            const timeFmt = new Intl.DateTimeFormat('en-US', {
-                timeZone: 'America/Indiana/Indianapolis',
-                hour: 'numeric',
-                minute: '2-digit',
-                second: '2-digit'
-            });
-            document.getElementById('clock').innerHTML = `<span class="clock-date">${dateFmt.format(now)}</span>${timeFmt.format(now)}`;
-        }
-        setInterval(updateClock, 1000);
-        updateClock();
 
         function getWeatherIcon(desc) {
             const d = desc.toLowerCase();
@@ -365,7 +354,7 @@
 
         function applyColumnConfig() {
             if (!config.columns) return;
-            const page = window.location.pathname.split('/').pop() || 'pm.html';
+            const page = window.location.pathname.split('/').pop() || 'index.html';
             const cols = config.columns[page] || [];
             document.querySelectorAll('th').forEach(th => {
                 if (!cols.includes(th.dataset.col)) th.style.display = 'none'; else th.style.display = '';
@@ -379,7 +368,7 @@
 
         function rotatePages() {
             if (!config.pages) return;
-            const page = window.location.pathname.split('/').pop() || 'pm.html';
+            const page = window.location.pathname.split('/').pop() || 'index.html';
             const pages = config.pages;
             const interval = config.interval || 15000;
             const next = pages[(pages.indexOf(page) + 1) % pages.length];
@@ -404,7 +393,7 @@
                 }
             });
 			
-			fetch('/api/taskpm') // Use the endpoint you set up on the server		
+			fetch('/api/task') // Use the endpoint you set up on the server		
 				.then(response => {
 					console.log('Response status:', response.status);
 					return response.json();
@@ -428,9 +417,9 @@
                                 const priorityMapping = mappings.priority || {};
 				
 				// Filter and display the relevant data
-				tasks.forEach(task => {
-					const row = document.createElement('tr');
-                                        row.innerHTML = `
+                               tasks.forEach(task => {
+                                       const row = document.createElement('tr');
+                                       row.innerHTML = `
                                                 <td data-col="locationID">${locationMapping[task.locationID] || task.locationID}</td>
                                                 <td data-col="taskID">${task.taskID}</td>
                                                 <td data-col="assetID">${assetMapping[task.assetID] || task.assetID}</td>
@@ -442,12 +431,12 @@
                                                 <td data-col="due">${formatDate(task.due)}</td>
                                                 <td data-col="statusID">${statusMapping[task.statusID] || task.statusID}</td>
                                                 <td data-col="teamID">${teamMapping[task.teamID] || task.teamID}</td>
-                                                <td data-col="assignedTo">${task.assignedTo || task.assignedUser || ""}</td>
-                                        `;
-                                        applyColumnConfig();
-					workOrderDataContainer.appendChild(row);
-				});
-			})
+                                               <td data-col="assignedTo">${task.assignedTo || task.assignedUser || ""}</td>
+                                       `;
+                                       workOrderDataContainer.appendChild(row);
+                               });
+                                applyColumnConfig();
+                        })
 			.catch(error => {
 				console.error('Error fetching tasks:', error);
 				// Display error message on webpage
@@ -468,19 +457,61 @@
     //fetchData();
 </script>
 <script>
-    async function updateKPIs() {
-        try {
-            const res = await fetch('/api/kpis');
-            const k = await res.json();
-            document.getElementById('uptime-value').innerText       = k.uptimePct + '%';
-            document.getElementById('mttr-value').innerText         = k.mttrHrs + 'h';
-            document.getElementById('mtbf-value').innerText         = k.mtbfHrs + 'h';
-            document.getElementById('planned-vs-unplanned').innerText =
-                `${ ((k.plannedCount/(k.plannedCount+k.unplannedCount))*100).toFixed(0) }% vs ${ ((k.unplannedCount/(k.plannedCount+k.unplannedCount))*100).toFixed(0) }%`;
-        } catch (err) { console.error('Failed to load KPIs', err); }
-    }
-    updateKPIs();
-    setInterval(updateKPIs, 60000);
+  function updateClock() {
+    const now = new Date();
+    const dateFmt = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/Indiana/Indianapolis',
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    });
+    const timeFmt = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/Indiana/Indianapolis',
+      hour: 'numeric',
+      minute: '2-digit',
+      second: '2-digit'
+    });
+    document.getElementById('clock').innerHTML =
+      `<span class="clock-date">${dateFmt.format(now)}</span>${timeFmt.format(now)}`;
+  }
+  setInterval(updateClock, 1000);
+  updateClock();
+
+  async function updateKPIs() {
+    try {
+      const res = await fetch('/api/kpis');
+      const k = await res.json();
+      document.getElementById('uptime-value').innerText       = k.uptimePct + '%';
+      document.getElementById('mttr-value').innerText         = k.mttrHrs + 'h';
+      document.getElementById('mtbf-value').innerText         = k.mtbfHrs + 'h';
+      document.getElementById('planned-vs-unplanned').innerText =
+        `${ ((k.plannedCount/(k.plannedCount+k.unplannedCount))*100).toFixed(0) }% vs ${ ((k.unplannedCount/(k.plannedCount+k.unplannedCount))*100).toFixed(0) }%`;
+    } catch (err) { console.error('Failed to load KPIs', err); }
+  }
+  updateKPIs();
+  setInterval(updateKPIs, 60000);
+</script>
+<script>
+Promise.all([
+  fetch('/mappings.json').then(r => r.json()),
+  fetch('/api/assets').then(r => r.json())
+]).then(([mappings, assets]) => {
+  const table = document.getElementById('status-data');
+  mappings.productionAssets.forEach(item => {
+    const asset = assets.find(a => a.assetID === item.id);
+    const statusCode = asset.assetStatus;
+    const statusText = mappings.status[statusCode] || String(statusCode);
+    const bgColor = mappings.statusColorMapping[statusCode] || 'transparent';
+    const tr = document.createElement('tr');
+    tr.style.backgroundColor = bgColor;
+    tr.innerHTML = `
+      <td style="font-weight: bold;">${item.name}</td>
+      <td>${statusText}</td>
+    `;
+    table.appendChild(tr);
+  });
+});
 </script>
 </body>
 </html>
