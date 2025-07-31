@@ -496,41 +496,26 @@
 Promise.all([
   fetch('/mappings.json').then(r => r.json()),
   fetch('/api/assets').then(r => r.json())
-]).then(([mappings, assets]) => {
-  const table = document.getElementById('status-data');
-  mappings.productionAssets.forEach(item => {
-    const asset = assets.find(a => a.assetID === item.id);
-    const statusCode = asset.assetStatus;
-    const statusText = mappings.status[statusCode] || String(statusCode);
-    const bgColor = mappings.statusColorMapping[statusCode] || 'transparent';
-    const tr = document.createElement('tr');
-    tr.style.backgroundColor = bgColor;
-    tr.innerHTML = `
-      <td style="font-weight: bold;">${item.name}</td>
-      <td>${statusText}</td>
-    `;
-    table.appendChild(tr);
-  });
-});
-</script>
-<script>
-Promise.all([
-  fetch('/mappings.json').then(r => r.json()),
-  fetch('/api/assets').then(r => r.json())
-]).then(([mappings, assets]) => {
+])
+.then(([mappings, assetsRes]) => {
+  // pull out the real array
+  const assets = Array.isArray(assetsRes)
+    ? assetsRes
+    : assetsRes.data || [];
+
   const tbody = document.getElementById('status-data');
+  tbody.innerHTML = '';
 
   mappings.productionAssets.forEach(item => {
-    // find the matching asset object
-    const a = assets.find(x => x.assetID === item.id);
+    // look up by the Limble field name (here 'id')
+    const a = assets.find(x => x.id === item.id);
     if (!a) {
-      console.warn(`Asset ${item.id} (“${item.name}”) not found in API response.`);
+      console.warn(`Asset ${item.id} (“${item.name}”) not in API response.`);
       return;
     }
 
-    // depending on your API it might be a.assetStatus or a.statusID or a.status
-    const code = a.assetStatus ?? a.statusID ?? a.status;
-    
+    // Limble uses 'status' (or maybe 'assetStatus'), so:
+    const code = a.status ?? a.assetStatus;
     const text = mappings.statusTextMapping?.[code] || String(code);
     const bg   = mappings.statusColorMapping?.[code]  || 'transparent';
 
@@ -543,7 +528,7 @@ Promise.all([
     tbody.appendChild(tr);
   });
 })
-.catch(err => console.error('Failed to render production status:', err));
+.catch(err => console.error('Production-status render error:', err));
 </script>
 </body>
 </html>
