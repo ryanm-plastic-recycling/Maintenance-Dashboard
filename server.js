@@ -175,38 +175,61 @@ app.get('/api/kpis', async (req, res) => {
     const headers = {
       'Authorization': 'Basic ' + Buffer.from(`${clientId}:${clientSecret}`).toString('base64')
     };
+
     const start = moment().subtract(30, 'days').unix();
-    const end = moment().unix();
-    const taskRes = await fetch(`https://api.limblecmms.com:443/v2/tasks?locations=13425&status=2&dateCompletedGte=${start}&dateCompletedLte=${end}`, { headers });
+    const end   = moment().unix();
+
+    // 1) Fetch completed tasks
+    const taskRes   = await fetch(
+      `https://api.limblecmms.com:443/v2/tasks?locations=13425&status=2&dateCompletedGte=${start}&dateCompletedLte=${end}`,
+      { headers }
+    );
     const tasksJson = await taskRes.json();
-    console.log("Raw KPI‐tasks payload:", JSON.stringify(tasksJson, null, 2));
-   // pull out the real array of completed tasks
-    const tasks = Array.isArray(tasksJson) 
-                ? tasksJson 
-                : Array.isArray(tasksJson.data) 
-                  ? tasksJson.data 
-                  : Array.isArray(tasksJson.data?.tasks) 
-                    ? tasksJson.data.tasks 
-                    : [];
-    // now you can safely do:
-    const unplanned = tasks.filter(t => t.type === 2);
-    const laborRes = await fetch(`https://api.limblecmms.com:443/v2/tasks/labor?locations=13425&start=${start}`, { headers });
-    const labor = await laborRes.json();
+    console.log("Raw KPI-tasks payload:", JSON.stringify(tasksJson, null, 2));
 
-    const downtimeHrs = labor.downtimeHours;
-    const totalHrs = labor.operationalHours;
-    const uptimePct = totalHrs ? ((totalHrs - downtimeHrs) / totalHrs) * 100 : 0;
+    // normalize to an array
+    const tasks = Array.isArray(tasksJson)
+      ? tasksJson
+      : Array.isArray(tasksJson.data)
+        ? tasksJson.data
+        : Array.isArray(tasksJson.data?.tasks)
+          ? tasksJson.data.tasks
+          : [];
 
-    const unplanned = tasks.filter(t => t.type === 2);
-    const totalDowntimeMin = labor.entries.filter(e => e.taskType==='wo'&&e.downtime).reduce((sum,e)=>sum+e.duration,0);
-    const mttrHrs = unplanned.length ? (totalDowntimeMin/60)/unplanned.length : 0;
+    // 2) Fetch labor report
+    const laborRes  = await fetch(
+      `https://api.limblecmms.com:443/v2/tasks/labor?locations=13425&start=${start}`,
+      { headers }
+    );
+    const laborJson = await laborRes.json();
+    console.log("Raw labor payload:", JSON.stringify(laborJson, null, 2));
 
-    const sorted = unplanned.map(t=>t.dateCompleted).sort((a,b)=>a-b);
-    const intervals = sorted.slice(1).map((d,i)=> (sorted[i+1]-sorted[i])/3600);
-    const mtbfHrs = intervals.length ? _.mean(intervals) : 0;
+    // normalize the labor object
+    const labor = laborJson.data || laborJson;
+    const entries = Array.isArray(labor.entries) ? labor.entries : [];
 
-    const plannedCount = tasks.filter(t=>t.type===4).length;
-    const unplannedCount = unplanned.length;
+    // KPIs
+    const downtimeHrs = labor.downtimeHours || 0;
+    const totalHrs    = labor.operationalHours || 0;
+    const uptimePct   = totalHrs ? ((totalHrs - downtimeHrs) / totalHrs) * 100 : 0;
+
+    // MTTR / MTBF
+    const unplannedTasks = tasks.filter(t => t.type === 2);
+    const totalDowntimeMin = entries
+      .filter(e => e.taskType === 'wo' && e.downtime)
+      .reduce((sum, e) => sum + e.duration, 0);
+    const mttrHrs     = unplannedTasks.length
+      ? (totalDowntimeMin / 60) / unplannedTasks.length
+      : 0;
+
+    const sorted = unplannedTasks
+      .map(t => t.dateCompleted)
+      .sort((a, b) => a - b);
+    const intervals = sorted.slice(1).map((d, i) => (sorted[i+1] - sorted[i]) / 3600);
+    const mtbfHrs  = intervals.length ? _.mean(intervals) : 0;
+
+    const plannedCount   = tasks.filter(t => t.type === 4).length;
+    const unplannedCount = unplannedTasks.length;
 
     res.json({
       uptimePct: uptimePct.toFixed(1),
@@ -217,7 +240,7 @@ app.get('/api/kpis', async (req, res) => {
       unplannedCount
     });
   } catch (err) {
-    console.error(err);
+    console.error('KPI error:', err);
     res.status(500).json({ error: 'Failed to fetch KPIs' });
   }
 });
