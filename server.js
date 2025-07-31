@@ -31,6 +31,10 @@ app.get('/pm', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'pm.html'));
 });
 
+app.get('/prodstatus', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'prodstatus.html'));
+});
+
 app.get('/admin', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
