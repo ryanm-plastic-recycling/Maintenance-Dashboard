@@ -10,35 +10,25 @@ import _        from 'lodash';
 
 dotenv.config();
 
-// first derive __dirname so we can load mappings.json
-const __filename   = fileURLToPath(import.meta.url);
-const __dirname    = path.dirname(__filename);
+// ─── derive __dirname ─────────────────────────────────────────────────────
+const __filename = fileURLToPath(import.meta.url);
+const __dirname  = path.dirname(__filename);
 
-// ─── Load mappings.json and build assetIDs once ──────────────────────────
+// ─── load mappings and build assetIDs once ───────────────────────────────
 const rawMappings = fs.readFileSync(
   path.join(__dirname, 'public', 'mappings.json'),
   'utf8'
 );
 const mappings = JSON.parse(rawMappings);
-// single assetIDs definition
-const assetIDs = Object.keys(mappings).join(',');  
-// => "2399,2400,2401,...,2408"
+const assetIDs = Object.keys(mappings).join(',');  // "2399,2400,..."
 
-// now the rest of your setup
+// ─── network info ─────────────────────────────────────────────────────────
 const nets = os.networkInterfaces();
 const ipv4 = Object.values(nets)
   .flat()
   .find(i => i.family === 'IPv4' && !i.internal)?.address;
 
-const app = express();
-app.use(express.json());
-const PORT = process.env.PORT || 3000;
-app.use(express.static(path.join(__dirname, 'public')));
-
-const nets = os.networkInterfaces();
-const ipv4 = Object.values(nets)
-  .flat()
-  .find(i => i.family === 'IPv4' && !i.internal)?.address;
+// ─── express setup ────────────────────────────────────────────────────────
 const app = express();
 app.use(express.json());
 const PORT = process.env.PORT || 3000;
@@ -94,40 +84,39 @@ app.post('/api/mappings', (req, res) => {
 
 app.get('/api/assets', async (req, res) => {
   try {
-    const clientId     = process.env.CLIENT_ID;
-    const clientSecret = process.env.CLIENT_SECRET;
-    const basicAuth    = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
-    const headers      = { 'Authorization': `Basic ${basicAuth}` };
+    const basicAuth = Buffer
+      .from(`${process.env.CLIENT_ID}:${process.env.CLIENT_SECRET}`)
+      .toString('base64');
+    const headers = { 'Authorization': `Basic ${basicAuth}` };
 
-    // only ask for the IDs in mappings.json
-    const url        = `https://api.limblecmms.com:443/v2/assets/?assets=${assetIDs}`;
-    const response   = await fetch(url, { headers });
-    const assetsData = await response.json();
+    const url = `https://api.limblecmms.com:443/v2/assets/?assets=${assetIDs}`;
+    const resp = await fetch(url, { headers });
+    const assetsData = await resp.json();
 
     res.json(assetsData);
-  } catch (error) {
-    console.error('Error fetching assets:', error);
+  } catch (err) {
+    console.error('Error fetching assets:', err);
     res.status(500).json({ error: 'An error occurred while fetching assets.' });
   }
 });
 
 app.get('/api/assets/fields', async (req, res) => {
   try {
-    const clientId     = process.env.CLIENT_ID;
-    const clientSecret = process.env.CLIENT_SECRET;
-    const basicAuth    = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
-    const headers      = { 'Authorization': `Basic ${basicAuth}` };
+    const basicAuth = Buffer
+      .from(`${process.env.CLIENT_ID}:${process.env.CLIENT_SECRET}`)
+      .toString('base64');
+    const headers = { 'Authorization': `Basic ${basicAuth}` };
 
-    let page      = 1;
-    const limit   = 500;
-    let allFields = [];
+    let page = 1, allFields = [];
+    const limit = 500;
 
     while (true) {
-      const url   =
-        `https://api.limblecmms.com:443/v2/assets/fields/` +
-        `?assets=${assetIDs}` +
-        `&limit=${limit}` +
-        `&page=${page}`;
+      const url = [
+        `https://api.limblecmms.com:443/v2/assets/fields/`,
+        `?assets=${assetIDs}`,
+        `&limit=${limit}`,
+        `&page=${page}`
+      ].join('');
       const resp  = await fetch(url, { headers });
       const batch = await resp.json();
       if (!Array.isArray(batch) || batch.length === 0) break;
@@ -136,8 +125,8 @@ app.get('/api/assets/fields', async (req, res) => {
     }
 
     res.json(allFields);
-  } catch (error) {
-    console.error('Error fetching asset fields:', error);
+  } catch (err) {
+    console.error('Error fetching asset fields:', err);
     res.status(500).json({ error: 'Failed to fetch asset fields.' });
   }
 });
