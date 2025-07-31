@@ -52,6 +52,16 @@
   },
   "asset": {
     "1001": "Conveyor 1",
-    "1002": "Conveyor 2"
+    "1002": "Conveyor 2",
+    "2399": "Extrusion Line E1",
+    "2400": "Extrusion Line E2",
+    "2401": "Extrusion Line E3",
+    "2402": "Extrusion Line E4",
+    "2403": "Extrusion Line E5",
+    "2404": "Extrusion Line E6",
+    "2405": "Extrusion Line E7",
+    "2406": "NGR",
+    "2407": "New Extrusion Line NL1",
+    "2407": "New Extrusion Line NL2"
   }
 }
