@@ -1,26 +1,39 @@
-import express from 'express';
+import express  from 'express';
 import { fileURLToPath } from 'url';
-import path from 'path';
-import fs from 'fs';
-import fetch from 'node-fetch';
-import dotenv from 'dotenv';
-import os from 'os';
-import moment from 'moment';
-import _ from 'lodash';
+import path     from 'path';
+import fs       from 'fs';
+import fetch    from 'node-fetch';
+import dotenv   from 'dotenv';
+import os       from 'os';
+import moment   from 'moment';
+import _        from 'lodash';
 
 dotenv.config();
 
-const __filename = fileURLToPath(import.meta.url); // Convert import.meta.url to __filename
-const __dirname = path.dirname(__filename); // Derive __dirname from __filename
+// first derive __dirname so we can load mappings.json
+const __filename   = fileURLToPath(import.meta.url);
+const __dirname    = path.dirname(__filename);
 
-// ─── Load mappings.json and build your asset list ─────────────────────────
+// ─── Load mappings.json and build assetIDs once ──────────────────────────
 const rawMappings = fs.readFileSync(
   path.join(__dirname, 'public', 'mappings.json'),
   'utf8'
 );
 const mappings = JSON.parse(rawMappings);
-// this becomes "2399,2400,2401,...,2408"
-const assetIDs = Object.keys(mappings).join(',');
+// single assetIDs definition
+const assetIDs = Object.keys(mappings).join(',');  
+// => "2399,2400,2401,...,2408"
+
+// now the rest of your setup
+const nets = os.networkInterfaces();
+const ipv4 = Object.values(nets)
+  .flat()
+  .find(i => i.family === 'IPv4' && !i.internal)?.address;
+
+const app = express();
+app.use(express.json());
+const PORT = process.env.PORT || 3000;
+app.use(express.static(path.join(__dirname, 'public')));
 
 const nets = os.networkInterfaces();
 const ipv4 = Object.values(nets)
