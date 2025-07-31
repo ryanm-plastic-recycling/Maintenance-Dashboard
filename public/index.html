@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
     <title>Work Order Breakdown</title>
+    <link rel="stylesheet" href="style.css">
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -39,16 +40,6 @@
                 height: 75px; /* Adjust the height as needed */
                 width: auto; /* Maintain aspect ratio */
                 }
-        #clock {
-            flex: 1;
-            text-align: center;
-            font-size: 48px;
-            font-weight: bold;
-        }
-        .clock-date {
-            display: block;
-            font-size: 20px;
-        }
         .left-border {
             position: fixed; /* Change to fixed */
             top: 0;
@@ -172,13 +163,25 @@
 	<meta name="viewport" content="width=device-width, initial-scale=1.0" charset="utf-8">
 </head>
 <body>
-    <div class="top-border">
-        <img src="https://raw.githubusercontent.com/ryanm-plastic-recycling/logo/main/pri-logo-vector.png" alt="PRILogo" class="logo">
-        <div id="clock"></div>
-    </div>
-    <div class="right-top-image">
-        <img src="https://raw.githubusercontent.com/ryanm-plastic-recycling/logo/main/Innovation Triangle Last.png" alt="InnoLogo">
-    </div>
+    <header id="main-header" class="header">
+      <img src="img/pri-logo.png" alt="PRI Logo" class="logo" />
+      <div class="header-kpi">
+        <div class="kpi-title">Maintenance Uptime</div>
+        <div id="uptime-value" class="kpi-value">--%</div>
+      </div>
+      <div class="header-mt">
+        <div class="kpi-title">MTTR</div>
+        <div id="mttr-value" class="kpi-value">--h</div>
+        <div class="kpi-title mtbf-title">MTBF</div>
+        <div id="mtbf-value" class="kpi-value">--h</div>
+      </div>
+      <div id="clock" class="header-clock">--:--:--</div>
+      <div class="header-kpi">
+        <div class="kpi-title">Planned vs Unplanned</div>
+        <div id="planned-vs-unplanned" class="kpi-value">--% vs --%</div>
+      </div>
+      <img src="img/innovation-logo.png" alt="Innovation Logo" class="logo" />
+    </header>
     <div class="left-border">
         <div id="weather-container" class="weather-container"></div>
     </div>
@@ -269,25 +272,6 @@
                 return `${year}-${month}-${day} ${hours}:${minutes}`;
         }
 
-        function updateClock() {
-            const now = new Date();
-            const dateFmt = new Intl.DateTimeFormat('en-US', {
-                timeZone: 'America/Indiana/Indianapolis',
-                weekday: 'short',
-                month: 'short',
-                day: 'numeric',
-                year: 'numeric'
-            });
-            const timeFmt = new Intl.DateTimeFormat('en-US', {
-                timeZone: 'America/Indiana/Indianapolis',
-                hour: 'numeric',
-                minute: '2-digit',
-                second: '2-digit'
-            });
-            document.getElementById('clock').innerHTML = `<span class="clock-date">${dateFmt.format(now)}</span>${timeFmt.format(now)}`;
-        }
-        setInterval(updateClock, 1000);
-        updateClock();
 
         function getWeatherIcon(desc) {
             const d = desc.toLowerCase();
@@ -441,6 +425,29 @@
 
     // Fetch and load the data when the page loads
     //fetchData();
+</script>
+<script>
+  function updateClock() {
+    const now = new Date();
+    document.getElementById('clock').innerText =
+      now.toLocaleTimeString('en-US', { hour12: false });
+  }
+  setInterval(updateClock, 1000);
+  updateClock();
+
+  async function updateKPIs() {
+    try {
+      const res = await fetch('/api/kpis');
+      const k = await res.json();
+      document.getElementById('uptime-value').innerText       = k.uptimePct + '%';
+      document.getElementById('mttr-value').innerText         = k.mttrHrs + 'h';
+      document.getElementById('mtbf-value').innerText         = k.mtbfHrs + 'h';
+      document.getElementById('planned-vs-unplanned').innerText =
+        `${ ((k.plannedCount/(k.plannedCount+k.unplannedCount))*100).toFixed(0) }% vs ${ ((k.unplannedCount/(k.plannedCount+k.unplannedCount))*100).toFixed(0) }%`;
+    } catch (err) { console.error('Failed to load KPIs', err); }
+  }
+  updateKPIs();
+  setInterval(updateKPIs, 60000);
 </script>
 </body>
 </html>
