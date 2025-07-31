@@ -5,6 +5,8 @@ import fs from 'fs';
 import fetch from 'node-fetch';
 import dotenv from 'dotenv';
 import os from 'os';
+import moment from 'moment';
+import _ from 'lodash';
 
 dotenv.config();
 
@@ -160,6 +162,49 @@ app.get('/api/hours', async (req, res) => {
         console.error('Error:', error);
         res.status(500).json({ error: 'An error occurred while fetching new tasks.' });
     }
+});
+
+app.get('/api/kpis', async (req, res) => {
+  try {
+    const clientId = process.env.CLIENT_ID;
+    const clientSecret = process.env.CLIENT_SECRET;
+    const headers = {
+      'Authorization': 'Basic ' + Buffer.from(`${clientId}:${clientSecret}`).toString('base64')
+    };
+    const start = moment().subtract(30, 'days').unix();
+    const end = moment().unix();
+    const taskRes = await fetch(`https://api.limblecmms.com:443/v2/tasks?locations=13425&status=2&dateCompletedGte=${start}&dateCompletedLte=${end}`, { headers });
+    const tasks = await taskRes.json();
+    const laborRes = await fetch(`https://api.limblecmms.com:443/v2/tasks/labor?locations=13425&start=${start}`, { headers });
+    const labor = await laborRes.json();
+
+    const downtimeHrs = labor.downtimeHours;
+    const totalHrs = labor.operationalHours;
+    const uptimePct = totalHrs ? ((totalHrs - downtimeHrs) / totalHrs) * 100 : 0;
+
+    const unplanned = tasks.filter(t => t.type === 2);
+    const totalDowntimeMin = labor.entries.filter(e => e.taskType==='wo'&&e.downtime).reduce((sum,e)=>sum+e.duration,0);
+    const mttrHrs = unplanned.length ? (totalDowntimeMin/60)/unplanned.length : 0;
+
+    const sorted = unplanned.map(t=>t.dateCompleted).sort((a,b)=>a-b);
+    const intervals = sorted.slice(1).map((d,i)=> (sorted[i+1]-sorted[i])/3600);
+    const mtbfHrs = intervals.length ? _.mean(intervals) : 0;
+
+    const plannedCount = tasks.filter(t=>t.type===4).length;
+    const unplannedCount = unplanned.length;
+
+    res.json({
+      uptimePct: uptimePct.toFixed(1),
+      downtimeHrs: downtimeHrs.toFixed(1),
+      mttrHrs: mttrHrs.toFixed(1),
+      mtbfHrs: mtbfHrs.toFixed(1),
+      plannedCount,
+      unplannedCount
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch KPIs' });
+  }
 });
 
 if (process.env.NODE_ENV !== 'test') {

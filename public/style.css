@@ -1,0 +1,22 @@
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #fff;
+  padding: 0.5rem 1rem;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  font-family: sans-serif;
+}
+.logo { height: 50px; }
+.header-kpi { text-align: center; min-width: 120px; }
+.header-mt {
+  display: flex; flex-direction: column; align-items: center;
+  min-width: 100px;
+}
+.kpi-title { font-size: 0.8rem; color: #666; }
+.kpi-value { font-size: 1.2rem; font-weight: bold; }
+.mtbf-title { margin-top: 0.5rem; }
+.header-clock {
+  font-size: 1rem; font-weight: 500;
+  min-width: 100px; text-align: center;
+}
