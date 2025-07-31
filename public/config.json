@@ -1,8 +1,37 @@
 {
-  "pages": ["index.html", "pm.html"],
-  "interval": 15000,
+  "pages": [
+    "index.html",
+    "pm.html"
+  ],
+  "interval": 30000,
   "columns": {
-    "index.html": ["locationID","taskID","assetID","priority","name","description","type","createdDate","due","statusID","teamID","assignedTo"],
-    "pm.html": ["locationID","taskID","assetID","priority","name","description","type","createdDate","due","statusID","teamID","assignedTo"]
+    "index.html": [
+      "locationID",
+      "taskID",
+      "assetID",
+      "priority",
+      "name",
+      "description",
+      "type",
+      "createdDate",
+      "due",
+      "statusID",
+      "teamID",
+      "assignedTo"
+    ],
+    "pm.html": [
+      "locationID",
+      "taskID",
+      "assetID",
+      "priority",
+      "name",
+      "description",
+      "type",
+      "createdDate",
+      "due",
+      "statusID",
+      "teamID",
+      "assignedTo"
+    ]
   }
 }
