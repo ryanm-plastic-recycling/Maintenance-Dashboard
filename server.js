@@ -32,7 +32,6 @@ const ipv4 = Object.values(nets)
 const app = express();
 app.use(express.json());
 const PORT = process.env.PORT || 3000;
-
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Serve the HTML file for the root path
