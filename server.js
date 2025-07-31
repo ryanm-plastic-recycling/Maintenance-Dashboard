@@ -7,6 +7,7 @@ import dotenv from 'dotenv';
 import os from 'os';
 import moment from 'moment';
 import _ from 'lodash';
+import mappings from './public/mappings.json' 
 
 dotenv.config();
 
@@ -17,6 +18,7 @@ const ipv4 = Object.values(nets)
   .flat()
   .find(i => i.family === 'IPv4' && !i.internal)?.address;
 const app = express();
+const assetIDs = Object.keys(mappings).join(',');
 app.use(express.json());
 const PORT = process.env.PORT || 3000;
 
@@ -70,27 +72,52 @@ app.post('/api/mappings', (req, res) => {
 });
 
 app.get('/api/assets', async (req, res) => {
-    try {
-        const clientId = process.env.CLIENT_ID;
-        const clientSecret = process.env.CLIENT_SECRET;
-        const credentials = { id: clientId, secret: clientSecret };
+  try {
+    const clientId     = process.env.CLIENT_ID;
+    const clientSecret = process.env.CLIENT_SECRET;
+    const basicAuth    = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
+    const headers      = { 'Authorization': `Basic ${basicAuth}` };
 
-        // Construct the authorization header
-        const base64Credentials = Buffer.from(`${credentials.id}:${credentials.secret}`).toString('base64');
-        const headers = { 'Authorization': `Basic ${base64Credentials}` };
+    // Fetch only the IDs in our mappings.json
+    const url      = `https://api.limblecmms.com:443/v2/assets/?assets=${assetIDs}`;
+    const response = await fetch(url, { headers });
+    const data     = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error('Error fetching assets:', error);
+    res.status(500).json({ error: 'An error occurred while fetching assets.' });
+  }
+});
 
-        // Make API request to fetch assets
-        const response = await fetch('https://api.limblecmms.com:443/v2/assets/?locations=13425', {
-            method: 'GET',
-            headers: headers
-        });
+app.get('/api/assets/fields', async (req, res) => {
+  try {
+    const clientId     = process.env.CLIENT_ID;
+    const clientSecret = process.env.CLIENT_SECRET;
+    const basicAuth    = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
+    const headers      = { 'Authorization': `Basic ${basicAuth}` };
 
-        const data = await response.json();
-        res.json(data);
-    } catch (error) {
-        console.error('Error fetching assets:', error);
-        res.status(500).json({ error: 'An error occurred while fetching assets.' });
+    let page      = 1;
+    const limit   = 500;
+    let allFields = [];
+
+    while (true) {
+      const url   =
+        `https://api.limblecmms.com:443/v2/assets/fields/` +
+        `?assets=${assetIDs}` +
+        `&limit=${limit}` +
+        `&page=${page}`;
+      const resp  = await fetch(url, { headers });
+      const batch = await resp.json();
+      if (!Array.isArray(batch) || batch.length === 0) break;
+      allFields = allFields.concat(batch);
+      page++;
     }
+
+    res.json(allFields);
+  } catch (error) {
+    console.error('Error fetching asset fields:', error);
+    res.status(500).json({ error: 'Failed to fetch asset fields.' });
+  }
 });
 
 app.get('/api/task', async (req, res) => {
@@ -181,7 +208,7 @@ app.get('/api/kpis', async (req, res) => {
 
     // 1) Fetch completed tasks
     const taskRes   = await fetch(
-      `https://api.limblecmms.com:443/v2/tasks?locations=13425&status=2&dateCompletedGte=${start}&dateCompletedLte=${end}`,
+      `https://api.limblecmms.com:443/v2/tasks?assets=${assetIDs}&status=2&dateCompletedGte=${start}&dateCompletedLte=${end}`,
       { headers }
     );
     const tasksJson = await taskRes.json();
@@ -198,7 +225,7 @@ app.get('/api/kpis', async (req, res) => {
 
     // 2) Fetch labor report
     const laborRes  = await fetch(
-      `https://api.limblecmms.com:443/v2/tasks/labor?locations=13425&start=${start}`,
+      `https://api.limblecmms.com:443/v2/tasks/labor?assets=${assetIDs}&start=${start}`,
       { headers }
     );
     const laborJson = await laborRes.json();
