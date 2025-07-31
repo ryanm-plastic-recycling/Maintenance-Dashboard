@@ -2,8 +2,7 @@
   "status": {
     "0": "0-Open",
     "1": "In Progress",
-    "2": "2-Completed",
-    "3": "3-Created"
+    "2": "2-Completed"
   },
   "type": {
     "1": "PM",
