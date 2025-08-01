@@ -137,11 +137,16 @@
         }
         th, td {
             padding: 12px;
-            text-align: left;
+            text-align: center;
+            vertical-align: middle;
             border-bottom: 1px solid #ddd;
+            font-size: 48px;
+            font-weight: bold;
         }
         th {
-            background-color: #f2f2f2;
+            background-color: #4B4C4E;
+            color: #ffffff;
+            text-decoration: underline;
         }
         .logo {
             position: absolute;
@@ -183,7 +188,7 @@
             margin-right: 160px;
         }
         #status-table tr {
-            height: 60px;
+            height: 72px;
         }
     </style>
 	<meta name="viewport" content="width=device-width, initial-scale=1.0" charset="utf-8">
@@ -227,7 +232,7 @@
 
         <table id="status-table" class="status-table">
           <thead>
-            <tr><th>Asset</th><th>Status</th></tr>
+            <tr><th>Asset Name</th><th>Asset Status</th></tr>
           </thead>
           <tbody id="status-data"></tbody>
         </table>
@@ -538,8 +543,17 @@ Promise.all([
     const bg = colorMap[statusId] || colorMap[entry.status] || '#fff';
     // ★ apply it to the row
     tr.style.backgroundColor = bg;
+
+    const bgLower = bg.toLowerCase();
+    let fg = '#000';
+    if (bgLower === '#d64550' || bgLower === 'red') fg = '#ffffff';
+    else if (bgLower === '#0aac00' || bgLower === 'green') fg = '#000000';
+    else if (bgLower === '#118dff' || bgLower === 'blue') fg = '#ffffff';
+    else if (bgLower === '#d9b300' || bgLower === 'yellow') fg = '#000000';
+    tr.style.color = fg;
+
     tr.innerHTML = `
-      <td style="font-weight:bold;">${item.name}</td>
+      <td>${item.name}</td>
       <td>${entry.status ?? 'N/A'}</td>
     `;
     tbody.appendChild(tr);
