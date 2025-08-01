@@ -87,8 +87,26 @@ async function loadOverallKpis() {
     );
     const laborWeekJson = await laborWeekRes.json();
     const laborWeek = laborWeekJson.data || laborWeekJson;
-    totals.operationalHours += laborWeek.operationalHours || 0;
-    totals.downtimeHours    += laborWeek.downtimeHours || 0;
+    // ✅ new – sum every entry’s duration (in seconds), split by downtime flag
+    const entries = Array.isArray(laborWeek.entries)
+      ? laborWeek.entries
+      : [];
+    
+    // total downtime seconds
+    const downtimeSec = entries
+      .filter(e => e.downtime)
+      .reduce((sum, e) => sum + (e.timeSpent ?? e.duration ?? 0), 0);
+    
+    // total work seconds (all entries, downtime+run)
+    const totalSec = entries
+      .reduce((sum, e) => sum + (e.timeSpent ?? e.duration ?? 0), 0);
+    
+    // convert to hours
+    const downtimeHrs    = downtimeSec / 3600;
+    const operationalHrs = (totalSec - downtimeSec) / 3600;
+    
+    totals.operationalHours += operationalHrs;
+    totals.downtimeHours    += downtimeHrs;
 
     const taskMonthRes = await fetch(
       `${API_V2}/tasks?assets=${id}&status=2&dateCompletedGte=${monthStart.unix()}&dateCompletedLte=${monthEnd.unix()}`,
@@ -189,8 +207,22 @@ async function loadByAssetKpis() {
     );
     const laborJson = await laborRes.json();
     const labor = laborJson.data || laborJson;
-    const operationalHours = labor.operationalHours || 0;
-    const downtimeHours = labor.downtimeHours || 0;
+    // pull out the raw entries array
+    const entries = Array.isArray(labor.entries) ? labor.entries : [];
+    
+    // sum up total seconds spent under “downtime”
+    const downtimeSec = entries
+      .filter(e => e.downtime)
+      .reduce((sum, e) => sum + (e.timeSpent ?? e.duration ?? 0), 0);
+    
+    // sum up ALL work seconds (downtime + run)
+    const totalSec = entries
+      .reduce((sum, e) => sum + (e.timeSpent ?? e.duration ?? 0), 0);
+    
+    // convert to hours
+    const downtimeHours    = downtimeSec / 3600;
+    const operationalHours = (totalSec - downtimeSec) / 3600;
+
     const entries = Array.isArray(labor.entries) ? labor.entries : [];
     const downtimeMinutes = entries.filter(e => e.taskType === 'wo' && e.downtime).reduce((s, e) => s + e.duration, 0);
 
