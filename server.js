@@ -50,7 +50,8 @@ async function loadOverallKpis() {
 
   const weekStart = moment().startOf('isoWeek').subtract(1, 'week');
   const weekEnd   = moment(weekStart).endOf('isoWeek');
-  const thirtyStart = moment().subtract(30, 'days');
+  const monthStart = moment().subtract(1, 'month').startOf('month');
+  const monthEnd   = moment().subtract(1, 'month').endOf('month');
 
   let totals = {
     operationalHours: 0,
@@ -90,7 +91,7 @@ async function loadOverallKpis() {
     totals.downtimeHours    += laborWeek.downtimeHours || 0;
 
     const task30Res = await fetch(
-      `${API_V2}/tasks?assets=${id}&status=2&dateCompletedGte=${thirtyStart.unix()}&dateCompletedLte=${weekEnd.unix()}`,
+      `${API_V2}/tasks?assets=${id}&status=2&dateCompletedGte=${monthStart.unix()}&dateCompletedLte=${monthEnd.unix()}`,
       { headers }
     );
     const task30Json = await task30Res.json();
@@ -106,7 +107,7 @@ async function loadOverallKpis() {
     totals.dates = totals.dates.concat(unplanned30.map(t => t.dateCompleted));
 
     const labor30Res = await fetch(
-      `${API_V2}/tasks/labor?assets=${id}&start=${thirtyStart.unix()}`,
+      `${API_V2}/tasks/labor?assets=${id}&start=${monthStart.unix()}`,
       { headers }
     );
     const labor30Json = await labor30Res.json();
@@ -437,8 +438,8 @@ app.get('/api/hours', async (req, res) => {
 app.get('/api/kpis', async (req, res) => {
   try {
     // Pull from cache (or load & cache on miss)
-    const overall = await fetchAndCache('kpis_overall', loadOverallKpis);
-    const byAsset = await fetchAndCache('kpis_byAsset', loadByAssetKpis);
+    const overall = await app.fetchAndCache('kpis_overall', loadOverallKpis);
+    const byAsset = await app.fetchAndCache('kpis_byAsset', loadByAssetKpis);
 
     // Return both overall and per‐asset KPIs
     res.json({ overall, byAsset });
@@ -450,7 +451,7 @@ app.get('/api/kpis', async (req, res) => {
 
 app.get('/api/status', async (req, res) => {
   try {
-    const status = await fetchAndCache('status', loadAssetStatus);
+    const status = await app.fetchAndCache('status', loadAssetStatus);
     res.json(status);
   } catch (err) {
     console.error('Status error:', err);
@@ -461,16 +462,16 @@ app.get('/api/status', async (req, res) => {
 app.post(process.env.STATUS_REFRESH_ENDPOINT || '/api/cache/refresh', async (req, res) => {
   cache.del(['kpis_overall', 'kpis_byAsset', 'status']);
   await Promise.all([
-    fetchAndCache('kpis_overall', loadOverallKpis),
-    fetchAndCache('kpis_byAsset', loadByAssetKpis),
-    fetchAndCache('status', loadAssetStatus),
+    app.fetchAndCache('kpis_overall', loadOverallKpis),
+    app.fetchAndCache('kpis_byAsset', loadByAssetKpis),
+    app.fetchAndCache('status', loadAssetStatus),
   ]);
   res.send({ ok: true });
 });
 
 app.get('/api/kpis-by-asset', async (req, res) => {
   try {
-    const data = await fetchAndCache('kpis_byAsset', loadByAssetKpis);
+    const data = await app.fetchAndCache('kpis_byAsset', loadByAssetKpis);
     res.json(data);
   } catch (err) {
     console.error('KPIs by asset error:', err);
@@ -487,12 +488,14 @@ if (process.env.NODE_ENV !== 'test') {
     const refreshMs = cacheTtlSeconds * 1000;
     setInterval(async () => {
       await Promise.all([
-        fetchAndCache('kpis_overall', loadOverallKpis),
-        fetchAndCache('kpis_byAsset', loadByAssetKpis),
-        fetchAndCache('status', loadAssetStatus),
+        app.fetchAndCache('kpis_overall', loadOverallKpis),
+        app.fetchAndCache('kpis_byAsset', loadByAssetKpis),
+        app.fetchAndCache('status', loadAssetStatus),
       ]);
       console.log('✅ Cache refreshed at', new Date().toISOString());
     }, refreshMs);
 }
 
+app.fetchAndCache = fetchAndCache;
+export { fetchAndCache };
 export default app;
