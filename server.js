@@ -223,7 +223,6 @@ async function loadByAssetKpis() {
     const downtimeHours    = downtimeSec / 3600;
     const operationalHours = (totalSec - downtimeSec) / 3600;
 
-    const entries = Array.isArray(labor.entries) ? labor.entries : [];
     const downtimeMinutes = entries.filter(e => e.taskType === 'wo' && e.downtime).reduce((s, e) => s + e.duration, 0);
 
     const mttr = unplannedCount ? (downtimeMinutes / 60) / unplannedCount : 0;

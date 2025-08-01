@@ -59,6 +59,12 @@
             background-color: rgba(146, 208, 80, 1);
             z-index: 1; /* Adjust the z-index to be below the top border */
         }
+        #toggle-rotation {
+            display: block;
+            width: 110px;
+            margin: 10px auto;
+            font-size: 12px;
+        }
         .weather-container {
             margin-top: 140px;
             display: flex;
@@ -204,6 +210,7 @@
         <img src="img/innovation-logo.png" alt="Innovation Logo">
     </div>
     <div class="left-border">
+        <button id="toggle-rotation">Pause Rotation</button>
         <div id="weather-container" class="weather-container"></div>
     </div>
     <div class="container">
@@ -257,6 +264,7 @@
     //const workOrderDataContainer = document.getElementById('work-order-data');
         const refreshButton = document.getElementById('refresh-button');
     const workOrderDataContainer = document.getElementById('work-order-data');
+    const rotateBtn = document.getElementById('toggle-rotation');
     let mappings = {};
     let config = {};
 
@@ -264,6 +272,17 @@
         .then(res => res.json())
         .then(cfg => { config = cfg; rotatePages(); })
         .catch(() => { config = {}; });
+
+    function updateRotateButton() {
+        const paused = localStorage.getItem('rotationPaused') === 'true';
+        rotateBtn.textContent = paused ? 'Resume Rotation' : 'Pause Rotation';
+    }
+    rotateBtn.addEventListener('click', () => {
+        const paused = localStorage.getItem('rotationPaused') === 'true';
+        localStorage.setItem('rotationPaused', paused ? 'false' : 'true');
+        updateRotateButton();
+    });
+    updateRotateButton();
 
     fetch('/mappings.json')
         .then(res => res.json())
@@ -385,6 +404,7 @@
             const interval = config.interval || 15000;
             const next = pages[(pages.indexOf(page) + 1) % pages.length];
             setTimeout(() => {
+                if (localStorage.getItem('rotationPaused') === 'true') return;
                 if (next && next !== page) window.location.href = '/' + next;
             }, interval);
         }
