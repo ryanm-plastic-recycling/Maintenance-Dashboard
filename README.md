@@ -41,17 +41,18 @@ table.
    ```bash
    npm install
    ```
-2. Copy `.env.example` to `.env` and provide your Limble API credentials:
+2. Copy `.env.example` to `.env` and provide your Limble API credentials and base URL:
    ```bash
    cp .env.example .env
-   # edit .env and fill CLIENT_ID and CLIENT_SECRET
+   # edit .env and fill CLIENT_ID, CLIENT_SECRET and API_BASE_URL
    ```
 3. (Optional) Adjust `PORT` and `LOCAL_IP` in `.env` to change where the server listens. Set `LOCAL_IP` to `192.168.48.255` to host on that address. Set `ADMIN_PASSWORD` for accessing the admin page.
 4. (Optional) Configure cache settings in `.env`:
    ```bash
    CACHE_TTL_MINUTES=60
-   CACHE_CHECK_PERIOD_SECONDS=1800
-   STATUS_REFRESH_ENDPOINT=/api/cache/refresh
+ CACHE_CHECK_PERIOD_SECONDS=1800
+ STATUS_REFRESH_ENDPOINT=/api/cache/refresh
+ API_BASE_URL=https://api.limblecmms.com:443
    ```
 5. Start the server:
    ```bash
@@ -63,6 +64,7 @@ The cache is controlled via environment variables:
 - `CACHE_TTL_MINUTES` – minutes before KPI and status data is refreshed (default `60`)
 - `CACHE_CHECK_PERIOD_SECONDS` – how often the cache trims expired items (default `1800`)
 - `STATUS_REFRESH_ENDPOINT` – route for manually forcing a refresh (default `/api/cache/refresh`)
+- `API_BASE_URL` – base URL for Limble API requests (default `https://api.limblecmms.com:443`)
 
 ## Development
 

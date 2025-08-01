@@ -229,7 +229,8 @@
         <div>
             <!--<input type="text" id="input-value" placeholder="Enter a value">-->
             <!--<button id="fetch-button">Fetch Work Orders</button>-->
-			<button id="refresh-button">Refresh</button>
+            <button id="refresh-button">Refresh</button>
+            <button id="refresh-status">Admin → Refresh status</button>
         </div>
 
         <!-- Work order breakdown table -->
@@ -264,6 +265,7 @@
     //const inputValue = document.getElementById('input-value');
     //const workOrderDataContainer = document.getElementById('work-order-data');
         const refreshButton = document.getElementById('refresh-button');
+        const refreshStatusButton = document.getElementById('refresh-status');
     const workOrderDataContainer = document.getElementById('work-order-data');
     let mappings = {};
     let config = {};
@@ -449,9 +451,12 @@
             workOrderDataContainer.innerHTML = 'Error fetching data.';
         });
 	}
-	refreshButton.addEventListener('click', () => {
+        refreshButton.addEventListener('click', () => {
         // Fetch and load the data without reloading the page
         fetchData();
+    });
+    refreshStatusButton.addEventListener('click', () => {
+        fetch(process.env.STATUS_REFRESH_ENDPOINT || '/api/cache/refresh', { method: 'POST' });
     });
 
     // Fetch and load the data when the page loads
@@ -497,35 +502,18 @@
 <script>
 Promise.all([
   fetch('/mappings.json').then(r => r.json()),
-  fetch('/api/assets').then(r => r.json())
+  fetch('/api/status').then(r => r.json())
 ])
-.then(([mappings, assetsRes]) => {
-  // pull out the real array
-  const assets = Array.isArray(assetsRes)
-    ? assetsRes
-    : assetsRes.data || [];
-
+.then(([mappings, status]) => {
   const tbody = document.getElementById('status-data');
   tbody.innerHTML = '';
 
-  mappings.productionAssets.forEach(item => {
-    // assets from the API use `assetID` for the identifier
-    const a = assets.find(x => x.assetID === item.id);
-    if (!a) {
-      console.warn(`Asset ${item.id} (“${item.name}”) not in API response.`);
-      return;
-    }
-
-    // Limble uses 'status' (or maybe 'assetStatus'), so:
-    const code = a.status ?? a.assetStatus;
-    const text = mappings.statusTextMapping?.[code] || String(code);
-    const bg   = mappings.statusColorMapping?.[code]  || 'transparent';
-
+  (mappings.productionAssets || []).forEach(item => {
+    const entry = status.find(s => s.assetID === item.id) || {};
     const tr = document.createElement('tr');
-    tr.style.backgroundColor = bg;
     tr.innerHTML = `
       <td style="font-weight:bold;">${item.name}</td>
-      <td>${text}</td>
+      <td>${entry.status ?? 'N/A'}</td>
     `;
     tbody.appendChild(tr);
   });
