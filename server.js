@@ -11,6 +11,8 @@ import NodeCache from 'node-cache';
 
 dotenv.config();
 
+const API_V2 = `${process.env.API_BASE_URL}/v2`;
+
 const cacheTtlSeconds = Number(process.env.CACHE_TTL_MINUTES ?? 60) * 60;
 const checkPeriod = Number(process.env.CACHE_CHECK_PERIOD_SECONDS ?? 1800);
 const cache = new NodeCache({ stdTTL: cacheTtlSeconds, checkperiod: checkPeriod });
@@ -64,7 +66,7 @@ async function loadOverallKpis() {
     const id = asset.id;
 
     const weekTasksRes = await fetch(
-      `https://api.limblecmms.com:443/v2/tasks?assets=${id}&status=2&dateCompletedGte=${weekStart.unix()}&dateCompletedLte=${weekEnd.unix()}`,
+      `${API_V2}/tasks?assets=${id}&status=2&dateCompletedGte=${weekStart.unix()}&dateCompletedLte=${weekEnd.unix()}`,
       { headers }
     );
     const weekTasksJson = await weekTasksRes.json();
@@ -79,7 +81,7 @@ async function loadOverallKpis() {
     totals.unplannedCount += weekTasks.filter(t => t.type === 2).length;
 
     const laborWeekRes = await fetch(
-      `https://api.limblecmms.com:443/v2/tasks/labor?assets=${id}&start=${weekStart.unix()}`,
+      `${API_V2}/tasks/labor?assets=${id}&start=${weekStart.unix()}`,
       { headers }
     );
     const laborWeekJson = await laborWeekRes.json();
@@ -88,7 +90,7 @@ async function loadOverallKpis() {
     totals.downtimeHours    += laborWeek.downtimeHours || 0;
 
     const task30Res = await fetch(
-      `https://api.limblecmms.com:443/v2/tasks?assets=${id}&status=2&dateCompletedGte=${thirtyStart.unix()}&dateCompletedLte=${weekEnd.unix()}`,
+      `${API_V2}/tasks?assets=${id}&status=2&dateCompletedGte=${thirtyStart.unix()}&dateCompletedLte=${weekEnd.unix()}`,
       { headers }
     );
     const task30Json = await task30Res.json();
@@ -104,7 +106,7 @@ async function loadOverallKpis() {
     totals.dates = totals.dates.concat(unplanned30.map(t => t.dateCompleted));
 
     const labor30Res = await fetch(
-      `https://api.limblecmms.com:443/v2/tasks/labor?assets=${id}&start=${thirtyStart.unix()}`,
+      `${API_V2}/tasks/labor?assets=${id}&start=${thirtyStart.unix()}`,
       { headers }
     );
     const labor30Json = await labor30Res.json();
@@ -165,7 +167,7 @@ async function loadByAssetKpis() {
     const name = asset.name;
 
     const tasksRes = await fetch(
-      `https://api.limblecmms.com:443/v2/tasks?assets=${id}&status=2&dateCompletedGte=${start.unix()}&dateCompletedLte=${end.unix()}`,
+      `${API_V2}/tasks?assets=${id}&status=2&dateCompletedGte=${start.unix()}&dateCompletedLte=${end.unix()}`,
       { headers }
     );
     const tasksJson = await tasksRes.json();
@@ -181,7 +183,7 @@ async function loadByAssetKpis() {
     const unplannedCount = unplannedTasks.length;
 
     const laborRes = await fetch(
-      `https://api.limblecmms.com:443/v2/tasks/labor?assets=${id}&start=${start.unix()}`,
+      `${API_V2}/tasks/labor?assets=${id}&start=${start.unix()}`,
       { headers }
     );
     const laborJson = await laborRes.json();
@@ -236,10 +238,13 @@ async function loadAssetStatus() {
     .toString('base64');
   const headers = { 'Authorization': `Basic ${basicAuth}` };
 
-  const url = `https://api.limblecmms.com:443/v2/assets/?assets=${assetIDs}`;
+  const url = `${API_V2}/assets/fields?assets=${assetIDs}`;
   const resp = await fetch(url, { headers });
-  const assetsData = await resp.json();
-  return Array.isArray(assetsData) ? assetsData : assetsData.data || [];
+  const data = await resp.json();
+  const fields = Array.isArray(data) ? data : data.data || [];
+  return fields
+    .filter(f => f.fieldID === 95)
+    .map(f => ({ assetID: f.assetID, status: f.value }));
 }
 
 // ─── network info ─────────────────────────────────────────────────────────
@@ -312,7 +317,7 @@ app.get('/api/assets', async (req, res) => {
       .toString('base64');
     const headers = { 'Authorization': `Basic ${basicAuth}` };
 
-    const url = `https://api.limblecmms.com:443/v2/assets/?assets=${assetIDs}`;
+    const url = `${API_V2}/assets/?assets=${assetIDs}`;
     const resp = await fetch(url, { headers });
     const assetsData = await resp.json();
 
@@ -335,7 +340,7 @@ app.get('/api/assets/fields', async (req, res) => {
 
     while (true) {
       const url = [
-        `https://api.limblecmms.com:443/v2/assets/fields/`,
+        `${API_V2}/assets/fields/`,
         `?assets=${assetIDs}`,
         `&limit=${limit}`,
         `&page=${page}`
@@ -366,7 +371,7 @@ app.get('/api/task', async (req, res) => {
         const headers = { 'Authorization': `Basic ${base64Credentials}` };
 
         // Make API request with user-input value and authorization header
-        const response = await fetch('https://api.limblecmms.com:443/v2/tasks/?locations=13425&orderBy=-createdDate&limit=20&type=2,6&status=0', {
+        const response = await fetch(`${API_V2}/tasks/?locations=13425&orderBy=-createdDate&limit=20&type=2,6&status=0`, {
             method: 'GET',
             headers: headers
         });
@@ -391,7 +396,7 @@ app.get('/api/taskpm', async (req, res) => {
         const headers = { 'Authorization': `Basic ${base64Credentials}` };
 
         // Make API request using the new endpoint
-        const response = await fetch('https://api.limblecmms.com:443/v2/tasks/?locations=13425&type=1&orderBy=-createdDate&limit=20&status=0', {
+        const response = await fetch(`${API_V2}/tasks/?locations=13425&type=1&orderBy=-createdDate&limit=20&status=0`, {
             method: 'GET',
             headers: headers
         });
@@ -416,7 +421,7 @@ app.get('/api/hours', async (req, res) => {
         const headers = { 'Authorization': `Basic ${base64Credentials}` };
 
         // Make API request using the new endpoint
-        const response = await fetch('https://api.limblecmms.com:443/v2/tasks/labor?start=1693594754', {
+        const response = await fetch(`${API_V2}/tasks/labor?start=1693594754`, {
             method: 'GET',
             headers: headers
         });
