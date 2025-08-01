@@ -7,8 +7,21 @@ import dotenv   from 'dotenv';
 import os       from 'os';
 import moment   from 'moment';
 import _        from 'lodash';
+import NodeCache from 'node-cache';
 
 dotenv.config();
+
+const cacheTtlSeconds = Number(process.env.CACHE_TTL_MINUTES ?? 60) * 60;
+const checkPeriod = Number(process.env.CACHE_CHECK_PERIOD_SECONDS ?? 1800);
+const cache = new NodeCache({ stdTTL: cacheTtlSeconds, checkperiod: checkPeriod });
+
+async function fetchAndCache(key, loaderFn) {
+  if (!cache.has(key)) {
+    const data = await loaderFn();
+    cache.set(key, data);
+  }
+  return cache.get(key);
+}
 
 // ─── derive __dirname ─────────────────────────────────────────────────────
 const __filename = fileURLToPath(import.meta.url);
@@ -24,6 +37,209 @@ const mappings = JSON.parse(rawMappings);
 const assetIDs = Array.isArray(mappings.productionAssets)
   ? mappings.productionAssets.map(a => a.id).join(',')
   : '';
+
+async function loadOverallKpis() {
+  const clientId = process.env.CLIENT_ID;
+  const clientSecret = process.env.CLIENT_SECRET;
+  const headers = {
+    'Authorization': 'Basic ' + Buffer.from(`${clientId}:${clientSecret}`).toString('base64')
+  };
+
+  const weekStart = moment().startOf('isoWeek').subtract(1, 'week');
+  const weekEnd   = moment(weekStart).endOf('isoWeek');
+  const thirtyStart = moment().subtract(30, 'days');
+
+  let totals = {
+    operationalHours: 0,
+    downtimeHours: 0,
+    plannedCount: 0,
+    unplannedCount: 0,
+    downtimeMinutes: 0,
+    unplannedWO: 0,
+    dates: []
+  };
+
+  for (const asset of mappings.productionAssets || []) {
+    const id = asset.id;
+
+    const weekTasksRes = await fetch(
+      `https://api.limblecmms.com:443/v2/tasks?assets=${id}&status=2&dateCompletedGte=${weekStart.unix()}&dateCompletedLte=${weekEnd.unix()}`,
+      { headers }
+    );
+    const weekTasksJson = await weekTasksRes.json();
+    const weekTasks = Array.isArray(weekTasksJson)
+      ? weekTasksJson
+      : Array.isArray(weekTasksJson.data)
+        ? weekTasksJson.data
+        : Array.isArray(weekTasksJson.data?.tasks)
+          ? weekTasksJson.data.tasks
+          : [];
+    totals.plannedCount   += weekTasks.filter(t => t.type === 4).length;
+    totals.unplannedCount += weekTasks.filter(t => t.type === 2).length;
+
+    const laborWeekRes = await fetch(
+      `https://api.limblecmms.com:443/v2/tasks/labor?assets=${id}&start=${weekStart.unix()}`,
+      { headers }
+    );
+    const laborWeekJson = await laborWeekRes.json();
+    const laborWeek = laborWeekJson.data || laborWeekJson;
+    totals.operationalHours += laborWeek.operationalHours || 0;
+    totals.downtimeHours    += laborWeek.downtimeHours || 0;
+
+    const task30Res = await fetch(
+      `https://api.limblecmms.com:443/v2/tasks?assets=${id}&status=2&dateCompletedGte=${thirtyStart.unix()}&dateCompletedLte=${weekEnd.unix()}`,
+      { headers }
+    );
+    const task30Json = await task30Res.json();
+    const tasks30 = Array.isArray(task30Json)
+      ? task30Json
+      : Array.isArray(task30Json.data)
+        ? task30Json.data
+        : Array.isArray(task30Json.data?.tasks)
+          ? task30Json.data.tasks
+          : [];
+    const unplanned30 = tasks30.filter(t => t.type === 2);
+    totals.unplannedWO += unplanned30.length;
+    totals.dates = totals.dates.concat(unplanned30.map(t => t.dateCompleted));
+
+    const labor30Res = await fetch(
+      `https://api.limblecmms.com:443/v2/tasks/labor?assets=${id}&start=${thirtyStart.unix()}`,
+      { headers }
+    );
+    const labor30Json = await labor30Res.json();
+    const labor30 = labor30Json.data || labor30Json;
+    const entries30 = Array.isArray(labor30.entries) ? labor30.entries : [];
+    totals.downtimeMinutes += entries30
+      .filter(e => e.taskType === 'wo' && e.downtime)
+      .reduce((sum, e) => sum + e.duration, 0);
+  }
+
+  const uptimePct = totals.operationalHours
+    ? ((totals.operationalHours - totals.downtimeHours) / totals.operationalHours) * 100
+    : 0;
+  const mttrHrs = totals.unplannedWO
+    ? (totals.downtimeMinutes / 60) / totals.unplannedWO
+    : 0;
+  const sorted = totals.dates.sort((a, b) => a - b);
+  const intervals = sorted.slice(1).map((d, i) => (sorted[i + 1] - sorted[i]) / 3600);
+  const mtbfHrs = intervals.length ? _.mean(intervals) : 0;
+
+  return {
+    uptimePct: +uptimePct.toFixed(1),
+    downtimeHrs: +totals.downtimeHours.toFixed(1),
+    mttrHrs: +mttrHrs.toFixed(1),
+    mtbfHrs: +mtbfHrs.toFixed(1),
+    plannedCount: totals.plannedCount,
+    unplannedCount: totals.unplannedCount
+  };
+}
+
+async function loadByAssetKpis() {
+  const clientId = process.env.CLIENT_ID;
+  const clientSecret = process.env.CLIENT_SECRET;
+  const headers = {
+    'Authorization': 'Basic ' + Buffer.from(`${clientId}:${clientSecret}`).toString('base64')
+  };
+
+  const start = moment().subtract(1, 'month').startOf('month');
+  const end   = moment().subtract(1, 'month').endOf('month');
+
+  const result = { assets: {}, totals: {
+    uptimePct: 0,
+    downtimeHrs: 0,
+    mttrHrs: 0,
+    mtbfHrs: 0,
+    plannedCount: 0,
+    unplannedCount: 0
+  }};
+
+  let totalOperational = 0;
+  let totalDowntime = 0;
+  let totalDowntimeMin = 0;
+  let totalUnplannedWO = 0;
+  let allDates = [];
+
+  for (const asset of mappings.productionAssets || []) {
+    const id = asset.id;
+    const name = asset.name;
+
+    const tasksRes = await fetch(
+      `https://api.limblecmms.com:443/v2/tasks?assets=${id}&status=2&dateCompletedGte=${start.unix()}&dateCompletedLte=${end.unix()}`,
+      { headers }
+    );
+    const tasksJson = await tasksRes.json();
+    const tasks = Array.isArray(tasksJson)
+      ? tasksJson
+      : Array.isArray(tasksJson.data)
+        ? tasksJson.data
+        : Array.isArray(tasksJson.data?.tasks)
+          ? tasksJson.data.tasks
+          : [];
+    const plannedCount = tasks.filter(t => t.type === 4).length;
+    const unplannedTasks = tasks.filter(t => t.type === 2);
+    const unplannedCount = unplannedTasks.length;
+
+    const laborRes = await fetch(
+      `https://api.limblecmms.com:443/v2/tasks/labor?assets=${id}&start=${start.unix()}`,
+      { headers }
+    );
+    const laborJson = await laborRes.json();
+    const labor = laborJson.data || laborJson;
+    const operationalHours = labor.operationalHours || 0;
+    const downtimeHours = labor.downtimeHours || 0;
+    const entries = Array.isArray(labor.entries) ? labor.entries : [];
+    const downtimeMinutes = entries.filter(e => e.taskType === 'wo' && e.downtime).reduce((s, e) => s + e.duration, 0);
+
+    const mttr = unplannedCount ? (downtimeMinutes / 60) / unplannedCount : 0;
+    const dates = unplannedTasks.map(t => t.dateCompleted).sort((a,b) => a - b);
+    const intervals = dates.slice(1).map((d,i) => (dates[i+1]-dates[i]) / 3600);
+    const mtbf = intervals.length ? _.mean(intervals) : 0;
+    const uptime = operationalHours ? ((operationalHours - downtimeHours) / operationalHours) * 100 : 0;
+
+    result.assets[id] = {
+      name,
+      uptimePct: +uptime.toFixed(1),
+      downtimeHrs: +downtimeHours.toFixed(1),
+      mttrHrs: +mttr.toFixed(1),
+      mtbfHrs: +mtbf.toFixed(1),
+      plannedCount,
+      unplannedCount
+    };
+
+    totalOperational += operationalHours;
+    totalDowntime += downtimeHours;
+    totalDowntimeMin += downtimeMinutes;
+    totalUnplannedWO += unplannedCount;
+    result.totals.plannedCount += plannedCount;
+    result.totals.unplannedCount += unplannedCount;
+    allDates = allDates.concat(unplannedTasks.map(t => t.dateCompleted));
+  }
+
+  const uptimeTot = totalOperational ? ((totalOperational - totalDowntime) / totalOperational) * 100 : 0;
+  const mttrTot = totalUnplannedWO ? (totalDowntimeMin / 60) / totalUnplannedWO : 0;
+  const sorted = allDates.sort((a,b) => a - b);
+  const intervals = sorted.slice(1).map((d,i) => (sorted[i+1]-sorted[i]) / 3600);
+  const mtbfTot = intervals.length ? _.mean(intervals) : 0;
+
+  result.totals.uptimePct = +uptimeTot.toFixed(1);
+  result.totals.downtimeHrs = +totalDowntime.toFixed(1);
+  result.totals.mttrHrs = +mttrTot.toFixed(1);
+  result.totals.mtbfHrs = +mtbfTot.toFixed(1);
+
+  return result;
+}
+
+async function loadAssetStatus() {
+  const basicAuth = Buffer
+    .from(`${process.env.CLIENT_ID}:${process.env.CLIENT_SECRET}`)
+    .toString('base64');
+  const headers = { 'Authorization': `Basic ${basicAuth}` };
+
+  const url = `https://api.limblecmms.com:443/v2/assets/?assets=${assetIDs}`;
+  const resp = await fetch(url, { headers });
+  const assetsData = await resp.json();
+  return Array.isArray(assetsData) ? assetsData : assetsData.data || [];
+}
 
 // ─── network info ─────────────────────────────────────────────────────────
 const nets = os.networkInterfaces();
@@ -214,199 +430,39 @@ app.get('/api/hours', async (req, res) => {
 
 app.get('/api/kpis', async (req, res) => {
   try {
-    const clientId = process.env.CLIENT_ID;
-    const clientSecret = process.env.CLIENT_SECRET;
-    const headers = {
-      'Authorization': 'Basic ' + Buffer.from(`${clientId}:${clientSecret}`).toString('base64')
-    };
-
-    const weekStart = moment().startOf('isoWeek').subtract(1, 'week');
-    const weekEnd   = moment(weekStart).endOf('isoWeek');
-    const thirtyStart = moment().subtract(30, 'days');
-
-    let totals = {
-      operationalHours: 0,
-      downtimeHours: 0,
-      plannedCount: 0,
-      unplannedCount: 0,
-      downtimeMinutes: 0,
-      unplannedWO: 0,
-      dates: []
-    };
-
-    for (const asset of mappings.productionAssets || []) {
-      const id = asset.id;
-
-      const weekTasksRes = await fetch(
-        `https://api.limblecmms.com:443/v2/tasks?assets=${id}&status=2&dateCompletedGte=${weekStart.unix()}&dateCompletedLte=${weekEnd.unix()}`,
-        { headers }
-      );
-      const weekTasksJson = await weekTasksRes.json();
-      const weekTasks = Array.isArray(weekTasksJson)
-        ? weekTasksJson
-        : Array.isArray(weekTasksJson.data)
-          ? weekTasksJson.data
-          : Array.isArray(weekTasksJson.data?.tasks)
-            ? weekTasksJson.data.tasks
-            : [];
-      totals.plannedCount   += weekTasks.filter(t => t.type === 4).length;
-      totals.unplannedCount += weekTasks.filter(t => t.type === 2).length;
-
-      const laborWeekRes = await fetch(
-        `https://api.limblecmms.com:443/v2/tasks/labor?assets=${id}&start=${weekStart.unix()}`,
-        { headers }
-      );
-      const laborWeekJson = await laborWeekRes.json();
-      const laborWeek = laborWeekJson.data || laborWeekJson;
-      totals.operationalHours += laborWeek.operationalHours || 0;
-      totals.downtimeHours    += laborWeek.downtimeHours || 0;
-
-      const task30Res = await fetch(
-        `https://api.limblecmms.com:443/v2/tasks?assets=${id}&status=2&dateCompletedGte=${thirtyStart.unix()}&dateCompletedLte=${weekEnd.unix()}`,
-        { headers }
-      );
-      const task30Json = await task30Res.json();
-      const tasks30 = Array.isArray(task30Json)
-        ? task30Json
-        : Array.isArray(task30Json.data)
-          ? task30Json.data
-          : Array.isArray(task30Json.data?.tasks)
-            ? task30Json.data.tasks
-            : [];
-      const unplanned30 = tasks30.filter(t => t.type === 2);
-      totals.unplannedWO += unplanned30.length;
-      totals.dates = totals.dates.concat(unplanned30.map(t => t.dateCompleted));
-
-      const labor30Res = await fetch(
-        `https://api.limblecmms.com:443/v2/tasks/labor?assets=${id}&start=${thirtyStart.unix()}`,
-        { headers }
-      );
-      const labor30Json = await labor30Res.json();
-      const labor30 = labor30Json.data || labor30Json;
-      const entries30 = Array.isArray(labor30.entries) ? labor30.entries : [];
-      totals.downtimeMinutes += entries30
-        .filter(e => e.taskType === 'wo' && e.downtime)
-        .reduce((sum, e) => sum + e.duration, 0);
-    }
-
-    const uptimePct = totals.operationalHours
-      ? ((totals.operationalHours - totals.downtimeHours) / totals.operationalHours) * 100
-      : 0;
-    const mttrHrs = totals.unplannedWO
-      ? (totals.downtimeMinutes / 60) / totals.unplannedWO
-      : 0;
-    const sorted = totals.dates.sort((a, b) => a - b);
-    const intervals = sorted.slice(1).map((d, i) => (sorted[i + 1] - sorted[i]) / 3600);
-    const mtbfHrs = intervals.length ? _.mean(intervals) : 0;
-
-    res.json({
-      uptimePct: uptimePct.toFixed(1),
-      downtimeHrs: totals.downtimeHours.toFixed(1),
-      mttrHrs: mttrHrs.toFixed(1),
-      mtbfHrs: mtbfHrs.toFixed(1),
-      plannedCount: totals.plannedCount,
-      unplannedCount: totals.unplannedCount
-    });
+    const overall = await fetchAndCache('kpis_overall', loadOverallKpis);
+    const byAsset = await fetchAndCache('kpis_byAsset', loadByAssetKpis);
+    res.json({ overall, byAsset });
   } catch (err) {
     console.error('KPI error:', err);
     res.status(500).json({ error: 'Failed to fetch KPIs' });
   }
 });
 
+app.get('/api/status', async (req, res) => {
+  try {
+    const status = await fetchAndCache('status', loadAssetStatus);
+    res.json(status);
+  } catch (err) {
+    console.error('Status error:', err);
+    res.status(500).json({ error: 'Failed to fetch status' });
+  }
+});
+
+app.post(process.env.STATUS_REFRESH_ENDPOINT || '/api/cache/refresh', async (req, res) => {
+  cache.del(['kpis_overall', 'kpis_byAsset', 'status']);
+  await Promise.all([
+    fetchAndCache('kpis_overall', loadOverallKpis),
+    fetchAndCache('kpis_byAsset', loadByAssetKpis),
+    fetchAndCache('status', loadAssetStatus),
+  ]);
+  res.send({ ok: true });
+});
+
 app.get('/api/kpis-by-asset', async (req, res) => {
   try {
-    const clientId = process.env.CLIENT_ID;
-    const clientSecret = process.env.CLIENT_SECRET;
-    const headers = {
-      'Authorization': 'Basic ' + Buffer.from(`${clientId}:${clientSecret}`).toString('base64')
-    };
-
-    const start = moment().subtract(1, 'month').startOf('month');
-    const end   = moment().subtract(1, 'month').endOf('month');
-
-    const result = { assets: {}, totals: {
-      uptimePct: 0,
-      downtimeHrs: 0,
-      mttrHrs: 0,
-      mtbfHrs: 0,
-      plannedCount: 0,
-      unplannedCount: 0
-    }};
-
-    let totalOperational = 0;
-    let totalDowntime = 0;
-    let totalDowntimeMin = 0;
-    let totalUnplannedWO = 0;
-    let allDates = [];
-
-    for (const asset of mappings.productionAssets || []) {
-      const id = asset.id;
-      const name = asset.name;
-
-      const tasksRes = await fetch(
-        `https://api.limblecmms.com:443/v2/tasks?assets=${id}&status=2&dateCompletedGte=${start.unix()}&dateCompletedLte=${end.unix()}`,
-        { headers }
-      );
-      const tasksJson = await tasksRes.json();
-      const tasks = Array.isArray(tasksJson)
-        ? tasksJson
-        : Array.isArray(tasksJson.data)
-          ? tasksJson.data
-          : Array.isArray(tasksJson.data?.tasks)
-            ? tasksJson.data.tasks
-            : [];
-      const plannedCount = tasks.filter(t => t.type === 4).length;
-      const unplannedTasks = tasks.filter(t => t.type === 2);
-      const unplannedCount = unplannedTasks.length;
-
-      const laborRes = await fetch(
-        `https://api.limblecmms.com:443/v2/tasks/labor?assets=${id}&start=${start.unix()}`,
-        { headers }
-      );
-      const laborJson = await laborRes.json();
-      const labor = laborJson.data || laborJson;
-      const operationalHours = labor.operationalHours || 0;
-      const downtimeHours = labor.downtimeHours || 0;
-      const entries = Array.isArray(labor.entries) ? labor.entries : [];
-      const downtimeMinutes = entries.filter(e => e.taskType === 'wo' && e.downtime).reduce((s, e) => s + e.duration, 0);
-
-      const mttr = unplannedCount ? (downtimeMinutes / 60) / unplannedCount : 0;
-      const dates = unplannedTasks.map(t => t.dateCompleted).sort((a,b) => a - b);
-      const intervals = dates.slice(1).map((d,i) => (dates[i+1]-dates[i]) / 3600);
-      const mtbf = intervals.length ? _.mean(intervals) : 0;
-      const uptime = operationalHours ? ((operationalHours - downtimeHours) / operationalHours) * 100 : 0;
-
-      result.assets[id] = {
-        name,
-        uptimePct: +uptime.toFixed(1),
-        downtimeHrs: +downtimeHours.toFixed(1),
-        mttrHrs: +mttr.toFixed(1),
-        mtbfHrs: +mtbf.toFixed(1),
-        plannedCount,
-        unplannedCount
-      };
-
-      totalOperational += operationalHours;
-      totalDowntime += downtimeHours;
-      totalDowntimeMin += downtimeMinutes;
-      totalUnplannedWO += unplannedCount;
-      result.totals.plannedCount += plannedCount;
-      result.totals.unplannedCount += unplannedCount;
-      allDates = allDates.concat(unplannedTasks.map(t => t.dateCompleted));
-    }
-
-    const uptimeTot = totalOperational ? ((totalOperational - totalDowntime) / totalOperational) * 100 : 0;
-    const mttrTot = totalUnplannedWO ? (totalDowntimeMin / 60) / totalUnplannedWO : 0;
-    const sorted = allDates.sort((a,b) => a - b);
-    const intervals = sorted.slice(1).map((d,i) => (sorted[i+1]-sorted[i]) / 3600);
-    const mtbfTot = intervals.length ? _.mean(intervals) : 0;
-
-    result.totals.uptimePct = +uptimeTot.toFixed(1);
-    result.totals.downtimeHrs = +totalDowntime.toFixed(1);
-    result.totals.mttrHrs = +mttrTot.toFixed(1);
-    result.totals.mtbfHrs = +mtbfTot.toFixed(1);
-
-    res.json(result);
+    const data = await fetchAndCache('kpis_byAsset', loadByAssetKpis);
+    res.json(data);
   } catch (err) {
     console.error('KPIs by asset error:', err);
     res.status(500).json({ error: 'Failed to fetch KPIs by asset' });
@@ -415,10 +471,19 @@ app.get('/api/kpis-by-asset', async (req, res) => {
 
 if (process.env.NODE_ENV !== 'test') {
     app.listen(PORT, () => {
-	console.log(`Local:  http://localhost:${PORT}/`);
-    	console.log(`On LAN: http://${ipv4}:${PORT}/`);
+        console.log(`Local:  http://localhost:${PORT}/`);
+        console.log(`On LAN: http://${ipv4}:${PORT}/`);
         console.log(`NOICE! Server running at ${PORT}.`);
     });
+    const refreshMs = cacheTtlSeconds * 1000;
+    setInterval(async () => {
+      await Promise.all([
+        fetchAndCache('kpis_overall', loadOverallKpis),
+        fetchAndCache('kpis_byAsset', loadByAssetKpis),
+        fetchAndCache('status', loadAssetStatus),
+      ]);
+      console.log('✅ Cache refreshed at', new Date().toISOString());
+    }, refreshMs);
 }
 
 export default app;

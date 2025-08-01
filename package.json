@@ -25,6 +25,7 @@
     "minimist": "^1.2.5",
     "moment": "^2.29.4",
     "netmask": "^2.0.0",
+    "node-cache": "^5.1.2",
     "node-fetch": "^3.3.2",
     "path": "^0.12.7",
     "semver": "^7.3.4",

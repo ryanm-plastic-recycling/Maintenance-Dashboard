@@ -472,7 +472,8 @@
     async function updateKPIs() {
         try {
             const res = await fetch('/api/kpis');
-            const k = await res.json();
+            const data = await res.json();
+            const k = data.overall;
             document.getElementById('uptime-value').innerText       = k.uptimePct + '%';
             document.getElementById('mttr-value').innerText         = k.mttrHrs + 'h';
             document.getElementById('mtbf-value').innerText         = k.mtbfHrs + 'h';
