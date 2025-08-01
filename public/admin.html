@@ -256,7 +256,7 @@
             alert('Mappings updated');
         };
         document.getElementById('refresh-cache').onclick = () => {
-            fetch(process.env.STATUS_REFRESH_ENDPOINT || '/api/cache/refresh', { method: 'POST' })
+            fetch('/api/cache/refresh', { method: 'POST' })
                 .then(r => r.json()).then(console.log);
         };
     </script>
