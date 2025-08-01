@@ -20,10 +20,11 @@ const rawMappings = fs.readFileSync(
   'utf8'
 );
 const mappings = JSON.parse(rawMappings);
-// Build a comma separated list of asset IDs used for production status/KPIs
-const assetIDs = Array.isArray(mappings.productionAssets)
-  ? mappings.productionAssets.map(a => a.id).join(',')
-  : '';
+// Build a list and comma separated string of asset IDs used for production KPIs
+const assetIdList = Array.isArray(mappings.productionAssets)
+  ? mappings.productionAssets.map(a => a.id)
+  : [];
+const assetIDs = assetIdList.join(',');
 
 // ─── network info ─────────────────────────────────────────────────────────
 const nets = os.networkInterfaces();
@@ -220,92 +221,164 @@ app.get('/api/kpis', async (req, res) => {
       'Authorization': 'Basic ' + Buffer.from(`${clientId}:${clientSecret}`).toString('base64')
     };
 
-    const weekStart = moment().startOf('isoWeek').subtract(1, 'week');
-    const weekEnd   = moment(weekStart).endOf('isoWeek');
-    const thirtyStart = moment().subtract(30, 'days');
+    // ─── Time ranges ────────────────────────────────────────────────────────
+    const weekStart = process.env.KPI_WEEK_START
+      ? moment.unix(Number(process.env.KPI_WEEK_START))
+      : moment().startOf('isoWeek').subtract(1, 'week');
+    const weekEnd = process.env.KPI_WEEK_END
+      ? moment.unix(Number(process.env.KPI_WEEK_END))
+      : moment(weekStart).endOf('isoWeek');
+    const monthEnd = process.env.KPI_MONTH_END
+      ? moment.unix(Number(process.env.KPI_MONTH_END))
+      : moment();
+    const monthStart = process.env.KPI_MONTH_START
+      ? moment.unix(Number(process.env.KPI_MONTH_START))
+      : moment(monthEnd).subtract(30, 'days');
 
-    let totals = {
-      operationalHours: 0,
-      downtimeHours: 0,
-      plannedCount: 0,
-      unplannedCount: 0,
-      downtimeMinutes: 0,
-      unplannedWO: 0,
-      dates: []
+    // ─── Helper to count weekdays (Mon-Fri) ─────────────────────────────────
+    const countWeekdays = (start, end) => {
+      let d = moment(start);
+      let days = 0;
+      while (d.isSameOrBefore(end, 'day')) {
+        if (d.isoWeekday() <= 5) days++;
+        d.add(1, 'day');
+      }
+      return days;
     };
 
-    for (const asset of mappings.productionAssets || []) {
-      const id = asset.id;
+    // ─── Pull labor data ────────────────────────────────────────────────────
+    const weekLaborRes = await fetch(
+      `https://api.limblecmms.com:443/v2/tasks/labor?assets=${assetIDs}&start=${weekStart.unix()}&end=${weekEnd.unix()}`,
+      { headers }
+    );
+    const weekLaborJson = await weekLaborRes.json();
+    const weekLabor = weekLaborJson.data || weekLaborJson;
+    const weekEntries = Array.isArray(weekLabor.entries) ? weekLabor.entries : [];
 
-      const weekTasksRes = await fetch(
-        `https://api.limblecmms.com:443/v2/tasks?assets=${id}&status=2&dateCompletedGte=${weekStart.unix()}&dateCompletedLte=${weekEnd.unix()}`,
+    const monthLaborRes = await fetch(
+      `https://api.limblecmms.com:443/v2/tasks/labor?assets=${assetIDs}&start=${monthStart.unix()}&end=${monthEnd.unix()}`,
+      { headers }
+    );
+    const monthLaborJson = await monthLaborRes.json();
+    const monthLabor = monthLaborJson.data || monthLaborJson;
+    const monthEntries = Array.isArray(monthLabor.entries) ? monthLabor.entries : [];
+
+    // ─── Fetch tasks referenced in labor entries ────────────────────────────
+    const taskIds = [...new Set([...weekEntries, ...monthEntries].map(e => e.taskId))];
+    let taskMap = {};
+    if (taskIds.length) {
+      const tasksRes = await fetch(
+        `https://api.limblecmms.com:443/v2/tasks?tasks=${taskIds.join(',')}`,
         { headers }
       );
-      const weekTasksJson = await weekTasksRes.json();
-      const weekTasks = Array.isArray(weekTasksJson)
-        ? weekTasksJson
-        : Array.isArray(weekTasksJson.data)
-          ? weekTasksJson.data
-          : Array.isArray(weekTasksJson.data?.tasks)
-            ? weekTasksJson.data.tasks
+      const tasksJson = await tasksRes.json();
+      const tasks = Array.isArray(tasksJson)
+        ? tasksJson
+        : Array.isArray(tasksJson.data?.tasks)
+          ? tasksJson.data.tasks
+          : Array.isArray(tasksJson.data)
+            ? tasksJson.data
             : [];
-      totals.plannedCount   += weekTasks.filter(t => t.type === 4).length;
-      totals.unplannedCount += weekTasks.filter(t => t.type === 2).length;
-
-      const laborWeekRes = await fetch(
-        `https://api.limblecmms.com:443/v2/tasks/labor?assets=${id}&start=${weekStart.unix()}`,
-        { headers }
-      );
-      const laborWeekJson = await laborWeekRes.json();
-      const laborWeek = laborWeekJson.data || laborWeekJson;
-      totals.operationalHours += laborWeek.operationalHours || 0;
-      totals.downtimeHours    += laborWeek.downtimeHours || 0;
-
-      const task30Res = await fetch(
-        `https://api.limblecmms.com:443/v2/tasks?assets=${id}&status=2&dateCompletedGte=${thirtyStart.unix()}&dateCompletedLte=${weekEnd.unix()}`,
-        { headers }
-      );
-      const task30Json = await task30Res.json();
-      const tasks30 = Array.isArray(task30Json)
-        ? task30Json
-        : Array.isArray(task30Json.data)
-          ? task30Json.data
-          : Array.isArray(task30Json.data?.tasks)
-            ? task30Json.data.tasks
-            : [];
-      const unplanned30 = tasks30.filter(t => t.type === 2);
-      totals.unplannedWO += unplanned30.length;
-      totals.dates = totals.dates.concat(unplanned30.map(t => t.dateCompleted));
-
-      const labor30Res = await fetch(
-        `https://api.limblecmms.com:443/v2/tasks/labor?assets=${id}&start=${thirtyStart.unix()}`,
-        { headers }
-      );
-      const labor30Json = await labor30Res.json();
-      const labor30 = labor30Json.data || labor30Json;
-      const entries30 = Array.isArray(labor30.entries) ? labor30.entries : [];
-      totals.downtimeMinutes += entries30
-        .filter(e => e.taskType === 'wo' && e.downtime)
-        .reduce((sum, e) => sum + e.duration, 0);
+      for (const t of tasks) {
+        taskMap[t.id] = { assetId: t.assetId, type: t.type, downtime: t.downtime };
+      }
     }
 
-    const uptimePct = totals.operationalHours
-      ? ((totals.operationalHours - totals.downtimeHours) / totals.operationalHours) * 100
+    // ─── Aggregation ───────────────────────────────────────────────────────
+    const byAsset = {};
+    const ensure = id => {
+      if (!byAsset[id]) {
+        byAsset[id] = {
+          downtimeHrs: 0,
+          plannedCount: 0,
+          unplannedCount: 0,
+          _downtimeMonth: 0,
+          _unplannedMonth: 0
+        };
+      }
+      return byAsset[id];
+    };
+
+    const weekTaskSets = {};
+    for (const entry of weekEntries) {
+      const info = taskMap[entry.taskId];
+      if (!info) continue;
+      const id = info.assetId || entry.assetId;
+      const a = ensure(id);
+      if (info.downtime) {
+        a.downtimeHrs += (entry.timeSpent ?? entry.duration ?? 0) / 3600;
+      }
+      if (!weekTaskSets[id]) weekTaskSets[id] = new Set();
+      weekTaskSets[id].add(entry.taskId);
+    }
+
+    for (const [assetId, set] of Object.entries(weekTaskSets)) {
+      const m = ensure(Number(assetId));
+      set.forEach(tid => {
+        const info = taskMap[tid];
+        if (!info) return;
+        if (info.type === 4) m.plannedCount += 1;
+        if (info.type === 2) m.unplannedCount += 1;
+      });
+    }
+
+    for (const entry of monthEntries) {
+      const info = taskMap[entry.taskId];
+      if (!info) continue;
+      const m = ensure(info.assetId || entry.assetId);
+      if (info.downtime) {
+        m._downtimeMonth += (entry.timeSpent ?? entry.duration ?? 0) / 3600;
+      }
+      if (info.type === 2) {
+        m._unplannedMonth += 1;
+      }
+    }
+
+    const weekDays = countWeekdays(weekStart, weekEnd);
+    const monthDays = countWeekdays(monthStart, monthEnd);
+
+    let totalDowntimeWeek = 0;
+    let totalPlannedWeek = 0;
+    let totalUnplannedWeek = 0;
+    let totalDowntimeMonth = 0;
+    let totalUnplannedMonth = 0;
+
+    for (const id of assetIdList) {
+      const m = ensure(id);
+      totalDowntimeWeek += m.downtimeHrs;
+      totalPlannedWeek += m.plannedCount;
+      totalUnplannedWeek += m.unplannedCount;
+      totalDowntimeMonth += m._downtimeMonth;
+      totalUnplannedMonth += m._unplannedMonth;
+
+      const opHoursMonth = monthDays * 24 - m._downtimeMonth;
+      m.mttrHrs = m._unplannedMonth ? m._downtimeMonth / m._unplannedMonth : 0;
+      m.mtbfHrs = m._unplannedMonth ? opHoursMonth / m._unplannedMonth : 0;
+      delete m._downtimeMonth;
+      delete m._unplannedMonth;
+    }
+
+    const totalWeekHours = weekDays * 24 * assetIdList.length;
+    const uptimePct = totalWeekHours
+      ? ((totalWeekHours - totalDowntimeWeek) / totalWeekHours) * 100
       : 0;
-    const mttrHrs = totals.unplannedWO
-      ? (totals.downtimeMinutes / 60) / totals.unplannedWO
+    const mttrHrs = totalUnplannedMonth
+      ? totalDowntimeMonth / totalUnplannedMonth
       : 0;
-    const sorted = totals.dates.sort((a, b) => a - b);
-    const intervals = sorted.slice(1).map((d, i) => (sorted[i + 1] - sorted[i]) / 3600);
-    const mtbfHrs = intervals.length ? _.mean(intervals) : 0;
+    const mtbfHrs = totalUnplannedMonth
+      ? ((monthDays * 24 * assetIdList.length) - totalDowntimeMonth) / totalUnplannedMonth
+      : 0;
 
     res.json({
-      uptimePct: uptimePct.toFixed(1),
-      downtimeHrs: totals.downtimeHours.toFixed(1),
-      mttrHrs: mttrHrs.toFixed(1),
-      mtbfHrs: mtbfHrs.toFixed(1),
-      plannedCount: totals.plannedCount,
-      unplannedCount: totals.unplannedCount
+      overall: {
+        uptimePct: +uptimePct.toFixed(1),
+        downtimeHrs: +totalDowntimeWeek.toFixed(1),
+        mttrHrs: +mttrHrs.toFixed(1),
+        mtbfHrs: +mtbfHrs.toFixed(1),
+        plannedCount: totalPlannedWeek,
+        unplannedCount: totalUnplannedWeek
+      },
+      byAsset
     });
   } catch (err) {
     console.error('KPI error:', err);
