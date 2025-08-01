@@ -1,68 +1,97 @@
-import request from 'supertest';
-import { jest } from '@jest/globals';
+// tests/server.test.js
 import * as serverModule from '../server.js';
 import app from '../server.js';
+import request from 'supertest';
+import { jest } from '@jest/globals';
 
-// 1️⃣ Mock fetchAndCache so no real HTTP or cache is used
-jest.spyOn(serverModule, 'fetchAndCache').mockImplementation((key) => {
-  if (key === 'kpis_overall') {
-    return Promise.resolve({
-      uptimePct: 98,
-      downtimeHrs: 2,
-      mttrHrs: 1,
-      mtbfHrs: 100,
-      plannedCount: 5,
-      unplannedCount: 1
-    });
+const dummyOverall = {
+  uptimePct: 98,
+  downtimeHrs: 2,
+  mttrHrs: 1,
+  mtbfHrs: 100,
+  plannedCount: 5,
+  unplannedCount: 1
+};
+
+const dummyByAsset = {
+  assets: {
+    '2399': {
+      name: 'Asset1',
+      uptimePct: 97,
+      downtimeHrs: 3,
+      mttrHrs: 2,
+      mtbfHrs: 50,
+      plannedCount: 4,
+      unplannedCount: 2
+    }
+  },
+  totals: {
+    uptimePct: 97,
+    downtimeHrs: 3,
+    mttrHrs: 2,
+    mtbfHrs: 50,
+    plannedCount: 4,
+    unplannedCount: 2
   }
-  if (key === 'kpis_byAsset') {
-    return Promise.resolve({ 2399: { uptimePct: 97, downtimeHrs: 3 } });
-  }
-  if (key === 'status') {
-    return Promise.resolve([
-      { assetID: 2399, status: 'Available for Production' }
-    ]);
-  }
-  return Promise.resolve(null);
+};
+
+const dummyStatus = [
+  { assetID: 2399, status: 'Available for Production' }
+];
+
+beforeAll(() => {
+  // Mock fetchAndCache for all routes
+  jest.spyOn(serverModule, 'fetchAndCache').mockImplementation(async (key) => {
+    if (key === 'kpis_overall') return dummyOverall;
+    if (key === 'kpis_byAsset') return dummyByAsset;
+    if (key === 'status')       return dummyStatus;
+    return null;
+  });
 });
 
-describe('API routes', () => {
-  test('GET / responds with html', async () => {
-    const res = await request(app).get('/');
-    expect(res.status).toBe(200);
-    expect(res.text).toContain('<!DOCTYPE html>');
-  });
+afterAll(() => {
+  serverModule.fetchAndCache.mockRestore();
+});
 
-  test('GET /pm responds with html', async () => {
-    const res = await request(app).get('/pm');
-    expect(res.status).toBe(200);
-    expect(res.text).toContain('<!DOCTYPE html>');
+describe('Static HTML routes', () => {
+  ['/', '/pm', '/admin'].forEach(route => {
+    test(`GET ${route} responds with HTML`, async () => {
+      const res = await request(app).get(route);
+      expect(res.status).toBe(200);
+      expect(res.text).toContain('<!DOCTYPE html>');
+    });
   });
+});
 
-  test('GET /admin responds with html', async () => {
-    const res = await request(app).get('/admin');
-    expect(res.status).toBe(200);
-    expect(res.text).toContain('<!DOCTYPE html>');
-  });
-
-  test('GET /api/config returns json', async () => {
+describe('Configuration API', () => {
+  test('GET /api/config returns JSON', async () => {
     const res = await request(app).get('/api/config');
     expect(res.status).toBe(200);
     expect(res.headers['content-type']).toMatch(/json/);
   });
 });
 
-describe('Cached API routes', () => {
-  test('GET /api/kpis returns overall and byAsset', async () => {
+describe('KPI endpoints', () => {
+  test('GET /api/kpis returns combined overall + byAsset', async () => {
     const res = await request(app).get('/api/kpis');
     expect(res.status).toBe(200);
-    expect(res.body.overall.uptimePct).toBe(98);
-    expect(res.body.byAsset[2399].downtimeHrs).toBe(3);
+    expect(res.body).toEqual({
+      overall: dummyOverall,
+      byAsset: dummyByAsset
+    });
   });
 
+  test('GET /api/kpis-by-asset returns just byAsset', async () => {
+    const res = await request(app).get('/api/kpis-by-asset');
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual(dummyByAsset);
+  });
+});
+
+describe('Status endpoint', () => {
   test('GET /api/status returns asset status array', async () => {
     const res = await request(app).get('/api/status');
     expect(res.status).toBe(200);
-    expect(res.body).toEqual([{ assetID: 2399, status: 'Available for Production' }]);
+    expect(res.body).toEqual(dummyStatus);
   });
 });
