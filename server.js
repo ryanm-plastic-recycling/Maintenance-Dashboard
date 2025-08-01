@@ -33,10 +33,11 @@ const rawMappings = fs.readFileSync(
   'utf8'
 );
 const mappings = JSON.parse(rawMappings);
-// Build a comma separated list of asset IDs used for production status/KPIs
-const assetIDs = Array.isArray(mappings.productionAssets)
-  ? mappings.productionAssets.map(a => a.id).join(',')
-  : '';
+// Build a list and comma separated string of asset IDs used for production KPIs
+const assetIdList = Array.isArray(mappings.productionAssets)
+  ? mappings.productionAssets.map(a => a.id)
+  : [];
+const assetIDs = assetIdList.join(',');
 
 async function loadOverallKpis() {
   const clientId = process.env.CLIENT_ID;
@@ -430,8 +431,11 @@ app.get('/api/hours', async (req, res) => {
 
 app.get('/api/kpis', async (req, res) => {
   try {
+    // Pull from cache (or load & cache on miss)
     const overall = await fetchAndCache('kpis_overall', loadOverallKpis);
     const byAsset = await fetchAndCache('kpis_byAsset', loadByAssetKpis);
+
+    // Return both overall and per‐asset KPIs
     res.json({ overall, byAsset });
   } catch (err) {
     console.error('KPI error:', err);
