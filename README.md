@@ -10,6 +10,9 @@ shows a live list of work orders for a configured location.
   whenever the page is loaded.
 - **Asset name mapping** – asset IDs are converted to human readable names by
   first querying the `/api/assets` endpoint.
+- **KPI asset list** – the dashboard reads `public/mappings.json` at startup to
+  determine which asset IDs should be included when calculating KPIs. These IDs
+  are passed directly to Limble when fetching labor and task details.
 - **Status and priority decoding** – `public/mappings.json` translates status,
   type, priority, team and location IDs into meaningful text.
 - **Refresh button** – quickly reload the data without restarting the server.
@@ -67,13 +70,14 @@ The admin interface is available at `http://<LOCAL_IP>:<PORT>/admin`.
 
 | KPI | Timeframe | Description |
 |-----|-----------|-------------|
-| uptimePct | Previous calendar week (Mon–Sun) | ((operationalHours - downtimeHours) / operationalHours) * 100 |
-| downtimeHrs | Previous calendar week | Pulled from Limble’s /tasks/labor API per asset |
-| mttrHrs | Last 30 days | Avg downtime duration per unplanned WO |
-| mtbfHrs | Last 30 days | Avg interval (hrs) between unplanned WOs |
-| planned vs unplanned % | Previous calendar week | Ratio of planned vs unplanned WOs |
-| operationalHours | From Limble API per asset | Based on Limble asset settings (configured in CMMS) |
+| uptimePct | Last calendar week | `((workHours - downtimeHours) / workHours) * 100` |
+| downtimeHrs | Last calendar week | Sum of all downtime labor entries in hours |
+| mttrHrs | Last 30 days | `Σ downtimeHours / count(unplanned tasks)` |
+| mtbfHrs | Last 30 days | `(workHours - downtimeHours) / count(unplanned tasks)` |
+| planned vs unplanned count | Last calendar week | Number of tasks of each type |
 
-* All assets tracked are expected to run 24/5
-* KPI timeframes and logic are centralized and adjustable
-* Per-asset metrics are available via the new `/api/kpis-by-asset` endpoint and shown on `kpi-by-asset.html`
+* All assets are assumed to run 24/5.
+* Time ranges can be overridden via environment variables `KPI_WEEK_START`,
+  `KPI_WEEK_END`, `KPI_MONTH_START` and `KPI_MONTH_END` (unix timestamps). When
+  unset, the server uses the last calendar week and previous 30 days.
+* Per-asset metrics are returned alongside the overall values from `/api/kpis`.
