@@ -1,8 +1,7 @@
 {
   "pages": [
     "index.html",
-    "pm.html",
-    "prodstatus.html"
+    "pm.html"
   ],
   "interval": 30000,
   "columns": {
