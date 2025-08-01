@@ -210,6 +210,7 @@
         <label>Update mappings.json: <input type="file" id="mapping-file"></label>
         <button id="upload-map">Upload Mapping</button>
     </div>
+    <button id="refresh-cache">Refresh Cache</button>
     </div>
     <script>
         let adminPass = '';
@@ -253,6 +254,10 @@
             });
             alert('Mappings updated');
         };
+        document.getElementById('refresh-cache').onclick = () => {
+            fetch(process.env.STATUS_REFRESH_ENDPOINT || '/api/cache/refresh', { method: 'POST' })
+                .then(r => r.json()).then(console.log);
+        };
     </script>
 <script>
     function updateClock() {
@@ -279,7 +284,8 @@
     async function updateKPIs() {
         try {
             const res = await fetch('/api/kpis');
-            const k = await res.json();
+            const data = await res.json();
+            const k = data.overall;
             document.getElementById('uptime-value').innerText       = k.uptimePct + '%';
             document.getElementById('mttr-value').innerText         = k.mttrHrs + 'h';
             document.getElementById('mtbf-value').innerText         = k.mtbfHrs + 'h';
