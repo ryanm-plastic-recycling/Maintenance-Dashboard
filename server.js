@@ -50,7 +50,8 @@ async function loadOverallKpis() {
 
   const weekStart = moment().startOf('isoWeek').subtract(1, 'week');
   const weekEnd   = moment(weekStart).endOf('isoWeek');
-  const thirtyStart = moment().subtract(30, 'days');
+  const monthStart = moment().subtract(1, 'month').startOf('month');
+  const monthEnd   = moment().subtract(1, 'month').endOf('month');
 
   let totals = {
     operationalHours: 0,
@@ -89,11 +90,11 @@ async function loadOverallKpis() {
     totals.operationalHours += laborWeek.operationalHours || 0;
     totals.downtimeHours    += laborWeek.downtimeHours || 0;
 
-    const task30Res = await fetch(
-      `${API_V2}/tasks?assets=${id}&status=2&dateCompletedGte=${thirtyStart.unix()}&dateCompletedLte=${weekEnd.unix()}`,
+    const taskMonthRes = await fetch(
+      `${API_V2}/tasks?assets=${id}&status=2&dateCompletedGte=${monthStart.unix()}&dateCompletedLte=${monthEnd.unix()}`,
       { headers }
     );
-    const task30Json = await task30Res.json();
+    const task30Json = await taskMonthRes.json();
     const tasks30 = Array.isArray(task30Json)
       ? task30Json
       : Array.isArray(task30Json.data)
@@ -105,11 +106,11 @@ async function loadOverallKpis() {
     totals.unplannedWO += unplanned30.length;
     totals.dates = totals.dates.concat(unplanned30.map(t => t.dateCompleted));
 
-    const labor30Res = await fetch(
-      `${API_V2}/tasks/labor?assets=${id}&start=${thirtyStart.unix()}`,
+    const laborMonthRes = await fetch(
+      `${API_V2}/tasks/labor?assets=${id}&start=${monthStart.unix()}`,
       { headers }
     );
-    const labor30Json = await labor30Res.json();
+    const labor30Json = await laborMonthRes.json();
     const labor30 = labor30Json.data || labor30Json;
     const entries30 = Array.isArray(labor30.entries) ? labor30.entries : [];
     totals.downtimeMinutes += entries30
@@ -144,8 +145,8 @@ async function loadByAssetKpis() {
     'Authorization': 'Basic ' + Buffer.from(`${clientId}:${clientSecret}`).toString('base64')
   };
 
-  const start = moment().subtract(1, 'month').startOf('month');
-  const end   = moment().subtract(1, 'month').endOf('month');
+  const monthStart = moment().subtract(1, 'month').startOf('month');
+  const monthEnd   = moment().subtract(1, 'month').endOf('month');
 
   const result = { assets: {}, totals: {
     uptimePct: 0,
@@ -167,7 +168,7 @@ async function loadByAssetKpis() {
     const name = asset.name;
 
     const tasksRes = await fetch(
-      `${API_V2}/tasks?assets=${id}&status=2&dateCompletedGte=${start.unix()}&dateCompletedLte=${end.unix()}`,
+      `${API_V2}/tasks?assets=${id}&status=2&dateCompletedGte=${monthStart.unix()}&dateCompletedLte=${monthEnd.unix()}`,
       { headers }
     );
     const tasksJson = await tasksRes.json();
@@ -183,7 +184,7 @@ async function loadByAssetKpis() {
     const unplannedCount = unplannedTasks.length;
 
     const laborRes = await fetch(
-      `${API_V2}/tasks/labor?assets=${id}&start=${start.unix()}`,
+      `${API_V2}/tasks/labor?assets=${id}&start=${monthStart.unix()}`,
       { headers }
     );
     const laborJson = await laborRes.json();
@@ -495,4 +496,5 @@ if (process.env.NODE_ENV !== 'test') {
     }, refreshMs);
 }
 
+export { fetchAndCache };
 export default app;
