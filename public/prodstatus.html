@@ -532,7 +532,10 @@ Promise.all([
     const entry = status.find(s => s.assetID === item.id) || {};
     const tr = document.createElement('tr');
     // ★ look up the color for this status (fall back to white)
-    const bg = (mappings.statusColorMapping || {})[entry.status] || '#fff';
+    const colorMap = mappings.statusColorMapping || {};
+    const textMap  = mappings.statusTextMapping || {};
+    const statusId = Object.keys(textMap).find(k => textMap[k] === entry.status);
+    const bg = colorMap[statusId] || colorMap[entry.status] || '#fff';
     // ★ apply it to the row
     tr.style.backgroundColor = bg;
     tr.innerHTML = `
