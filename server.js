@@ -216,60 +216,87 @@ app.get('/api/kpis', async (req, res) => {
       'Authorization': 'Basic ' + Buffer.from(`${clientId}:${clientSecret}`).toString('base64')
     };
 
-    const start = moment().subtract(30, 'days').unix();
-    const end   = moment().unix();
+    const now            = moment().unix();
+    const lastWeekStart  = moment().subtract(7, 'days').unix();
+    const last30Start    = moment().subtract(30, 'days').unix();
 
-    // 1) Fetch completed tasks
-    const taskRes   = await fetch(
-      `https://api.limblecmms.com:443/v2/tasks?assets=${assetIDs}&status=2&dateCompletedGte=${start}&dateCompletedLte=${end}`,
+    // ─── Fetch tasks for 30 days (MTTR/MTBF) ───────────────────────────────
+    const task30Res = await fetch(
+      `https://api.limblecmms.com:443/v2/tasks?assets=${assetIDs}&status=2&dateCompletedGte=${last30Start}&dateCompletedLte=${now}`,
       { headers }
     );
-    const tasksJson = await taskRes.json();
-    console.log("Raw KPI-tasks payload:", JSON.stringify(tasksJson, null, 2));
+    const task30Json = await task30Res.json();
+    console.log('Raw KPI-tasks (30d):', JSON.stringify(task30Json, null, 2));
 
-    // normalize to an array
-    const tasks = Array.isArray(tasksJson)
-      ? tasksJson
-      : Array.isArray(tasksJson.data)
-        ? tasksJson.data
-        : Array.isArray(tasksJson.data?.tasks)
-          ? tasksJson.data.tasks
+    const tasks30 = Array.isArray(task30Json)
+      ? task30Json
+      : Array.isArray(task30Json.data)
+        ? task30Json.data
+        : Array.isArray(task30Json.data?.tasks)
+          ? task30Json.data.tasks
           : [];
 
-    // 2) Fetch labor report
-    const laborRes  = await fetch(
-      `https://api.limblecmms.com:443/v2/tasks/labor?assets=${assetIDs}&start=${start}`,
+    // ─── Fetch tasks for last week (planned vs unplanned) ──────────────────
+    const taskWeekRes = await fetch(
+      `https://api.limblecmms.com:443/v2/tasks?assets=${assetIDs}&status=2&dateCompletedGte=${lastWeekStart}&dateCompletedLte=${now}`,
       { headers }
     );
-    const laborJson = await laborRes.json();
-    console.log("Raw labor payload:", JSON.stringify(laborJson, null, 2));
+    const taskWeekJson = await taskWeekRes.json();
+    console.log('Raw KPI-tasks (week):', JSON.stringify(taskWeekJson, null, 2));
 
-    // normalize the labor object
-    const labor = laborJson.data || laborJson;
-    const entries = Array.isArray(labor.entries) ? labor.entries : [];
+    const tasksWeek = Array.isArray(taskWeekJson)
+      ? taskWeekJson
+      : Array.isArray(taskWeekJson.data)
+        ? taskWeekJson.data
+        : Array.isArray(taskWeekJson.data?.tasks)
+          ? taskWeekJson.data.tasks
+          : [];
 
-    // KPIs
-    const downtimeHrs = labor.downtimeHours || 0;
-    const totalHrs    = labor.operationalHours || 0;
+    // ─── Labor for uptime (last week) ──────────────────────────────────────
+    const laborWeekRes = await fetch(
+      `https://api.limblecmms.com:443/v2/tasks/labor?assets=${assetIDs}&start=${lastWeekStart}`,
+      { headers }
+    );
+    const laborWeekJson = await laborWeekRes.json();
+    console.log('Raw labor payload (week):', JSON.stringify(laborWeekJson, null, 2));
+
+    const laborWeek  = laborWeekJson.data || laborWeekJson;
+    const entriesWeek = Array.isArray(laborWeek.entries) ? laborWeek.entries : [];
+
+    // ─── Labor for MTTR/MTBF (30 days) ─────────────────────────────────────
+    const labor30Res = await fetch(
+      `https://api.limblecmms.com:443/v2/tasks/labor?assets=${assetIDs}&start=${last30Start}`,
+      { headers }
+    );
+    const labor30Json = await labor30Res.json();
+    console.log('Raw labor payload (30d):', JSON.stringify(labor30Json, null, 2));
+
+    const labor30 = labor30Json.data || labor30Json;
+    const entries30 = Array.isArray(labor30.entries) ? labor30.entries : [];
+
+    // ─── Uptime (last week) ────────────────────────────────────────────────
+    const downtimeHrs = laborWeek.downtimeHours || 0;
+    const totalHrs    = laborWeek.operationalHours || 0;
     const uptimePct   = totalHrs ? ((totalHrs - downtimeHrs) / totalHrs) * 100 : 0;
 
-    // MTTR / MTBF
-    const unplannedTasks = tasks.filter(t => t.type === 2);
-    const totalDowntimeMin = entries
+    // ─── MTTR / MTBF (last 30 days) ────────────────────────────────────────
+    const unplannedTasks30 = tasks30.filter(t => t.type === 2);
+    const totalDowntimeMin = entries30
       .filter(e => e.taskType === 'wo' && e.downtime)
       .reduce((sum, e) => sum + e.duration, 0);
-    const mttrHrs     = unplannedTasks.length
-      ? (totalDowntimeMin / 60) / unplannedTasks.length
+    const mttrHrs = unplannedTasks30.length
+      ? (totalDowntimeMin / 60) / unplannedTasks30.length
       : 0;
 
-    const sorted = unplannedTasks
+    const sorted = unplannedTasks30
       .map(t => t.dateCompleted)
       .sort((a, b) => a - b);
-    const intervals = sorted.slice(1).map((d, i) => (sorted[i+1] - sorted[i]) / 3600);
-    const mtbfHrs  = intervals.length ? _.mean(intervals) : 0;
+    const intervals = sorted.slice(1).map((d, i) => (sorted[i + 1] - sorted[i]) / 3600);
+    const mtbfHrs = intervals.length ? _.mean(intervals) : 0;
 
-    const plannedCount   = tasks.filter(t => t.type === 4).length;
-    const unplannedCount = unplannedTasks.length;
+    // ─── Planned vs Unplanned (last week) ─────────────────────────────────
+    const plannedCount   = tasksWeek.filter(t => t.type === 4).length;
+    const unplannedCount = tasksWeek.filter(t => t.type === 2).length;
 
     res.json({
       uptimePct: uptimePct.toFixed(1),

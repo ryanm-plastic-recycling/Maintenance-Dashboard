@@ -62,3 +62,13 @@ table.
 
 The dashboard will be available at `http://<LOCAL_IP>:<PORT>/` when running.
 The admin interface is available at `http://<LOCAL_IP>:<PORT>/admin`.
+
+## KPI Timeframes
+
+The `/api/kpis` endpoint calculates several maintenance metrics:
+
+- **Uptime** – percentage of operational hours over the last **7 days**.
+- **MTTR** and **MTBF** – computed from work order data within the previous **30 days**.
+- **Planned vs Unplanned** counts – tasks completed in the last **7 days**.
+
+These windows can be adjusted in `server.js` if needed.
