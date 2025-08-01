@@ -63,12 +63,17 @@ table.
 The dashboard will be available at `http://<LOCAL_IP>:<PORT>/` when running.
 The admin interface is available at `http://<LOCAL_IP>:<PORT>/admin`.
 
-## KPI Timeframes
+## KPI Calculation Logic
 
-The `/api/kpis` endpoint calculates several maintenance metrics:
+| KPI | Timeframe | Description |
+|-----|-----------|-------------|
+| uptimePct | Previous calendar week (Mon–Sun) | ((operationalHours - downtimeHours) / operationalHours) * 100 |
+| downtimeHrs | Previous calendar week | Pulled from Limble’s /tasks/labor API per asset |
+| mttrHrs | Last 30 days | Avg downtime duration per unplanned WO |
+| mtbfHrs | Last 30 days | Avg interval (hrs) between unplanned WOs |
+| planned vs unplanned % | Previous calendar week | Ratio of planned vs unplanned WOs |
+| operationalHours | From Limble API per asset | Based on Limble asset settings (configured in CMMS) |
 
-- **Uptime** – percentage of operational hours over the last **7 days**.
-- **MTTR** and **MTBF** – computed from work order data within the previous **30 days**.
-- **Planned vs Unplanned** counts – tasks completed in the last **7 days**.
-
-These windows can be adjusted in `server.js` if needed.
+* All assets tracked are expected to run 24/5
+* KPI timeframes and logic are centralized and adjustable
+* Per-asset metrics are available via the new `/api/kpis-by-asset` endpoint and shown on `kpi-by-asset.html`

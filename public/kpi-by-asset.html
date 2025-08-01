@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>KPIs by Asset</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    body { font-family: Arial, sans-serif; margin:0; padding:0; background:#f0f0f0; color:#333; position:relative; }
+    .top-border { position:fixed; top:0; left:0; width:100%; height:96px; background:rgba(146,208,80,1); z-index:2; display:flex; align-items:center; padding-right:20px; }
+    .top-border img { max-height:75px; width:auto; object-fit:contain; }
+    .right-top-image { position:fixed; top:0; right:0; padding:10px; z-index:3; }
+    .right-top-image img { height:75px; width:auto; }
+    #clock { flex:1; text-align:center; font-size:48px; font-weight:bold; }
+    .clock-date { display:block; font-size:20px; }
+    .left-border { position:fixed; top:0; left:0; width:128px; height:100%; background:rgba(146,208,80,1); z-index:1; }
+    .container { max-width:1200px; margin:120px 20px 20px 160px; padding:20px; background:#fff; box-shadow:0 2px 4px rgba(0,0,0,0.1); border-radius:8px; position:relative; z-index:1; }
+    h1 { text-align:center; margin-bottom:20px; color:rgba(37,64,143,1); }
+    table { width:100%; border-collapse:collapse; border:1px solid #ddd; }
+    th, td { padding:12px; text-align:left; border-bottom:1px solid #ddd; }
+    th { background:#f2f2f2; }
+    .tabs { margin:10px 0; }
+    .tabs a { text-decoration:none; color:#000; padding:8px 12px; border:1px solid #ccc; border-bottom:none; background:#eee; border-radius:4px 4px 0 0; margin-right:4px; }
+    .tabs a.active { background:#fff; font-weight:bold; }
+    .top-border .header-kpi:first-of-type, .top-border .header-mt { margin-left:160px; }
+    .top-border .header-kpi:last-of-type { margin-right:160px; }
+  </style>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" charset="utf-8">
+</head>
+<body>
+  <div class="top-border">
+    <img src="img/pri-logo.png" alt="PRI Logo" class="logo" />
+    <div class="header-kpi">
+      <div class="kpi-title">Maintenance Uptime (Last Week)</div>
+      <div id="uptime-value" class="kpi-value">--%</div>
+    </div>
+    <div class="header-mt">
+      <div class="kpi-title">MTTR (30d)</div>
+      <div id="mttr-value" class="kpi-value">--h</div>
+      <div class="kpi-title mtbf-title">MTBF (30d)</div>
+      <div id="mtbf-value" class="kpi-value">--h</div>
+    </div>
+    <div id="clock">--:--:--</div>
+    <div class="header-kpi">
+      <div class="kpi-title">Planned vs Unplanned (Last Week)</div>
+      <div id="planned-vs-unplanned" class="kpi-value">--% vs --%</div>
+    </div>
+  </div>
+  <div class="right-top-image">
+    <img src="img/innovation-logo.png" alt="Innovation Logo" />
+  </div>
+  <div class="left-border"></div>
+  <div class="container">
+    <h1>Asset KPIs (Last Month)</h1>
+    <div class="tabs">
+      <a href="/index.html">Work Orders</a>
+      <a href="/pm.html">PM Work Orders</a>
+      <a href="/prodstatus.html">Production Status</a>
+      <a href="/kpi-by-asset.html" class="active">KPIs by Asset</a>
+      <a href="/admin">Admin</a>
+    </div>
+    <table id="kpi-table">
+      <thead>
+        <tr>
+          <th>Asset</th>
+          <th>Uptime %</th>
+          <th>Downtime Hours</th>
+          <th>MTTR (h)</th>
+          <th>MTBF (h)</th>
+          <th>Planned</th>
+          <th>Unplanned</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+      <tfoot>
+        <tr id="kpi-total-row" style="font-weight:bold;"></tr>
+      </tfoot>
+    </table>
+  </div>
+  <script>
+    function updateClock() {
+      const now = new Date();
+      const dateFmt = new Intl.DateTimeFormat('en-US', { timeZone:'America/Indiana/Indianapolis', weekday:'short', month:'short', day:'numeric', year:'numeric' });
+      const timeFmt = new Intl.DateTimeFormat('en-US', { timeZone:'America/Indiana/Indianapolis', hour:'numeric', minute:'2-digit', second:'2-digit' });
+      document.getElementById('clock').innerHTML = `<span class="clock-date">${dateFmt.format(now)}</span>${timeFmt.format(now)}`;
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    async function updateKPIs() {
+      try {
+        const res = await fetch('/api/kpis');
+        const k = await res.json();
+        document.getElementById('uptime-value').innerText = k.uptimePct + '%';
+        document.getElementById('mttr-value').innerText = k.mttrHrs + 'h';
+        document.getElementById('mtbf-value').innerText = k.mtbfHrs + 'h';
+        document.getElementById('planned-vs-unplanned').innerText = `${((k.plannedCount/(k.plannedCount+k.unplannedCount))*100).toFixed(0)}% vs ${((k.unplannedCount/(k.plannedCount+k.unplannedCount))*100).toFixed(0)}%`;
+      } catch (err) { console.error('Failed to load KPIs', err); }
+    }
+    updateKPIs();
+    setInterval(updateKPIs, 3600000);
+
+    async function loadAssetKPIs() {
+      try {
+        const res = await fetch('/api/kpis-by-asset');
+        const data = await res.json();
+        const tbody = document.querySelector('#kpi-table tbody');
+        tbody.innerHTML = '';
+        Object.entries(data.assets).forEach(([id, a]) => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `<td>${a.name}</td><td>${a.uptimePct}</td><td>${a.downtimeHrs}</td><td>${a.mttrHrs}</td><td>${a.mtbfHrs}</td><td>${a.plannedCount}</td><td>${a.unplannedCount}</td>`;
+          tbody.appendChild(tr);
+        });
+        const tot = data.totals;
+        const totalRow = document.getElementById('kpi-total-row');
+        totalRow.innerHTML = `<td>Total</td><td>${tot.uptimePct}</td><td>${tot.downtimeHrs}</td><td>${tot.mttrHrs}</td><td>${tot.mtbfHrs}</td><td>${tot.plannedCount}</td><td>${tot.unplannedCount}</td>`;
+      } catch (err) {
+        console.error('Failed to load KPIs by asset', err);
+      }
+    }
+    loadAssetKPIs();
+    setInterval(loadAssetKPIs, 3600000);
+  </script>
+</body>
+</html>
