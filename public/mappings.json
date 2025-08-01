@@ -348,13 +348,13 @@
     { "id": 2408, "name": "New Extrusion Line NL2" }
   ],
   "statusColorMapping": {
-    "1": "green",
-    "2": "red",
-    "3": "blue",
-    "4": "green",
-    "5": "yellow",
-    "6": "green",
-    "7": "red"
+    "1": "#0AAC00",
+    "2": "#D64550",
+    "3": "#118DFF",
+    "4": "#0AAC00",
+    "5": "#D9B300",
+    "6": "#0AAC00",
+    "7": "#D64550"
   },
   "statusTextMapping": {
     "1": "Available for Production",
