@@ -511,6 +511,8 @@ Promise.all([
   (mappings.productionAssets || []).forEach(item => {
     const entry = status.find(s => s.assetID === item.id) || {};
     const tr = document.createElement('tr');
+    // ★ look up the color for this status (fall back to white)
+    const bg = (mappings.statusColor || {})[entry.status] || '#fff';
     tr.innerHTML = `
       <td style="font-weight:bold;">${item.name}</td>
       <td>${entry.status ?? 'N/A'}</td>
