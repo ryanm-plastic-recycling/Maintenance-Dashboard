@@ -60,6 +60,12 @@
             background-color: rgba(146, 208, 80, 1);
             z-index: 1;
         }
+        #toggle-rotation {
+            display: block;
+            width: 110px;
+            margin: 10px auto;
+            font-size: 12px;
+        }
         .weather-container {
             margin-top: 140px;
             display: flex;
@@ -185,6 +191,7 @@
         <img src="img/innovation-logo.png" alt="Innovation Logo">
     </div>
     <div class="left-border">
+        <button id="toggle-rotation">Pause Rotation</button>
         <div id="weather-container" class="weather-container"></div>
     </div>
     <div class="container">
@@ -214,6 +221,35 @@
     <button id="refresh-cache">Refresh Cache</button>
     </div>
     <script>
+        const rotateBtn = document.getElementById('toggle-rotation');
+        function updateRotateButton() {
+            const paused = localStorage.getItem('rotationPaused') === 'true';
+            rotateBtn.textContent = paused ? 'Resume Rotation' : 'Pause Rotation';
+        }
+        rotateBtn.addEventListener('click', () => {
+            const paused = localStorage.getItem('rotationPaused') === 'true';
+            localStorage.setItem('rotationPaused', paused ? 'false' : 'true');
+            updateRotateButton();
+        });
+        updateRotateButton();
+        let config = {};
+        fetch('/config.json')
+            .then(r => r.json())
+            .then(cfg => { config = cfg; rotatePages(); })
+            .catch(() => { config = {}; });
+
+        function rotatePages() {
+            if (!config.pages) return;
+            const page = window.location.pathname.split('/').pop() || 'admin.html';
+            const pages = config.pages;
+            const interval = config.interval || 15000;
+            const next = pages[(pages.indexOf(page) + 1) % pages.length];
+            setTimeout(() => {
+                if (localStorage.getItem('rotationPaused') === 'true') return;
+                if (next && next !== page) window.location.href = '/' + next;
+            }, interval);
+        }
+
         let adminPass = '';
         document.getElementById('login-btn').onclick = async () => {
             adminPass = document.getElementById('admin-pass').value;
