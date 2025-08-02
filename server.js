@@ -71,6 +71,10 @@ async function loadOverallKpis() {
       `${API_V2}/tasks?assets=${id}&status=2&dateCompletedGte=${weekStart.unix()}&dateCompletedLte=${weekEnd.unix()}`,
       { headers }
     );
+    if (!weekTasksRes.ok) {
+      console.error('loadOverallKpis weekTasks error:', weekTasksRes.status);
+      throw new Error(`loadOverallKpis weekTasks error: ${weekTasksRes.status}`);
+    }
     const weekTasksJson = await weekTasksRes.json();
     const weekTasks = Array.isArray(weekTasksJson)
       ? weekTasksJson
@@ -86,6 +90,10 @@ async function loadOverallKpis() {
       `${API_V2}/tasks/labor?assets=${id}&start=${weekStart.unix()}`,
       { headers }
     );
+    if (!laborWeekRes.ok) {
+      console.error('loadOverallKpis laborWeek error:', laborWeekRes.status);
+      throw new Error(`loadOverallKpis laborWeek error: ${laborWeekRes.status}`);
+    }
     const laborWeekJson = await laborWeekRes.json();
     const laborWeek = laborWeekJson.data || laborWeekJson;
     // ✅ new – sum every entry’s duration (in seconds), split by downtime flag
@@ -113,6 +121,10 @@ async function loadOverallKpis() {
       `${API_V2}/tasks?assets=${id}&status=2&dateCompletedGte=${monthStart.unix()}&dateCompletedLte=${monthEnd.unix()}`,
       { headers }
     );
+    if (!taskMonthRes.ok) {
+      console.error('loadOverallKpis taskMonth error:', taskMonthRes.status);
+      throw new Error(`loadOverallKpis taskMonth error: ${taskMonthRes.status}`);
+    }
     const task30Json = await taskMonthRes.json();
     const tasks30 = Array.isArray(task30Json)
       ? task30Json
@@ -129,6 +141,10 @@ async function loadOverallKpis() {
       `${API_V2}/tasks/labor?assets=${id}&start=${monthStart.unix()}`,
       { headers }
     );
+    if (!laborMonthRes.ok) {
+      console.error('loadOverallKpis laborMonth error:', laborMonthRes.status);
+      throw new Error(`loadOverallKpis laborMonth error: ${laborMonthRes.status}`);
+    }
     const labor30Json = await laborMonthRes.json();
     const labor30 = labor30Json.data || labor30Json;
     const entries30 = Array.isArray(labor30.entries) ? labor30.entries : [];
@@ -190,6 +206,10 @@ async function loadByAssetKpis() {
       `${API_V2}/tasks?assets=${id}&status=2&dateCompletedGte=${monthStart.unix()}&dateCompletedLte=${monthEnd.unix()}`,
       { headers }
     );
+    if (!tasksRes.ok) {
+      console.error('loadByAssetKpis tasks error:', tasksRes.status);
+      throw new Error(`loadByAssetKpis tasks error: ${tasksRes.status}`);
+    }
     const tasksJson = await tasksRes.json();
     const tasks = Array.isArray(tasksJson)
       ? tasksJson
@@ -206,6 +226,10 @@ async function loadByAssetKpis() {
       `${API_V2}/tasks/labor?assets=${id}&start=${monthStart.unix()}`,
       { headers }
     );
+    if (!laborRes.ok) {
+      console.error('loadByAssetKpis labor error:', laborRes.status);
+      throw new Error(`loadByAssetKpis labor error: ${laborRes.status}`);
+    }
     const laborJson = await laborRes.json();
     const labor = laborJson.data || laborJson;
     // pull out the raw entries array
@@ -530,5 +554,5 @@ if (process.env.NODE_ENV !== 'test') {
 
 app.fetchAndCache = fetchAndCache;
 
-export { fetchAndCache };
+export { fetchAndCache, loadOverallKpis, loadByAssetKpis };
 export default app;

@@ -1,8 +1,12 @@
-// tests/server.test.js
-import * as serverModule from '../server.js';
-import app from '../server.js';
-import request from 'supertest';
 import { jest } from '@jest/globals';
+import request from 'supertest';
+
+// Mock node-fetch before importing the server module
+const fetchMock = jest.fn();
+jest.unstable_mockModule('node-fetch', () => ({ default: fetchMock }));
+
+const serverModule = await import('../server.js');
+const app = serverModule.default;
 
 const dummyOverall = {
   uptimePct: 98,
@@ -41,7 +45,7 @@ const dummyStatus = [
 
 beforeAll(() => {
   // Mock fetchAndCache for all routes
-  jest.spyOn(serverModule, 'fetchAndCache').mockImplementation(async (key) => {
+  jest.spyOn(app, 'fetchAndCache').mockImplementation(async (key) => {
     if (key === 'kpis_overall') return dummyOverall;
     if (key === 'kpis_byAsset') return dummyByAsset;
     if (key === 'status')       return dummyStatus;
@@ -50,7 +54,7 @@ beforeAll(() => {
 });
 
 afterAll(() => {
-  serverModule.fetchAndCache.mockRestore();
+  app.fetchAndCache.mockRestore();
 });
 
 describe('Static HTML routes', () => {
@@ -95,3 +99,28 @@ describe('Status endpoint', () => {
     expect(res.body).toEqual(dummyStatus);
   });
 });
+
+describe('KPI loader error handling', () => {
+  beforeEach(() => {
+    process.env.CLIENT_ID = 'id';
+    process.env.CLIENT_SECRET = 'secret';
+    fetchMock.mockReset();
+  });
+
+  test('loadOverallKpis logs and throws on non-ok response', async () => {
+    fetchMock.mockResolvedValueOnce({ ok: false, status: 500, json: async () => ({}) });
+    const errSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    await expect(serverModule.loadOverallKpis()).rejects.toThrow('500');
+    expect(errSpy).toHaveBeenCalledWith('loadOverallKpis weekTasks error:', 500);
+    errSpy.mockRestore();
+  });
+
+  test('loadByAssetKpis logs and throws on non-ok response', async () => {
+    fetchMock.mockResolvedValueOnce({ ok: false, status: 404, json: async () => ({}) });
+    const errSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    await expect(serverModule.loadByAssetKpis()).rejects.toThrow('404');
+    expect(errSpy).toHaveBeenCalledWith('loadByAssetKpis tasks error:', 404);
+    errSpy.mockRestore();
+  });
+});
+
