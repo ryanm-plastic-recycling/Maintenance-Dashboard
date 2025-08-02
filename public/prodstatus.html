@@ -101,7 +101,7 @@
             font-weight: bold;
         }
         .container {
-            max-width: 1200px;
+            max-width: 1440px;
             margin: 120px 20px 20px 160px; /* Adjust margins to match border width and height */
             padding: 20px;
             background-color: #fff;
@@ -129,6 +129,10 @@
             border-radius: 4px;
             cursor: pointer;
             font-size: 14px;
+        }
+        #refresh-timer {
+            margin-left: 10px;
+            font-weight: bold;
         }
         table {
             width: 115%;
@@ -190,6 +194,10 @@
         #status-table tr {
             height: 72px;
         }
+        #status-table thead th {
+            background:#25408F;
+            color:#fff;
+        }
     </style>
 	<meta name="viewport" content="width=device-width, initial-scale=1.0" charset="utf-8">
 </head>
@@ -242,6 +250,7 @@
             <!--<input type="text" id="input-value" placeholder="Enter a value">-->
             <!--<button id="fetch-button">Fetch Work Orders</button>-->
             <button id="refresh-button">Refresh</button>
+            <span id="refresh-timer"></span>
             <button id="refresh-status">Admin → Refresh status</button>
         </div>
 
@@ -280,6 +289,9 @@
         const refreshStatusButton = document.getElementById('refresh-status');
     const workOrderDataContainer = document.getElementById('work-order-data');
     const rotateBtn = document.getElementById('toggle-rotation');
+    const refreshTimerEl = document.getElementById('refresh-timer');
+    const refreshInterval = 900000; // 15 minutes
+    let refreshCountdown = refreshInterval / 1000;
     let mappings = {};
     let config = {};
 
@@ -292,6 +304,14 @@
         const paused = localStorage.getItem('rotationPaused') === 'true';
         rotateBtn.textContent = paused ? 'Resume Rotation' : 'Pause Rotation';
     }
+    function updateRefreshTimer() {
+        const m = Math.floor(refreshCountdown / 60);
+        const s = String(refreshCountdown % 60).padStart(2, '0');
+        refreshTimerEl.textContent = `Next refresh in ${m}:${s}`;
+        refreshCountdown = refreshCountdown > 0 ? refreshCountdown - 1 : refreshInterval / 1000;
+    }
+    setInterval(updateRefreshTimer, 1000);
+    updateRefreshTimer();
     rotateBtn.addEventListener('click', () => {
         const paused = localStorage.getItem('rotationPaused') === 'true';
         localStorage.setItem('rotationPaused', paused ? 'false' : 'true');
@@ -477,9 +497,13 @@
         });
 	}
         refreshButton.addEventListener('click', () => {
-        // Fetch and load the data without reloading the page
         fetchData();
+        refreshCountdown = refreshInterval / 1000;
     });
+    setInterval(() => {
+        fetchData();
+        refreshCountdown = refreshInterval / 1000;
+    }, refreshInterval);
     refreshStatusButton.addEventListener('click', () => {
         fetch(process.env.STATUS_REFRESH_ENDPOINT || '/api/cache/refresh', { method: 'POST' });
     });

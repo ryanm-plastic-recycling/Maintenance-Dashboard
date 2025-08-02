@@ -13,6 +13,7 @@
     .clock-date { display:block; font-size:20px; }
     .left-border { position:fixed; top:0; left:0; width:128px; height:100%; background:rgba(146,208,80,1); z-index:1; }
     #toggle-rotation { display:block; width:110px; margin:10px auto; font-size:12px; }
+    #refresh-timer { margin-left:10px; font-weight:bold; }
     .container { max-width:1200px; margin:120px 20px 20px 160px; padding:20px; background:#fff; box-shadow:0 2px 4px rgba(0,0,0,0.1); border-radius:8px; position:relative; z-index:1; }
     h1 { text-align:center; margin-bottom:20px; color:rgba(37,64,143,1); }
     table { width:115%; border-collapse:collapse; border:1px solid #ddd; font-size:1.8rem; }
@@ -63,6 +64,10 @@
       <a href="/kpi-by-asset.html" class="active">KPIs by Asset</a>
       <a href="/admin">Admin</a>
     </div>
+    <div>
+      <button id="refresh-button">Refresh</button>
+      <span id="refresh-timer"></span>
+    </div>
     <table id="kpi-table">
       <thead>
         <tr>
@@ -83,6 +88,10 @@
   </div>
   <script>
     const rotateBtn = document.getElementById('toggle-rotation');
+    const refreshTimerEl = document.getElementById('refresh-timer');
+    const refreshButton  = document.getElementById('refresh-button');
+    const refreshInterval = 900000; // 15 minutes
+    let refreshCountdown = refreshInterval / 1000;
     let config = {};
 
     fetch('/config.json')
@@ -100,6 +109,15 @@
       updateRotateButton();
     });
     updateRotateButton();
+
+    function updateRefreshTimer() {
+      const m = Math.floor(refreshCountdown / 60);
+      const s = String(refreshCountdown % 60).padStart(2, '0');
+      refreshTimerEl.textContent = `Next refresh in ${m}:${s}`;
+      refreshCountdown = refreshCountdown > 0 ? refreshCountdown - 1 : refreshInterval / 1000;
+    }
+    setInterval(updateRefreshTimer, 1000);
+    updateRefreshTimer();
 
     function rotatePages() {
       if (!config.pages) return;
@@ -134,7 +152,7 @@
       } catch (err) { console.error('Failed to load KPIs', err); }
     }
     updateKPIs();
-    setInterval(updateKPIs, 3600000);
+    setInterval(updateKPIs, 900000);
 
     async function loadAssetKPIs() {
       try {
@@ -155,7 +173,11 @@
       }
     }
     loadAssetKPIs();
-    setInterval(loadAssetKPIs, 3600000);
+    setInterval(() => { loadAssetKPIs(); refreshCountdown = refreshInterval / 1000; }, refreshInterval);
+    refreshButton.addEventListener('click', () => {
+      loadAssetKPIs();
+      refreshCountdown = refreshInterval / 1000;
+    });
   </script>
 </body>
 </html>

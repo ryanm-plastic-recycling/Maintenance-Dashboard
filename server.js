@@ -13,7 +13,8 @@ dotenv.config();
 
 const API_V2 = `${process.env.API_BASE_URL}/v2`;
 
-const cacheTtlSeconds = Number(process.env.CACHE_TTL_MINUTES ?? 60) * 60;
+// Default to a 15 minute cache refresh if env var not set
+const cacheTtlSeconds = Number(process.env.CACHE_TTL_MINUTES ?? 15) * 60;
 const checkPeriod = Number(process.env.CACHE_CHECK_PERIOD_SECONDS ?? 1800);
 const cache = new NodeCache({ stdTTL: cacheTtlSeconds, checkperiod: checkPeriod });
 
