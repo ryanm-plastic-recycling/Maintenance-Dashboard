@@ -67,7 +67,7 @@ The cache is controlled via environment variables:
 - `API_BASE_URL` – base URL for Limble API requests (default `https://api.limblecmms.com:443`)
 
 ### KPI time ranges
-KPI calculations default to the previous calendar week and previous 30 days. Override
+KPI calculations default to the previous calendar week and previous calendar month. Override
 these ranges by setting any of the following environment variables to Unix timestamps:
 
 - `KPI_WEEK_START`
@@ -97,12 +97,12 @@ The admin interface is available at `http://<LOCAL_IP>:<PORT>/admin`.
 |-----|-----------|-------------|
 | uptimePct | Last calendar week | `((workHours - downtimeHours) / workHours) * 100` |
 | downtimeHrs | Last calendar week | Sum of all downtime labor entries in hours |
-| mttrHrs | Last 30 days | `Σ downtimeHours / count(unplanned tasks)` |
-| mtbfHrs | Last 30 days | `(workHours - downtimeHours) / count(unplanned tasks)` |
+| mttrHrs | Last calendar month | `Σ downtimeHours / count(unplanned tasks)` |
+| mtbfHrs | Last calendar month | `(workHours - downtimeHours) / count(unplanned tasks)` |
 | planned vs unplanned count | Last calendar week | Number of tasks of each type |
 
 * All assets are assumed to run 24/5.
 * Time ranges can be overridden via the `KPI_*` environment variables
   (see [KPI time ranges](#kpi-time-ranges)). When unset, the server uses the
-  last calendar week and previous 30 days.
+  last calendar week and previous calendar month.
 * Per-asset metrics are returned alongside the overall values from `/api/kpis`.
