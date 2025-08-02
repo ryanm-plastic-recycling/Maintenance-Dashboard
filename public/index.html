@@ -101,7 +101,7 @@
             font-weight: bold;
         }
         .container {
-            max-width: 1200px;
+            max-width: 1440px;
             margin: 120px 20px 20px 160px; /* Adjust margins to match border width and height */
             padding: 20px;
             background-color: #fff;
@@ -140,9 +140,9 @@
             text-align: left;
             border-bottom: 1px solid #ddd;
         }
-        th {
-            background-color: #f2f2f2;
-        }
+        th { background:#25408F; color:#fff; }
+        tbody tr:nth-child(even) { background:#e0e0e0; }
+        tbody tr:nth-child(odd) { background:#fff; }
         .logo {
             position: absolute;
             top: 20px;
@@ -502,7 +502,7 @@
     } catch (err) { console.error('Failed to load KPIs', err); }
   }
   updateKPIs();
-  setInterval(updateKPIs, 3600000);
+  setInterval(updateKPIs, 900000);
 </script>
 </body>
 </html>
