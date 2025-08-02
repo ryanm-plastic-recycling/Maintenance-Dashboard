@@ -66,6 +66,17 @@ The cache is controlled via environment variables:
 - `STATUS_REFRESH_ENDPOINT` – route for manually forcing a refresh (default `/api/cache/refresh`)
 - `API_BASE_URL` – base URL for Limble API requests (default `https://api.limblecmms.com:443`)
 
+### KPI time ranges
+KPI calculations default to the previous calendar week and previous 30 days. Override
+these ranges by setting any of the following environment variables to Unix timestamps:
+
+- `KPI_WEEK_START`
+- `KPI_WEEK_END`
+- `KPI_MONTH_START`
+- `KPI_MONTH_END`
+
+If only a start value is supplied, the end defaults to the end of that week or month.
+
 ## Development
 
 - Lint code with:
@@ -91,7 +102,7 @@ The admin interface is available at `http://<LOCAL_IP>:<PORT>/admin`.
 | planned vs unplanned count | Last calendar week | Number of tasks of each type |
 
 * All assets are assumed to run 24/5.
-* Time ranges can be overridden via environment variables `KPI_WEEK_START`,
-  `KPI_WEEK_END`, `KPI_MONTH_START` and `KPI_MONTH_END` (unix timestamps). When
-  unset, the server uses the last calendar week and previous 30 days.
+* Time ranges can be overridden via the `KPI_*` environment variables
+  (see [KPI time ranges](#kpi-time-ranges)). When unset, the server uses the
+  last calendar week and previous 30 days.
 * Per-asset metrics are returned alongside the overall values from `/api/kpis`.

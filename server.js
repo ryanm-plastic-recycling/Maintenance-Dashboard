@@ -49,10 +49,18 @@ async function loadOverallKpis() {
     'Authorization': 'Basic ' + Buffer.from(`${clientId}:${clientSecret}`).toString('base64')
   };
 
-  const weekStart = moment().startOf('isoWeek').subtract(1, 'week');
-  const weekEnd   = moment(weekStart).endOf('isoWeek');
-  const monthStart = moment().subtract(1, 'month').startOf('month');
-  const monthEnd   = moment().subtract(1, 'month').endOf('month');
+  const weekStart = process.env.KPI_WEEK_START
+    ? moment.unix(Number(process.env.KPI_WEEK_START))
+    : moment().startOf('isoWeek').subtract(1, 'week');
+  const weekEnd = process.env.KPI_WEEK_END
+    ? moment.unix(Number(process.env.KPI_WEEK_END))
+    : weekStart.clone().endOf('isoWeek');
+  const monthStart = process.env.KPI_MONTH_START
+    ? moment.unix(Number(process.env.KPI_MONTH_START))
+    : moment().subtract(1, 'month').startOf('month');
+  const monthEnd = process.env.KPI_MONTH_END
+    ? moment.unix(Number(process.env.KPI_MONTH_END))
+    : monthStart.clone().endOf('month');
 
   let totals = {
     operationalHours: 0,
@@ -180,8 +188,12 @@ async function loadByAssetKpis() {
     'Authorization': 'Basic ' + Buffer.from(`${clientId}:${clientSecret}`).toString('base64')
   };
 
-  const monthStart = moment().subtract(1, 'month').startOf('month');
-  const monthEnd   = moment().subtract(1, 'month').endOf('month');
+  const monthStart = process.env.KPI_MONTH_START
+    ? moment.unix(Number(process.env.KPI_MONTH_START))
+    : moment().subtract(1, 'month').startOf('month');
+  const monthEnd = process.env.KPI_MONTH_END
+    ? moment.unix(Number(process.env.KPI_MONTH_END))
+    : monthStart.clone().endOf('month');
 
   const result = { assets: {}, totals: {
     uptimePct: 0,

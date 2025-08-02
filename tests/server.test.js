@@ -124,3 +124,60 @@ describe('KPI loader error handling', () => {
   });
 });
 
+describe('KPI time range overrides', () => {
+  beforeEach(() => {
+    process.env.CLIENT_ID = 'id';
+    process.env.CLIENT_SECRET = 'secret';
+    fetchMock.mockReset();
+  });
+
+  test('loadOverallKpis uses KPI_* env vars', async () => {
+    process.env.KPI_WEEK_START = '100';
+    process.env.KPI_WEEK_END = '200';
+    process.env.KPI_MONTH_START = '300';
+    process.env.KPI_MONTH_END = '400';
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ data: { tasks: [], entries: [] } })
+    });
+
+    await serverModule.loadOverallKpis();
+
+    const weekTasksUrl = fetchMock.mock.calls[0][0];
+    expect(weekTasksUrl).toContain('dateCompletedGte=100');
+    expect(weekTasksUrl).toContain('dateCompletedLte=200');
+    const laborWeekUrl = fetchMock.mock.calls[1][0];
+    expect(laborWeekUrl).toContain('start=100');
+    const monthTasksUrl = fetchMock.mock.calls[2][0];
+    expect(monthTasksUrl).toContain('dateCompletedGte=300');
+    expect(monthTasksUrl).toContain('dateCompletedLte=400');
+    const laborMonthUrl = fetchMock.mock.calls[3][0];
+    expect(laborMonthUrl).toContain('start=300');
+
+    delete process.env.KPI_WEEK_START;
+    delete process.env.KPI_WEEK_END;
+    delete process.env.KPI_MONTH_START;
+    delete process.env.KPI_MONTH_END;
+  });
+
+  test('loadByAssetKpis uses KPI_MONTH_* env vars', async () => {
+    process.env.KPI_MONTH_START = '500';
+    process.env.KPI_MONTH_END = '600';
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ data: { tasks: [], entries: [] } })
+    });
+
+    await serverModule.loadByAssetKpis();
+
+    const monthTasksUrl = fetchMock.mock.calls[0][0];
+    expect(monthTasksUrl).toContain('dateCompletedGte=500');
+    expect(monthTasksUrl).toContain('dateCompletedLte=600');
+    const laborMonthUrl = fetchMock.mock.calls[1][0];
+    expect(laborMonthUrl).toContain('start=500');
+
+    delete process.env.KPI_MONTH_START;
+    delete process.env.KPI_MONTH_END;
+  });
+});
+
