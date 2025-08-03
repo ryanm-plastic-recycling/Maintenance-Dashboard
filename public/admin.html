@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <title>Admin</title>
     <link rel="stylesheet" href="style.css">
+    <script src="burnin.js"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -216,6 +217,19 @@
         <label>Columns for pm.html: <input type="text" id="cols-pm"></label>
         <button type="submit">Save Config</button>
     </form>
+    <div id="burnin-section">
+        <h2>Burn-in Repair Mode</h2>
+        <div id="burnin-status">
+            Scheduled: <span id="burnin-sched">19:00–05:00</span><br>
+            Currently: <span id="burnin-current">Inactive</span><br>
+            Override: <span id="burnin-override">Off</span>
+        </div>
+        <label>Start: <input type="time" id="burnin-start" value="19:00"></label>
+        <label>End: <input type="time" id="burnin-end" value="05:00"></label>
+        <button id="save-burnin">Save Schedule</button>
+        <button id="enter-burnin">Enter Burn-in Now</button>
+        <button id="exit-burnin">Exit Burn-in Now</button>
+    </div>
     <div id="mapping-section" style="display:none;">
         <label>Update mappings.json: <input type="file" id="mapping-file"></label>
         <button id="upload-map">Upload Mapping</button>
@@ -224,6 +238,11 @@
     </div>
     <script>
         const rotateBtn = document.getElementById('toggle-rotation');
+        const burnStart = document.getElementById('burnin-start');
+        const burnEnd = document.getElementById('burnin-end');
+        const burnSchedSpan = document.getElementById('burnin-sched');
+        const burnCurrentSpan = document.getElementById('burnin-current');
+        const burnOverrideSpan = document.getElementById('burnin-override');
         function updateRotateButton() {
             const paused = localStorage.getItem('rotationPaused') === 'true';
             rotateBtn.textContent = paused ? 'Resume Rotation' : 'Pause Rotation';
@@ -237,10 +256,30 @@
         });
         updateRotateButton();
         let config = {};
+        function isBurnActive(sched){
+            const [sh,sm]=sched.start.split(':').map(Number);
+            const [eh,em]=sched.end.split(':').map(Number);
+            const now=new Date();
+            const start=new Date(); start.setHours(sh,sm,0,0);
+            const end=new Date(); end.setHours(eh,em,0,0);
+            const inWindow = start<=end ? (now>=start && now<end) : (now>=start || now<end);
+            const override=localStorage.getItem('burnInOverride');
+            const active=(inWindow && override!=='off') || override==='on';
+            return {active, override};
+        }
+        function updateBurninUI(){
+            const sched=config.burnInSchedule || {start:'19:00',end:'05:00'};
+            burnStart.value=sched.start;
+            burnEnd.value=sched.end;
+            burnSchedSpan.textContent=`${sched.start}–${sched.end}`;
+            const {active, override} = isBurnActive(sched);
+            burnCurrentSpan.textContent = active ? 'Active' : 'Inactive';
+            burnOverrideSpan.textContent = override==='on' ? 'On' : 'Off';
+        }
         fetch('/config.json')
             .then(r => r.json())
-            .then(cfg => { config = cfg; rotatePages(); })
-            .catch(() => { config = {}; });
+            .then(cfg => { config = cfg; updateBurninUI(); rotatePages(); })
+            .catch(() => { config = {}; updateBurninUI(); });
 
         function rotatePages() {
             if (!config.pages) return;
@@ -248,7 +287,8 @@
             const pages = config.pages;
             const interval = config.interval || 15000;
             const next = pages[(pages.indexOf(page) + 1) % pages.length];
-            setTimeout(() => {
+            setTimeout(async () => {
+                if (await checkBurnIn()) return;
                 if (localStorage.getItem('rotationPaused') === 'true') return;
                 if (next && next !== page) window.location.href = '/' + next;
             }, interval);
@@ -259,6 +299,8 @@
             adminPass = document.getElementById('admin-pass').value;
             const res = await fetch('/api/config');
             const cfg = await res.json();
+            config = cfg;
+            updateBurninUI();
             document.getElementById('pages').value = cfg.pages.join(',');
             document.getElementById('interval').value = cfg.interval;
             document.getElementById('cols-index').value = (cfg.columns['index.html'] || []).join(',');
@@ -283,6 +325,25 @@
                 body: JSON.stringify({password: adminPass, config: cfg})
             });
             alert('Config saved');
+        };
+        document.getElementById('save-burnin').onclick = async () => {
+            config.burnInSchedule = { start: burnStart.value, end: burnEnd.value };
+            await fetch('/api/config', {
+                method:'POST',
+                headers:{'Content-Type':'application/json'},
+                body: JSON.stringify({ password: adminPass, config })
+            });
+            updateBurninUI();
+            alert('Schedule saved');
+        };
+        document.getElementById('enter-burnin').onclick = () => {
+            localStorage.setItem('burnInOverride','on');
+            localStorage.setItem('lastPage', window.location.pathname);
+            window.location.href = '/burnin.html';
+        };
+        document.getElementById('exit-burnin').onclick = () => {
+            localStorage.removeItem('burnInOverride');
+            window.location.href = '/';
         };
         document.getElementById('upload-map').onclick = async () => {
             const file = document.getElementById('mapping-file').files[0];

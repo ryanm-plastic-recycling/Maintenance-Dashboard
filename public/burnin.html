@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Burn-in Repair Mode</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      background: #fff;
+      overflow: hidden;
+      cursor: pointer;
+      font-family: Arial, sans-serif;
+    }
+    .message {
+      position: absolute;
+      font-size: 48px;
+      color: #000;
+      text-align: center;
+      animation: drift 300s infinite ease-in-out;
+    }
+    @keyframes drift {
+      0%   { transform: translate(0,0); }
+      25%  { transform: translate(80vw,10vh); }
+      50%  { transform: translate(20vw,80vh); }
+      75%  { transform: translate(70vw,70vh); }
+      100% { transform: translate(0,0); }
+    }
+  </style>
+</head>
+<body>
+  <div class="message">Burn-in Repair Mode Active<br>(Click anywhere to return to dashboard)</div>
+  <script>
+    document.addEventListener('click', () => {
+      localStorage.setItem('burnInOverride', 'off');
+      const last = localStorage.getItem('lastPage') || '/index.html';
+      window.location.href = last;
+    });
+  </script>
+</body>
+</html>
