@@ -101,7 +101,7 @@
             font-weight: bold;
         }
         .container {
-            max-width: 1440px;
+            max-width: 1728px;
             margin: 120px 20px 20px 160px; /* Adjust margins to match border width and height */
             padding: 20px;
             background-color: #fff;
@@ -403,11 +403,11 @@
             if (!config.columns) return;
             const page = window.location.pathname.split('/').pop() || 'index.html';
             const cols = config.columns[page] || [];
-            document.querySelectorAll('th').forEach(th => {
+            document.querySelectorAll('th[data-col]').forEach(th => {
                 if (!cols.includes(th.dataset.col)) th.style.display = 'none'; else th.style.display = '';
             });
             document.querySelectorAll('#work-order-data tr').forEach(tr => {
-                tr.querySelectorAll('td').forEach(td => {
+                tr.querySelectorAll('td[data-col]').forEach(td => {
                     if (!cols.includes(td.dataset.col)) td.style.display = 'none'; else td.style.display = '';
                 });
             });
