@@ -3,6 +3,7 @@
 <head>
   <title>KPIs by Asset</title>
   <link rel="stylesheet" href="style.css">
+    <script src="burnin.js"></script>
   <style>
     body { font-family: Arial, sans-serif; margin:0; padding:0; background:#f0f0f0; color:#333; position:relative; }
     .top-border { position:fixed; top:0; left:0; width:100%; height:96px; background:rgba(146,208,80,1); z-index:2; display:flex; align-items:center; padding-right:20px; }
@@ -127,10 +128,11 @@
       const pages = config.pages;
       const interval = config.interval || 15000;
       const next = pages[(pages.indexOf(page) + 1) % pages.length];
-      setTimeout(() => {
-        if (localStorage.getItem('rotationPaused') === 'true') return;
-        if (next && next !== page) window.location.href = '/' + next;
-      }, interval);
+      setTimeout(async () => {
+                if (await checkBurnIn()) return;
+                if (localStorage.getItem('rotationPaused') === 'true') return;
+                if (next && next !== page) window.location.href = '/' + next;
+            }, interval);
     }
 
     function updateClock() {

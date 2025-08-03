@@ -3,6 +3,7 @@
 <head>
     <title>Work Order Breakdown</title>
     <link rel="stylesheet" href="style.css">
+    <script src="burnin.js"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -407,7 +408,8 @@
             const pages = config.pages;
             const interval = config.interval || 15000;
             const next = pages[(pages.indexOf(page) + 1) % pages.length];
-            setTimeout(() => {
+            setTimeout(async () => {
+                if (await checkBurnIn()) return;
                 if (localStorage.getItem('rotationPaused') === 'true') return;
                 if (next && next !== page) window.location.href = '/' + next;
             }, interval);
