@@ -64,6 +64,8 @@
             width: 110px;
             margin: 110px auto 10px;
             font-size: 12px;
+            background-color: blue;
+            color: white;
         }
         .weather-container {
             margin-top: 140px;
@@ -274,6 +276,8 @@
     function updateRotateButton() {
         const paused = localStorage.getItem('rotationPaused') === 'true';
         rotateBtn.textContent = paused ? 'Resume Rotation' : 'Pause Rotation';
+        rotateBtn.style.backgroundColor = paused ? 'red' : 'blue';
+        rotateBtn.style.color = 'white';
     }
     rotateBtn.addEventListener('click', () => {
         const paused = localStorage.getItem('rotationPaused') === 'true';

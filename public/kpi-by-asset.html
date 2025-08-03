@@ -12,7 +12,7 @@
     #clock { flex:1; text-align:center; font-size:48px; font-weight:bold; }
     .clock-date { display:block; font-size:20px; }
     .left-border { position:fixed; top:0; left:0; width:128px; height:100%; background:rgba(146,208,80,1); z-index:1; }
-    #toggle-rotation { display:block; width:110px; margin:110px auto 10px; font-size:12px; }
+    #toggle-rotation { display:block; width:110px; margin:110px auto 10px; font-size:12px; background-color: blue; color: white; }
     #refresh-timer { margin-left:10px; font-weight:bold; }
     .container { max-width:1200px; margin:120px 20px 20px 160px; padding:20px; background:#fff; box-shadow:0 2px 4px rgba(0,0,0,0.1); border-radius:8px; position:relative; z-index:1; }
     h1 { text-align:center; margin-bottom:20px; color:rgba(37,64,143,1); }
@@ -102,6 +102,8 @@
     function updateRotateButton() {
       const paused = localStorage.getItem('rotationPaused') === 'true';
       rotateBtn.textContent = paused ? 'Resume Rotation' : 'Pause Rotation';
+      rotateBtn.style.backgroundColor = paused ? 'red' : 'blue';
+      rotateBtn.style.color = 'white';
     }
     rotateBtn.addEventListener('click', () => {
       const paused = localStorage.getItem('rotationPaused') === 'true';
