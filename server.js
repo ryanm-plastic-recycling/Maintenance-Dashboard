@@ -75,7 +75,13 @@ async function loadOverallKpis() {
   for (const asset of mappings.productionAssets || []) {
     const id = asset.id;
     // Log the computed date range and URL before fetching
-    const weekTasksUrl = `${API_V2}/tasks?assets=${id}&status=2&dateCompletedGte=${weekStart.unix()}&dateCompletedLte=${weekEnd.unix()}`;
+    // Use ISO strings and the new completedAfter / completedBefore params
+    const weekTasksUrl = [
+      `${API_V2}/tasks?assets=${id}`,
+      `status=2`,
+      `completedAfter=${encodeURIComponent(weekStart.toISOString())}`,
+      `completedBefore=${encodeURIComponent(weekEnd.toISOString())}`
+    ].join('&');
     console.log(`📅 Fetching weekTasks from ${weekStart.toISOString()} to ${weekEnd.toISOString()} (URL: ${weekTasksUrl})`);
 
     const weekTasksRes = await fetch(weekTasksUrl, { headers });
@@ -129,10 +135,13 @@ async function loadOverallKpis() {
     totals.operationalHours += operationalHrs;
     totals.downtimeHours    += downtimeHrs;
 
-    const taskMonthRes = await fetch(
-      `${API_V2}/tasks?assets=${id}&status=2&dateCompletedGte=${monthStart.unix()}&dateCompletedLte=${monthEnd.unix()}`,
-      { headers }
-    );
+    const monthTasksUrl = [
+      `${API_V2}/tasks?assets=${id}`,
+      `status=2`,
+      `completedAfter=${encodeURIComponent(monthStart.toISOString())}`,
+      `completedBefore=${encodeURIComponent(monthEnd.toISOString())}`
+    ].join('&');
+    const taskMonthRes = await fetch(monthTasksUrl, { headers });
     if (!taskMonthRes.ok) {
       console.error('loadOverallKpis taskMonth error:', taskMonthRes.status);
       throw new Error(`loadOverallKpis taskMonth error: ${taskMonthRes.status}`);
@@ -218,10 +227,13 @@ async function loadByAssetKpis() {
     const id = asset.id;
     const name = asset.name;
 
-    const tasksRes = await fetch(
-      `${API_V2}/tasks?assets=${id}&status=2&dateCompletedGte=${monthStart.unix()}&dateCompletedLte=${monthEnd.unix()}`,
-      { headers }
-    );
+    const byAssetUrl = [
+      `${API_V2}/tasks?assets=${id}`,
+      `status=2`,
+      `completedAfter=${encodeURIComponent(monthStart.toISOString())}`,
+      `completedBefore=${encodeURIComponent(monthEnd.toISOString())}`
+    ].join('&');
+    const tasksRes = await fetch(byAssetUrl, { headers });
     if (!tasksRes.ok) {
       console.error('loadByAssetKpis tasks error:', tasksRes.status);
       throw new Error(`loadByAssetKpis tasks error: ${tasksRes.status}`);
