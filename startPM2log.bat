@@ -10,7 +10,7 @@ REM Change to your project directory
 cd /d "C:\Users\ryanm\OneDrive - Plastic Recycling\Documents\GitHub\Maintenance-Dashboard"
 
 REM reload with any new .env vars
-pm2 reload ecosystem.config.js --update-env
+pm2 reload ecosystem.config.cjs --update-env
 
 REM 1) PM2 process list
 start cmd /k "pm2 ls"

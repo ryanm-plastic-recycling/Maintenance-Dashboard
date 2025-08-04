@@ -5,10 +5,6 @@
     "prodstatus.html"
   ],
   "interval": 30000,
-  "burnInSchedule": {
-    "start": "19:00",
-    "end": "05:00"
-  },
   "columns": {
     "index.html": [
       "locationID",
@@ -19,7 +15,6 @@
       "description",
       "type",
       "createdDate",
-      "due",
       "statusID"
     ],
     "pm.html": [
@@ -34,5 +29,9 @@
       "due",
       "statusID"
     ]
+  },
+  "burnInSchedule": {
+    "start": "19:00",
+    "end": "05:00"
   }
 }
