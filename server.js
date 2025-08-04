@@ -74,13 +74,17 @@ async function loadOverallKpis() {
 
   for (const asset of mappings.productionAssets || []) {
     const id = asset.id;
+    // Log the computed date range and URL before fetching
+    const weekTasksUrl = `${API_V2}/tasks?assets=${id}&status=2&dateCompletedGte=${weekStart.unix()}&dateCompletedLte=${weekEnd.unix()}`;
+    console.log(`📅 Fetching weekTasks from ${weekStart.toISOString()} to ${weekEnd.toISOString()} (URL: ${weekTasksUrl})`);
 
-    const weekTasksRes = await fetch(
-      `${API_V2}/tasks?assets=${id}&status=2&dateCompletedGte=${weekStart.unix()}&dateCompletedLte=${weekEnd.unix()}`,
-      { headers }
-    );
+    const weekTasksRes = await fetch(weekTasksUrl, { headers });
     if (!weekTasksRes.ok) {
-      console.error('loadOverallKpis weekTasks error:', weekTasksRes.status);
+      const body = await weekTasksRes.text();
+      console.error(
+        `🔴 WeekTasks API returned ${weekTasksRes.status} for URL ${weekTasksUrl}\nResponse body:`,
+        body
+      );
       throw new Error(`loadOverallKpis weekTasks error: ${weekTasksRes.status}`);
     }
     const weekTasksJson = await weekTasksRes.json();
