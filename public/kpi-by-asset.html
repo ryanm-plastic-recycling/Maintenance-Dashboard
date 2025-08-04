@@ -86,6 +86,39 @@
         <tr id="kpi-total-row" style="font-weight:bold;"></tr>
       </tfoot>
     </table>
+    <script>
+      async function loadAssetKPIs() {
+        const res  = await fetch('/api/kpis-by-asset');
+        const data = await res.json();
+        const tbody = document.querySelector('#kpi-table tbody');
+        tbody.innerHTML = '';
+        Object.values(data.assets).forEach(a => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${a.name}</td>
+            <td>${a.uptimePct}%</td>
+            <td>${a.downtimeHrs}</td>
+            <td>${a.mttrHrs}</td>
+            <td>${a.mtbfHrs}</td>
+            <td>${a.plannedCount}</td>
+            <td>${a.unplannedCount}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+        const tot = data.totals;
+        document.getElementById('kpi-total-row').innerHTML = `
+          <td>Total</td>
+          <td>${tot.uptimePct}%</td>
+          <td>${tot.downtimeHrs}</td>
+          <td>${tot.mttrHrs}</td>
+          <td>${tot.mtbfHrs}</td>
+          <td>${tot.plannedCount}</td>
+          <td>${tot.unplannedCount}</td>
+        `;
+      }
+      loadAssetKPIs();
+      setInterval(loadAssetKPIs, 15 * 60 * 1000);
+    </script>
   </div>
   <script>
     const rotateBtn = document.getElementById('toggle-rotation');
@@ -135,53 +168,49 @@
             }, interval);
     }
 
-    function updateClock() {
-      const now = new Date();
-      const dateFmt = new Intl.DateTimeFormat('en-US', { timeZone:'America/Indiana/Indianapolis', weekday:'short', month:'short', day:'numeric', year:'numeric' });
-      const timeFmt = new Intl.DateTimeFormat('en-US', { timeZone:'America/Indiana/Indianapolis', hour:'numeric', minute:'2-digit', second:'2-digit' });
-      document.getElementById('clock').innerHTML = `<span class="clock-date">${dateFmt.format(now)}</span>${timeFmt.format(now)}`;
-    }
-    setInterval(updateClock, 1000);
-    updateClock();
-
-    async function updateKPIs() {
-      try {
-        const res = await fetch('/api/kpis');
-        const data = await res.json();
-        const k = data.overall;
-        document.getElementById('uptime-value').innerText = k.uptimePct + '%';
-        document.getElementById('mttr-value').innerText = k.mttrHrs + 'h';
-        document.getElementById('mtbf-value').innerText = k.mtbfHrs + 'h';
-        document.getElementById('planned-vs-unplanned').innerText = `${((k.plannedCount/(k.plannedCount+k.unplannedCount))*100).toFixed(0)}% vs ${((k.unplannedCount/(k.plannedCount+k.unplannedCount))*100).toFixed(0)}%`;
-      } catch (err) { console.error('Failed to load KPIs', err); }
-    }
-    updateKPIs();
-    setInterval(updateKPIs, 900000);
-
-    async function loadAssetKPIs() {
-      try {
-        const res = await fetch('/api/kpis-by-asset');
-        const data = await res.json();
-        const tbody = document.querySelector('#kpi-table tbody');
-        tbody.innerHTML = '';
-        Object.entries(data.assets).forEach(([id, a]) => {
-          const tr = document.createElement('tr');
-          tr.innerHTML = `<td>${a.name}</td><td>${a.uptimePct}</td><td>${a.downtimeHrs}</td><td>${a.mttrHrs}</td><td>${a.mtbfHrs}</td><td>${a.plannedCount}</td><td>${a.unplannedCount}</td>`;
-          tbody.appendChild(tr);
-        });
-        const tot = data.totals;
-        const totalRow = document.getElementById('kpi-total-row');
-        totalRow.innerHTML = `<td>Total</td><td>${tot.uptimePct}</td><td>${tot.downtimeHrs}</td><td>${tot.mttrHrs}</td><td>${tot.mtbfHrs}</td><td>${tot.plannedCount}</td><td>${tot.unplannedCount}</td>`;
-      } catch (err) {
-        console.error('Failed to load KPIs by asset', err);
-      }
-    }
-    loadAssetKPIs();
     setInterval(() => { loadAssetKPIs(); refreshCountdown = refreshInterval / 1000; }, refreshInterval);
     refreshButton.addEventListener('click', () => {
       loadAssetKPIs();
       refreshCountdown = refreshInterval / 1000;
     });
+  </script>
+  <script>
+    // clock
+    function updateClock() {
+      const now = new Date();
+      const dateFmt = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'America/Indiana/Indianapolis',
+        weekday:'short', month:'short', day:'numeric', year:'numeric'
+      });
+      const timeFmt = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'America/Indiana/Indianapolis',
+        hour:'numeric', minute:'2-digit', second:'2-digit'
+      });
+      document.getElementById('clock').innerHTML =
+        `<span class="clock-date">${dateFmt.format(now)}</span>${timeFmt.format(now)}`;
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    // overall KPIs
+    async function updateKPIs() {
+      try {
+        const res = await fetch('/api/kpis');
+        const { overall: k } = await res.json();
+        document.getElementById('uptime-value').innerText       = k.uptimePct + '%';
+        document.getElementById('mttr-value').innerText         = k.mttrHrs   + 'h';
+        document.getElementById('mtbf-value').innerText         = k.mtbfHrs   + 'h';
+        const total = k.plannedCount + k.unplannedCount;
+        const plannedPct   = total ? ((k.plannedCount/total)*100).toFixed(0)   + '%' : '0%';
+        const unplannedPct = total ? ((k.unplannedCount/total)*100).toFixed(0) + '%' : '0%';
+        document.getElementById('planned-vs-unplanned').innerText =
+          `${plannedPct} vs ${unplannedPct}`;
+      } catch (err) {
+        console.error('Failed to load KPIs', err);
+      }
+    }
+    updateKPIs();
+    setInterval(updateKPIs, 15 * 60 * 1000);
   </script>
 </body>
 </html>
