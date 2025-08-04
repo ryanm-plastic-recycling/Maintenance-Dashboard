@@ -20,3 +20,19 @@
   font-size: 1rem; font-weight: 500;
   min-width: 100px; text-align: center;
 }
+
+@media (forced-colors: active) {
+  /* high-contrast overrides using system color keywords */
+  body {
+    background-color: Canvas;
+    color: CanvasText;
+  }
+  a {
+    color: LinkText;
+  }
+  button {
+    background-color: ButtonFace;
+    color: ButtonText;
+    border: 1px solid ButtonText;
+  }
+}

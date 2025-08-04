@@ -518,20 +518,16 @@
     //fetchData();
 </script>
 <script>
+  // clock
   function updateClock() {
     const now = new Date();
     const dateFmt = new Intl.DateTimeFormat('en-US', {
       timeZone: 'America/Indiana/Indianapolis',
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric'
+      weekday:'short', month:'short', day:'numeric', year:'numeric'
     });
     const timeFmt = new Intl.DateTimeFormat('en-US', {
       timeZone: 'America/Indiana/Indianapolis',
-      hour: 'numeric',
-      minute: '2-digit',
-      second: '2-digit'
+      hour:'numeric', minute:'2-digit', second:'2-digit'
     });
     document.getElementById('clock').innerHTML =
       `<span class="clock-date">${dateFmt.format(now)}</span>${timeFmt.format(now)}`;
@@ -539,20 +535,25 @@
   setInterval(updateClock, 1000);
   updateClock();
 
+  // overall KPIs
   async function updateKPIs() {
     try {
       const res = await fetch('/api/kpis');
-      const data = await res.json();
-      const k = data.overall;
+      const { overall: k } = await res.json();
       document.getElementById('uptime-value').innerText       = k.uptimePct + '%';
-      document.getElementById('mttr-value').innerText         = k.mttrHrs + 'h';
-      document.getElementById('mtbf-value').innerText         = k.mtbfHrs + 'h';
+      document.getElementById('mttr-value').innerText         = k.mttrHrs   + 'h';
+      document.getElementById('mtbf-value').innerText         = k.mtbfHrs   + 'h';
+      const total = k.plannedCount + k.unplannedCount;
+      const plannedPct   = total ? ((k.plannedCount/total)*100).toFixed(0)   + '%' : '0%';
+      const unplannedPct = total ? ((k.unplannedCount/total)*100).toFixed(0) + '%' : '0%';
       document.getElementById('planned-vs-unplanned').innerText =
-        `${ ((k.plannedCount/(k.plannedCount+k.unplannedCount))*100).toFixed(0) }% vs ${ ((k.unplannedCount/(k.plannedCount+k.unplannedCount))*100).toFixed(0) }%`;
-    } catch (err) { console.error('Failed to load KPIs', err); }
+        `${plannedPct} vs ${unplannedPct}`;
+    } catch (err) {
+      console.error('Failed to load KPIs', err);
+    }
   }
   updateKPIs();
-  setInterval(updateKPIs, 60000);
+  setInterval(updateKPIs, 15 * 60 * 1000);
 </script>
 <script>
 Promise.all([
