@@ -141,6 +141,10 @@ async function loadOverallKpis() {
       `completedAfter=${encodeURIComponent(monthStart.toISOString())}`,
       `completedBefore=${encodeURIComponent(monthEnd.toISOString())}`
     ].join('&');
+    console.log(
+      `📅 Fetching monthTasks from ${monthStart.toISOString()} to ${monthEnd.toISOString()} ` +
+      `(URL: ${monthTasksUrl})`
+    );
     const taskMonthRes = await fetch(monthTasksUrl, { headers });
     if (!taskMonthRes.ok) {
       console.error('loadOverallKpis taskMonth error:', taskMonthRes.status);
@@ -233,6 +237,11 @@ async function loadByAssetKpis() {
       `completedAfter=${encodeURIComponent(monthStart.toISOString())}`,
       `completedBefore=${encodeURIComponent(monthEnd.toISOString())}`
     ].join('&');
+    console.log(
+      `📅 Fetching per-asset tasks for ${asset.name} (${asset.id}) from ` +
+      `${monthStart.toISOString()} to ${monthEnd.toISOString()} ` +
+      `(URL: ${byAssetUrl})`
+    );
     const tasksRes = await fetch(byAssetUrl, { headers });
     if (!tasksRes.ok) {
       console.error('loadByAssetKpis tasks error:', tasksRes.status);
@@ -340,6 +349,7 @@ const ipv4 = Object.values(nets)
 
 // ─── express setup ────────────────────────────────────────────────────────
 const app = express();
+app.fetchAndCache = fetchAndCache;
 app.use(express.json());
 const PORT = process.env.PORT || 3000;
 app.use(express.static(path.join(__dirname, 'public')));
@@ -579,8 +589,5 @@ if (process.env.NODE_ENV !== 'test') {
       console.log('✅ Cache refreshed at', new Date().toISOString());
     }, refreshMs);
 }
-
-app.fetchAndCache = fetchAndCache;
-
 export { fetchAndCache, loadOverallKpis, loadByAssetKpis };
 export default app;
