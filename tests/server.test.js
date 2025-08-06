@@ -93,10 +93,10 @@ describe('KPI endpoints', () => {
 });
 
 describe('Status endpoint', () => {
-  test('GET /api/status returns asset status array', async () => {
+  test('GET /api/status returns asset status array with next refresh', async () => {
     const res = await request(app).get('/api/status');
     expect(res.status).toBe(200);
-    expect(res.body).toEqual(dummyStatus);
+    expect(res.body).toEqual({ status: dummyStatus, nextRefresh: expect.any(Number) });
   });
 });
 
@@ -107,13 +107,13 @@ describe('KPI loader error handling', () => {
     fetchMock.mockReset();
   });
 
-  test('loadOverallKpis logs and throws on non-ok response', async () => {
-    fetchMock.mockResolvedValueOnce({ ok: false, status: 500, json: async () => ({}) });
-    const errSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
-    await expect(serverModule.loadOverallKpis()).rejects.toThrow('500');
-    expect(errSpy).toHaveBeenCalledWith('loadOverallKpis weekTasks error:', 500);
-    errSpy.mockRestore();
-  });
+    test('loadOverallKpis logs and throws on non-ok response', async () => {
+      fetchMock.mockResolvedValueOnce({ ok: false, status: 500, json: async () => ({}), text: async () => '' });
+      const errSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      await expect(serverModule.loadOverallKpis()).rejects.toThrow('500');
+      expect(errSpy).toHaveBeenCalled();
+      errSpy.mockRestore();
+    });
 
   test('loadByAssetKpis logs and throws on non-ok response', async () => {
     fetchMock.mockResolvedValueOnce({ ok: false, status: 404, json: async () => ({}) });
@@ -143,16 +143,20 @@ describe('KPI time range overrides', () => {
 
     await serverModule.loadOverallKpis();
 
-    const weekTasksUrl = fetchMock.mock.calls[0][0];
-    expect(weekTasksUrl).toContain('dateCompletedGte=100');
-    expect(weekTasksUrl).toContain('dateCompletedLte=200');
-    const laborWeekUrl = fetchMock.mock.calls[1][0];
-    expect(laborWeekUrl).toContain('start=100');
-    const monthTasksUrl = fetchMock.mock.calls[2][0];
-    expect(monthTasksUrl).toContain('dateCompletedGte=300');
-    expect(monthTasksUrl).toContain('dateCompletedLte=400');
-    const laborMonthUrl = fetchMock.mock.calls[3][0];
-    expect(laborMonthUrl).toContain('start=300');
+      const weekTasksUrl = fetchMock.mock.calls[0][0];
+      const weekStartIso = new Date(100 * 1000).toISOString();
+      const weekEndIso = new Date(200 * 1000).toISOString();
+      expect(weekTasksUrl).toContain(`completedAfter=${encodeURIComponent(weekStartIso)}`);
+      expect(weekTasksUrl).toContain(`completedBefore=${encodeURIComponent(weekEndIso)}`);
+      const laborWeekUrl = fetchMock.mock.calls[1][0];
+      expect(laborWeekUrl).toContain('start=100');
+      const monthTasksUrl = fetchMock.mock.calls[2][0];
+      const monthStartIso = new Date(300 * 1000).toISOString();
+      const monthEndIso = new Date(400 * 1000).toISOString();
+      expect(monthTasksUrl).toContain(`completedAfter=${encodeURIComponent(monthStartIso)}`);
+      expect(monthTasksUrl).toContain(`completedBefore=${encodeURIComponent(monthEndIso)}`);
+      const laborMonthUrl = fetchMock.mock.calls[3][0];
+      expect(laborMonthUrl).toContain('start=300');
 
     delete process.env.KPI_WEEK_START;
     delete process.env.KPI_WEEK_END;
@@ -170,11 +174,13 @@ describe('KPI time range overrides', () => {
 
     await serverModule.loadByAssetKpis();
 
-    const monthTasksUrl = fetchMock.mock.calls[0][0];
-    expect(monthTasksUrl).toContain('dateCompletedGte=500');
-    expect(monthTasksUrl).toContain('dateCompletedLte=600');
-    const laborMonthUrl = fetchMock.mock.calls[1][0];
-    expect(laborMonthUrl).toContain('start=500');
+      const monthTasksUrl = fetchMock.mock.calls[0][0];
+      const startIso = new Date(500 * 1000).toISOString();
+      const endIso = new Date(600 * 1000).toISOString();
+      expect(monthTasksUrl).toContain(`completedAfter=${encodeURIComponent(startIso)}`);
+      expect(monthTasksUrl).toContain(`completedBefore=${encodeURIComponent(endIso)}`);
+      const laborMonthUrl = fetchMock.mock.calls[1][0];
+      expect(laborMonthUrl).toContain('start=500');
 
     delete process.env.KPI_MONTH_START;
     delete process.env.KPI_MONTH_END;
