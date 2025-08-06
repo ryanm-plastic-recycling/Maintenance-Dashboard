@@ -144,17 +144,13 @@ describe('KPI time range overrides', () => {
     await serverModule.loadOverallKpis();
 
       const weekTasksUrl = fetchMock.mock.calls[0][0];
-      const weekStartIso = new Date(100 * 1000).toISOString();
-      const weekEndIso = new Date(200 * 1000).toISOString();
-      expect(weekTasksUrl).toContain(`completedAfter=${encodeURIComponent(weekStartIso)}`);
-      expect(weekTasksUrl).toContain(`completedBefore=${encodeURIComponent(weekEndIso)}`);
+      expect(weekTasksUrl).toContain('dateCompletedGte=100');
+      expect(weekTasksUrl).toContain('dateCompletedLte=200');
       const laborWeekUrl = fetchMock.mock.calls[1][0];
       expect(laborWeekUrl).toContain('start=100');
       const monthTasksUrl = fetchMock.mock.calls[2][0];
-      const monthStartIso = new Date(300 * 1000).toISOString();
-      const monthEndIso = new Date(400 * 1000).toISOString();
-      expect(monthTasksUrl).toContain(`completedAfter=${encodeURIComponent(monthStartIso)}`);
-      expect(monthTasksUrl).toContain(`completedBefore=${encodeURIComponent(monthEndIso)}`);
+      expect(monthTasksUrl).toContain('dateCompletedGte=300');
+      expect(monthTasksUrl).toContain('dateCompletedLte=400');
       const laborMonthUrl = fetchMock.mock.calls[3][0];
       expect(laborMonthUrl).toContain('start=300');
 
@@ -175,10 +171,8 @@ describe('KPI time range overrides', () => {
     await serverModule.loadByAssetKpis();
 
       const monthTasksUrl = fetchMock.mock.calls[0][0];
-      const startIso = new Date(500 * 1000).toISOString();
-      const endIso = new Date(600 * 1000).toISOString();
-      expect(monthTasksUrl).toContain(`completedAfter=${encodeURIComponent(startIso)}`);
-      expect(monthTasksUrl).toContain(`completedBefore=${encodeURIComponent(endIso)}`);
+      expect(monthTasksUrl).toContain('dateCompletedGte=500');
+      expect(monthTasksUrl).toContain('dateCompletedLte=600');
       const laborMonthUrl = fetchMock.mock.calls[1][0];
       expect(laborMonthUrl).toContain('start=500');
 
