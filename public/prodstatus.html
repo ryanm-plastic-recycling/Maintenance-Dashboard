@@ -288,15 +288,15 @@
     //const fetchButton = document.getElementById('fetch-button');
     //const inputValue = document.getElementById('input-value');
     //const workOrderDataContainer = document.getElementById('work-order-data');
-        const refreshButton = document.getElementById('refresh-button');
-        const refreshStatusButton = document.getElementById('refresh-status');
-    const workOrderDataContainer = document.getElementById('work-order-data');
-    const rotateBtn = document.getElementById('toggle-rotation');
-    const refreshTimerEl = document.getElementById('refresh-timer');
-    const refreshInterval = 900000; // 15 minutes
-    let refreshCountdown = refreshInterval / 1000;
-    let mappings = {};
-    let config = {};
+     const refreshButton = document.getElementById('refresh-button');
+     const refreshStatusButton = document.getElementById('refresh-status');
+ const workOrderDataContainer = document.getElementById('work-order-data');
+ const rotateBtn = document.getElementById('toggle-rotation');
+ const refreshTimerEl = document.getElementById('refresh-timer');
+ let refreshTimeout;
+ let refreshCountdown = 0;
+ let mappings = {};
+ let config = {};
 
     fetch('/config.json')
         .then(res => res.json())
@@ -309,14 +309,13 @@
         rotateBtn.style.backgroundColor = paused ? 'red' : 'blue';
         rotateBtn.style.color = 'white';
     }
-    function updateRefreshTimer() {
-        const m = Math.floor(refreshCountdown / 60);
-        const s = String(refreshCountdown % 60).padStart(2, '0');
-        refreshTimerEl.textContent = `Next refresh in ${m}:${s}`;
-        refreshCountdown = refreshCountdown > 0 ? refreshCountdown - 1 : refreshInterval / 1000;
-    }
-    setInterval(updateRefreshTimer, 1000);
-    updateRefreshTimer();
+     function updateRefreshTimer() {
+         const m = Math.floor(refreshCountdown / 60);
+         const s = String(Math.max(refreshCountdown, 0) % 60).padStart(2, '0');
+         refreshTimerEl.textContent = `Next refresh in ${m}:${s}`;
+         refreshCountdown = refreshCountdown > 0 ? refreshCountdown - 1 : 0;
+     }
+     setInterval(updateRefreshTimer, 1000);
     rotateBtn.addEventListener('click', () => {
         const paused = localStorage.getItem('rotationPaused') === 'true';
         localStorage.setItem('rotationPaused', paused ? 'false' : 'true');
@@ -324,16 +323,16 @@
     });
     updateRotateButton();
 
-    fetch('/mappings.json')
-        .then(res => res.json())
-        .then(data => {
-            mappings = data;
-            fetchData();
-        })
-        .catch(err => {
-            console.error('Failed to load mappings:', err);
-            fetchData();
-        });
+     fetch('/mappings.json')
+         .then(res => res.json())
+         .then(data => {
+             mappings = data;
+             refreshAll();
+         })
+         .catch(err => {
+             console.error('Failed to load mappings:', err);
+             refreshAll();
+         });
 	
 	// Function to format Unix timestamp to "YYYY-MM-DD" format
 	function formatDate(timestamp) {
@@ -436,7 +435,7 @@
     function fetchData() {
 		// Make API request with user-input value and authorization header
 		// You need to fetch the asset data first to swap ID for Name
-		fetch('/api/assets') // Use the endpoint for fetching assets
+        fetch('/api/assets') // Use the endpoint for fetching assets
         .then(response => response.json())
         .then(assetsData => {
             // Create a mapping of assetID to assetName
@@ -501,22 +500,63 @@
             console.error('Error fetching assets:', error);
             workOrderDataContainer.innerHTML = 'Error fetching data.';
         });
-	}
-        refreshButton.addEventListener('click', () => {
-        fetchData();
-        refreshCountdown = refreshInterval / 1000;
-    });
-    setInterval(() => {
-        fetchData();
-        refreshCountdown = refreshInterval / 1000;
-    }, refreshInterval);
-    refreshStatusButton.addEventListener('click', () => {
-        fetch(process.env.STATUS_REFRESH_ENDPOINT || '/api/cache/refresh', { method: 'POST' });
-    });
+        }
 
-    // Fetch and load the data when the page loads
-    //fetchData();
-</script>
+      function scheduleRefresh(delay) {
+        clearTimeout(refreshTimeout);
+        refreshCountdown = Math.floor(delay / 1000);
+        updateRefreshTimer();
+        refreshTimeout = setTimeout(refreshAll, delay);
+      }
+
+      async function loadStatus() {
+        const res = await fetch('/api/status');
+        const { status, nextRefresh } = await res.json();
+        renderStatus(status);
+        scheduleRefresh(Math.max(0, nextRefresh - Date.now()));
+      }
+
+      async function refreshAll() {
+        await fetchData();
+        await loadStatus();
+      }
+
+      function renderStatus(status) {
+        const tbody = document.getElementById('status-data');
+        tbody.innerHTML = '';
+        (mappings.productionAssets || []).forEach(item => {
+          const entry = status.find(s => s.assetID === item.id) || {};
+          const tr = document.createElement('tr');
+          const colorMap = mappings.statusColorMapping || {};
+          const textMap  = mappings.statusTextMapping || {};
+          const statusId = Object.keys(textMap).find(k => textMap[k] === entry.status);
+          const bg = colorMap[statusId] || colorMap[entry.status] || '#fff';
+          tr.style.backgroundColor = bg;
+          const bgLower = bg.toLowerCase();
+          let fg = '#000';
+          if (bgLower === '#d64550' || bgLower === 'red') fg = '#ffffff';
+          else if (bgLower === '#0aac00' || bgLower === 'green') fg = '#000000';
+          else if (bgLower === '#118dff' || bgLower === 'blue') fg = '#ffffff';
+          else if (bgLower === '#d9b300' || bgLower === 'yellow') fg = '#000000';
+          tr.style.color = fg;
+          tr.innerHTML = `
+            <td>${item.name}</td>
+            <td>${entry.status ?? 'N/A'}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+      }
+
+      refreshButton.addEventListener('click', () => {
+        clearTimeout(refreshTimeout);
+        refreshAll();
+      });
+      refreshStatusButton.addEventListener('click', () => {
+        fetch(process.env.STATUS_REFRESH_ENDPOINT || '/api/cache/refresh', { method: 'POST' });
+      });
+
+    // Fetch and load the data when the page loads handled by refreshAll()
+    </script>
 <script>
   // clock
   function updateClock() {
@@ -554,43 +594,6 @@
   }
   updateKPIs();
   setInterval(updateKPIs, 15 * 60 * 1000);
-</script>
-<script>
-Promise.all([
-  fetch('/mappings.json').then(r => r.json()),
-  fetch('/api/status').then(r => r.json())
-])
-.then(([mappings, status]) => {
-  const tbody = document.getElementById('status-data');
-  tbody.innerHTML = '';
-
-  (mappings.productionAssets || []).forEach(item => {
-    const entry = status.find(s => s.assetID === item.id) || {};
-    const tr = document.createElement('tr');
-    // ★ look up the color for this status (fall back to white)
-    const colorMap = mappings.statusColorMapping || {};
-    const textMap  = mappings.statusTextMapping || {};
-    const statusId = Object.keys(textMap).find(k => textMap[k] === entry.status);
-    const bg = colorMap[statusId] || colorMap[entry.status] || '#fff';
-    // ★ apply it to the row
-    tr.style.backgroundColor = bg;
-
-    const bgLower = bg.toLowerCase();
-    let fg = '#000';
-    if (bgLower === '#d64550' || bgLower === 'red') fg = '#ffffff';
-    else if (bgLower === '#0aac00' || bgLower === 'green') fg = '#000000';
-    else if (bgLower === '#118dff' || bgLower === 'blue') fg = '#ffffff';
-    else if (bgLower === '#d9b300' || bgLower === 'yellow') fg = '#000000';
-    tr.style.color = fg;
-
-    tr.innerHTML = `
-      <td>${item.name}</td>
-      <td>${entry.status ?? 'N/A'}</td>
-    `;
-    tbody.appendChild(tr);
-  });
-})
-.catch(err => console.error('Production-status render error:', err));
 </script>
 </body>
 </html>

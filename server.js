@@ -13,8 +13,8 @@ dotenv.config();
 
 const API_V2 = `${process.env.API_BASE_URL}/v2`;
 
-// Default to a 15 minute cache refresh if env var not set
-const cacheTtlSeconds = Number(process.env.CACHE_TTL_MINUTES ?? 15) * 60;
+// Default to a 5 minute cache refresh if env var not set
+const cacheTtlSeconds = Number(process.env.CACHE_TTL_MINUTES ?? 5) * 60;
 const checkPeriod = Number(process.env.CACHE_CHECK_PERIOD_SECONDS ?? 1800);
 const cache = new NodeCache({ stdTTL: cacheTtlSeconds, checkperiod: checkPeriod });
 
@@ -546,7 +546,8 @@ app.get('/api/kpis', async (req, res) => {
 app.get('/api/status', async (req, res) => {
   try {
     const status = await app.fetchAndCache('status', loadAssetStatus);
-    res.json(status);
+    const nextRefresh = cache.getTtl('status') ?? Date.now() + cacheTtlSeconds * 1000;
+    res.json({ status, nextRefresh });
   } catch (err) {
     console.error('Status error:', err);
     res.status(500).json({ error: 'Failed to fetch status' });
