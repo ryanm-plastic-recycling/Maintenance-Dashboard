@@ -562,25 +562,44 @@ app.get('/api/kpis-by-asset', async (req, res) => {
 const shouldListen =
   process.env.NODE_ENV !== 'test' || process.env.FORCE_LISTEN === 'true';
 
-if (shouldListen) {
-  app.listen(PORT, () => {
-    console.log(`Local:  http://localhost:${PORT}/`);
-    console.log(`On LAN: http://${ipv4}:${PORT}/`);
-    console.log(`NOICE! Server running at ${PORT}.`);
-  });
-  const refreshMs = cacheTtlSeconds * 1000;
-  setInterval(async () => {
-    await Promise.all([
-      app.fetchAndCache('kpis_overall', loadOverallKpis),
-      app.fetchAndCache('kpis_byAsset', loadByAssetKpis),
-      app.fetchAndCache('status', loadAssetStatus),
-    ]);
-    console.log('✅ Cache refreshed at', new Date().toISOString());
-  }, refreshMs);
-} else {
-  console.warn(
-    'Skipping app.listen because NODE_ENV is "test". Set FORCE_LISTEN=true to override.'
-  );
-}
+  if (shouldListen) {
+    app.listen(PORT, () => {
+      console.log(`Local:  http://localhost:${PORT}/`);
+      console.log(`On LAN: http://${ipv4}:${PORT}/`);
+      console.log(`NOICE! Server running at ${PORT}.`);
+    });
+    const refreshMs = cacheTtlSeconds * 1000;
+    setInterval(async () => {
+      try {
+        await Promise.all([
+          app
+            .fetchAndCache('kpis_overall', loadOverallKpis)
+            .catch((err) => {
+              console.error('Failed to refresh kpis_overall cache:', err);
+              throw err;
+            }),
+          app
+            .fetchAndCache('kpis_byAsset', loadByAssetKpis)
+            .catch((err) => {
+              console.error('Failed to refresh kpis_byAsset cache:', err);
+              throw err;
+            }),
+          app
+            .fetchAndCache('status', loadAssetStatus)
+            .catch((err) => {
+              console.error('Failed to refresh status cache:', err);
+              throw err;
+            }),
+        ]);
+        console.log('✅ Cache refreshed at', new Date().toISOString());
+      } catch (err) {
+        console.error('❌ Cache refresh failed:', err);
+      }
+    }, refreshMs);
+  } else {
+    console.warn(
+      'Skipping app.listen because NODE_ENV is "test". Set FORCE_LISTEN=true to override.'
+    );
+  }
 export { fetchAndCache, loadOverallKpis, loadByAssetKpis };
 export default app;
