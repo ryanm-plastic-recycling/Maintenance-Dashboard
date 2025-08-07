@@ -44,148 +44,125 @@ const assetIdList = Array.isArray(mappings.productionAssets)
 const assetIDs = assetIdList.join(',');
 
 async function loadOverallKpis() {
-  const clientId = process.env.CLIENT_ID;
+  const clientId     = process.env.CLIENT_ID;
   const clientSecret = process.env.CLIENT_SECRET;
   const headers = {
-    'Authorization': 'Basic ' + Buffer.from(`${clientId}:${clientSecret}`).toString('base64')
+    'Authorization': 'Basic ' + Buffer
+      .from(`${clientId}:${clientSecret}`)
+      .toString('base64')
   };
 
-  const weekStart = process.env.KPI_WEEK_START
-    ? moment.unix(Number(process.env.KPI_WEEK_START))
-    : moment().startOf('isoWeek').subtract(1, 'week');
-  const weekEnd = process.env.KPI_WEEK_END
-    ? moment.unix(Number(process.env.KPI_WEEK_END))
-    : weekStart.clone().endOf('isoWeek');
-  const monthStart = process.env.KPI_MONTH_START
-    ? moment.unix(Number(process.env.KPI_MONTH_START))
-    : moment().subtract(1, 'month').startOf('month');
-  const monthEnd = process.env.KPI_MONTH_END
-    ? moment.unix(Number(process.env.KPI_MONTH_END))
-    : monthStart.clone().endOf('month');
+  // Define your ISO-week last week and last calendar month
+  const weekStart = moment().startOf('isoWeek').subtract(1, 'week');
+  const weekEnd   = weekStart.clone().endOf('isoWeek');
+  const monthStart = moment().subtract(1, 'month').startOf('month');
+  const monthEnd   = monthStart.clone().endOf('month');
 
   let totals = {
     operationalHours: 0,
-    downtimeHours: 0,
-    plannedCount: 0,
-    unplannedCount: 0,
-    downtimeMinutes: 0,
-    unplannedWO: 0,
-    dates: []
+    downtimeHours:    0,
+    plannedCount:     0,
+    unplannedCount:   0,
+    downtimeMinutes:  0,
+    unplannedWO:      0,
+    dates:            []
   };
 
   for (const asset of mappings.productionAssets || []) {
     const id = asset.id;
-    // Log the computed date range and URL before fetching
-    const weekTasksUrl = `${API_V2}/tasks?assets=${id}&status=2`;
-    console.log(`📅 Fetching weekTasks from ${weekStart.toISOString()} to ${weekEnd.toISOString()} (URL: ${weekTasksUrl})`);
 
-    const weekTasksRes = await fetch(weekTasksUrl, { headers });
-    if (!weekTasksRes.ok) {
-      const body = await weekTasksRes.text();
-      console.error(
-        `🔴 WeekTasks API returned ${weekTasksRes.status} for URL ${weekTasksUrl}\nResponse body:`,
-        body
-      );
-      throw new Error(`loadOverallKpis weekTasks error: ${weekTasksRes.status}`);
+    // ── WEEKLY ──
+    const weekUrl = `${API_V2}/tasks?assets=${id}&status=2`;
+    console.log(`📅 Fetching all tasks for asset ${id}…`);
+    const weekRes = await fetch(weekUrl, { headers });
+    if (!weekRes.ok) {
+      const body = await weekRes.text();
+      throw new Error(`Week tasks ${weekRes.status}: ${body}`);
     }
-    const weekTasksJson = await weekTasksRes.json();
-    const weekTasks = Array.isArray(weekTasksJson)
-      ? weekTasksJson
-      : Array.isArray(weekTasksJson.data)
-        ? weekTasksJson.data
-        : Array.isArray(weekTasksJson.data?.tasks)
-          ? weekTasksJson.data.tasks
+    const weekJson = await weekRes.json();
+    const rawWeekTasks = Array.isArray(weekJson)
+      ? weekJson
+      : Array.isArray(weekJson.data)
+        ? weekJson.data
+        : Array.isArray(weekJson.data?.tasks)
+          ? weekJson.data.tasks
           : [];
     const weekTasks = rawWeekTasks.filter(t =>
       t.dateCompleted >= weekStart.unix() &&
       t.dateCompleted <= weekEnd.unix()
     );
-
     totals.plannedCount   += weekTasks.filter(t => t.type === 4).length;
     totals.unplannedCount += weekTasks.filter(t => t.type === 2).length;
 
+    // Sum labor entries for the week
     const laborWeekRes = await fetch(
       `${API_V2}/tasks/labor?assets=${id}&start=${weekStart.unix()}`,
       { headers }
     );
     if (!laborWeekRes.ok) {
-      console.error('loadOverallKpis laborWeek error:', laborWeekRes.status);
-      throw new Error(`loadOverallKpis laborWeek error: ${laborWeekRes.status}`);
+      throw new Error(`Labor week ${laborWeekRes.status}`);
     }
     const laborWeekJson = await laborWeekRes.json();
-    const laborWeek = laborWeekJson.data || laborWeekJson;
-    // ✅ new – sum every entry’s duration (in seconds), split by downtime flag
-    const entries = Array.isArray(laborWeek.entries)
-      ? laborWeek.entries
-      : [];
-    
-    // total downtime seconds
-    const downtimeSec = entries
-      .filter(e => e.downtime)
-      .reduce((sum, e) => sum + (e.timeSpent ?? e.duration ?? 0), 0);
-    
-    // total work seconds (all entries, downtime+run)
-    const totalSec = entries
-      .reduce((sum, e) => sum + (e.timeSpent ?? e.duration ?? 0), 0);
-    
-    // convert to hours
-    const downtimeHrs    = downtimeSec / 3600;
-    const operationalHrs = (totalSec - downtimeSec) / 3600;
-    
-    totals.operationalHours += operationalHrs;
-    totals.downtimeHours    += downtimeHrs;
+    const laborWeek     = laborWeekJson.data || laborWeekJson;
+    const entriesWeek   = Array.isArray(laborWeek.entries) ? laborWeek.entries : [];
+    const downtimeSec   = entriesWeek.filter(e => e.downtime)
+      .reduce((sum,e) => sum + (e.timeSpent ?? e.duration ?? 0), 0);
+    const totalSecWeek  = entriesWeek
+      .reduce((sum,e) => sum + (e.timeSpent ?? e.duration ?? 0), 0);
+    totals.downtimeHours    += downtimeSec / 3600;
+    totals.operationalHours += (totalSecWeek - downtimeSec) / 3600;
 
-    const rawMonthTasks = /* … fetch & parse JSON … */;
+    // ── MONTHLY ──
+    const monthUrl = `${API_V2}/tasks?assets=${id}&status=2`;
+    console.log(`📅 Fetching all tasks for asset ${id} (month)…`);
+    const monthRes = await fetch(monthUrl, { headers });
+    if (!monthRes.ok) {
+      throw new Error(`Month tasks ${monthRes.status}`);
+    }
+    const monthJson = await monthRes.json();
+    const rawMonthTasks = Array.isArray(monthJson)
+      ? monthJson
+      : Array.isArray(monthJson.data)
+        ? monthJson.data
+        : Array.isArray(monthJson.data?.tasks)
+          ? monthJson.data.tasks
+          : [];
     const monthTasks = rawMonthTasks.filter(t =>
       t.dateCompleted >= monthStart.unix() &&
       t.dateCompleted <= monthEnd.unix()
     );
-    console.log(
-      `📅 Fetching monthTasks from ${monthStart.toISOString()} to ${monthEnd.toISOString()} ` +
-      `(URL: ${monthTasksUrl})`
+    totals.unplannedWO += monthTasks.filter(t => t.type === 2).length;
+    totals.dates       = totals.dates.concat(
+      monthTasks.filter(t => t.type === 2).map(t => t.dateCompleted)
     );
-    const taskMonthRes = await fetch(monthTasksUrl, { headers });
-    if (!taskMonthRes.ok) {
-      console.error('loadOverallKpis taskMonth error:', taskMonthRes.status);
-      throw new Error(`loadOverallKpis taskMonth error: ${taskMonthRes.status}`);
-    }
-    const task30Json = await taskMonthRes.json();
-    const tasks30 = Array.isArray(task30Json)
-      ? task30Json
-      : Array.isArray(task30Json.data)
-        ? task30Json.data
-        : Array.isArray(task30Json.data?.tasks)
-          ? task30Json.data.tasks
-          : [];
-    const unplanned30 = tasks30.filter(t => t.type === 2);
-    totals.unplannedWO += unplanned30.length;
-    totals.dates = totals.dates.concat(unplanned30.map(t => t.dateCompleted));
 
+    // Sum downtime minutes for the month
     const laborMonthRes = await fetch(
       `${API_V2}/tasks/labor?assets=${id}&start=${monthStart.unix()}`,
       { headers }
     );
     if (!laborMonthRes.ok) {
-      console.error('loadOverallKpis laborMonth error:', laborMonthRes.status);
-      throw new Error(`loadOverallKpis laborMonth error: ${laborMonthRes.status}`);
+      throw new Error(`Labor month ${laborMonthRes.status}`);
     }
-    const labor30Json = await laborMonthRes.json();
-    const labor30 = labor30Json.data || labor30Json;
-    const entries30 = Array.isArray(labor30.entries) ? labor30.entries : [];
-    totals.downtimeMinutes += entries30
-      .filter(e => e.taskType === 'wo' && e.downtime)
-      .reduce((sum, e) => sum + e.duration, 0);
+    const laborMonthJson = await laborMonthRes.json();
+    const laborMonth     = laborMonthJson.data || laborMonthJson;
+    const entriesMonth   = Array.isArray(laborMonth.entries) ? laborMonth.entries : [];
+    totals.downtimeMinutes += entriesMonth
+      .filter(e => e.downtime && e.taskType === 'wo')
+      .reduce((sum,e) => sum + e.duration, 0);
   }
 
+  // Final KPI calculations
   const uptimePct = totals.operationalHours
     ? ((totals.operationalHours - totals.downtimeHours) / totals.operationalHours) * 100
     : 0;
   const mttrHrs = totals.unplannedWO
     ? (totals.downtimeMinutes / 60) / totals.unplannedWO
     : 0;
-  const sorted = totals.dates.sort((a, b) => a - b);
-  const intervals = sorted.slice(1).map((d, i) => (sorted[i + 1] - sorted[i]) / 3600);
-  const mtbfHrs = intervals.length ? _.mean(intervals) : 0;
+  const sortedDates = totals.dates.sort((a,b) => a - b);
+  const intervals   = sortedDates.slice(1)
+    .map((d,i) => (sortedDates[i+1] - d) / 3600);
+  const mtbfHrs     = intervals.length ? _.mean(intervals) : 0;
 
   return {
     uptimePct: +uptimePct.toFixed(1),
