@@ -1,3 +1,5 @@
+import { initHeaderKPIs, updateKPIs } from './header-kpis.js';
+
 let mappings;
 await fetch('/mappings.json')
   .then(r => r.json())
@@ -10,9 +12,8 @@ const tbody     = document.querySelector('#kpi-by-asset tbody');
 const selectEl  = document.getElementById('timeframe-select');
 
 console.log('[kpi-by-asset.js] module loaded');
-console.log('[kpi-by-asset.js] module loaded');
-updateKPIs();    // kicks off your header KPI fetch
-fetchData();     // kicks off your “by-asset” table fetch
+initHeaderKPIs();  // sets up header refresh
+updateKPIs();      // initial kick-off
 
 selectEl.addEventListener('change', () => loadAll());
 
