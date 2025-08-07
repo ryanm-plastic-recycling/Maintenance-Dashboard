@@ -1,5 +1,6 @@
 import fetch from 'node-fetch';
 import sql   from 'mssql';
+import fs    from 'fs';
 import dotenv from 'dotenv';
 dotenv.config();
 
@@ -17,6 +18,9 @@ const sqlConfig = {
   database: process.env.AZURE_SQL_DB,
   options: { encrypt: true }
 };
+
+// Collect rows that fail during upsert
+const badRows = [];
 
 //— helper to GET JSON from Limble ——————————————————————————
 async function limbleGet(path) {
@@ -63,7 +67,7 @@ async function fetchAll(path, limit = 10000) {
 
 // 1) Fetch & upsert LimbleKPITasks (all columns)
 async function loadTasks(pool) {
-  // 1️⃣ Read our last run
+  // 1️⃣ Read our last run (watermark on lastEdited)
   const stateRes = await pool.request()
     .query(`SELECT LastTaskTimestamp FROM EtlStateLimbleTables WHERE Id = 0`);
   const lastTaskTimestamp = stateRes.recordset[0].LastTaskTimestamp;
@@ -71,8 +75,20 @@ async function loadTasks(pool) {
   // 2️⃣ Fetch every page
   const data = await fetchAll('/tasks');
 
-  // We'll track the max createdDate we see this run:
-  let maxTs = lastTaskTimestamp;
+  // Sort newest first by lastEdited (fallback to createdDate)
+  data.sort((a, b) => {
+    const aTs = a.lastEdited ?? a.createdDate ?? 0;
+    const bTs = b.lastEdited ?? b.createdDate ?? 0;
+    return bTs - aTs;
+  });
+
+  // Track counts and max timestamp
+  let maxTs     = lastTaskTimestamp;
+  let processed = 0;
+  let inserted  = 0;
+  let updated   = 0;
+  let skipped   = 0;
+  let failed    = 0;
 
   const ps = new sql.PreparedStatement(pool);
   ps.input('TaskID',            sql.Int);
@@ -175,46 +191,37 @@ async function loadTasks(pool) {
         src.Downtime,src.CompletionNotes,src.RequestorName,src.RequestorEmail,
         src.RequestorPhone,src.RequestTitle,src.StatusID,src.GeoLocation,
         src.Type,src.AssociatedTaskID,src.Status
-      );
-    `;
-   await ps.prepare(mergeSql);
+      )
+      OUTPUT $action AS action;
+  `;
+  await ps.prepare(mergeSql);
 
   // 4️⃣ Loop through tasks, but skip any at-or-before lastTaskTimestamp
   for (let i = 0; i < data.length; i++) {
     const t = data[i];
-    // ⬇️ compute this task’s creation date
-    const taskDate = new Date(t.createdDate * 1000);
+    const taskDate = new Date((t.lastEdited ?? t.createdDate) * 1000);
 
-// TEMPORARY _______ADD BACK IN LATER --------------------------------------------------------------------------------------------------
-   // ⬇️ once we hit an old task, stop paging/upserting entirely
-    //if (taskDate <= lastTaskTimestamp) {
-      //console.log(
-        //`↳ reached existing tasks (created ${taskDate.toISOString()}), stopping.`
-      //);
-      //break;
-    //}
+    if (taskDate <= lastTaskTimestamp) {
+      skipped += data.length - i;
+      break;
+    }
 
-    // Track the newest timestamp
     if (taskDate > maxTs) maxTs = taskDate;
 
     try {
-      await ps.execute({
+      const res = await ps.execute({
         TaskID:            t.taskID,
         Name:              t.name,
         UserID:            t.userID,
         TeamID:            t.teamID,
         LocationID:        t.locationID,
         Template:          t.template ? 1 : 0,
-        CreatedDate:       taskDate,
+        CreatedDate:       new Date(t.createdDate * 1000),
         StartDate:         t.startDate ? new Date(t.startDate * 1000) : null,
         Due:               t.due ? new Date(t.due * 1000) : null,
         Description:       t.description,
-        DateCompleted:     t.dateCompleted
-                             ? new Date(t.dateCompleted * 1000)
-                             : null,
-        LastEdited:        t.lastEdited
-                             ? new Date(t.lastEdited * 1000)
-                             : null,
+        DateCompleted:     t.dateCompleted ? new Date(t.dateCompleted * 1000) : null,
+        LastEdited:        taskDate,
         LastEditedByUser:  t.lastEditedByUser,
         CompletedByUser:   t.completedByUser,
         AssetID:           t.assetID,
@@ -230,19 +237,21 @@ async function loadTasks(pool) {
         RequestTitle:      t.requestTitle,
         StatusID:          t.statusID,
         GeoLocation:       t.geoLocation,
-        // 👇 guard against non-numeric types
-        Type: t.type != null && !Number.isNaN(Number(t.type))
-                ? parseInt(t.type, 10)
-                : null,
+        Type: t.type != null && !Number.isNaN(Number(t.type)) ? parseInt(t.type,10) : null,
         AssociatedTaskID:  t.associatedTaskID,
         Status:            t.status
       });
+      const action = res.recordset[0]?.action;
+      if (action === 'INSERT') inserted++; else updated++;
+      processed++;
     } catch (rowErr) {
+      failed++;
+      badRows.push({ table: 'LimbleKPITasks', row: t, error: rowErr.message });
       console.error(`⚠️ TaskID=${t.taskID} failed:`, rowErr.message);
     }
 
     if (i > 0 && i % 500 === 0) {
-      console.log(`  ↳ Upserted ${i} new tasks`);
+      console.log(`  ↳ Upserted ${i} new/updated tasks`);
     }
   }
 
@@ -256,11 +265,20 @@ async function loadTasks(pool) {
       SET LastTaskTimestamp = @LastTaskTimestamp
       WHERE Id = 0
     `);
+
+  return { processed, inserted, updated, skipped, failed };
 }
 
 // 2) Fetch & upsert LimbleKPITasksLabor (all columns)
 async function loadLabor(pool) {
+  // ▶️ 1) Read last run timestamp
+  const stateRes = await pool.request()
+    .query(`SELECT LastLaborLogged FROM EtlStateLimbleTables WHERE Id = 0`);
+  const lastLaborTs = stateRes.recordset[0].LastLaborLogged;
+
   const data = await fetchAll('/tasks/labor');
+  data.sort((a, b) => b.dateLogged - a.dateLogged);
+
   const existingTasks = new Set(
     (await pool.request().query('SELECT TaskID FROM LimbleKPITasks'))
         .recordset
@@ -314,41 +332,65 @@ async function loadLabor(pool) {
         src.TaskID,src.UserID,src.TimeSpent,src.UserWage,
         src.DateLogged,src.Description,src.TaskName,src.TaskPriorityID,
         src.BillableTime,src.BillableRate,src.CategoryID
-      );
+      )
+      OUTPUT $action AS action;
     `;
   await ps.prepare(mergeSql);
 
+  let inserted = 0;
+  let skipped  = 0;
+  let failed   = 0;
+  let maxLaborTs = lastLaborTs;
+
   for (let i = 0; i < data.length; i++) {
     const t = data[i];
+    const logged = new Date(t.dateLogged * 1000);
+    if (logged <= lastLaborTs) {
+      skipped += data.length - i;
+      break;
+    }
     if (!existingTasks.has(t.taskID)) {
       console.warn(`Skipping labor for missing TaskID=${t.taskID}`);
       continue;
     }
+    if (logged > maxLaborTs) maxLaborTs = logged;
     try {
-      await ps.execute({
-      TaskID:        t.taskID,
-      UserID:        t.userID,
-      TimeSpent:     t.timeSpent,
-      UserWage:      t.userWage,
-      DateLogged:    new Date(t.dateLogged * 1000),
-      Description:   t.description,
-      TaskName:      t.taskName,
-      TaskPriorityID:t.taskPriorityID,
-      BillableTime:  t.billableTime,
-      BillableRate:  t.billableRate,
-      CategoryID:    t.categoryID
-    });
-  } catch (rowErr) {
-    console.error(`Failed upsert LimbleKPITasks TaskID=${t.taskID}:`, rowErr);
-    // optionally write t to a "bad_rows.json" file if you need to retry later
-  }
+      const res = await ps.execute({
+        TaskID:        t.taskID,
+        UserID:        t.userID,
+        TimeSpent:     t.timeSpent,
+        UserWage:      t.userWage,
+        DateLogged:    logged,
+        Description:   t.description,
+        TaskName:      t.taskName,
+        TaskPriorityID:t.taskPriorityID,
+        BillableTime:  t.billableTime,
+        BillableRate:  t.billableRate,
+        CategoryID:    t.categoryID
+      });
+      if (res.recordset[0]?.action === 'INSERT') inserted++;
+    } catch (rowErr) {
+      failed++;
+      badRows.push({ table: 'LimbleKPITasksLabor', row: t, error: rowErr.message });
+      console.error(`Failed upsert LimbleKPITasks TaskID=${t.taskID}:`, rowErr);
+    }
     if (i > 0 && i % 500 === 0) {
       console.log(`  ↳ Upserted ${i} LimbleKPITasksLabor records`);
     }
   }
 
   await ps.unprepare();
-}  
+
+  await pool.request()
+    .input('LastLaborLogged', sql.DateTime2, maxLaborTs)
+    .query(`
+      UPDATE EtlStateLimbleTables
+      SET LastLaborLogged = @LastLaborLogged
+      WHERE Id = 0
+    `);
+
+  return { inserted, skipped, failed };
+}
 
 
 // 3) Fetch & upsert LimbleKPIAssetFields (all columns, incremental)
@@ -360,9 +402,13 @@ async function loadAssetFields(pool) {
 
   // ▶️ 2) Full fetch (no pagination on this endpoint)
   const data = await fetchAll('/assets/fields');
+  data.sort((a, b) => b.lastEdited - a.lastEdited);
 
   // track the max lastEdited we see
   let maxFieldTs = lastFieldTs;
+  let inserted = 0;
+  let skipped  = 0;
+  let failed   = 0;
 
   const ps = new sql.PreparedStatement(pool);
   ps.input('AssetID',    sql.Int);
@@ -401,7 +447,8 @@ async function loadAssetFields(pool) {
       VALUES (
         src.AssetID,src.FieldID,src.LocationID,src.FieldName,
         src.ValueText,src.ValueID,src.FieldType,src.LastEdited
-      );
+      )
+      OUTPUT $action AS action;
   `;
   await ps.prepare(mergeSql);
 
@@ -412,6 +459,7 @@ async function loadAssetFields(pool) {
 
     // stop when we reach already-processed fields
     if (edited <= lastFieldTs) {
+      skipped += data.length - i;
       console.log(`↳ reached existing asset-fields (edited ${edited.toISOString()}), stopping.`);
       break;
     }
@@ -420,7 +468,7 @@ async function loadAssetFields(pool) {
     if (edited > maxFieldTs) maxFieldTs = edited;
 
     try {
-      await ps.execute({
+      const res = await ps.execute({
         AssetID:    f.assetID,
         FieldID:    f.fieldID,
         LocationID: f.locationID,
@@ -430,7 +478,10 @@ async function loadAssetFields(pool) {
         FieldType:  f.fieldType,
         LastEdited: edited
       });
+      if (res.recordset[0]?.action === 'INSERT') inserted++;
     } catch (err) {
+      failed++;
+      badRows.push({ table: 'LimbleKPIAssetFields', row: f, error: err.message });
       console.error(`⚠️ AssetField [${f.assetID},${f.fieldID}] failed:`, err.message);
     }
 
@@ -449,6 +500,8 @@ async function loadAssetFields(pool) {
       SET LastAssetFieldEdited = @LastAssetFieldEdited
       WHERE Id = 0
     `);
+
+  return { inserted, skipped, failed };
 }
 
 
@@ -517,15 +570,30 @@ WHEN NOT MATCHED THEN
 async function main() {
   const pool = await sql.connect(sqlConfig);
   try {
-    await loadTasks(pool);
-    await loadLabor(pool);
-    await loadAssetFields(pool);
+    const taskSummary  = await loadTasks(pool);
+    const laborSummary = await loadLabor(pool);
+    const fieldSummary = await loadAssetFields(pool);
     await loadAssets(pool);
     console.log('✅ All Limble data loaded');
+    console.log('Summary:');
+    console.log(`  Tasks processed=${taskSummary.processed}, inserted=${taskSummary.inserted}, updated=${taskSummary.updated}, skipped=${taskSummary.skipped}, failed=${taskSummary.failed}`);
+    console.log(`  Labor inserted=${laborSummary.inserted}, skipped=${laborSummary.skipped}, failed=${laborSummary.failed}`);
+    console.log(`  AssetFields inserted=${fieldSummary.inserted}, skipped=${fieldSummary.skipped}, failed=${fieldSummary.failed}`);
   } catch (err) {
     console.error('ETL error:', err);
   } finally {
     await pool.close();
+    if (badRows.length) {
+      fs.writeFileSync('bad_rows.json', JSON.stringify(badRows, null, 2));
+    }
+    notifyFailures(badRows.length);
+  }
+}
+
+function notifyFailures(count) {
+  if (count > 10) {
+    // TODO: send email/Teams notification
+    console.warn(`More than 10 rows failed (${count}). Notification stub.`);
   }
 }
 
