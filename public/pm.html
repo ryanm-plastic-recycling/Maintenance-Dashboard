@@ -489,28 +489,12 @@
     document.getElementById('clock').innerHTML =
       `<span class="clock-date">${dateFmt.format(now)}</span>${timeFmt.format(now)}`;
   }
-  setInterval(updateClock, 1000);
-  updateClock();
-
-  // overall KPIs
-  async function updateKPIs() {
-    try {
-      const res = await fetch('/api/kpis');
-      const { overall: k } = await res.json();
-      document.getElementById('uptime-value').innerText       = k.uptimePct + '%';
-      document.getElementById('mttr-value').innerText         = k.mttrHrs   + 'h';
-      document.getElementById('mtbf-value').innerText         = k.mtbfHrs   + 'h';
-      const total = k.plannedCount + k.unplannedCount;
-      const plannedPct   = total ? ((k.plannedCount/total)*100).toFixed(0)   + '%' : '0%';
-      const unplannedPct = total ? ((k.unplannedCount/total)*100).toFixed(0) + '%' : '0%';
-      document.getElementById('planned-vs-unplanned').innerText =
-        `${plannedPct} vs ${unplannedPct}`;
-    } catch (err) {
-      console.error('Failed to load KPIs', err);
-    }
-  }
-  updateKPIs();
-  setInterval(updateKPIs, 15 * 60 * 1000);
+    setInterval(updateClock, 1000);
+    updateClock();
+</script>
+<script type="module">
+  import { initHeaderKPIs } from './js/header-kpis.js';
+  initHeaderKPIs();
 </script>
 </body>
 </html>
