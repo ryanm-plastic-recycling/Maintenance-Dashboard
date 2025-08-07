@@ -53,10 +53,18 @@ async function loadOverallKpis() {
   };
 
   // Define your ISO-week last week and last calendar month
-  const weekStart = moment().startOf('isoWeek').subtract(1, 'week');
-  const weekEnd   = weekStart.clone().endOf('isoWeek');
-  const monthStart = moment().subtract(1, 'month').startOf('month');
-  const monthEnd   = monthStart.clone().endOf('month');
+  const weekStart = process.env.KPI_WEEK_START
+    ? moment.unix(Number(process.env.KPI_WEEK_START))
+    : moment().startOf('isoWeek').subtract(1, 'week');
+  const weekEnd = process.env.KPI_WEEK_END
+    ? moment.unix(Number(process.env.KPI_WEEK_END))
+    : weekStart.clone().endOf('isoWeek');
+  const monthStart = process.env.KPI_MONTH_START
+    ? moment.unix(Number(process.env.KPI_MONTH_START))
+    : moment().subtract(1, 'month').startOf('month');
+  const monthEnd = process.env.KPI_MONTH_END
+    ? moment.unix(Number(process.env.KPI_MONTH_END))
+    : monthStart.clone().endOf('month');
 
   let totals = {
     operationalHours: 0,
@@ -71,28 +79,40 @@ async function loadOverallKpis() {
   for (const asset of mappings.productionAssets || []) {
     const id = asset.id;
 
-    // ── WEEKLY ──
-    const weekUrl = `${API_V2}/tasks?assets=${id}&status=2`;
-    console.log(`📅 Fetching tasks for asset ${id} from ${weekStart.toISOString()} to ${weekEnd.toISOString()}`);
-    const weekRes = await fetch(weekUrl, { headers });
-    if (!weekRes.ok) {
-      const body = await weekRes.text();
-      throw new Error(`Week tasks ${weekRes.status}: ${body}`);
+    const tasksUrl = `${API_V2}/tasks?assets=${id}&status=2`;
+    console.log(`📅 Fetching tasks for asset ${id}`);
+    console.log(`   ↳ Week range: ${weekStart.toISOString()} to ${weekEnd.toISOString()}`);
+    console.log(`   ↳ Month range: ${monthStart.toISOString()} to ${monthEnd.toISOString()}`);
+    const tasksRes = await fetch(tasksUrl, { headers });
+    if (!tasksRes.ok) {
+      console.error('loadOverallKpis tasks error:', tasksRes.status);
+      const body = await tasksRes.text();
+      throw new Error(`Tasks ${tasksRes.status}: ${body}`);
     }
-    const weekJson = await weekRes.json();
-    const rawWeekTasks = Array.isArray(weekJson)
-      ? weekJson
-      : Array.isArray(weekJson.data)
-        ? weekJson.data
-        : Array.isArray(weekJson.data?.tasks)
-          ? weekJson.data.tasks
+    const tasksJson = await tasksRes.json();
+    const rawTasks = Array.isArray(tasksJson)
+      ? tasksJson
+      : Array.isArray(tasksJson.data)
+        ? tasksJson.data
+        : Array.isArray(tasksJson.data?.tasks)
+          ? tasksJson.data.tasks
           : [];
-    const weekTasks = rawWeekTasks.filter(t =>
+
+    const weekTasks = rawTasks.filter(t =>
       t.dateCompleted >= weekStart.unix() &&
       t.dateCompleted <= weekEnd.unix()
     );
+    const monthTasks = rawTasks.filter(t =>
+      t.dateCompleted >= monthStart.unix() &&
+      t.dateCompleted <= monthEnd.unix()
+    );
+
     totals.plannedCount   += weekTasks.filter(t => t.type === 4).length;
     totals.unplannedCount += weekTasks.filter(t => t.type === 2).length;
+    totals.unplannedWO    += monthTasks.filter(t => t.type === 2).length;
+    totals.dates           = totals.dates.concat(
+      monthTasks.filter(t => t.type === 2).map(t => t.dateCompleted)
+    );
 
     // Sum labor entries for the week
     const laborWeekRes = await fetch(
@@ -100,6 +120,7 @@ async function loadOverallKpis() {
       { headers }
     );
     if (!laborWeekRes.ok) {
+      console.error(`loadOverallKpis labor week error for ${id}:`, laborWeekRes.status);
       throw new Error(`Labor week ${laborWeekRes.status}`);
     }
     const laborWeekJson = await laborWeekRes.json();
@@ -112,36 +133,13 @@ async function loadOverallKpis() {
     totals.downtimeHours    += downtimeSec / 3600;
     totals.operationalHours += (totalSecWeek - downtimeSec) / 3600;
 
-    // ── MONTHLY ──
-    const monthUrl = `${API_V2}/tasks?assets=${id}&status=2`;
-    console.log(`📅 Fetching tasks for asset ${id} from ${weekStart.toISOString()} to ${weekEnd.toISOString()}`);
-    const monthRes = await fetch(monthUrl, { headers });
-    if (!monthRes.ok) {
-      throw new Error(`Month tasks ${monthRes.status}`);
-    }
-    const monthJson = await monthRes.json();
-    const rawMonthTasks = Array.isArray(monthJson)
-      ? monthJson
-      : Array.isArray(monthJson.data)
-        ? monthJson.data
-        : Array.isArray(monthJson.data?.tasks)
-          ? monthJson.data.tasks
-          : [];
-    const monthTasks = rawMonthTasks.filter(t =>
-      t.dateCompleted >= monthStart.unix() &&
-      t.dateCompleted <= monthEnd.unix()
-    );
-    totals.unplannedWO += monthTasks.filter(t => t.type === 2).length;
-    totals.dates       = totals.dates.concat(
-      monthTasks.filter(t => t.type === 2).map(t => t.dateCompleted)
-    );
-
     // Sum downtime minutes for the month
     const laborMonthRes = await fetch(
       `${API_V2}/tasks/labor?assets=${id}&start=${monthStart.unix()}`,
       { headers }
     );
     if (!laborMonthRes.ok) {
+      console.error(`loadOverallKpis labor month error for ${id}:`, laborMonthRes.status);
       throw new Error(`Labor month ${laborMonthRes.status}`);
     }
     const laborMonthJson = await laborMonthRes.json();
@@ -219,14 +217,14 @@ async function loadByAssetKpis() {
       throw new Error(`loadByAssetKpis tasks error: ${tasksRes.status}`);
     }
     const tasksJson = await tasksRes.json();
-    const tasks = Array.isArray(tasksJson)
+    const rawTasks = Array.isArray(tasksJson)
       ? tasksJson
       : Array.isArray(tasksJson.data)
         ? tasksJson.data
         : Array.isArray(tasksJson.data?.tasks)
           ? tasksJson.data.tasks
           : [];
-    const tasksForThisMonth = tasks.filter(t =>
+    const tasksForThisMonth = rawTasks.filter(t =>
       t.dateCompleted >= monthStart.unix() &&
       t.dateCompleted <= monthEnd.unix()
     );
@@ -240,7 +238,7 @@ async function loadByAssetKpis() {
       { headers }
     );
     if (!laborRes.ok) {
-      console.error('loadByAssetKpis labor error:', laborRes.status);
+      console.error(`loadByAssetKpis labor error for ${id}:`, laborRes.status);
       throw new Error(`loadByAssetKpis labor error: ${laborRes.status}`);
     }
     const laborJson = await laborRes.json();

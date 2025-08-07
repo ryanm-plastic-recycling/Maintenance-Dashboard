@@ -143,16 +143,15 @@ describe('KPI time range overrides', () => {
 
     await serverModule.loadOverallKpis();
 
-      const weekTasksUrl = fetchMock.mock.calls[0][0];
-      expect(weekTasksUrl).toContain('dateCompletedGte=100');
-      expect(weekTasksUrl).toContain('dateCompletedLte=200');
-      const laborWeekUrl = fetchMock.mock.calls[1][0];
-      expect(laborWeekUrl).toContain('start=100');
-      const monthTasksUrl = fetchMock.mock.calls[2][0];
-      expect(monthTasksUrl).toContain('dateCompletedGte=300');
-      expect(monthTasksUrl).toContain('dateCompletedLte=400');
-      const laborMonthUrl = fetchMock.mock.calls[3][0];
-      expect(laborMonthUrl).toContain('start=300');
+    const tasksUrl = fetchMock.mock.calls[0][0];
+    expect(tasksUrl).toContain('tasks?assets=');
+    expect(tasksUrl).toContain('&status=2');
+    expect(tasksUrl).not.toContain('dateCompletedGte');
+    expect(tasksUrl).not.toContain('dateCompletedLte');
+    const laborWeekUrl = fetchMock.mock.calls[1][0];
+    expect(laborWeekUrl).toContain('start=100');
+    const laborMonthUrl = fetchMock.mock.calls[2][0];
+    expect(laborMonthUrl).toContain('start=300');
 
     delete process.env.KPI_WEEK_START;
     delete process.env.KPI_WEEK_END;
@@ -170,11 +169,13 @@ describe('KPI time range overrides', () => {
 
     await serverModule.loadByAssetKpis();
 
-      const monthTasksUrl = fetchMock.mock.calls[0][0];
-      expect(monthTasksUrl).toContain('dateCompletedGte=500');
-      expect(monthTasksUrl).toContain('dateCompletedLte=600');
-      const laborMonthUrl = fetchMock.mock.calls[1][0];
-      expect(laborMonthUrl).toContain('start=500');
+    const monthTasksUrl = fetchMock.mock.calls[0][0];
+    expect(monthTasksUrl).toContain('tasks?assets=');
+    expect(monthTasksUrl).toContain('&status=2');
+    expect(monthTasksUrl).not.toContain('dateCompletedGte');
+    expect(monthTasksUrl).not.toContain('dateCompletedLte');
+    const laborMonthUrl = fetchMock.mock.calls[1][0];
+    expect(laborMonthUrl).toContain('start=500');
 
     delete process.env.KPI_MONTH_START;
     delete process.env.KPI_MONTH_END;
