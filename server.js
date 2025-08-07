@@ -73,7 +73,7 @@ async function loadOverallKpis() {
 
     // ── WEEKLY ──
     const weekUrl = `${API_V2}/tasks?assets=${id}&status=2`;
-    console.log(`📅 Fetching all tasks for asset ${id}…`);
+    console.log(`📅 Fetching tasks for asset ${id} from ${weekStart.toISOString()} to ${weekEnd.toISOString()}`);
     const weekRes = await fetch(weekUrl, { headers });
     if (!weekRes.ok) {
       const body = await weekRes.text();
@@ -230,9 +230,9 @@ async function loadByAssetKpis() {
       t.dateCompleted >= monthStart.unix() &&
       t.dateCompleted <= monthEnd.unix()
     );
+    const plannedCount     = tasksForThisMonth.filter(t => t.type === 4).length;
+    const unplannedTasks   = tasksForThisMonth.filter(t => t.type === 2);
 
-    const plannedCount = tasks.filter(t => t.type === 4).length;
-    const unplannedTasks = tasks.filter(t => t.type === 2);
     const unplannedCount = unplannedTasks.length;
 
     const laborRes = await fetch(
