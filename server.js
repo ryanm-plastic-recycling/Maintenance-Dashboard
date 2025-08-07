@@ -8,6 +8,7 @@ import os       from 'os';
 import moment   from 'moment';
 import _        from 'lodash';
 import NodeCache from 'node-cache';
+import cors     from 'cors';
 
 dotenv.config();
 
@@ -344,6 +345,7 @@ const ipv4 = Object.values(nets)
 // ─── express setup ────────────────────────────────────────────────────────
 const app = express();
 app.fetchAndCache = fetchAndCache;
+app.use(cors());
 app.use(express.json());
 const PORT = process.env.PORT || 3000;
 app.use(express.static(path.join(__dirname, 'public')));

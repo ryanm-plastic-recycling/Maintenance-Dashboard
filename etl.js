@@ -72,15 +72,8 @@ async function loadTasks(pool) {
     .query(`SELECT LastTaskTimestamp FROM EtlStateLimbleTables WHERE Id = 0`);
   const lastTaskTimestamp = stateRes.recordset[0].LastTaskTimestamp;
 
-  // 2️⃣ Fetch every page
+  // 2️⃣ Fetch every page (API already sorted by lastEdited)
   const data = await fetchAll('/tasks');
-
-  // Sort newest first by lastEdited (fallback to createdDate)
-  data.sort((a, b) => {
-    const aTs = a.lastEdited ?? a.createdDate ?? 0;
-    const bTs = b.lastEdited ?? b.createdDate ?? 0;
-    return bTs - aTs;
-  });
 
   // Track counts and max timestamp
   let maxTs     = lastTaskTimestamp;
@@ -199,7 +192,7 @@ async function loadTasks(pool) {
   // 4️⃣ Loop through tasks, but skip any at-or-before lastTaskTimestamp
   for (let i = 0; i < data.length; i++) {
     const t = data[i];
-    const taskDate = new Date((t.lastEdited ?? t.createdDate) * 1000);
+    const taskDate = new Date(t.lastEdited * 1000);
 
     if (taskDate <= lastTaskTimestamp) {
       skipped += data.length - i;
@@ -267,6 +260,15 @@ async function loadTasks(pool) {
     `);
 
   return { processed, inserted, updated, skipped, failed };
+}
+
+// Helper for cron: reprocess tasks edited in the last 24 hours
+async function backfillRecentEdits(pool) {
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  await pool.request()
+    .input('LastTaskTimestamp', sql.DateTime2, since)
+    .query(`UPDATE EtlStateLimbleTables SET LastTaskTimestamp=@LastTaskTimestamp WHERE Id = 0`);
+  return loadTasks(pool);
 }
 
 // 2) Fetch & upsert LimbleKPITasksLabor (all columns)
@@ -601,15 +603,29 @@ async function main() {
     await pool.close();
     if (badRows.length) {
       fs.writeFileSync('bad_rows.json', JSON.stringify(badRows, null, 2));
+      // To retry, fix bad_rows.json then feed the records through a small script
+      // that reuses the merge statements above.
     }
-    notifyFailures(badRows.length);
+    await notifyFailures(badRows);
   }
 }
 
-function notifyFailures(count) {
-  if (count > 10) {
-    // TODO: send email/Teams notification
-    console.warn(`More than 10 rows failed (${count}). Notification stub.`);
+async function notifyFailures(rows) {
+  if (rows.length <= 10) return;
+  const hook = process.env.TEAMS_WEBHOOK_URL;
+  if (!hook) {
+    console.warn(`More than 10 rows failed (${rows.length}).`);
+    return;
+  }
+  const sample = rows.slice(0, 5).map(r => `${r.table}: ${r.error}`).join('; ');
+  try {
+    await fetch(hook, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: `ETL encountered ${rows.length} bad rows. Sample: ${sample}` })
+    });
+  } catch (err) {
+    console.error('Failed to send webhook', err);
   }
 }
 
