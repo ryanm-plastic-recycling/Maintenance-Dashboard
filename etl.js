@@ -395,18 +395,19 @@ async function loadLabor(pool) {
 
 // 3) Fetch & upsert LimbleKPIAssetFields (all columns, incremental)
 async function loadAssetFields(pool) {
-  // ▶️ 1) Read our last run watermark
+  // 1) Read our last run watermark
   const stateRes = await pool.request()
     .query(`SELECT LastAssetFieldEdited FROM EtlStateLimbleTables WHERE Id = 0`);
   const lastFieldTs = stateRes.recordset[0].LastAssetFieldEdited;
 
-  // ▶️ 2) Full fetch (no pagination on this endpoint)
+  // 2) Full fetch (no pagination on this endpoint)
   const data = await fetchAll('/assets/fields');
   data.sort((a, b) => b.lastEdited - a.lastEdited);
 
   // track the max lastEdited we see
   let maxFieldTs = lastFieldTs;
   let inserted = 0;
+  let updated  = 0;    // ← new
   let skipped  = 0;
   let failed   = 0;
 
@@ -448,11 +449,11 @@ async function loadAssetFields(pool) {
         src.AssetID,src.FieldID,src.LocationID,src.FieldName,
         src.ValueText,src.ValueID,src.FieldType,src.LastEdited
       )
-      OUTPUT $action AS action;
+    OUTPUT $action AS action;
   `;
   await ps.prepare(mergeSql);
 
-  // ▶️ 3) Loop & upsert, breaking on old records
+  // 3) Loop & upsert, breaking on old records
   for (let i = 0; i < data.length; i++) {
     const f = data[i];
     const edited = new Date(f.lastEdited * 1000);
@@ -478,7 +479,11 @@ async function loadAssetFields(pool) {
         FieldType:  f.fieldType,
         LastEdited: edited
       });
-      if (res.recordset[0]?.action === 'INSERT') inserted++;
+      // count each returned action
+      res.recordset.forEach(r => {
+        if (r.action === 'INSERT') inserted++;
+        else if (r.action === 'UPDATE') updated++;
+      });
     } catch (err) {
       failed++;
       badRows.push({ table: 'LimbleKPIAssetFields', row: f, error: err.message });
@@ -486,13 +491,13 @@ async function loadAssetFields(pool) {
     }
 
     if (i > 0 && i % 500 === 0) {
-      console.log(`  ↳ Upserted ${i} new asset-fields`);
+      console.log(`  ↳ Processed ${i} asset-fields`);
     }
   }
 
   await ps.unprepare();
 
-  // ▶️ 4) Write back the new watermark
+  // 4) Write back the new watermark
   await pool.request()
     .input('LastAssetFieldEdited', sql.DateTime2, maxFieldTs)
     .query(`
@@ -501,13 +506,13 @@ async function loadAssetFields(pool) {
       WHERE Id = 0
     `);
 
-  return { inserted, skipped, failed };
+  return { inserted, updated, skipped, failed };
 }
-
 
 // 4) Fetch & upsert LimbleKPIAssets (all columns)
 async function loadAssets(pool) {
-  const data = await fetchAll(`/assets`);
+  const data = await fetchAll('/assets');
+  let inserted = 0, updated = 0, failed = 0;
 
   const ps = new sql.PreparedStatement(pool);
   ps.input('AssetID',       sql.Int);
@@ -520,50 +525,60 @@ async function loadAssets(pool) {
   ps.input('WorkRequestURL',sql.NVarChar(500));
 
   const mergeSql = `
-MERGE INTO LimbleKPIAssets AS target
-USING (VALUES (
-  @AssetID,@Name,@StartedOn,@LastEdited,
-  @ParentAssetID,@LocationID,@HoursPerWeek,@WorkRequestURL
-)) AS src (
-  AssetID,Name,StartedOn,LastEdited,
-  ParentAssetID,LocationID,HoursPerWeek,WorkRequestURL
-)
-ON target.AssetID = src.AssetID
-WHEN MATCHED THEN
-  UPDATE SET
-    Name           = src.Name,
-    StartedOn      = src.StartedOn,
-    LastEdited     = src.LastEdited,
-    ParentAssetID  = src.ParentAssetID,
-    LocationID     = src.LocationID,
-    HoursPerWeek   = src.HoursPerWeek,
-    WorkRequestURL = src.WorkRequestURL
-WHEN NOT MATCHED THEN
-  INSERT (
+  MERGE INTO LimbleKPIAssets AS target
+  USING (VALUES (
+    @AssetID,@Name,@StartedOn,@LastEdited,
+    @ParentAssetID,@LocationID,@HoursPerWeek,@WorkRequestURL
+  )) AS src (
     AssetID,Name,StartedOn,LastEdited,
     ParentAssetID,LocationID,HoursPerWeek,WorkRequestURL
   )
-  VALUES (
-    src.AssetID,src.Name,src.StartedOn,src.LastEdited,
-    src.ParentAssetID,src.LocationID,src.HoursPerWeek,src.WorkRequestURL
-  );
-`;
+  ON target.AssetID = src.AssetID
+  WHEN MATCHED THEN
+    UPDATE SET
+      Name           = src.Name,
+      StartedOn      = src.StartedOn,
+      LastEdited     = src.LastEdited,
+      ParentAssetID  = src.ParentAssetID,
+      LocationID     = src.LocationID,
+      HoursPerWeek   = src.HoursPerWeek,
+      WorkRequestURL = src.WorkRequestURL
+  WHEN NOT MATCHED THEN
+    INSERT (
+      AssetID,Name,StartedOn,LastEdited,
+      ParentAssetID,LocationID,HoursPerWeek,WorkRequestURL
+    )
+    VALUES (
+      src.AssetID,src.Name,src.StartedOn,src.LastEdited,
+      src.ParentAssetID,src.LocationID,src.HoursPerWeek,src.WorkRequestURL
+    )
+  OUTPUT $action AS action;
+  `;
+
   await ps.prepare(mergeSql);
 
   for (const a of data) {
-    await ps.execute({
-      AssetID:       a.assetID,
-      Name:          a.name,
-      StartedOn:     a.startedOn ? new Date(a.startedOn * 1000) : null,
-      LastEdited:    a.lastEdited ? new Date(a.lastEdited * 1000) : null,
-      ParentAssetID: a.parentAssetID,
-      LocationID:    a.locationID,
-      HoursPerWeek:  a.hoursPerWeek,
-      WorkRequestURL:a.workRequestPortal
-    });
+    try {
+      const result = await ps.execute({
+        AssetID:       a.assetID,
+        Name:          a.name,
+        StartedOn:     a.startedOn ? new Date(a.startedOn * 1000) : null,
+        LastEdited:    a.lastEdited ? new Date(a.lastEdited * 1000) : null,
+        ParentAssetID: a.parentAssetID,
+        LocationID:    a.locationID,
+        HoursPerWeek:  a.hoursPerWeek,
+        WorkRequestURL:a.workRequestPortal
+      });
+      const action = result.recordset[0]?.action;
+      if (action === 'INSERT') inserted++;
+      else if (action === 'UPDATE') updated++;
+    } catch (err) {
+      failed++;
+      console.error(`⚠️ Asset ${a.assetID} failed:`, err.message);
+    }
   }
-
   await ps.unprepare();
+  return { inserted, updated, failed };
 }
 
 //— 5) Orchestrate all loads —————————————————————————————
@@ -579,7 +594,7 @@ async function main() {
     console.log(`  Tasks processed=${taskSummary.processed}, inserted=${taskSummary.inserted}, updated=${taskSummary.updated}, skipped=${taskSummary.skipped}, failed=${taskSummary.failed}`);
     console.log(`  Labor inserted=${laborSummary.inserted}, skipped=${laborSummary.skipped}, failed=${laborSummary.failed}`);
     console.log(`  Assets      inserted=${assetSummary.inserted}, updated=${assetSummary.updated}, failed=${assetSummary.failed}`);
-    console.log(`  AssetFields inserted=${fieldSummary.inserted}, skipped=${fieldSummary.skipped}, failed=${fieldSummary.failed}`);
+    console.log(`  AssetFields inserted=${fieldSummary.inserted}, updated=${fieldSummary.updated}, skipped=${fieldSummary.skipped}, failed=${fieldSummary.failed}`);
   } catch (err) {
     console.error('ETL error:', err);
   } finally {
