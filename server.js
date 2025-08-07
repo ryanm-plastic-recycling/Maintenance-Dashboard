@@ -119,22 +119,25 @@ async function loadOverallKpis() {
     console.log(
       `   ↳ Filtering labor week entries: ${weekStart.toISOString()} to ${weekEnd.toISOString()}`
     );
-    const laborAllRes = await fetch(`${API_V2}/tasks/labor?limit=10000`, { headers });
-    if (!laborAllRes.ok) {
-      const body = await laborAllRes.text();
-      console.error(`loadOverallKpis labor week error for ${id}:`, laborAllRes.status);
-      throw new Error(`Labor week ${laborAllRes.status}: ${body}`);
-    }
-    const laborAll = (await laborAllRes.json()).data?.entries || [];
-    const filteredWeek = laborAll.filter(e =>
-      e.assetID === id &&
-      e.dateCompleted >= weekStart.unix() &&
-      e.dateCompleted <= weekEnd.unix()
+    const laborWeekRes = await fetch(
+      `${API_V2}/tasks/labor?assets=${id}&start=${weekStart.unix()}&end=${weekEnd.unix()}`,
+      { headers }
     );
-    const downtimeSec = filteredWeek
+    let entriesWeek = [];
+    try {
+      if (!laborWeekRes.ok) {
+        console.warn(`Asset ${id} labor week returned ${laborWeekRes.status}, treating as zero.`);
+      } else {
+        const laborWeekJson = await laborWeekRes.json();
+        entriesWeek = laborWeekJson.data?.entries || laborWeekJson.entries || [];
+      }
+    } catch (err) {
+      console.error(`Error parsing labor week for ${id}:`, err);
+    }
+    const downtimeSec = entriesWeek
       .filter(e => e.downtime)
       .reduce((sum, e) => sum + (e.timeSpent ?? e.duration ?? 0), 0);
-    const totalSecWeek = filteredWeek
+    const totalSecWeek = entriesWeek
       .reduce((sum, e) => sum + (e.timeSpent ?? e.duration ?? 0), 0);
     totals.downtimeHours += downtimeSec / 3600;
     totals.operationalHours += (totalSecWeek - downtimeSec) / 3600;
@@ -143,19 +146,22 @@ async function loadOverallKpis() {
     console.log(
       `   ↳ Filtering labor month entries: ${monthStart.toISOString()} to ${monthEnd.toISOString()}`
     );
-    const laborAllMonthRes = await fetch(`${API_V2}/tasks/labor?limit=10000`, { headers });
-    if (!laborAllMonthRes.ok) {
-      const body = await laborAllMonthRes.text();
-      console.error(`loadOverallKpis labor month error for ${id}:`, laborAllMonthRes.status);
-      throw new Error(`Labor month ${laborAllMonthRes.status}: ${body}`);
-    }
-    const laborAllMonth = (await laborAllMonthRes.json()).data?.entries || [];
-    const filteredMonth = laborAllMonth.filter(e =>
-      e.assetID === id &&
-      e.dateCompleted >= monthStart.unix() &&
-      e.dateCompleted <= monthEnd.unix()
+    const laborMonthRes = await fetch(
+      `${API_V2}/tasks/labor?assets=${id}&start=${monthStart.unix()}&end=${monthEnd.unix()}`,
+      { headers }
     );
-    totals.downtimeMinutes += filteredMonth
+    let entriesMonth = [];
+    try {
+      if (!laborMonthRes.ok) {
+        console.warn(`Asset ${id} labor month returned ${laborMonthRes.status}, treating as zero.`);
+      } else {
+        const laborMonthJson = await laborMonthRes.json();
+        entriesMonth = laborMonthJson.data?.entries || laborMonthJson.entries || [];
+      }
+    } catch (err) {
+      console.error(`Error parsing labor month for ${id}:`, err);
+    }
+    totals.downtimeMinutes += entriesMonth
       .filter(e => e.downtime && e.taskType === 'wo')
       .reduce((sum, e) => sum + (e.duration ?? 0), 0);
   }
