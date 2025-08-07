@@ -221,7 +221,7 @@ async function loadByAssetKpis() {
     const id = asset.id;
     const name = asset.name;
 
-    const byAssetUrl = `${API_V2}/tasks?assets=${id}&status=2&completedDateGte=${monthStart.unix()}&completedDateGte=${monthEnd.unix()}`;
+    const byAssetUrl = `${API_V2}/tasks?assets=${id}&status=2&completedDateGte=${monthStart.unix()}&completedDateLte=${monthEnd.unix()}`;
     console.log(
       `📅 Fetching per-asset tasks for ${asset.name} (${asset.id}) from ` +
       `${monthStart.toISOString()} to ${monthEnd.toISOString()} ` +
