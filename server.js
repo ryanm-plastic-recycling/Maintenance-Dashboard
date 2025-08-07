@@ -115,8 +115,11 @@ async function loadOverallKpis() {
     );
 
     // Sum labor entries for the week
+    console.log(
+      `   ↳ Filtering labor week entries: ${weekStart.toISOString()} to ${weekEnd.toISOString()}`
+    );
     const laborWeekRes = await fetch(
-      `${API_V2}/tasks/labor?assets=${id}&start=${weekStart.unix()}`,
+      `${API_V2}/tasks/labor?assets=${id}`,
       { headers }
     );
     if (!laborWeekRes.ok) {
@@ -124,18 +127,25 @@ async function loadOverallKpis() {
       throw new Error(`Labor week ${laborWeekRes.status}`);
     }
     const laborWeekJson = await laborWeekRes.json();
-    const laborWeek     = laborWeekJson.data || laborWeekJson;
-    const entriesWeek   = Array.isArray(laborWeek.entries) ? laborWeek.entries : [];
-    const downtimeSec   = entriesWeek.filter(e => e.downtime)
-      .reduce((sum,e) => sum + (e.timeSpent ?? e.duration ?? 0), 0);
-    const totalSecWeek  = entriesWeek
-      .reduce((sum,e) => sum + (e.timeSpent ?? e.duration ?? 0), 0);
-    totals.downtimeHours    += downtimeSec / 3600;
+    const entriesWeek = laborWeekJson.data?.entries || laborWeekJson.entries || [];
+    const filteredWeek = entriesWeek.filter(e =>
+      e.dateCompleted >= weekStart.unix() &&
+      e.dateCompleted <= weekEnd.unix()
+    );
+    const downtimeSec = filteredWeek
+      .filter(e => e.downtime)
+      .reduce((sum, e) => sum + (e.timeSpent ?? e.duration ?? 0), 0);
+    const totalSecWeek = filteredWeek
+      .reduce((sum, e) => sum + (e.timeSpent ?? e.duration ?? 0), 0);
+    totals.downtimeHours += downtimeSec / 3600;
     totals.operationalHours += (totalSecWeek - downtimeSec) / 3600;
 
     // Sum downtime minutes for the month
+    console.log(
+      `   ↳ Filtering labor month entries: ${monthStart.toISOString()} to ${monthEnd.toISOString()}`
+    );
     const laborMonthRes = await fetch(
-      `${API_V2}/tasks/labor?assets=${id}&start=${monthStart.unix()}`,
+      `${API_V2}/tasks/labor?assets=${id}`,
       { headers }
     );
     if (!laborMonthRes.ok) {
@@ -143,11 +153,14 @@ async function loadOverallKpis() {
       throw new Error(`Labor month ${laborMonthRes.status}`);
     }
     const laborMonthJson = await laborMonthRes.json();
-    const laborMonth     = laborMonthJson.data || laborMonthJson;
-    const entriesMonth   = Array.isArray(laborMonth.entries) ? laborMonth.entries : [];
-    totals.downtimeMinutes += entriesMonth
+    const entriesMonth = laborMonthJson.data?.entries || laborMonthJson.entries || [];
+    const filteredMonth = entriesMonth.filter(e =>
+      e.dateCompleted >= monthStart.unix() &&
+      e.dateCompleted <= monthEnd.unix()
+    );
+    totals.downtimeMinutes += filteredMonth
       .filter(e => e.downtime && e.taskType === 'wo')
-      .reduce((sum,e) => sum + e.duration, 0);
+      .reduce((sum, e) => sum + (e.duration ?? 0), 0);
   }
 
   // Final KPI calculations
@@ -233,8 +246,11 @@ async function loadByAssetKpis() {
 
     const unplannedCount = unplannedTasks.length;
 
+    console.log(
+      `   ↳ Filtering labor entries: ${monthStart.toISOString()} to ${monthEnd.toISOString()}`
+    );
     const laborRes = await fetch(
-      `${API_V2}/tasks/labor?assets=${id}&start=${monthStart.unix()}`,
+      `${API_V2}/tasks/labor?assets=${id}`,
       { headers }
     );
     if (!laborRes.ok) {
@@ -242,24 +258,28 @@ async function loadByAssetKpis() {
       throw new Error(`loadByAssetKpis labor error: ${laborRes.status}`);
     }
     const laborJson = await laborRes.json();
-    const labor = laborJson.data || laborJson;
-    // pull out the raw entries array
-    const entries = Array.isArray(labor.entries) ? labor.entries : [];
-    
+    const entries = laborJson.data?.entries || laborJson.entries || [];
+    const filteredEntries = entries.filter(e =>
+      e.dateCompleted >= monthStart.unix() &&
+      e.dateCompleted <= monthEnd.unix()
+    );
+
     // sum up total seconds spent under “downtime”
-    const downtimeSec = entries
+    const downtimeSec = filteredEntries
       .filter(e => e.downtime)
       .reduce((sum, e) => sum + (e.timeSpent ?? e.duration ?? 0), 0);
-    
+
     // sum up ALL work seconds (downtime + run)
-    const totalSec = entries
+    const totalSec = filteredEntries
       .reduce((sum, e) => sum + (e.timeSpent ?? e.duration ?? 0), 0);
-    
+
     // convert to hours
     const downtimeHours    = downtimeSec / 3600;
     const operationalHours = (totalSec - downtimeSec) / 3600;
 
-    const downtimeMinutes = entries.filter(e => e.taskType === 'wo' && e.downtime).reduce((s, e) => s + e.duration, 0);
+    const downtimeMinutes = filteredEntries
+      .filter(e => e.taskType === 'wo' && e.downtime)
+      .reduce((s, e) => s + (e.duration ?? 0), 0);
 
     const mttr = unplannedCount ? (downtimeMinutes / 60) / unplannedCount : 0;
     const dates = unplannedTasks.map(t => t.dateCompleted).sort((a,b) => a - b);
