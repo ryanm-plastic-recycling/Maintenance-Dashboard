@@ -358,7 +358,7 @@
   },
   "statusTextMapping": {
     "1": "Available for Production",
-    "2": "In Maintenance Repair",
+    "2": "Limble Request Submitted",
     "3": "In Preventive Maintenance",
     "4": "Running Production",
     "5": "Alarmed & Running",
