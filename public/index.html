@@ -337,9 +337,15 @@
         }
 
         function fetchWeather() {
-            fetch('https://wttr.in/Indianapolis?format=j1')
-                .then(res => res.json())
-                .then(data => {
+            fetch('https://wttr.in/Indianapolis?format=j1&' + Date.now())
+                .then(res => res.text())
+                .then(text => {
+                    let data;
+                    try {
+                        data = JSON.parse(text);
+                    } catch (err) {
+                        throw new Error('Invalid weather response');
+                    }
                     const container = document.getElementById('weather-container');
                     container.innerHTML = '';
                     const alerts = [];
@@ -363,7 +369,11 @@
                     });
                     displayAlerts(alerts);
                 })
-                .catch(err => console.error('Weather error', err));
+                .catch(err => {
+                    console.error('Weather error', err);
+                    const container = document.getElementById('weather-container');
+                    container.innerHTML = '<div>Weather data unavailable</div>';
+                });
         }
         fetchWeather();
 
