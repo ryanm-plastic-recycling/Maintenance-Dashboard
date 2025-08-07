@@ -128,8 +128,8 @@ async function loadOverallKpis() {
     const laborAll = (await laborAllRes.json()).data?.entries || [];
     const filteredWeek = laborAll.filter(e =>
       e.assetID === id &&
-      e.dateCompleted >= weekStart.unix() &&
-      e.dateCompleted <= weekEnd.unix()
+      e.dateLogged >= weekStart.unix() &&
+      e.dateLogged <= weekEnd.unix()
     );
     const downtimeSec = filteredWeek
       .filter(e => e.downtime)
@@ -152,8 +152,8 @@ async function loadOverallKpis() {
     const laborAllMonth = (await laborAllMonthRes.json()).data?.entries || [];
     const filteredMonth = laborAllMonth.filter(e =>
       e.assetID === id &&
-      e.dateCompleted >= monthStart.unix() &&
-      e.dateCompleted <= monthEnd.unix()
+      e.dateLogged >= monthStart.unix() &&
+      e.dateLogged <= monthEnd.unix()
     );
     totals.downtimeMinutes += filteredMonth
       .filter(e => e.downtime && e.taskType === 'wo')
