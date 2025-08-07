@@ -76,7 +76,7 @@ async function loadOverallKpis() {
   for (const asset of mappings.productionAssets || []) {
     const id = asset.id;
     // Log the computed date range and URL before fetching
-    const weekTasksUrl = `${API_V2}/tasks?assets=${id}&status=2&completedDateGte=${weekStart.unix()}&completedDateLte=${weekEnd.unix()}`;
+    const weekTasksUrl = `${API_V2}/tasks?assets=${id}&status=2`;
     console.log(`📅 Fetching weekTasks from ${weekStart.toISOString()} to ${weekEnd.toISOString()} (URL: ${weekTasksUrl})`);
 
     const weekTasksRes = await fetch(weekTasksUrl, { headers });
@@ -130,7 +130,7 @@ async function loadOverallKpis() {
     totals.operationalHours += operationalHrs;
     totals.downtimeHours    += downtimeHrs;
 
-    const monthTasksUrl = `${API_V2}/tasks?assets=${id}&status=2&completedDateGte=${monthStart.unix()}&completedDateLte=${monthEnd.unix()}`;
+    const monthTasksUrl = `${API_V2}/tasks?assets=${id}&status=2`;
     console.log(
       `📅 Fetching monthTasks from ${monthStart.toISOString()} to ${monthEnd.toISOString()} ` +
       `(URL: ${monthTasksUrl})`
@@ -221,7 +221,7 @@ async function loadByAssetKpis() {
     const id = asset.id;
     const name = asset.name;
 
-    const byAssetUrl = `${API_V2}/tasks?assets=${id}&status=2&completedDateGte=${monthStart.unix()}&completedDateLte=${monthEnd.unix()}`;
+    const byAssetUrl = `${API_V2}/tasks?assets=${id}&status=2`;
     console.log(
       `📅 Fetching per-asset tasks for ${asset.name} (${asset.id}) from ` +
       `${monthStart.toISOString()} to ${monthEnd.toISOString()} ` +
