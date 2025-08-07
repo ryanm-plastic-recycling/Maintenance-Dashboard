@@ -131,10 +131,21 @@ async function loadOverallKpis() {
       e.dateLogged >= weekStart.unix() &&
       e.dateLogged <= weekEnd.unix()
     );
-    const downtimeSec = filteredWeek
+    let entriesWeek = [];
+    try {
+      if (!laborWeekRes.ok) {
+        console.warn(`Asset ${id} labor week returned ${laborWeekRes.status}, treating as zero.`);
+      } else {
+        const laborWeekJson = await laborWeekRes.json();
+        entriesWeek = laborWeekJson.data?.entries || laborWeekJson.entries || [];
+      }
+    } catch (err) {
+      console.error(`Error parsing labor week for ${id}:`, err);
+    }
+    const downtimeSec = entriesWeek
       .filter(e => e.downtime)
       .reduce((sum, e) => sum + (e.timeSpent ?? e.duration ?? 0), 0);
-    const totalSecWeek = filteredWeek
+    const totalSecWeek = entriesWeek
       .reduce((sum, e) => sum + (e.timeSpent ?? e.duration ?? 0), 0);
     totals.downtimeHours += downtimeSec / 3600;
     totals.operationalHours += (totalSecWeek - downtimeSec) / 3600;
@@ -155,7 +166,18 @@ async function loadOverallKpis() {
       e.dateLogged >= monthStart.unix() &&
       e.dateLogged <= monthEnd.unix()
     );
-    totals.downtimeMinutes += filteredMonth
+    let entriesMonth = [];
+    try {
+      if (!laborMonthRes.ok) {
+        console.warn(`Asset ${id} labor month returned ${laborMonthRes.status}, treating as zero.`);
+      } else {
+        const laborMonthJson = await laborMonthRes.json();
+        entriesMonth = laborMonthJson.data?.entries || laborMonthJson.entries || [];
+      }
+    } catch (err) {
+      console.error(`Error parsing labor month for ${id}:`, err);
+    }
+    totals.downtimeMinutes += entriesMonth
       .filter(e => e.downtime && e.taskType === 'wo')
       .reduce((sum, e) => sum + (e.duration ?? 0), 0);
   }
