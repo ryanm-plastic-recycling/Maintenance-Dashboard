@@ -1,4 +1,8 @@
-import mappings from '../mappings.json' assert { type: 'json' };
+let mappings;
+await fetch('/mappings.json')
+  .then(r => r.json())
+  .then(m => mappings = m)
+  .catch(err => console.error('Failed to load mappings', err));
 
 const errorEl   = document.getElementById('error-banner');
 const loadingEl = document.getElementById('loading');
