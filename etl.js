@@ -572,12 +572,13 @@ async function main() {
   try {
     const taskSummary  = await loadTasks(pool);
     const laborSummary = await loadLabor(pool);
+    const assetSummary = await loadAssets(pool);
     const fieldSummary = await loadAssetFields(pool);
-    await loadAssets(pool);
     console.log('✅ All Limble data loaded');
     console.log('Summary:');
     console.log(`  Tasks processed=${taskSummary.processed}, inserted=${taskSummary.inserted}, updated=${taskSummary.updated}, skipped=${taskSummary.skipped}, failed=${taskSummary.failed}`);
     console.log(`  Labor inserted=${laborSummary.inserted}, skipped=${laborSummary.skipped}, failed=${laborSummary.failed}`);
+    console.log(`  Assets      inserted=${assetSummary.inserted}, updated=${assetSummary.updated}, failed=${assetSummary.failed}`);
     console.log(`  AssetFields inserted=${fieldSummary.inserted}, skipped=${fieldSummary.skipped}, failed=${fieldSummary.failed}`);
   } catch (err) {
     console.error('ETL error:', err);
