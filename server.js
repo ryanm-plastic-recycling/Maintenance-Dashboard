@@ -119,17 +119,15 @@ async function loadOverallKpis() {
     console.log(
       `   ↳ Filtering labor week entries: ${weekStart.toISOString()} to ${weekEnd.toISOString()}`
     );
-    const laborWeekRes = await fetch(
-      `${API_V2}/tasks/labor?assets=${id}`,
-      { headers }
-    );
-    if (!laborWeekRes.ok) {
-      console.error(`loadOverallKpis labor week error for ${id}:`, laborWeekRes.status);
-      throw new Error(`Labor week ${laborWeekRes.status}`);
+    const laborAllRes = await fetch(`${API_V2}/tasks/labor?limit=10000`, { headers });
+    if (!laborAllRes.ok) {
+      const body = await laborAllRes.text();
+      console.error(`loadOverallKpis labor week error for ${id}:`, laborAllRes.status);
+      throw new Error(`Labor week ${laborAllRes.status}: ${body}`);
     }
-    const laborWeekJson = await laborWeekRes.json();
-    const entriesWeek = laborWeekJson.data?.entries || laborWeekJson.entries || [];
-    const filteredWeek = entriesWeek.filter(e =>
+    const laborAll = (await laborAllRes.json()).data?.entries || [];
+    const filteredWeek = laborAll.filter(e =>
+      e.assetID === id &&
       e.dateCompleted >= weekStart.unix() &&
       e.dateCompleted <= weekEnd.unix()
     );
@@ -145,17 +143,15 @@ async function loadOverallKpis() {
     console.log(
       `   ↳ Filtering labor month entries: ${monthStart.toISOString()} to ${monthEnd.toISOString()}`
     );
-    const laborMonthRes = await fetch(
-      `${API_V2}/tasks/labor?assets=${id}`,
-      { headers }
-    );
-    if (!laborMonthRes.ok) {
-      console.error(`loadOverallKpis labor month error for ${id}:`, laborMonthRes.status);
-      throw new Error(`Labor month ${laborMonthRes.status}`);
+    const laborAllMonthRes = await fetch(`${API_V2}/tasks/labor?limit=10000`, { headers });
+    if (!laborAllMonthRes.ok) {
+      const body = await laborAllMonthRes.text();
+      console.error(`loadOverallKpis labor month error for ${id}:`, laborAllMonthRes.status);
+      throw new Error(`Labor month ${laborAllMonthRes.status}: ${body}`);
     }
-    const laborMonthJson = await laborMonthRes.json();
-    const entriesMonth = laborMonthJson.data?.entries || laborMonthJson.entries || [];
-    const filteredMonth = entriesMonth.filter(e =>
+    const laborAllMonth = (await laborAllMonthRes.json()).data?.entries || [];
+    const filteredMonth = laborAllMonth.filter(e =>
+      e.assetID === id &&
       e.dateCompleted >= monthStart.unix() &&
       e.dateCompleted <= monthEnd.unix()
     );
@@ -250,17 +246,15 @@ async function loadByAssetKpis() {
     console.log(
       `   ↳ Filtering labor entries: ${monthStart.toISOString()} to ${monthEnd.toISOString()}`
     );
-    const laborRes = await fetch(
-      `${API_V2}/tasks/labor?assets=${id}`,
-      { headers }
-    );
-    if (!laborRes.ok) {
-      console.error(`loadByAssetKpis labor error for ${id}:`, laborRes.status);
-      throw new Error(`loadByAssetKpis labor error: ${laborRes.status}`);
+    const laborAllRes = await fetch(`${API_V2}/tasks/labor?limit=10000`, { headers });
+    if (!laborAllRes.ok) {
+      const body = await laborAllRes.text();
+      console.error(`loadByAssetKpis labor error for ${id}:`, laborAllRes.status);
+      throw new Error(`loadByAssetKpis labor error: ${laborAllRes.status}: ${body}`);
     }
-    const laborJson = await laborRes.json();
-    const entries = laborJson.data?.entries || laborJson.entries || [];
-    const filteredEntries = entries.filter(e =>
+    const laborAll = (await laborAllRes.json()).data?.entries || [];
+    const filteredEntries = laborAll.filter(e =>
+      e.assetID === id &&
       e.dateCompleted >= monthStart.unix() &&
       e.dateCompleted <= monthEnd.unix()
     );

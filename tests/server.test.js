@@ -149,10 +149,10 @@ describe('KPI time range overrides', () => {
     expect(tasksUrl).not.toContain('dateCompletedGte');
     expect(tasksUrl).not.toContain('dateCompletedLte');
     const laborWeekUrl = fetchMock.mock.calls[1][0];
-    expect(laborWeekUrl).toContain('/tasks/labor?assets=');
+    expect(laborWeekUrl).toContain('/tasks/labor?limit=10000');
     expect(laborWeekUrl).not.toContain('start=');
     const laborMonthUrl = fetchMock.mock.calls[2][0];
-    expect(laborMonthUrl).toContain('/tasks/labor?assets=');
+    expect(laborMonthUrl).toContain('/tasks/labor?limit=10000');
     expect(laborMonthUrl).not.toContain('start=');
 
     delete process.env.KPI_WEEK_START;
@@ -177,7 +177,7 @@ describe('KPI time range overrides', () => {
     expect(monthTasksUrl).not.toContain('dateCompletedGte');
     expect(monthTasksUrl).not.toContain('dateCompletedLte');
     const laborMonthUrl = fetchMock.mock.calls[1][0];
-    expect(laborMonthUrl).toContain('/tasks/labor?assets=');
+    expect(laborMonthUrl).toContain('/tasks/labor?limit=10000');
     expect(laborMonthUrl).not.toContain('start=');
 
     delete process.env.KPI_MONTH_START;
