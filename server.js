@@ -537,6 +537,17 @@ app.get('/api/kpis', async (req, res) => {
   }
 });
 
+// New endpoint: return only aggregate KPIs for header cards
+app.get('/api/kpis/header', async (req, res) => {
+  try {
+    const overall = await app.fetchAndCache('kpis_overall', loadOverallKpis);
+    res.json(overall);
+  } catch (err) {
+    console.error('KPI header error:', err);
+    res.status(500).json({ error: 'Failed to fetch KPI header' });
+  }
+});
+
 app.get('/api/status', async (req, res) => {
   try {
     const status = await app.fetchAndCache('status', loadAssetStatus);
@@ -559,6 +570,17 @@ app.post(process.env.STATUS_REFRESH_ENDPOINT || '/api/cache/refresh', async (req
 });
 
 app.get('/api/kpis-by-asset', async (req, res) => {
+  try {
+    const data = await app.fetchAndCache('kpis_byAsset', loadByAssetKpis);
+    res.json(data);
+  } catch (err) {
+    console.error('KPIs by asset error:', err);
+    res.status(500).json({ error: 'Failed to fetch KPIs by asset' });
+  }
+});
+
+// New endpoint alias following REST style
+app.get('/api/kpis/by-asset', async (req, res) => {
   try {
     const data = await app.fetchAndCache('kpis_byAsset', loadByAssetKpis);
     res.json(data);
