@@ -114,7 +114,7 @@ async function loadOverallKpis() {
 
     // ── MONTHLY ──
     const monthUrl = `${API_V2}/tasks?assets=${id}&status=2`;
-    console.log(`📅 Fetching all tasks for asset ${id} (month)…`);
+    console.log(`📅 Fetching tasks for asset ${id} from ${weekStart.toISOString()} to ${weekEnd.toISOString()}`);
     const monthRes = await fetch(monthUrl, { headers });
     if (!monthRes.ok) {
       throw new Error(`Month tasks ${monthRes.status}`);
