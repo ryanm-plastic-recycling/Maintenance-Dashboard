@@ -96,6 +96,11 @@ async function loadOverallKpis() {
         : Array.isArray(weekTasksJson.data?.tasks)
           ? weekTasksJson.data.tasks
           : [];
+    const weekTasks = rawWeekTasks.filter(t =>
+      t.dateCompleted >= weekStart.unix() &&
+      t.dateCompleted <= weekEnd.unix()
+    );
+
     totals.plannedCount   += weekTasks.filter(t => t.type === 4).length;
     totals.unplannedCount += weekTasks.filter(t => t.type === 2).length;
 
@@ -130,7 +135,11 @@ async function loadOverallKpis() {
     totals.operationalHours += operationalHrs;
     totals.downtimeHours    += downtimeHrs;
 
-    const monthTasksUrl = `${API_V2}/tasks?assets=${id}&status=2`;
+    const rawMonthTasks = /* … fetch & parse JSON … */;
+    const monthTasks = rawMonthTasks.filter(t =>
+      t.dateCompleted >= monthStart.unix() &&
+      t.dateCompleted <= monthEnd.unix()
+    );
     console.log(
       `📅 Fetching monthTasks from ${monthStart.toISOString()} to ${monthEnd.toISOString()} ` +
       `(URL: ${monthTasksUrl})`
@@ -240,6 +249,11 @@ async function loadByAssetKpis() {
         : Array.isArray(tasksJson.data?.tasks)
           ? tasksJson.data.tasks
           : [];
+    const tasksForThisMonth = tasks.filter(t =>
+      t.dateCompleted >= monthStart.unix() &&
+      t.dateCompleted <= monthEnd.unix()
+    );
+
     const plannedCount = tasks.filter(t => t.type === 4).length;
     const unplannedTasks = tasks.filter(t => t.type === 2);
     const unplannedCount = unplannedTasks.length;
