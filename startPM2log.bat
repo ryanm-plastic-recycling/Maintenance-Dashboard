@@ -11,6 +11,7 @@ cd /d "C:\Users\ryanm\OneDrive - Plastic Recycling\Documents\GitHub\Maintenance-
 
 REM reload with any new .env vars
 pm2 reload ecosystem.config.cjs --update-env
+REM pm2 restart "maintenance-dashboard" --update-env
 
 REM 1) PM2 process list
 start cmd /k "pm2 ls"
