@@ -108,11 +108,11 @@ async function loadOverallKpis() {
       t.dateCompleted <= monthEnd.unix()
     );
 
-    totals.plannedCount   += weekTasks.filter(t => t.type === 4).length;
-    totals.unplannedCount += weekTasks.filter(t => t.type === 2).length;
-    totals.unplannedWO    += monthTasks.filter(t => t.type === 2).length;
+    totals.plannedCount   += weekTasks.filter(t => t.type === 1 || t.type === 4).length;
+    totals.unplannedCount += weekTasks.filter(t => t.type === 2 || t.type === 6).length;
+    totals.unplannedWO    += monthTasks.filter(t => t.type === 2 || t.type === 6).length;
     totals.dates           = totals.dates.concat(
-      monthTasks.filter(t => t.type === 2).map(t => t.dateCompleted)
+      monthTasks.filter(t => t.type === 2 || t.type === 6).map(t => t.dateCompleted)
     );
 
     // Sum labor entries for the week
@@ -238,8 +238,8 @@ async function loadByAssetKpis() {
       t.dateCompleted >= monthStart.unix() &&
       t.dateCompleted <= monthEnd.unix()
     );
-    const plannedCount     = tasksForThisMonth.filter(t => t.type === 4).length;
-    const unplannedTasks   = tasksForThisMonth.filter(t => t.type === 2);
+    const plannedCount     = tasksForThisMonth.filter(t => t.type === 1 || t.type === 4).length;
+    const unplannedTasks   = tasksForThisMonth.filter(t => t.type === 2 || t.type === 6);
 
     const unplannedCount = unplannedTasks.length;
 
