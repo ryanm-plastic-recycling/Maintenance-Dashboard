@@ -57,7 +57,7 @@
     <button id="toggle-rotation">Pause Rotation</button>
   </div>
   <div class="container">
-    <h1>Asset KPIs (Last Month)</h1>
+    <h1>Asset KPIs</h1>
     <div class="tabs">
       <a href="/index.html">Work Orders</a>
       <a href="/pm.html">PM Work Orders</a>
@@ -69,24 +69,54 @@
       <button id="refresh-button">Refresh</button>
       <span id="refresh-timer"></span>
     </div>
-    <div class="header-kpi">
-      <div class="kpi-title">Asset Count</div>
-      <div id="assets-count" class="kpi-value">--</div>
-    </div>
-    <div class="header-kpi">
-      <div class="kpi-title">Avg Hours/Week</div>
-      <div id="avg-hours-per-week" class="kpi-value">--</div>
+    <div id="dashboard-cards">
+      <div class="header-kpi">
+        <div class="kpi-title">Total Assets</div>
+        <div id="total-assets" class="kpi-value">--</div>
+      </div>
+      <div class="header-kpi">
+        <div class="kpi-title">Avg Uptime %</div>
+        <div id="avg-uptime" class="kpi-value">--%</div>
+      </div>
+      <div class="header-kpi">
+        <div class="kpi-title">Avg MTTR (h)</div>
+        <div id="avg-mttr" class="kpi-value">--</div>
+      </div>
+      <div class="header-kpi">
+        <div class="kpi-title">Avg MTBF (h)</div>
+        <div id="avg-mtbf" class="kpi-value">--</div>
+      </div>
+      <div class="header-kpi">
+        <div class="kpi-title">Avg Planned %</div>
+        <div id="avg-planned" class="kpi-value">--%</div>
+      </div>
+      <div class="header-kpi">
+        <div class="kpi-title">Avg Unplanned %</div>
+        <div id="avg-unplanned" class="kpi-value">--%</div>
+      </div>
     </div>
     <div id="error-banner" style="display:none;color:red;">Failed to load KPIs</div>
     <div id="loading" style="display:none;">Loading...</div>
-    <table id="asset-fields">
+    <div>
+      <label for="timeframe-select">Timeframe:</label>
+      <select id="timeframe-select">
+        <option value="currentWeek">Current Week</option>
+        <option value="lastWeek">Last Week</option>
+        <option value="currentMonth">Current Month</option>
+        <option value="lastMonth">Last Month</option>
+        <option value="currentYear">Current Year</option>
+        <option value="lastYear">Last Year</option>
+      </select>
+    </div>
+    <table id="kpi-by-asset">
       <thead>
         <tr>
-          <th>AssetID</th>
-          <th>FieldID</th>
-          <th>Field</th>
-          <th>Value</th>
-          <th>Last Edited</th>
+          <th>Asset Name</th>
+          <th>Uptime %</th>
+          <th>MTTR</th>
+          <th>MTBF</th>
+          <th>Planned %</th>
+          <th>Unplanned %</th>
         </tr>
       </thead>
       <tbody></tbody>
