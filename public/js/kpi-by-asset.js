@@ -5,6 +5,11 @@ const loadingEl = document.getElementById('loading');
 const tbody     = document.querySelector('#kpi-by-asset tbody');
 const selectEl  = document.getElementById('timeframe-select');
 
+console.log('[kpi-by-asset.js] module loaded');
+console.log('[kpi-by-asset.js] module loaded');
+updateKPIs();    // kicks off your header KPI fetch
+fetchData();     // kicks off your “by-asset” table fetch
+
 selectEl.addEventListener('change', () => loadAll());
 
 function setText(id, text) {
