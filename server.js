@@ -119,9 +119,17 @@ async function loadOverallKpis() {
     console.log(
       `   ↳ Filtering labor week entries: ${weekStart.toISOString()} to ${weekEnd.toISOString()}`
     );
-    const laborWeekRes = await fetch(
-      `${API_V2}/tasks/labor?assets=${id}&start=${weekStart.unix()}&end=${weekEnd.unix()}`,
-      { headers }
+    const laborAllRes = await fetch(`${API_V2}/tasks/labor?limit=10000`, { headers });
+    if (!laborAllRes.ok) {
+      const body = await laborAllRes.text();
+      console.error(`loadOverallKpis labor week error for ${id}:`, laborAllRes.status);
+      throw new Error(`Labor week ${laborAllRes.status}: ${body}`);
+    }
+    const laborAll = (await laborAllRes.json()).data?.entries || [];
+    const filteredWeek = laborAll.filter(e =>
+      e.assetID === id &&
+      e.dateLogged >= weekStart.unix() &&
+      e.dateLogged <= weekEnd.unix()
     );
     let entriesWeek = [];
     try {
@@ -146,9 +154,17 @@ async function loadOverallKpis() {
     console.log(
       `   ↳ Filtering labor month entries: ${monthStart.toISOString()} to ${monthEnd.toISOString()}`
     );
-    const laborMonthRes = await fetch(
-      `${API_V2}/tasks/labor?assets=${id}&start=${monthStart.unix()}&end=${monthEnd.unix()}`,
-      { headers }
+    const laborAllMonthRes = await fetch(`${API_V2}/tasks/labor?limit=10000`, { headers });
+    if (!laborAllMonthRes.ok) {
+      const body = await laborAllMonthRes.text();
+      console.error(`loadOverallKpis labor month error for ${id}:`, laborAllMonthRes.status);
+      throw new Error(`Labor month ${laborAllMonthRes.status}: ${body}`);
+    }
+    const laborAllMonth = (await laborAllMonthRes.json()).data?.entries || [];
+    const filteredMonth = laborAllMonth.filter(e =>
+      e.assetID === id &&
+      e.dateLogged >= monthStart.unix() &&
+      e.dateLogged <= monthEnd.unix()
     );
     let entriesMonth = [];
     try {
