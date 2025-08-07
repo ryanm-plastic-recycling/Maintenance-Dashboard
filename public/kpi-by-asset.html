@@ -69,83 +69,31 @@
       <button id="refresh-button">Refresh</button>
       <span id="refresh-timer"></span>
     </div>
+    <div class="header-kpi">
+      <div class="kpi-title">Asset Count</div>
+      <div id="assets-count" class="kpi-value">--</div>
+    </div>
+    <div class="header-kpi">
+      <div class="kpi-title">Avg Hours/Week</div>
+      <div id="avg-hours-per-week" class="kpi-value">--</div>
+    </div>
     <div id="error-banner" style="display:none;color:red;">Failed to load KPIs</div>
     <div id="loading" style="display:none;">Loading...</div>
-    <table id="asset-kpi-table">
+    <table id="asset-fields">
       <thead>
         <tr>
           <th>AssetID</th>
-          <th>Name</th>
-          <th>HoursPerWeek</th>
-          <th>TotalLaborHours</th>
-          <th>LastActivity</th>
+          <th>FieldID</th>
+          <th>Field</th>
+          <th>Value</th>
+          <th>Last Edited</th>
         </tr>
       </thead>
       <tbody></tbody>
-      <tfoot>
-        <tr id="kpi-total-row" style="font-weight:bold;"></tr>
-      </tfoot>
     </table>
-    <script>
-      async function loadHeaderKPIs() {
-        const res = await fetch('/api/kpis/header');
-        if (!res.ok) throw new Error('header');
-        const k = await res.json();
-        document.getElementById('uptime-value').innerText = k.uptimePct + '%';
-        document.getElementById('mttr-value').innerText   = k.mttrHrs + 'h';
-        document.getElementById('mtbf-value').innerText   = k.mtbfHrs + 'h';
-        const total = k.plannedCount + k.unplannedCount;
-        const plannedPct   = total ? ((k.plannedCount/total)*100).toFixed(0)   + '%' : '0%';
-        const unplannedPct = total ? ((k.unplannedCount/total)*100).toFixed(0) + '%' : '0%';
-        document.getElementById('planned-vs-unplanned').innerText = `${plannedPct} vs ${unplannedPct}`;
-      }
 
-      async function loadAssetKPIs() {
-        const res  = await fetch('/api/kpis/by-asset');
-        if (!res.ok) throw new Error('asset');
-        const data = await res.json();
-        const tbody = document.querySelector('#asset-kpi-table tbody');
-        tbody.innerHTML = '';
-        Object.values(data.assets).forEach(a => {
-          const tr = document.createElement('tr');
-          tr.innerHTML = `
-            <td>${a.assetID || a.id}</td>
-            <td>${a.name}</td>
-            <td>${a.hoursPerWeek ?? ''}</td>
-            <td>${a.totalLaborHours ?? ''}</td>
-            <td>${a.lastActivity ?? ''}</td>
-          `;
-          tbody.appendChild(tr);
-        });
-        const tot = data.totals;
-        document.getElementById('kpi-total-row').innerHTML = `
-          <td>Total</td>
-          <td></td>
-          <td></td>
-          <td>${tot.totalLaborHours ?? ''}</td>
-          <td></td>
-        `;
-      }
-
-      async function loadAll() {
-        const spinner = document.getElementById('loading');
-        const errorBanner = document.getElementById('error-banner');
-        spinner.style.display = 'block';
-        errorBanner.style.display = 'none';
-        try {
-          await Promise.all([loadHeaderKPIs(), loadAssetKPIs()]);
-        } catch (err) {
-          console.error('Failed to load KPIs', err);
-          errorBanner.style.display = 'block';
-        } finally {
-          spinner.style.display = 'none';
-        }
-      }
-
-      loadAll();
-      setInterval(loadAll, 15 * 60 * 1000);
-    </script>
   </div>
+  <script type="module" src="js/kpi-by-asset.js"></script>
   <script>
     const rotateBtn = document.getElementById('toggle-rotation');
     const refreshTimerEl = document.getElementById('refresh-timer');
