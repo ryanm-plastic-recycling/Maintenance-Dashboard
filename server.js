@@ -115,6 +115,7 @@ async function loadOverallKpis() {
       monthTasks.filter(t => t.type === 2 || t.type === 6).map(t => t.dateCompleted)
     );
 
+    // ─── BEGIN WEEKLY LABOR FETCH ────────────────────────────────────────────
     // Sum labor entries for the week (fetched & filtered in-code)
     console.log(
       `   ↳ Fetching labor week entries: ${weekStart.toISOString()} to ${weekEnd.toISOString()}`
@@ -140,6 +141,16 @@ async function loadOverallKpis() {
     }
     // now filter to this asset:
     const entriesWeek = rawWeekEntries.filter(e => e.assetID === id);
+    // ─── INSERT DEBUG LOGGING FOR WEEK ENTRIES HERE ─────────────────────────
+    console.log(`DEBUG [${id}] week entries count = ${entriesWeek.length}`);
+    entriesWeek.slice(0,5).forEach((e,i) =>
+      console.log(`  entry[${i}]`, {
+        dateCompleted: e.dateCompleted,
+        downtime:      e.downtime,
+        timeSpent:     e.timeSpent ?? e.duration
+      })
+    );
+    // ─── END DEBUG LOGGING ─────────────────────────────────────────────────
     const downtimeSec = entriesWeek
       .filter(e => e.downtime)
       .reduce((sum, e) => sum + (e.timeSpent ?? e.duration ?? 0), 0);
@@ -147,7 +158,9 @@ async function loadOverallKpis() {
       .reduce((sum, e) => sum + (e.timeSpent ?? e.duration ?? 0), 0);
     totals.downtimeHours    += downtimeSec / 3600;
     totals.operationalHours += (totalSecWeek - downtimeSec) / 3600;
+    // ─── END WEEKLY LABOR SECTION ───────────────────────────────────────────
 
+    // ─── BEGIN MONTHLY LABOR FETCH ──────────────────────────────────────────
     // Sum downtime minutes for the month
     console.log(
       `   ↳ Fetching labor month entries: ${monthStart.toISOString()} to ${monthEnd.toISOString()}`
@@ -172,11 +185,22 @@ async function loadOverallKpis() {
       console.warn(`Asset ${id} labor month fetch returned ${laborMonthRes.status}, treating as zero.`);
     }
     const entriesMonth = rawMonthEntries.filter(e => e.assetID === id);
+    // ─── INSERT DEBUG LOGGING FOR MONTH ENTRIES HERE ────────────────────────
+    console.log(`DEBUG [${id}] month entries count = ${entriesMonth.length}`);
+    entriesMonth.slice(0,5).forEach((e,i) =>
+      console.log(`  entry[${i}]`, {
+        dateCompleted: e.dateCompleted,
+        downtime:      e.downtime,
+        duration:      e.duration
+      })
+    );
+    // ─── END DEBUG LOGGING ─────────────────────────────────────────────────
     totals.downtimeMinutes += entriesMonth
       .filter(e => e.downtime && e.taskType === 'wo')
       .reduce((sum, e) => sum + (e.duration ?? 0), 0);
   }
-
+  // ─── END MONTHLY LABOR SECTION ─────────────────────────────────────────
+  
   // Final KPI calculations
   const uptimePct = totals.operationalHours
     ? ((totals.operationalHours - totals.downtimeHours) / totals.operationalHours) * 100
