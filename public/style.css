@@ -53,6 +53,12 @@
 #kpi-by-asset tfoot tr { position: sticky; bottom: 0; background: #f8fafc; z-index: 1; }
 #kpi-by-asset tfoot td { background: #f8fafc; } /* ensure solid bg over rows */
 
+/* narrow downtime column to avoid wrapping */
+#kpi-by-asset th.col-downtime,
+#kpi-by-asset td.col-downtime {
+  white-space: nowrap;
+}
+
 /* True Overall tiles */
 #true-overall-row {
   display: flex;
