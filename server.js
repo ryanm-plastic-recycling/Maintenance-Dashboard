@@ -13,6 +13,7 @@ import cors     from 'cors';
 dotenv.config();
 
 const API_V2 = `${process.env.API_BASE_URL}/v2`;
+const KPI_DEBUG = process.env.KPI_DEBUG === '1';
 
 // Default to a 5 minute cache refresh if env var not set
 const cacheTtlSeconds = Number(process.env.CACHE_TTL_MINUTES ?? 5) * 60;
