@@ -120,22 +120,23 @@ async function loadOverallKpis() {
       `   ↳ Filtering labor week entries: ${weekStart.toISOString()} to ${weekEnd.toISOString()}`
     );
     const laborWeekRes = await fetch(
-      `${API_V2}/tasks/labor?assets=${id}&start=${weekStart.unix()}&end=${weekEnd.unix()}`,
+      `${API_V2}/tasks/labor?limit=10000&start=${weekStart.unix()}&end=${weekEnd.unix()}`,
       { headers }
     );
     let entriesWeek = [];
     if (laborWeekRes.ok) {
       const json = await laborWeekRes.json();
-      entriesWeek = json.data?.entries || json.entries || [];
+      entriesWeek = (json.data?.entries || json.entries || [])
+        .filter(e => e.assetID === id);
     } else {
       console.warn(`Asset ${id} labor week returned ${laborWeekRes.status}, treating as zero.`);
     }
     const downtimeSec = entriesWeek
       .filter(e => e.downtime)
-      .reduce((sum, e) => sum + (e.timeSpent ?? e.duration ?? 0), 0);
+      .reduce((sum, e) => sum + (e.timeSpent || e.duration || 0), 0);
     const totalSecWeek = entriesWeek
-      .reduce((sum, e) => sum + (e.timeSpent ?? e.duration ?? 0), 0);
-    totals.downtimeHours += downtimeSec / 3600;
+      .reduce((sum, e) => sum + (e.timeSpent || e.duration || 0), 0);
+    totals.downtimeHours    += downtimeSec / 3600;
     totals.operationalHours += (totalSecWeek - downtimeSec) / 3600;
 
     // Sum downtime minutes for the month
@@ -143,19 +144,20 @@ async function loadOverallKpis() {
       `   ↳ Filtering labor month entries: ${monthStart.toISOString()} to ${monthEnd.toISOString()}`
     );
     const laborMonthRes = await fetch(
-      `${API_V2}/tasks/labor?assets=${id}&start=${monthStart.unix()}&end=${monthEnd.unix()}`,
+      `${API_V2}/tasks/labor?limit=10000&start=${monthStart.unix()}&end=${monthEnd.unix()}`,
       { headers }
     );
     let entriesMonth = [];
     if (laborMonthRes.ok) {
       const json = await laborMonthRes.json();
-      entriesMonth = json.data?.entries || json.entries || [];
+      entriesMonth = (json.data?.entries || json.entries || [])
+        .filter(e => e.assetID === id);
     } else {
       console.warn(`Asset ${id} labor month returned ${laborMonthRes.status}, treating as zero.`);
     }
     totals.downtimeMinutes += entriesMonth
       .filter(e => e.downtime && e.taskType === 'wo')
-      .reduce((sum, e) => sum + (e.duration ?? 0), 0);
+      .reduce((sum, e) => sum + (e.duration || 0), 0);
   }
 
   // Final KPI calculations
