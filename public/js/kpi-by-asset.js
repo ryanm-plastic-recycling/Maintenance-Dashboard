@@ -34,18 +34,6 @@ function endOfWeek(date) {
   return d;
 }
 
-function countWeekdays(start, end) {
-  let count = 0;
-  const cur = new Date(start);
-  cur.setHours(0, 0, 0, 0);
-  while (cur <= end) {
-    const day = cur.getDay();
-    if (day !== 0 && day !== 6) count++;
-    cur.setDate(cur.getDate() + 1);
-  }
-  return count;
-}
-
 function getRange(option) {
   const now = new Date();
   let start, end;
@@ -91,95 +79,43 @@ async function loadAll() {
   errorEl.style.display   = 'none';
   try {
     const { start, end } = getRange(selectEl.value);
-    const workDays = countWeekdays(start, end);
-    const startTs = start.getTime() / 1000;
-    const endTs   = end.getTime() / 1000;
+    const qs = '?start=' + Math.floor(start.getTime()/1000)
+             + '&end='   + Math.floor(end.getTime()/1000);
 
-    const [assetsRes, laborRes, tasksRes] = await Promise.all([
-      fetch('/api/assets'),
-      fetch('/api/tasks/labor'),
-      fetch('/api/tasks')
-    ]);
+    // fetch the per‐asset rollups in one go:
+    const res = await fetch('/api/kpis/by-asset' + qs);
+    if (!res.ok) throw new Error(await res.text());
+    const { assets } = await res.json();
 
-    if (!assetsRes.ok || !laborRes.ok || !tasksRes.ok) {
-      throw new Error('fetch');
-    }
-
-    const [assets, laborJson, tasksJson] = await Promise.all([
-      assetsRes.json(),
-      laborRes.json(),
-      tasksRes.json()
-    ]);
-
-    const laborEntries = (laborJson.data?.entries || laborJson.entries || laborJson)
-      .filter(e => {
-        const logged = e.DateLogged || e.dateLogged || e.dateCompleted;
-        return logged >= startTs && logged <= endTs;
-      });
-
-    const tasks = (tasksJson.data?.tasks || tasksJson.tasks || tasksJson)
-      .filter(t => {
-        const date = t.dateCompleted ?? t.createdDate;
-        return date >= startTs && date <= endTs;
-      });
-
-    const rows = [];
-    for (const asset of assets) {
-      const id = asset.id || asset.assetID || asset.assetId;
-      const name = mappings.asset?.[id]
-        || mappings.productionAssets?.find(a => a.id === id)?.name
-        || asset.name
-        || `Asset ${id}`;
-
-      const aLabor = laborEntries.filter(l => (l.assetID || l.assetId) === id);
-      const aTasks = tasks.filter(t => (t.assetID || t.assetId) === id);
-
-      const downtimeSec = aLabor.reduce((s, e) => s + (e.TimeSpent ?? e.timeSpent ?? e.duration ?? 0), 0);
-      const downtimeHrs = downtimeSec / 3600;
-
-      const failures = aTasks.filter(t => {
-        const typeName = mappings.type?.[t.type] || t.typeName;
-        return typeName === 'Unplanned WO' || typeName === 'Work Request';
-      }).length;
-
-      const plannedCount = aTasks.filter(t => {
-        const typeName = mappings.type?.[t.type] || t.typeName;
-        return typeName === 'PM' || typeName === 'Planned WO';
-      }).length;
-
-      const totalTasks = aTasks.length;
-
-      const uptimePct   = workDays ? 100 - (downtimeHrs / (24 * workDays)) * 100 : 0;
-      const mttr        = failures ? downtimeHrs / failures : 0;
-      const mtbf        = failures ? ((workDays * 24 - downtimeHrs) / failures) : 0;
-      const plannedPct  = totalTasks ? (plannedCount / totalTasks) * 100 : 0;
-      const unplannedPct = totalTasks ? (failures / totalTasks) * 100 : 0;
-
-      rows.push({ name, uptimePct, mttr, mtbf, plannedPct, unplannedPct });
-    }
-
+    // clear table
     tbody.innerHTML = '';
-    rows.forEach(r => {
+
+    // each key is an assetID
+    Object.values(assets).forEach(a => {
       const tr = document.createElement('tr');
       tr.innerHTML = `
-        <td>${r.name}</td>
-        <td>${r.uptimePct.toFixed(1)}</td>
-        <td>${r.mttr.toFixed(1)}</td>
-        <td>${r.mtbf.toFixed(1)}</td>
-        <td>${r.plannedPct.toFixed(1)}</td>
-        <td>${r.unplannedPct.toFixed(1)}</td>`;
+        <td>${a.name}</td>
+        <td>${a.uptimePct.toFixed(1)}</td>
+        <td>${a.mttrHrs.toFixed(1)}</td>
+        <td>${a.mtbfHrs.toFixed(1)}</td>
+        <td>${((a.plannedCount/(a.plannedCount+a.unplannedCount))*100||0).toFixed(1)}</td>
+        <td>${((a.unplannedCount/(a.plannedCount+a.unplannedCount))*100||0).toFixed(1)}</td>
+      `;
       tbody.appendChild(tr);
     });
 
-    const totalAssets = rows.length;
-    const avg = key => totalAssets ? rows.reduce((s, r) => s + r[key], 0) / totalAssets : 0;
-
-    setText('total-assets', totalAssets);
-    setText('avg-uptime', `${avg('uptimePct').toFixed(1)}%`);
-    setText('avg-mttr', avg('mttr').toFixed(1));
-    setText('avg-mtbf', avg('mtbf').toFixed(1));
-    setText('avg-planned', `${avg('plannedPct').toFixed(1)}%`);
-    setText('avg-unplanned', `${avg('unplannedPct').toFixed(1)}%`);
+    // update the card averages
+    const rows = Object.values(assets);
+    const total = rows.length;
+    const avg = key => total
+      ? rows.reduce((sum,r) => sum + (r[key]||0), 0)/total
+      : 0;
+    setText('total-assets', total);
+    setText('avg-uptime',  avg('uptimePct').toFixed(1) + '%');
+    setText('avg-mttr',    avg('mttrHrs').toFixed(1));
+    setText('avg-mtbf',    avg('mtbfHrs').toFixed(1));
+    setText('avg-planned', ((avg('plannedCount')/(avg('plannedCount')+avg('unplannedCount')))*100||0).toFixed(1)+'%');
+    setText('avg-unplanned',((avg('unplannedCount')/(avg('plannedCount')+avg('unplannedCount')))*100||0).toFixed(1)+'%');
   } catch (err) {
     console.error('Failed loading KPIs by asset', err);
     errorEl.style.display = 'block';
