@@ -23,6 +23,6 @@ export function initHeaderKPIs() {
   setInterval(_updateHeader, 15 * 60 * 1000);
 }
 
-// expose for global use in other modules
+// expose for global use
 window.updateKPIs = _updateHeader;
 
