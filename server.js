@@ -115,49 +115,66 @@ async function loadOverallKpis() {
       monthTasks.filter(t => t.type === 2 || t.type === 6).map(t => t.dateCompleted)
     );
 
-    // Sum labor entries for the week
+    // Sum labor entries for the week (fetched & filtered in-code)
     console.log(
-      `   ↳ Filtering labor week entries: ${weekStart.toISOString()} to ${weekEnd.toISOString()}`
+      `   ↳ Fetching labor week entries: ${weekStart.toISOString()} to ${weekEnd.toISOString()}`
     );
     const laborWeekRes = await fetch(
       `${API_V2}/tasks/labor?limit=10000&start=${weekStart.unix()}&end=${weekEnd.unix()}`,
       { headers }
     );
-    let entriesWeek = [];
+    let rawWeekEntries = [];
     if (laborWeekRes.ok) {
-      const json = await laborWeekRes.json();
-      entriesWeek = (json.data?.entries || json.entries || [])
-        .filter(e => e.assetID === id);
+      try {
+        const json = await laborWeekRes.json();
+        if (Array.isArray(json.data?.entries)) {
+          rawWeekEntries = json.data.entries;
+        } else if (Array.isArray(json.entries)) {
+          rawWeekEntries = json.entries;
+        }
+      } catch (err) {
+        console.error(`Error parsing labor week JSON for ${id}:`, err);
+      }
     } else {
-      console.warn(`Asset ${id} labor week returned ${laborWeekRes.status}, treating as zero.`);
+      console.warn(`Asset ${id} labor week fetch returned ${laborWeekRes.status}, treating as zero.`);
     }
+    // now filter to this asset:
+    const entriesWeek = rawWeekEntries.filter(e => e.assetID === id);
     const downtimeSec = entriesWeek
       .filter(e => e.downtime)
-      .reduce((sum, e) => sum + (e.timeSpent || e.duration || 0), 0);
+      .reduce((sum, e) => sum + (e.timeSpent ?? e.duration ?? 0), 0);
     const totalSecWeek = entriesWeek
-      .reduce((sum, e) => sum + (e.timeSpent || e.duration || 0), 0);
+      .reduce((sum, e) => sum + (e.timeSpent ?? e.duration ?? 0), 0);
     totals.downtimeHours    += downtimeSec / 3600;
     totals.operationalHours += (totalSecWeek - downtimeSec) / 3600;
 
     // Sum downtime minutes for the month
     console.log(
-      `   ↳ Filtering labor month entries: ${monthStart.toISOString()} to ${monthEnd.toISOString()}`
+      `   ↳ Fetching labor month entries: ${monthStart.toISOString()} to ${monthEnd.toISOString()}`
     );
     const laborMonthRes = await fetch(
       `${API_V2}/tasks/labor?limit=10000&start=${monthStart.unix()}&end=${monthEnd.unix()}`,
       { headers }
     );
-    let entriesMonth = [];
+    let rawMonthEntries = [];
     if (laborMonthRes.ok) {
-      const json = await laborMonthRes.json();
-      entriesMonth = (json.data?.entries || json.entries || [])
-        .filter(e => e.assetID === id);
+      try {
+        const json = await laborMonthRes.json();
+        if (Array.isArray(json.data?.entries)) {
+          rawMonthEntries = json.data.entries;
+        } else if (Array.isArray(json.entries)) {
+          rawMonthEntries = json.entries;
+        }
+      } catch (err) {
+        console.error(`Error parsing labor month JSON for ${id}:`, err);
+      }
     } else {
-      console.warn(`Asset ${id} labor month returned ${laborMonthRes.status}, treating as zero.`);
+      console.warn(`Asset ${id} labor month fetch returned ${laborMonthRes.status}, treating as zero.`);
     }
+    const entriesMonth = rawMonthEntries.filter(e => e.assetID === id);
     totals.downtimeMinutes += entriesMonth
       .filter(e => e.downtime && e.taskType === 'wo')
-      .reduce((sum, e) => sum + (e.duration || 0), 0);
+      .reduce((sum, e) => sum + (e.duration ?? 0), 0);
   }
 
   // Final KPI calculations
