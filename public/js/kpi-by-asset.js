@@ -33,6 +33,59 @@ function getDowntimeHours(row) {
   return null;
 }
 
+// count of WR + Unplanned WO in range
+function getUnplannedCount(row) {
+  // Prefer explicit aggregated field if present
+  if (Number.isFinite(row?.unplannedCount)) return row.unplannedCount;
+
+  // Next best: WR + Unplanned WO counts if present
+  const wr = Number(row?.workRequestCount) || 0;
+  const uw = Number(row?.unplannedWoCount) || 0;
+  const combined = wr + uw;
+  return combined > 0 ? combined : null; // return null if nothing to show
+}
+
+// number of unplanned events that produced downtime > 0
+function getFailureEventCount(row) {
+  // Prefer explicit aggregated field if present
+  if (Number.isFinite(row?.failureEventCount)) return row.failureEventCount;
+
+  // Derive from event list, if available
+  if (Array.isArray(row?.events)) {
+    const cnt = row.events.filter(e =>
+      (e?.type === 'workRequest' || e?.type === 'unplanned') &&
+      Number(e?.downtimeHours) > 0
+    ).length;
+    return cnt > 0 ? cnt : null;
+  }
+
+  // Fallback: if server exposes pre-sliced counts
+  if (Number.isFinite(row?.unplannedWithDowntimeCount)) return row.unplannedWithDowntimeCount;
+
+  return null; // TODO: replace with direct API field when available
+}
+
+// downtime hours attributable to failures (unplanned)
+function getUnplannedDowntimeHours(row) {
+  // Prefer explicit unplanned downtime hours
+  const direct = row?.downtimeHoursUnplanned ?? row?.unplannedDowntimeHours ?? row?.unplannedDowntimeHrs;
+  if (Number.isFinite(direct)) return direct;
+
+  // Fallback: if no planned downtime fields exist, treat overall downtime as unplanned
+  if (!Number.isFinite(row?.plannedDowntimeHours) && !Number.isFinite(row?.plannedDowntimeHrs)) {
+    const d = row?.downtimeHours ?? row?.downtimeHrs;
+    if (Number.isFinite(d)) return d;
+  }
+
+  return null;
+}
+
+// operational/run-time hours
+function getOperationalHours(row) {
+  const direct = row?.operationalHours ?? row?.runtimeHours ?? row?.runtimeHrs;
+  return Number.isFinite(direct) ? direct : null;
+}
+
 function updateDateRangeLabel(tf, meta) {
   const el = document.getElementById('date-range');
   if (!el) return;
@@ -88,26 +141,73 @@ export async function loadAll() {
     // update displayed date window
     updateDateRangeLabel(tf, data.range);
 
-    // clear table
+    // clear table and prepare accumulators
     tbody.innerHTML = '';
+    const unplannedCounts = [];
+    const failureCounts = [];
+    const mttrValues = [];
+    const mtbfValues = [];
+    const plannedCounts = [];
+    let totalUnplannedDowntime = 0;
+    let totalOperational = 0;
 
     // each key is an assetID
     Object.values(assets).forEach(a => {
       const tr = document.createElement('tr');
+
       const d = getDowntimeHours(a);
       const downtimeTd = d == null
         ? `<td class="col-downtime" data-testid="cell-downtime-hrs" title="No downtime data for selected range">—</td>`
         : `<td class="col-downtime" data-testid="cell-downtime-hrs">${d.toFixed(1)}</td>`;
+
+      const unplanned = getUnplannedCount(a);
+      const unplannedTd = unplanned == null
+        ? `<td class="col-int" data-testid="cell-unplanned-count" title="No unplanned events for selected range">—</td>`
+        : `<td class="col-int" data-testid="cell-unplanned-count">${Math.round(unplanned)}</td>`;
+
+      const failures = getFailureEventCount(a);
+      const failureTd = failures == null
+        ? `<td class="col-int" data-testid="cell-failure-events" title="No failure events in range">—</td>`
+        : `<td class="col-int" data-testid="cell-failure-events">${Math.round(failures)}</td>`;
+
+      const planned = Number(a.plannedCount) || 0;
+      const totalWo = planned + (unplanned || 0);
+      const plannedPct = totalWo > 0 ? (planned / totalWo) * 100 : null;
+      const unplannedPct = totalWo > 0 ? ((unplanned || 0) / totalWo) * 100 : null;
+
+      const unplannedDt = getUnplannedDowntimeHours(a);
+      const opHours = getOperationalHours(a);
+      const mttr = failures > 0 && unplannedDt != null ? unplannedDt / failures : null;
+      const mtbf = failures > 0 && opHours != null ? opHours / failures : null;
+
+      const mttrTd = mttr == null
+        ? `<td title="No failure events in range">—</td>`
+        : `<td>${mttr.toFixed(1)}</td>`;
+      const mtbfTd = mtbf == null
+        ? `<td title="No failure events in range">—</td>`
+        : `<td>${mtbf.toFixed(1)}</td>`;
+
       tr.innerHTML = `
         <td>${a.name}</td>
         ${downtimeTd}
+        ${unplannedTd}
+        ${failureTd}
         <td>${a.uptimePct.toFixed(1)}</td>
-        <td>${a.mttrHrs.toFixed(1)}</td>
-        <td>${a.mtbfHrs.toFixed(1)}</td>
-        <td>${((a.plannedCount/(a.plannedCount+a.unplannedCount))*100||0).toFixed(1)}</td>
-        <td>${((a.unplannedCount/(a.plannedCount+a.unplannedCount))*100||0).toFixed(1)}</td>
+        ${mttrTd}
+        ${mtbfTd}
+        <td>${plannedPct == null ? '—' : plannedPct.toFixed(1)}</td>
+        <td>${unplannedPct == null ? '—' : unplannedPct.toFixed(1)}</td>
       `;
       tbody.appendChild(tr);
+
+      // accumulate per-row values for footer and overall
+      if (unplanned != null) unplannedCounts.push(unplanned);
+      if (failures != null) failureCounts.push(failures);
+      plannedCounts.push(planned);
+      if (mttr != null) mttrValues.push(mttr);
+      if (mtbf != null) mtbfValues.push(mtbf);
+      if (unplannedDt != null) totalUnplannedDowntime += unplannedDt;
+      if (opHours != null) totalOperational += opHours;
     });
 
     // update the card averages
@@ -123,13 +223,53 @@ export async function loadAll() {
       : null;
     setText('avg-downtime', avgDowntime == null ? '—' : avgDowntime.toFixed(1));
     setText('avg-uptime',  avg('uptimePct').toFixed(1) + '%');
-    setText('avg-mttr',    avg('mttrHrs').toFixed(1));
-    setText('avg-mtbf',    avg('mtbfHrs').toFixed(1));
-    setText('avg-planned', ((avg('plannedCount')/(avg('plannedCount')+avg('unplannedCount')))*100||0).toFixed(1)+'%');
-    setText('avg-unplanned',((avg('unplannedCount')/(avg('plannedCount')+avg('unplannedCount')))*100||0).toFixed(1)+'%');
 
-    // render true overall tiles
+    const avgUnplannedCount = unplannedCounts.length
+      ? unplannedCounts.reduce((s,v) => s + v, 0) / unplannedCounts.length
+      : null;
+    setText('avg-unplanned-count', avgUnplannedCount == null ? '—' : avgUnplannedCount.toFixed(1));
+
+    const avgFailureEvents = failureCounts.length
+      ? failureCounts.reduce((s,v) => s + v, 0) / failureCounts.length
+      : null;
+    setText('avg-failure-events', avgFailureEvents == null ? '—' : avgFailureEvents.toFixed(1));
+
+    const avgMTTR = mttrValues.length
+      ? mttrValues.reduce((s,v) => s + v, 0) / mttrValues.length
+      : null;
+    setText('avg-mttr', avgMTTR == null ? '—' : avgMTTR.toFixed(1));
+
+    const avgMTBF = mtbfValues.length
+      ? mtbfValues.reduce((s,v) => s + v, 0) / mtbfValues.length
+      : null;
+    setText('avg-mtbf', avgMTBF == null ? '—' : avgMTBF.toFixed(1));
+
+    const totalPlanned = plannedCounts.reduce((s,v) => s + v, 0);
+    const totalUnplanned = unplannedCounts.reduce((s,v) => s + v, 0);
+    const plannedPctAvg = (totalPlanned + totalUnplanned) > 0
+      ? (totalPlanned / (totalPlanned + totalUnplanned)) * 100
+      : null;
+    const unplannedPctAvg = (totalPlanned + totalUnplanned) > 0
+      ? (totalUnplanned / (totalPlanned + totalUnplanned)) * 100
+      : null;
+    setText('avg-planned', plannedPctAvg == null ? '—' : plannedPctAvg.toFixed(1) + '%');
+    setText('avg-unplanned', unplannedPctAvg == null ? '—' : unplannedPctAvg.toFixed(1) + '%');
+
+    // render true overall tiles using failure events
     const overall = computeTrueOverall(data);
+    const totalFailureEvents = Number.isFinite(data?.totals?.failureEventCount)
+      ? data.totals.failureEventCount
+      : failureCounts.reduce((s,v) => s + v, 0);
+    const totalFailureDowntime = Number.isFinite(data?.totals?.downtimeHoursUnplanned)
+      ? data.totals.downtimeHoursUnplanned
+      : totalUnplannedDowntime;
+    const totalOperationalHours = Number.isFinite(data?.totals?.operationalHours)
+      ? data.totals.operationalHours
+      : Number.isFinite(data?.totals?.runtimeHours)
+        ? data.totals.runtimeHours
+        : totalOperational;
+    overall.mttrHrs = totalFailureEvents > 0 ? totalFailureDowntime / totalFailureEvents : null;
+    overall.mtbfHrs = totalFailureEvents > 0 ? totalOperationalHours / totalFailureEvents : null;
     renderTrueOverall(overall);
   } catch (err) {
     console.error('loadAll failed:', err);

@@ -95,6 +95,8 @@
         <tr>
           <th>Asset Name</th>
           <th class="col-downtime" data-testid="col-downtime-hrs">Downtime Hrs</th>
+          <th class="col-int" data-testid="col-unplanned-count">Unplanned Count</th>
+          <th class="col-int" data-testid="col-failure-events">Failure Events</th>
           <th>Uptime %</th>
           <th>MTTR</th>
           <th>MTBF</th>
@@ -112,6 +114,14 @@
         <td class="kpi-cell">
           <div class="kpi-title">Avg Downtime Hrs</div>
           <div id="avg-downtime" class="kpi-value">--</div>
+        </td>
+        <td class="kpi-cell">
+          <div class="kpi-title">Avg Unplanned Count</div>
+          <div id="avg-unplanned-count" class="kpi-value">--</div>
+        </td>
+        <td class="kpi-cell">
+          <div class="kpi-title">Avg Failure Events</div>
+          <div id="avg-failure-events" class="kpi-value">--</div>
         </td>
         <td class="kpi-cell">
           <div class="kpi-title">Avg Uptime %</div>
@@ -134,9 +144,9 @@
           <div id="avg-unplanned" class="kpi-value">--%</div>
         </td>
       </tr>
-    </tfoot>
-    </table>
-    </div>
+      </tfoot>
+      </table>
+      </div>
     <h2>All Assets — True Overall</h2>
     <div id="true-overall-row">
       <div class="kpi-tile">
