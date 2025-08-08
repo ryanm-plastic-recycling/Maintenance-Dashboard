@@ -2,12 +2,12 @@
   "pages": [
     "index.html",
     "pm.html",
-    "prodstatus.html"
+    "prodstatus.html",
+    "kpi-by-asset.html"
   ],
   "interval": 30000,
   "columns": {
     "index.html": [
-      "locationID",
       "taskID",
       "assetID",
       "priority",
@@ -18,7 +18,6 @@
       "statusID"
     ],
     "pm.html": [
-      "locationID",
       "taskID",
       "assetID",
       "priority",
@@ -29,9 +28,5 @@
       "due",
       "statusID"
     ]
-  },
-  "burnInSchedule": {
-    "start": "19:00",
-    "end": "05:00"
   }
 }

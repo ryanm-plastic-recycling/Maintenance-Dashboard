@@ -1,0 +1,140 @@
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #fff;
+  padding: 0.5rem 1rem;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  font-family: sans-serif;
+}
+.logo { height: 50px; }
+.header-kpi { text-align: center; min-width: 120px; }
+.header-mt {
+  display: flex; flex-direction: column; align-items: center;
+  min-width: 100px;
+}
+.kpi-title { font-size: 1.2rem; color: #666; }
+.kpi-value { font-size: 1.5rem; font-weight: bold; }
+.mtbf-title { margin-top: 0.2rem; }
+.header-clock {
+  font-size: 1rem; font-weight: 500;
+  min-width: 100px; text-align: center;
+}
+
+/* Totals row styling */
+#kpi-by-asset tfoot td.kpi-cell {
+  background: #f8fafc;
+  border-top: 6px solid #25408F;
+  padding: 8px 12px;
+  text-align: center;
+}
+
+/* Tweak sizes only for the footer KPIs (won't affect header KPIs) */
+#kpi-by-asset tfoot .kpi-title { 
+  font-size: 1.2rem; 
+  color: #666; 
+  margin-bottom: 2px; 
+}
+#kpi-by-asset tfoot .kpi-value { 
+  font-size: 1.5rem; 
+  font-weight: 700; 
+}
+
+/* Totals row tweaks */
+#kpi-by-asset tfoot td.kpi-cell { vertical-align: middle; }
+#kpi-by-asset tfoot .kpi-value { white-space: nowrap; }
+
+/* make numbers line up cleanly */
+#kpi-by-asset tfoot .kpi-value { font-variant-numeric: tabular-nums; }
+
+/* Optional: sticky totals */
+.table-wrap { max-height: 70vh; overflow: auto; }
+#kpi-by-asset { width: 100%; border-collapse: separate; border-spacing: 0; }
+#kpi-by-asset tfoot tr { position: sticky; bottom: 0; background: #f8fafc; z-index: 1; }
+#kpi-by-asset tfoot td { background: #f8fafc; } /* ensure solid bg over rows */
+
+/* narrow downtime column to avoid wrapping */
+#kpi-by-asset th.col-downtime,
+#kpi-by-asset td.col-downtime {
+  white-space: nowrap;
+}
+
+/* integer count columns */
+#kpi-by-asset th.col-int,
+#kpi-by-asset td.col-int {
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* True Overall tiles */
+#true-overall-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 20px;
+}
+#true-overall-row .kpi-tile {
+  flex: 1 1 180px;
+  background: #f8fafc;
+  padding: 10px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  text-align: center;
+}
+#true-overall-row .kpi-value { font-variant-numeric: tabular-nums; }
+
+/* === Timeframe label and select sizing for KPI-by-Asset page === */
+label[for="timeframe-select"] {
+  font-size: 2em;        /* Twice normal size */
+  font-weight: bold;     /* Make it stand out */
+  margin-right: 10px;    /* Space between label and dropdown */
+}
+
+#timeframe-select {
+  font-size: 2em;        /* Larger dropdown text and options */
+  padding: 6px 12px;     /* Bigger clickable area */
+}
+
+@media (forced-colors: active) {
+  /* high-contrast overrides using system color keywords */
+  body {
+    background-color: Canvas;
+    color: CanvasText;
+  }
+  a {
+    color: LinkText;
+  }
+  button {
+    background-color: ButtonFace;
+    color: ButtonText;
+    border: 1px solid ButtonText;
+  }
+}
+
+/* loading spinner overlay */
+#loading {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.7);
+  z-index: 9999;
+}
+
+#loading .spinner {
+  border: 8px solid #f3f3f3;
+  border-top: 8px solid #3498db;
+  border-radius: 50%;
+  width: 60px;
+  height: 60px;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
