@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <meta charset="utf-8">
   <title>KPIs by Asset</title>
   <link rel="stylesheet" href="style.css">
     <script src="burnin.js" defer></script>
@@ -29,7 +30,6 @@
     .top-border .header-kpi:first-of-type, .top-border .header-mt { margin-left:160px; }
     .top-border .header-kpi:last-of-type { margin-right:160px; }
   </style>
-  <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
 <body>
@@ -70,32 +70,6 @@
       <button id="refresh-button">Refresh</button>
       <span id="refresh-timer"></span>
     </div>
-    <div id="dashboard-cards">
-      <div class="header-kpi">
-        <div class="kpi-title">Total Assets</div>
-        <div id="total-assets" class="kpi-value">--</div>
-      </div>
-      <div class="header-kpi">
-        <div class="kpi-title">Avg Uptime %</div>
-        <div id="avg-uptime" class="kpi-value">--%</div>
-      </div>
-      <div class="header-kpi">
-        <div class="kpi-title">Avg MTTR (h)</div>
-        <div id="avg-mttr" class="kpi-value">--</div>
-      </div>
-      <div class="header-kpi">
-        <div class="kpi-title">Avg MTBF (h)</div>
-        <div id="avg-mtbf" class="kpi-value">--</div>
-      </div>
-      <div class="header-kpi">
-        <div class="kpi-title">Avg Planned %</div>
-        <div id="avg-planned" class="kpi-value">--%</div>
-      </div>
-      <div class="header-kpi">
-        <div class="kpi-title">Avg Unplanned %</div>
-        <div id="avg-unplanned" class="kpi-value">--%</div>
-      </div>
-    </div>
     <div id="error-banner" style="display:none;color:red;">Failed to load KPIs</div>
     <div id="loading" style="display:none;">Loading...</div>
     <div>
@@ -121,6 +95,34 @@
         </tr>
       </thead>
       <tbody></tbody>
+      <tfoot>
+      <tr class="kpi-summary-row">
+        <td class="kpi-cell">
+          <div class="kpi-title">Total Assets</div>
+          <div id="total-assets" class="kpi-value">--</div>
+        </td>
+        <td class="kpi-cell">
+          <div class="kpi-title">Avg Uptime %</div>
+          <div id="avg-uptime" class="kpi-value">--%</div>
+        </td>
+        <td class="kpi-cell">
+          <div class="kpi-title">Avg MTTR (h)</div>
+          <div id="avg-mttr" class="kpi-value">--</div>
+        </td>
+        <td class="kpi-cell">
+          <div class="kpi-title">Avg MTBF (h)</div>
+          <div id="avg-mtbf" class="kpi-value">--</div>
+        </td>
+        <td class="kpi-cell">
+          <div class="kpi-title">Avg Planned %</div>
+          <div id="avg-planned" class="kpi-value">--%</div>
+        </td>
+        <td class="kpi-cell">
+          <div class="kpi-title">Avg Unplanned %</div>
+          <div id="avg-unplanned" class="kpi-value">--%</div>
+        </td>
+      </tr>
+    </tfoot>
     </table>
 
   </div>
