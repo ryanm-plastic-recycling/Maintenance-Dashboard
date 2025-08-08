@@ -445,9 +445,9 @@
                                 const teamMapping = mappings.team || {};
                                 const priorityMapping = mappings.priority || {};
 				
-				// Filter and display the relevant data
-				tasks.forEach(task => {
-					const row = document.createElement('tr');
+                                // Filter and display the relevant data
+                                tasks.forEach(task => {
+                                        const row = document.createElement('tr');
                                         row.innerHTML = `
                                                 <td data-col="locationID">${locationMapping[task.locationID] || task.locationID}</td>
                                                 <td data-col="taskID">${task.taskID}</td>
@@ -462,9 +462,10 @@
                                                 <td data-col="teamID">${teamMapping[task.teamID] || task.teamID}</td>
                                                 <td data-col="assignedTo">${task.assignedTo || task.assignedUser || ""}</td>
                                         `;
-                                        applyColumnConfig();
-					workOrderDataContainer.appendChild(row);
-				});
+                                        workOrderDataContainer.appendChild(row);
+                                });
+                                // Apply column visibility settings after rows have been added
+                                applyColumnConfig();
 			})
 			.catch(error => {
 				console.error('Error fetching tasks:', error);
