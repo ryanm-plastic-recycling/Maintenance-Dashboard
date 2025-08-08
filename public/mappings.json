@@ -344,7 +344,8 @@
     { "id": 2404, "name": "Extrusion Line E6" },
     { "id": 2405, "name": "Extrusion Line E7" },
     { "id": 2407, "name": "New Extrusion Line NL1" },
-    { "id": 2408, "name": "New Extrusion Line NL2" }
+    { "id": 2408, "name": "New Extrusion Line NL2" },
+    { "id": 2406, "name": "NGR" }
   ],
   "statusColorMapping": {
     "1": "#0AAC00",
