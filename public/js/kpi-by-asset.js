@@ -101,22 +101,29 @@ function getUnplannedCount(row) {
 
 // number of unplanned events that produced downtime > 0
 function getFailureEventCount(row) {
-  // Prefer explicit aggregated field if present
+  // Primary: new server-side field
   if (Number.isFinite(row?.failureEventCount)) return row.failureEventCount;
 
-  // Derive from event list, if available
+  // Fallback: derive from an events array if present
   if (Array.isArray(row?.events)) {
-    const cnt = row.events.filter(e =>
-      (e?.type === 'workRequest' || e?.type === 'unplanned') &&
-      Number(e?.downtimeHours) > 0
-    ).length;
-    return cnt > 0 ? cnt : null;
+    let n = 0;
+    for (const e of row.events) {
+      const type = (e.type || e.workOrderType || '').toString().toLowerCase();
+      const unplanned = type.includes('unplanned') || type.includes('work request');
+      const dh = Number.isFinite(e.downtimeHours) ? e.downtimeHours
+              : Number.isFinite(e.downtimeMinutes) ? e.downtimeMinutes / 60
+              : Number.isFinite(e.metrics?.downtimeHours) ? e.metrics.downtimeHours
+              : 0;
+      if (unplanned && dh > 0) n++;
+    }
+    return n;
   }
 
-  // Fallback: if server exposes pre-sliced counts
+  // Fallback field if the server names it differently
   if (Number.isFinite(row?.unplannedWithDowntimeCount)) return row.unplannedWithDowntimeCount;
 
-  return null; // TODO: replace with direct API field when available
+  // Unknown → null so the cell shows "—"
+  return null;
 }
 
 // downtime hours attributable to failures (unplanned)
@@ -138,6 +145,22 @@ function getUnplannedDowntimeHours(row) {
 function getOperationalHours(row) {
   const direct = row?.operationalHours ?? row?.runtimeHours ?? row?.runtimeHrs;
   return Number.isFinite(direct) ? direct : null;
+}
+
+function toNum(v) { return (v == null || v === '') ? null : Number(v); }
+
+function computeRowMttr(row) {
+  const failures = getFailureEventCount(row);
+  const unplannedDowntime = toNum(row?.downtimeHoursUnplanned ?? row?.unplannedDowntimeHours ?? row?.downtimeHours);
+  if (!failures || failures <= 0 || !Number.isFinite(unplannedDowntime)) return null;
+  return unplannedDowntime / failures;
+}
+
+function computeRowMtbf(row) {
+  const failures = getFailureEventCount(row);
+  const runHours = toNum(row?.operationalHours);
+  if (!failures || failures <= 0 || !Number.isFinite(runHours)) return null;
+  return runHours / failures;
 }
 
 function updateDateRangeLabel(tf, meta) {
@@ -190,6 +213,8 @@ export async function loadAll() {
     const res = await fetch(`/api/kpis/by-asset?timeframe=${encodeURIComponent(tf)}`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
+    console.debug('[kpi-by-asset] sample row keys:', Object.keys(data.rows?.[0] || Object.values(data.assets || {})[0] || {}));
+    console.debug('[kpi-by-asset] sample row values:', data.rows?.[0] || Object.values(data.assets || {})[0]);
     const assets = data.assets;
 
     // update displayed date window
@@ -202,8 +227,6 @@ export async function loadAll() {
     const mttrValues = [];
     const mtbfValues = [];
     const plannedCounts = [];
-    let totalUnplannedDowntime = 0;
-    let totalOperational = 0;
 
     // each key is an assetID
     Object.values(assets).forEach(a => {
@@ -231,8 +254,8 @@ export async function loadAll() {
 
       const unplannedDt = getUnplannedDowntimeHours(a);
       const opHours = getOperationalHours(a);
-      const mttr = failures > 0 && unplannedDt != null ? unplannedDt / failures : null;
-      const mtbf = failures > 0 && opHours != null ? opHours / failures : null;
+      const mttr = computeRowMttr(a);
+      const mtbf = computeRowMtbf(a);
 
       const mttrTd = mttr == null
         ? `<td title="No failure events in range">—</td>`
@@ -260,8 +283,6 @@ export async function loadAll() {
       plannedCounts.push(planned);
       if (mttr != null) mttrValues.push(mttr);
       if (mtbf != null) mtbfValues.push(mtbf);
-      if (unplannedDt != null) totalUnplannedDowntime += unplannedDt;
-      if (opHours != null) totalOperational += opHours;
     });
 
     // update the card averages
@@ -311,19 +332,6 @@ export async function loadAll() {
 
     // render true overall tiles using failure events
     const overall = computeTrueOverall(data);
-    const totalFailureEvents = Number.isFinite(data?.totals?.failureEventCount)
-      ? data.totals.failureEventCount
-      : failureCounts.reduce((s,v) => s + v, 0);
-    const totalFailureDowntime = Number.isFinite(data?.totals?.downtimeHoursUnplanned)
-      ? data.totals.downtimeHoursUnplanned
-      : totalUnplannedDowntime;
-    const totalOperationalHours = Number.isFinite(data?.totals?.operationalHours)
-      ? data.totals.operationalHours
-      : Number.isFinite(data?.totals?.runtimeHours)
-        ? data.totals.runtimeHours
-        : totalOperational;
-    overall.mttrHrs = totalFailureEvents > 0 ? totalFailureDowntime / totalFailureEvents : null;
-    overall.mtbfHrs = totalFailureEvents > 0 ? totalOperationalHours / totalFailureEvents : null;
     renderTrueOverall(overall);
   } catch (err) {
     console.error('loadAll failed:', err);
