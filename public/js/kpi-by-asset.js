@@ -14,6 +14,17 @@ function setText(id, text) {
   if (el) el.textContent = text;
 }
 
+function fmt(dtIso) {
+  const d = new Date(dtIso);
+  return d.toLocaleString([], {
+    year: 'numeric',
+    month: 'short',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+}
+
 export async function loadAll() {
   const tf = timeframeSelect?.value || 'lastMonth';
   const loadingEl = document.getElementById('loading');
@@ -26,6 +37,14 @@ export async function loadAll() {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     const assets = data.assets;
+  // show the exact server window next to the selector
+  if (data.range) {
+    setText('timeframe-label', data.range.label);
+    setText('timeframe-range', `${fmt(data.range.startISO)} – ${fmt(data.range.endISO)}`);
+  } else {
+    setText('timeframe-label', '');
+    setText('timeframe-range', '');
+  }
 
     // clear table
     tbody.innerHTML = '';
