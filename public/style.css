@@ -21,6 +21,26 @@
   min-width: 100px; text-align: center;
 }
 
+/* lay the KPI cards out horizontally */
+#dashboard-cards {
+  display: flex;
+  gap: 12px;
+  align-items: stretch;
+  flex-wrap: wrap;           /* let them wrap on smaller screens */
+}
+
+/* optional: tidy each card */
+#dashboard-cards .header-kpi {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 6px 10px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background: #fff;
+  min-width: 120px;          /* matches your existing base style */
+}
+
 @media (forced-colors: active) {
   /* high-contrast overrides using system color keywords */
   body {
