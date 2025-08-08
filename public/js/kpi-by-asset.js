@@ -19,7 +19,7 @@ export async function loadAll() {
   const loadingEl = document.getElementById('loading');
   const errorEl   = document.getElementById('error-banner');
 
-  if (loadingEl) loadingEl.style.display = 'block';
+  if (loadingEl) loadingEl.style.display = 'flex';
   if (errorEl)   errorEl.style.display = 'none';
   try {
     const res = await fetch(`/api/kpis/by-asset?timeframe=${encodeURIComponent(tf)}`);
