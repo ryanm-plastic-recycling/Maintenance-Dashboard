@@ -41,6 +41,25 @@
   min-width: 120px;          /* matches your existing base style */
 }
 
+/* Totals row styling */
+#kpi-by-asset tfoot td.kpi-cell {
+  background: #f8fafc;
+  border-top: 2px solid #25408F;
+  padding: 8px 12px;
+  text-align: center;
+}
+
+/* Tweak sizes only for the footer KPIs (won't affect header KPIs) */
+#kpi-by-asset tfoot .kpi-title { 
+  font-size: 0.9rem; 
+  color: #666; 
+  margin-bottom: 2px; 
+}
+#kpi-by-asset tfoot .kpi-value { 
+  font-size: 1.2rem; 
+  font-weight: 700; 
+}
+
 @media (forced-colors: active) {
   /* high-contrast overrides using system color keywords */
   body {
