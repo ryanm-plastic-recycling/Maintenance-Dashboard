@@ -13,7 +13,6 @@ import cors     from 'cors';
 dotenv.config();
 
 const API_V2 = `${process.env.API_BASE_URL}/v2`;
-const KPI_DEBUG = process.env.KPI_DEBUG === '1';
 
 // Default to a 5 minute cache refresh if env var not set
 const cacheTtlSeconds = Number(process.env.CACHE_TTL_MINUTES ?? 5) * 60;
@@ -322,8 +321,16 @@ async function loadByAssetKpis({ start, end }) {
     );
     const plannedCount     = tasksForThisMonth.filter(t => t.type === 1 || t.type === 4).length;
     const unplannedTasks   = tasksForThisMonth.filter(t => t.type === 2 || t.type === 6);
-
     const unplannedCount = unplannedTasks.length;
+    // If debug is enabled in .env, add more data!
+    if (process.env.DEBUG_KPIS === '1') {
+      console.log(`[KPI][${id}] TASKS raw=${rawTasks.length} inRange=${tasksForThisMonth.length} ` +
+                  `planned=${plannedCount} unplanned=${unplannedCount}`);
+      // Peek at first 2 tasks in range (id, type, completed)
+      for (const t of tasksForThisMonth.slice(0, 2)) {
+        console.log(`[KPI][${id}]  task id=${t.id ?? 'n/a'} type=${t.type} dateCompleted=${t.dateCompleted}`);
+      }
+    }
 
     console.log(
       `   ↳ Filtering labor entries: ${start.toISOString()} to ${end.toISOString()}`
@@ -340,6 +347,16 @@ async function loadByAssetKpis({ start, end }) {
       e.dateCompleted >= start.unix() &&
       e.dateCompleted <= end.unix()
     );
+    // If debug is enabled in .env, add more data!
+    if (process.env.DEBUG_KPIS === '1') {
+      console.log(`[KPI][${id}] LABOR all=${laborAll.length} filtered=${filteredEntries.length}`);
+      // Show a couple of sample entries that are counted
+      for (const e of filteredEntries.slice(0, 2)) {
+        console.log(`[KPI][${id}]  labor entry: taskType=${e.taskType} downtime=${!!e.downtime} ` +
+                    `timeSpent=${e.timeSpent ?? 'n/a'} duration=${e.duration ?? 'n/a'} ` +
+                    `dateCompleted=${e.dateCompleted}`);
+      }
+    }
 
     // sum up total seconds spent under “downtime”
     const downtimeSec = filteredEntries
@@ -363,6 +380,24 @@ async function loadByAssetKpis({ start, end }) {
     const intervals = dates.slice(1).map((d,i) => (dates[i+1]-dates[i]) / 3600);
     const mtbf = intervals.length ? _.mean(intervals) : 0;
     const uptime = operationalHours ? ((operationalHours - downtimeHours) / operationalHours) * 100 : 0;
+    // If debug is enabled in .env, add more data!
+    if (process.env.DEBUG_KPIS === '1') {
+      console.log(`[KPI][${id}] CALC ` +
+        `totalSec=${totalSec} downtimeSec=${downtimeSec} ` +
+        `opHrs=${operationalHours.toFixed(2)} downHrs=${downtimeHours.toFixed(2)} ` +
+        `downMin=${downtimeMinutes} unplannedWO=${unplannedCount} ` +
+        `MTTR(hrs)=${mttr.toFixed(2)} MTBF(hrs)=${mtbf.toFixed(2)} Uptime(%)=${uptime.toFixed(2)}`);
+    
+      if (uptime === 0 && (totalSec > 0 || downtimeSec > 0)) {
+        console.warn(`[KPI][${id}] ⚠️ Uptime computed as 0 with nonzero input; check math and units.`);
+      }
+      if (mttr === 0 && unplannedCount > 0 && downtimeMinutes > 0) {
+        console.warn(`[KPI][${id}] ⚠️ MTTR computed as 0 but there are unplanned WOs and downtime minutes.`);
+      }
+      if (filteredEntries.length === 0 && (tasksForThisMonth.length > 0)) {
+        console.warn(`[KPI][${id}] ⚠️ No labor entries matched date/asset filter, but tasks exist in range.`);
+      }
+    }
 
     result.assets[id] = {
       name,
@@ -373,6 +408,13 @@ async function loadByAssetKpis({ start, end }) {
       plannedCount,
       unplannedCount
     };
+    // If debug is enabled in .env, add more data!
+    if (process.env.DEBUG_KPIS === '1') {
+      const a = result.assets[id];
+      console.log(`[KPI][${id}] RESULT ` +
+        `uptimePct=${a.uptimePct} downtimeHrs=${a.downtimeHrs} ` +
+        `mttrHrs=${a.mttrHrs} mtbfHrs=${a.mtbfHrs} planned=${a.plannedCount} unplanned=${a.unplannedCount}`);
+    }
 
     totalOperational += operationalHours;
     totalDowntime += downtimeHours;
@@ -393,6 +435,14 @@ async function loadByAssetKpis({ start, end }) {
   result.totals.downtimeHrs = +totalDowntime.toFixed(1);
   result.totals.mttrHrs = +mttrTot.toFixed(1);
   result.totals.mtbfHrs = +mtbfTot.toFixed(1);
+
+  if (process.env.DEBUG_KPIS === '1') {
+    console.log(`[KPI][TOTALS] opHrs=${totalOperational.toFixed(2)} downHrs=${totalDowntime.toFixed(2)} ` +
+      `downMin=${totalDowntimeMin} unplannedWO=${totalUnplannedWO}`);
+    console.log(`[KPI][TOTALS] uptimePct=${result.totals.uptimePct} ` +
+      `downtimeHrs=${result.totals.downtimeHrs} mttrHrs=${result.totals.mttrHrs} ` +
+      `mtbfHrs=${result.totals.mtbfHrs}`);
+  }
 
   return result;
 }
