@@ -53,6 +53,18 @@
 #kpi-by-asset tfoot tr { position: sticky; bottom: 0; background: #f8fafc; z-index: 1; }
 #kpi-by-asset tfoot td { background: #f8fafc; } /* ensure solid bg over rows */
 
+/* === Timeframe label and select sizing for KPI-by-Asset page === */
+label[for="timeframe-select"] {
+  font-size: 2em;        /* Twice normal size */
+  font-weight: bold;     /* Make it stand out */
+  margin-right: 10px;    /* Space between label and dropdown */
+}
+
+#timeframe-select {
+  font-size: 2em;        /* Larger dropdown text and options */
+  padding: 6px 12px;     /* Bigger clickable area */
+}
+
 @media (forced-colors: active) {
   /* high-contrast overrides using system color keywords */
   body {
