@@ -4,88 +4,28 @@ await fetch('/mappings.json')
   .then(m => mappings = m)
   .catch(err => console.error('Failed to load mappings', err));
 
-const errorEl   = document.getElementById('error-banner');
-const loadingEl = document.getElementById('loading');
+const timeframeSelect = document.getElementById('timeframe-select');
 const tbody     = document.querySelector('#kpi-by-asset tbody');
-const selectEl  = document.getElementById('timeframe-select');
 
 console.log('[kpi-by-asset.js] module loaded');
-
-selectEl.addEventListener('change', () => loadAll());
 
 function setText(id, text) {
   const el = document.getElementById(id);
   if (el) el.textContent = text;
 }
 
-function startOfWeek(date) {
-  const d = new Date(date);
-  const day = d.getDay();
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Monday start
-  d.setDate(diff);
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
+export async function loadAll() {
+  const tf = timeframeSelect?.value || 'lastMonth';
+  const loadingEl = document.getElementById('loading');
+  const errorEl   = document.getElementById('error-banner');
 
-function endOfWeek(date) {
-  const d = startOfWeek(date);
-  d.setDate(d.getDate() + 6);
-  d.setHours(23, 59, 59, 999);
-  return d;
-}
-
-function getRange(option) {
-  const now = new Date();
-  let start, end;
-  switch (option) {
-    case 'currentWeek':
-      start = startOfWeek(now);
-      end = now;
-      break;
-    case 'lastWeek': {
-      const d = new Date(now);
-      d.setDate(d.getDate() - 7);
-      start = startOfWeek(d);
-      end = endOfWeek(d);
-      break;
-    }
-    case 'currentMonth':
-      start = new Date(now.getFullYear(), now.getMonth(), 1);
-      end = now;
-      break;
-    case 'lastMonth': {
-      const d = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-      start = d;
-      end = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
-      break;
-    }
-    case 'currentYear':
-      start = new Date(now.getFullYear(), 0, 1);
-      end = now;
-      break;
-    case 'lastYear':
-      start = new Date(now.getFullYear() - 1, 0, 1);
-      end = new Date(now.getFullYear() - 1, 11, 31, 23, 59, 59);
-      break;
-    default:
-      start = new Date(now.getFullYear(), now.getMonth(), 1);
-      end = now;
-  }
-  return { start, end };
-}
-
-async function loadAll() {
-  loadingEl.style.display = 'block';
-  errorEl.style.display   = 'none';
+  if (loadingEl) loadingEl.style.display = 'block';
+  if (errorEl)   errorEl.style.display = 'none';
   try {
-    const { start, end } = getRange(selectEl.value);
-    const qs = '?start=' + Math.floor(start.getTime()/1000)
-             + '&end='   + Math.floor(end.getTime()/1000);
-
-    // fetch the per‐asset rollups in one go:
-    const res = await fetch('/api/kpis/by-asset' + qs);
-    if (!res.ok) throw new Error(await res.text());
-    const { assets } = await res.json();
+    const res = await fetch(`/api/kpis/by-asset?timeframe=${encodeURIComponent(tf)}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const assets = data.assets;
 
     // clear table
     tbody.innerHTML = '';
@@ -117,13 +57,25 @@ async function loadAll() {
     setText('avg-planned', ((avg('plannedCount')/(avg('plannedCount')+avg('unplannedCount')))*100||0).toFixed(1)+'%');
     setText('avg-unplanned',((avg('unplannedCount')/(avg('plannedCount')+avg('unplannedCount')))*100||0).toFixed(1)+'%');
   } catch (err) {
-    console.error('Failed loading KPIs by asset', err);
-    errorEl.style.display = 'block';
+    console.error('loadAll failed:', err);
+    if (errorEl) errorEl.style.display = 'block';
   } finally {
-    loadingEl.style.display = 'none';
+    if (loadingEl) loadingEl.style.display = 'none';
   }
 }
 
+if (timeframeSelect) {
+  const saved = localStorage.getItem('kpiTimeframe');
+  if (saved && [...timeframeSelect.options].some(o => o.value === saved)) {
+    timeframeSelect.value = saved;
+  }
+  timeframeSelect.addEventListener('change', () => {
+    localStorage.setItem('kpiTimeframe', timeframeSelect.value);
+    loadAll();
+  });
+}
+
+// expose to non-module inline scripts that call loadAll()
 window.loadAll = loadAll;
 loadAll();
 

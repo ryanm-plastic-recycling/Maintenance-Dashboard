@@ -1,5 +1,6 @@
 import { jest } from '@jest/globals';
 import request from 'supertest';
+import moment from 'moment';
 
 // Mock node-fetch before importing the server module
 const fetchMock = jest.fn();
@@ -47,7 +48,7 @@ beforeAll(() => {
   // Mock fetchAndCache for all routes
   jest.spyOn(app, 'fetchAndCache').mockImplementation(async (key) => {
     if (key === 'kpis_overall') return dummyOverall;
-    if (key === 'kpis_byAsset') return dummyByAsset;
+    if (key.startsWith('kpis_byAsset')) return dummyByAsset;
     if (key === 'status')       return dummyStatus;
     return null;
   });
@@ -85,8 +86,8 @@ describe('KPI endpoints', () => {
     });
   });
 
-  test('GET /api/kpis-by-asset returns just byAsset', async () => {
-    const res = await request(app).get('/api/kpis-by-asset');
+  test('GET /api/kpis/by-asset returns just byAsset', async () => {
+    const res = await request(app).get('/api/kpis/by-asset?timeframe=lastMonth');
     expect(res.status).toBe(200);
     expect(res.body).toEqual(dummyByAsset);
   });
@@ -118,7 +119,7 @@ describe('KPI loader error handling', () => {
   test('loadByAssetKpis logs and throws on non-ok response', async () => {
     fetchMock.mockResolvedValueOnce({ ok: false, status: 404, json: async () => ({}) });
     const errSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
-    await expect(serverModule.loadByAssetKpis()).rejects.toThrow('404');
+    await expect(serverModule.loadByAssetKpis({ start: moment(), end: moment() })).rejects.toThrow('404');
     expect(errSpy).toHaveBeenCalledWith('loadByAssetKpis tasks error:', 404);
     errSpy.mockRestore();
   });
@@ -165,27 +166,5 @@ describe('KPI time range overrides', () => {
     delete process.env.KPI_MONTH_END;
   });
 
-  test('loadByAssetKpis uses KPI_MONTH_* env vars', async () => {
-    process.env.KPI_MONTH_START = '500';
-    process.env.KPI_MONTH_END = '600';
-    fetchMock.mockResolvedValue({
-      ok: true,
-      json: async () => ({ data: { tasks: [], entries: [] } })
-    });
-
-    await serverModule.loadByAssetKpis();
-
-    const monthTasksUrl = fetchMock.mock.calls[0][0];
-    expect(monthTasksUrl).toContain('tasks?assets=');
-    expect(monthTasksUrl).toContain('&status=2');
-    expect(monthTasksUrl).not.toContain('dateCompletedGte');
-    expect(monthTasksUrl).not.toContain('dateCompletedLte');
-    const laborMonthUrl = fetchMock.mock.calls[1][0];
-    expect(laborMonthUrl).toContain('/tasks/labor?limit=10000');
-    expect(laborMonthUrl).not.toContain('start=');
-
-    delete process.env.KPI_MONTH_START;
-    delete process.env.KPI_MONTH_END;
-  });
 });
 

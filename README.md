@@ -118,3 +118,13 @@ The admin interface is available at `http://<LOCAL_IP>:<PORT>/admin`.
   (see [KPI time ranges](#kpi-time-ranges)). When unset, the server uses the
   last calendar week and previous calendar month.
 * Per-asset metrics are returned alongside the overall values from `/api/kpis`.
+
+### KPIs by Asset timeframe
+The page `/kpi-by-asset.html` controls the date range via the “Timeframe” dropdown.
+The frontend calls `/api/kpis/by-asset?timeframe=...` where the values are:
+- currentWeek (Mon–Sun via ISO week), lastWeek
+- currentMonth, lastMonth
+- currentYear, lastYear
+
+The server computes `{start, end}` using moment and returns KPIs for that range.
+Results are cached per timeframe key.

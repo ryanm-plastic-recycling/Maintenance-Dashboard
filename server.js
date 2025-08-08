@@ -28,6 +28,38 @@ async function fetchAndCache(key, loaderFn) {
   return data;
 }
 
+function resolveRange(timeframe) {
+  const now = moment();
+  switch (timeframe) {
+    case 'currentWeek':
+      return { start: now.clone().startOf('isoWeek'), end: now.clone().endOf('isoWeek') };
+    case 'lastWeek':
+      return {
+        start: now.clone().subtract(1, 'week').startOf('isoWeek'),
+        end:   now.clone().subtract(1, 'week').endOf('isoWeek')
+      };
+    case 'currentMonth':
+      return { start: now.clone().startOf('month'), end: now.clone().endOf('month') };
+    case 'lastMonth':
+      return {
+        start: now.clone().subtract(1, 'month').startOf('month'),
+        end:   now.clone().subtract(1, 'month').endOf('month')
+      };
+    case 'currentYear':
+      return { start: now.clone().startOf('year'), end: now.clone().endOf('year') };
+    case 'lastYear':
+      return {
+        start: now.clone().subtract(1, 'year').startOf('year'),
+        end:   now.clone().subtract(1, 'year').endOf('year')
+      };
+    default:
+      return {
+        start: now.clone().subtract(1, 'month').startOf('month'),
+        end:   now.clone().subtract(1, 'month').endOf('month')
+      };
+  }
+}
+
 // ─── derive __dirname ─────────────────────────────────────────────────────
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -223,19 +255,12 @@ async function loadOverallKpis() {
   };
 }
 
-async function loadByAssetKpis() {
+async function loadByAssetKpis({ start, end }) {
   const clientId = process.env.CLIENT_ID;
   const clientSecret = process.env.CLIENT_SECRET;
   const headers = {
     'Authorization': 'Basic ' + Buffer.from(`${clientId}:${clientSecret}`).toString('base64')
   };
-
-  const monthStart = process.env.KPI_MONTH_START
-    ? moment.unix(Number(process.env.KPI_MONTH_START))
-    : moment().subtract(1, 'month').startOf('month');
-  const monthEnd = process.env.KPI_MONTH_END
-    ? moment.unix(Number(process.env.KPI_MONTH_END))
-    : monthStart.clone().endOf('month');
 
   const result = { assets: {}, totals: {
     uptimePct: 0,
@@ -259,7 +284,7 @@ async function loadByAssetKpis() {
     const byAssetUrl = `${API_V2}/tasks?assets=${id}&status=2`;
     console.log(
       `📅 Fetching per-asset tasks for ${asset.name} (${asset.id}) from ` +
-      `${monthStart.toISOString()} to ${monthEnd.toISOString()} ` +
+      `${start.toISOString()} to ${end.toISOString()} ` +
       `(URL: ${byAssetUrl})`
     );
     const tasksRes = await fetch(byAssetUrl, { headers });
@@ -276,8 +301,8 @@ async function loadByAssetKpis() {
           ? tasksJson.data.tasks
           : [];
     const tasksForThisMonth = rawTasks.filter(t =>
-      t.dateCompleted >= monthStart.unix() &&
-      t.dateCompleted <= monthEnd.unix()
+      t.dateCompleted >= start.unix() &&
+      t.dateCompleted <= end.unix()
     );
     const plannedCount     = tasksForThisMonth.filter(t => t.type === 1 || t.type === 4).length;
     const unplannedTasks   = tasksForThisMonth.filter(t => t.type === 2 || t.type === 6);
@@ -285,7 +310,7 @@ async function loadByAssetKpis() {
     const unplannedCount = unplannedTasks.length;
 
     console.log(
-      `   ↳ Filtering labor entries: ${monthStart.toISOString()} to ${monthEnd.toISOString()}`
+      `   ↳ Filtering labor entries: ${start.toISOString()} to ${end.toISOString()}`
     );
     const laborAllRes = await fetch(`${API_V2}/tasks/labor?limit=10000`, { headers });
     if (!laborAllRes.ok) {
@@ -296,8 +321,8 @@ async function loadByAssetKpis() {
     const laborAll = (await laborAllRes.json()).data?.entries || [];
     const filteredEntries = laborAll.filter(e =>
       e.assetID === id &&
-      e.dateCompleted >= monthStart.unix() &&
-      e.dateCompleted <= monthEnd.unix()
+      e.dateCompleted >= start.unix() &&
+      e.dateCompleted <= end.unix()
     );
 
     // sum up total seconds spent under “downtime”
@@ -564,7 +589,10 @@ app.get('/api/kpis', async (req, res) => {
   try {
     // Pull from cache (or load & cache on miss)
     const overall = await app.fetchAndCache('kpis_overall', loadOverallKpis);
-    const byAsset = await app.fetchAndCache('kpis_byAsset', loadByAssetKpis);
+    const byAsset = await app.fetchAndCache(
+      'kpis_byAsset_lastMonth',
+      () => loadByAssetKpis(resolveRange('lastMonth'))
+    );
 
     // Return both overall and per‐asset KPIs
     res.json({ overall, byAsset });
@@ -597,35 +625,35 @@ app.get('/api/status', async (req, res) => {
 });
 
 app.post(process.env.STATUS_REFRESH_ENDPOINT || '/api/cache/refresh', async (req, res) => {
-  cache.del(['kpis_overall', 'kpis_byAsset', 'status']);
+  const byAssetKeys = cache.keys().filter(k => k.startsWith('kpis_byAsset_'));
+  cache.del(['kpis_overall', 'status', ...byAssetKeys]);
   await Promise.all([
     app.fetchAndCache('kpis_overall', loadOverallKpis),
-    app.fetchAndCache('kpis_byAsset', loadByAssetKpis),
+    app.fetchAndCache('kpis_byAsset_lastMonth', () => loadByAssetKpis(resolveRange('lastMonth'))),
     app.fetchAndCache('status', loadAssetStatus),
   ]);
   res.send({ ok: true });
 });
 
-app.get('/api/kpis-by-asset', async (req, res) => {
+async function handleKpisByAsset(req, res) {
   try {
-    const data = await app.fetchAndCache('kpis_byAsset', loadByAssetKpis);
-    res.json(data);
-  } catch (err) {
-    console.error('KPIs by asset error:', err);
-    res.status(500).json({ error: 'Failed to fetch KPIs by asset' });
-  }
-});
+    const timeframe = String(req.query.timeframe || 'lastMonth');
+    const range = resolveRange(timeframe);
+    const cacheKey = `kpis_byAsset_${timeframe}`;
 
-// New endpoint alias following REST style
-app.get('/api/kpis/by-asset', async (req, res) => {
-  try {
-    const data = await app.fetchAndCache('kpis_byAsset', loadByAssetKpis);
+    const data = await app.fetchAndCache(cacheKey, async () => {
+      return await loadByAssetKpis(range);
+    });
+
     res.json(data);
   } catch (err) {
     console.error('KPIs by asset error:', err);
     res.status(500).json({ error: 'Failed to fetch KPIs by asset' });
   }
-});
+}
+
+app.get('/api/kpis-by-asset', handleKpisByAsset);
+app.get('/api/kpis/by-asset', handleKpisByAsset);
 
 const shouldListen =
   process.env.NODE_ENV !== 'test' || process.env.FORCE_LISTEN === 'true';
@@ -647,7 +675,7 @@ const shouldListen =
               throw err;
             }),
           app
-            .fetchAndCache('kpis_byAsset', loadByAssetKpis)
+            .fetchAndCache('kpis_byAsset_lastMonth', () => loadByAssetKpis(resolveRange('lastMonth')))
             .catch((err) => {
               console.error('Failed to refresh kpis_byAsset cache:', err);
               throw err;
