@@ -24,21 +24,34 @@
 /* Totals row styling */
 #kpi-by-asset tfoot td.kpi-cell {
   background: #f8fafc;
-  border-top: 2px solid #25408F;
+  border-top: 6px solid #25408F;
   padding: 8px 12px;
   text-align: center;
 }
 
 /* Tweak sizes only for the footer KPIs (won't affect header KPIs) */
 #kpi-by-asset tfoot .kpi-title { 
-  font-size: 0.9rem; 
+  font-size: 1.2rem; 
   color: #666; 
   margin-bottom: 2px; 
 }
 #kpi-by-asset tfoot .kpi-value { 
-  font-size: 1.2rem; 
+  font-size: 1.5rem; 
   font-weight: 700; 
 }
+
+/* Totals row tweaks */
+#kpi-by-asset tfoot td.kpi-cell { vertical-align: middle; }
+#kpi-by-asset tfoot .kpi-value { white-space: nowrap; }
+
+/* make numbers line up cleanly */
+#kpi-by-asset tfoot .kpi-value { font-variant-numeric: tabular-nums; }
+
+/* Optional: sticky totals */
+.table-wrap { max-height: 70vh; overflow: auto; }
+#kpi-by-asset { width: 100%; border-collapse: separate; border-spacing: 0; }
+#kpi-by-asset tfoot tr { position: sticky; bottom: 0; background: #f8fafc; z-index: 1; }
+#kpi-by-asset tfoot td { background: #f8fafc; } /* ensure solid bg over rows */
 
 @media (forced-colors: active) {
   /* high-contrast overrides using system color keywords */
