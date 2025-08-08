@@ -1,40 +1,28 @@
 // public/js/header-kpis.js
 
-// Cache DOM elements for header KPIs
-const uptimeEl   = document.getElementById('uptime-value');
-const mttrEl     = document.getElementById('mttr-value');
-const mtbfEl     = document.getElementById('mtbf-value');
-const planUnplan = document.getElementById('planned-vs-unplanned');
-
-/**
- * Fetch and update the header KPI values from the server.
- */
 async function _updateHeader() {
   try {
     const res = await fetch('/api/kpis/header');
     if (!res.ok) throw new Error(await res.text());
     const k = await res.json();
-
-    uptimeEl.innerText   = `${k.uptimePct}%`;
-    mttrEl.innerText     = `${k.mttrHrs}h`;
-    mtbfEl.innerText     = `${k.mtbfHrs}h`;
-
-    const total  = k.plannedCount + k.unplannedCount;
-    const pPct   = total ? ((k.plannedCount / total) * 100).toFixed(0) : '0';
-    const uPct   = total ? ((k.unplannedCount / total) * 100).toFixed(0) : '0';
-    planUnplan.innerText = `${pPct}% vs ${uPct}%`;
+    document.getElementById('uptime-value').innerText   = `${k.uptimePct}%`;
+    document.getElementById('mttr-value').innerText     = `${k.mttrHrs}h`;
+    document.getElementById('mtbf-value').innerText     = `${k.mtbfHrs}h`;
+    const total = k.plannedCount + k.unplannedCount;
+    const pPct  = total ? ((k.plannedCount/total)*100).toFixed(0)   : '0';
+    const uPct  = total ? ((k.unplannedCount/total)*100).toFixed(0) : '0';
+    document.getElementById('planned-vs-unplanned').innerText =
+      `${pPct}% vs ${uPct}%`;
   } catch (err) {
     console.error('Header KPI fetch failed:', err);
   }
 }
 
-/**
- * Initialize periodic updates for the header KPIs.
- */
 export function initHeaderKPIs() {
   _updateHeader();
   setInterval(_updateHeader, 15 * 60 * 1000);
 }
 
-// Expose updateKPIs globally so other scripts can manually refresh
+// expose for global use in other modules
 window.updateKPIs = _updateHeader;
+
