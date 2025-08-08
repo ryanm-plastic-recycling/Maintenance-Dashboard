@@ -280,12 +280,9 @@ async function loadByAssetKpis({ start, end }) {
   // interpret task.downtime into MINUTES based on env
   const minutesFromTask = (t) => {
     const v = Number(t.downtime || 0);
-    switch ((process.env.DOWNTIME_UNITS || 'minutes').toLowerCase()) {
-      case 'seconds': return v / 60;   // <-- your tenant
-      case 'hours':   return v * 60;
-      case 'minutes':
-      default:        return v;
-    }
+    return process.env.DOWNTIME_UNITS === 'hours' ? v * 60
+         : process.env.DOWNTIME_UNITS === 'seconds' ? v / 60
+         : v;
   };
 
   const result = { assets: {}, totals: {
