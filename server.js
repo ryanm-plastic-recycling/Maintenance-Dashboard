@@ -79,6 +79,44 @@ function resolveRange(timeframe) {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 
+// ─── KPI Theme Config ──────────────────────────────────────────────────────
+const THEME_PATH = path.join(__dirname, 'config', 'kpi-theme.json');
+const DEFAULT_THEME = {
+  colors: {
+    good:   { bg: '#10B981', fg: '#0B1B13' },
+    warn:   { bg: '#FBBF24', fg: '#1B1403' },
+    bad:    { bg: '#EF4444', fg: '#1F0D0D' },
+    neutral:{ bg: '#374151', fg: '#FFFFFF' }
+  },
+  thresholds: {
+    uptimePct:   { goodMin: 98.0, warnMin: 95.0 },
+    plannedPct:  { goodMin: 70.0, warnMin: 50.0 },
+    unplannedPct:{ goodMax: 30.0, warnMax: 50.0 },
+    mttrHours:   { goodMax: 1.5,  warnMax: 3.0 },
+    mtbfHours:   { goodMin: 72.0, warnMin: 36.0 }
+  }
+};
+
+function readTheme() {
+  try {
+    const cached = cache.get('kpi-theme');
+    if (cached) return cached;
+    const obj = JSON.parse(fs.readFileSync(THEME_PATH, 'utf8'));
+    cache.set('kpi-theme', obj, 60);
+    return obj;
+  } catch {
+    writeTheme(DEFAULT_THEME);
+    cache.set('kpi-theme', DEFAULT_THEME, 60);
+    return DEFAULT_THEME;
+  }
+}
+
+function writeTheme(obj) {
+  fs.mkdirSync(path.dirname(THEME_PATH), { recursive: true });
+  fs.writeFileSync(THEME_PATH, JSON.stringify(obj, null, 2), 'utf8');
+  cache.del('kpi-theme');
+}
+
 // ─── load mappings and build assetIDs once ───────────────────────────────
 const rawMappings = fs.readFileSync(
   path.join(__dirname, 'public', 'mappings.json'),
@@ -474,6 +512,44 @@ app.post('/api/mappings', (req, res) => {
         }
         res.json({ status: 'ok' });
     });
+});
+
+// ─── KPI Theme Settings Endpoints ──────────────────────────────────────────
+app.get('/api/settings/kpi-theme', (req, res) => {
+  res.json(readTheme());
+});
+
+app.put('/api/settings/kpi-theme', (req, res) => {
+  const body = req.body || {};
+  const isHex = s => typeof s === 'string' && /^#[0-9a-fA-F]{6}$/.test(s);
+  const isNum = v => typeof v === 'number' && isFinite(v);
+
+  const c = body.colors || {};
+  const t = body.thresholds || {};
+  const palettes = ['good', 'warn', 'bad', 'neutral'];
+  for (const p of palettes) {
+    if (!isHex(c?.[p]?.bg) || !isHex(c?.[p]?.fg)) {
+      return res.status(400).json({ error: `Invalid hex for ${p}` });
+    }
+  }
+
+  const metricDefs = {
+    uptimePct: ['goodMin', 'warnMin'],
+    plannedPct: ['goodMin', 'warnMin'],
+    unplannedPct: ['goodMax', 'warnMax'],
+    mttrHours: ['goodMax', 'warnMax'],
+    mtbfHours: ['goodMin', 'warnMin']
+  };
+  for (const [k, keys] of Object.entries(metricDefs)) {
+    for (const kk of keys) {
+      if (!isNum(t?.[k]?.[kk])) {
+        return res.status(400).json({ error: `Invalid threshold ${k}.${kk}` });
+      }
+    }
+  }
+
+  writeTheme(body);
+  res.json(body);
 });
 
 app.get('/api/assets', async (req, res) => {

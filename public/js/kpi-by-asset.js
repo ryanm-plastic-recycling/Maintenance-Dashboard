@@ -7,6 +7,32 @@ await fetch('/mappings.json')
   .then(m => mappings = m)
   .catch(err => console.error('Failed to load mappings', err));
 
+// Theme defaults + fetch
+const DEFAULT_THEME = {
+  colors: {
+    good: { bg: '#10B981', fg: '#0B1B13' },
+    warn: { bg: '#FBBF24', fg: '#1B1403' },
+    bad: { bg: '#EF4444', fg: '#1F0D0D' },
+    neutral: { bg: '#374151', fg: '#FFFFFF' }
+  },
+  thresholds: {
+    uptimePct:   { goodMin: 98.0, warnMin: 95.0 },
+    plannedPct:  { goodMin: 70.0, warnMin: 50.0 },
+    unplannedPct:{ goodMax: 30.0, warnMax: 50.0 },
+    mttrHours:   { goodMax: 1.5,  warnMax: 3.0 },
+    mtbfHours:   { goodMin: 72.0, warnMin: 36.0 }
+  }
+};
+
+try {
+  const res = await fetch('/api/settings/kpi-theme');
+  window.kpiTheme = res.ok ? await res.json() : DEFAULT_THEME;
+  if (!res.ok) console.warn('Failed to load KPI theme, using defaults');
+} catch (err) {
+  console.warn('Failed to load KPI theme, using defaults');
+  window.kpiTheme = DEFAULT_THEME;
+}
+
 const timeframeSelect = document.getElementById('timeframe-select');
 const tbody     = document.querySelector('#kpi-by-asset tbody');
 
@@ -15,6 +41,34 @@ console.log('[kpi-by-asset.js] module loaded');
 function setText(id, text) {
   const el = document.getElementById(id);
   if (el) el.textContent = text;
+}
+
+function classifyByThreshold(metricKey, value, theme) {
+  if (value == null || isNaN(value)) return 'neutral';
+  const t = theme?.thresholds?.[metricKey] || {};
+  if (metricKey === 'uptimePct' || metricKey === 'plannedPct' || metricKey === 'mtbfHours') {
+    const { goodMin, warnMin } = t;
+    if (typeof goodMin === 'number' && value >= goodMin) return 'good';
+    if (typeof warnMin === 'number' && value >= warnMin) return 'warn';
+    return 'bad';
+  }
+  if (metricKey === 'unplannedPct' || metricKey === 'mttrHours') {
+    const { goodMax, warnMax } = t;
+    if (typeof goodMax === 'number' && value <= goodMax) return 'good';
+    if (typeof warnMax === 'number' && value <= warnMax) return 'warn';
+    return 'bad';
+  }
+  return 'neutral';
+}
+
+function applyTileTheme(el, metricKey, value, theme) {
+  const cls = classifyByThreshold(metricKey, value, theme);
+  const palette = theme?.colors?.[cls] || theme?.colors?.neutral || { bg: '#374151', fg: '#FFFFFF' };
+  if (el) {
+    el.style.backgroundColor = palette.bg;
+    el.style.color = palette.fg;
+    el.dataset.severity = cls;
+  }
 }
 
 // derive downtime hours from possible fields
@@ -297,25 +351,29 @@ window.loadAll = loadAll;
 loadAll();
 
 function renderTrueOverall(kpis) {
-  const setTile = (testId, val, suffix) => {
-    const el = document.querySelector(`[data-testid="${testId}"]`);
-    if (!el) return;
-    if (val == null || isNaN(val)) {
-      el.textContent = '—';
-      el.title = 'No data';
-    } else {
-      const formatted = suffix === '%'
-        ? `${val.toFixed(1)}%`
-        : `${val.toFixed(1)} h`;
-      el.textContent = formatted;
-      el.removeAttribute('title');
-    }
-  };
+  const specs = [
+    { id: 'tile-uptime',     key: 'uptimePct',    val: kpis.uptimePct,   suffix: '%' },
+    { id: 'tile-mttr',       key: 'mttrHours',    val: kpis.mttrHrs,     suffix: 'h' },
+    { id: 'tile-mtbf',       key: 'mtbfHours',    val: kpis.mtbfHrs,     suffix: 'h' },
+    { id: 'tile-planned',    key: 'plannedPct',   val: kpis.plannedPct,  suffix: '%' },
+    { id: 'tile-unplanned',  key: 'unplannedPct', val: kpis.unplannedPct, suffix: '%' }
+  ];
 
-  setTile('true-overall-uptime', kpis.uptimePct, '%');
-  setTile('true-overall-mttr', kpis.mttrHrs, 'h');
-  setTile('true-overall-mtbf', kpis.mtbfHrs, 'h');
-  setTile('true-overall-planned', kpis.plannedPct, '%');
-  setTile('true-overall-unplanned', kpis.unplannedPct, '%');
+  for (const t of specs) {
+    const tileEl = document.getElementById(t.id);
+    const valEl  = tileEl?.querySelector('.value');
+    if (!tileEl || !valEl) continue;
+    const v = t.val;
+    if (v == null || isNaN(v)) {
+      valEl.textContent = '—';
+      valEl.title = 'No data';
+    } else {
+      valEl.textContent = t.suffix === '%'
+        ? `${v.toFixed(1)}%`
+        : `${v.toFixed(1)} h`;
+      valEl.removeAttribute('title');
+    }
+    applyTileTheme(tileEl, t.key, v, window.kpiTheme);
+  }
 }
 

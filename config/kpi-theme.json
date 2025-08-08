@@ -1,0 +1,42 @@
+{
+  "colors": {
+    "good": {
+      "bg": "#10B981",
+      "fg": "#0B1B13"
+    },
+    "warn": {
+      "bg": "#FBBF24",
+      "fg": "#1B1403"
+    },
+    "bad": {
+      "bg": "#EF4444",
+      "fg": "#1F0D0D"
+    },
+    "neutral": {
+      "bg": "#374151",
+      "fg": "#FFFFFF"
+    }
+  },
+  "thresholds": {
+    "uptimePct": {
+      "goodMin": 98,
+      "warnMin": 95
+    },
+    "plannedPct": {
+      "goodMin": 70,
+      "warnMin": 50
+    },
+    "unplannedPct": {
+      "goodMax": 30,
+      "warnMax": 50
+    },
+    "mttrHours": {
+      "goodMax": 1.5,
+      "warnMax": 3
+    },
+    "mtbfHours": {
+      "goodMin": 72,
+      "warnMin": 36
+    }
+  }
+}

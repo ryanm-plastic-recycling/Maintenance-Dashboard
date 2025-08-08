@@ -1,0 +1,12 @@
+.true-overall-row { display: grid; gap: 0.75rem; grid-template-columns: repeat(5, minmax(180px,1fr)); margin-top: 0.75rem; }
+.kpi-tile {
+  border-radius: 14px; padding: 12px 14px; box-shadow: 0 1px 3px rgba(0,0,0,.08);
+  display: flex; flex-direction: column; align-items: flex-start; justify-content: center;
+  transition: transform .12s ease, box-shadow .12s ease;
+}
+.kpi-tile:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(0,0,0,.12); }
+.kpi-tile .label { font-size: .9rem; opacity: .85; margin-bottom: 4px; }
+.kpi-tile .value { font-size: 1.4rem; font-weight: 700; letter-spacing: .2px; }
+@media (max-width: 980px) {
+  .true-overall-row { grid-template-columns: repeat(2, 1fr); }
+}
