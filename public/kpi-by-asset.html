@@ -74,7 +74,7 @@
     <div id="loading" style="display:none;">
       <div class="spinner"></div>
     </div>
-    <div>
+    <div class="controls">
       <label for="timeframe-select">Timeframe:</label>
       <select id="timeframe-select">
         <option value="currentWeek">Current Week</option>
@@ -87,6 +87,7 @@
         <option value="trailing30Days">Trailing 30 Days</option>
         <option value="trailing12Months">Trailing 12 Months</option>
       </select>
+      <span id="timeframe-range" style="margin-left:8px; opacity:.8;"></span>
     </div>
     <div class="table-wrap">
     <table id="kpi-by-asset">
