@@ -52,6 +52,21 @@ function resolveRange(timeframe) {
         start: now.clone().subtract(1, 'year').startOf('year'),
         end:   now.clone().subtract(1, 'year').endOf('year')
       };
+    case 'trailing7Days':
+      return {
+        start: now.clone().subtract(7, 'days').startOf('day'),
+        end:   now.clone().endOf('day')
+      };
+    case 'trailing30Days':
+      return {
+        start: now.clone().subtract(30, 'days').startOf('day'),
+        end:   now.clone().endOf('day')
+      };
+    case 'trailing12Months':
+      return {
+        start: now.clone().subtract(12, 'months').startOf('day'),
+        end:   now.clone().endOf('day')
+      };
     default:
       return {
         start: now.clone().subtract(1, 'month').startOf('month'),
@@ -85,7 +100,7 @@ async function loadOverallKpis() {
       .toString('base64')
   };
 
-  // Define your ISO-week last week and last calendar month
+  // Define last week (ISO) and trailing 30 days for MTTR/MTBF
   const weekStart = process.env.KPI_WEEK_START
     ? moment.unix(Number(process.env.KPI_WEEK_START))
     : moment().startOf('isoWeek').subtract(1, 'week');
@@ -94,10 +109,10 @@ async function loadOverallKpis() {
     : weekStart.clone().endOf('isoWeek');
   const monthStart = process.env.KPI_MONTH_START
     ? moment.unix(Number(process.env.KPI_MONTH_START))
-    : moment().subtract(1, 'month').startOf('month');
+    : moment().subtract(30, 'days').startOf('day');
   const monthEnd = process.env.KPI_MONTH_END
     ? moment.unix(Number(process.env.KPI_MONTH_END))
-    : monthStart.clone().endOf('month');
+    : moment().endOf('day');
 
   let totals = {
     operationalHours: 0,
@@ -115,7 +130,7 @@ async function loadOverallKpis() {
     const tasksUrl = `${API_V2}/tasks?assets=${id}&status=2`;
     console.log(`📅 Fetching tasks for asset ${id}`);
     console.log(`   ↳ Week range: ${weekStart.toISOString()} to ${weekEnd.toISOString()}`);
-    console.log(`   ↳ Month range: ${monthStart.toISOString()} to ${monthEnd.toISOString()}`);
+    console.log(`   ↳ 30d range: ${monthStart.toISOString()} to ${monthEnd.toISOString()}`);
     const tasksRes = await fetch(tasksUrl, { headers });
     if (!tasksRes.ok) {
       console.error('loadOverallKpis tasks error:', tasksRes.status);
@@ -192,10 +207,10 @@ async function loadOverallKpis() {
     totals.operationalHours += (totalSecWeek - downtimeSec) / 3600;
     // ─── END WEEKLY LABOR SECTION ───────────────────────────────────────────
 
-    // ─── BEGIN MONTHLY LABOR FETCH ──────────────────────────────────────────
-    // Sum downtime minutes for the month
+    // ─── BEGIN 30-DAY LABOR FETCH ───────────────────────────────────────────
+    // Sum downtime minutes for the trailing 30 days
     console.log(
-      `   ↳ Fetching labor month entries: ${monthStart.toISOString()} to ${monthEnd.toISOString()}`
+      `   ↳ Fetching labor 30d entries: ${monthStart.toISOString()} to ${monthEnd.toISOString()}`
     );
     const laborMonthRes = await fetch(
       `${API_V2}/tasks/labor?limit=10000&start=${monthStart.unix()}&end=${monthEnd.unix()}`,
@@ -211,14 +226,14 @@ async function loadOverallKpis() {
           rawMonthEntries = json.entries;
         }
       } catch (err) {
-        console.error(`Error parsing labor month JSON for ${id}:`, err);
+        console.error(`Error parsing labor 30d JSON for ${id}:`, err);
       }
     } else {
-      console.warn(`Asset ${id} labor month fetch returned ${laborMonthRes.status}, treating as zero.`);
+      console.warn(`Asset ${id} labor 30d fetch returned ${laborMonthRes.status}, treating as zero.`);
     }
     const entriesMonth = rawMonthEntries.filter(e => e.assetID === id);
-    // ─── INSERT DEBUG LOGGING FOR MONTH ENTRIES HERE ────────────────────────
-    console.log(`DEBUG [${id}] month entries count = ${entriesMonth.length}`);
+    // ─── INSERT DEBUG LOGGING FOR 30-DAY ENTRIES HERE ───────────────────────
+    console.log(`DEBUG [${id}] 30d entries count = ${entriesMonth.length}`);
     entriesMonth.slice(0,5).forEach((e,i) =>
       console.log(`  entry[${i}]`, {
         dateCompleted: e.dateCompleted,
@@ -231,7 +246,7 @@ async function loadOverallKpis() {
       .filter(e => e.downtime && e.taskType === 'wo')
       .reduce((sum, e) => sum + (e.duration ?? 0), 0);
   }
-  // ─── END MONTHLY LABOR SECTION ─────────────────────────────────────────
+  // ─── END 30-DAY LABOR SECTION ──────────────────────────────────────────
   
   // Final KPI calculations
   const uptimePct = totals.operationalHours

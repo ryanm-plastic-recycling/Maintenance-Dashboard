@@ -91,6 +91,12 @@ describe('KPI endpoints', () => {
     expect(res.status).toBe(200);
     expect(res.body).toEqual(dummyByAsset);
   });
+
+  test('GET /api/kpis/by-asset supports trailing ranges', async () => {
+    const res = await request(app).get('/api/kpis/by-asset?timeframe=trailing30Days');
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual(dummyByAsset);
+  });
 });
 
 describe('Status endpoint', () => {
