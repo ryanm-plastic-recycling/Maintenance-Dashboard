@@ -104,6 +104,7 @@
             border-radius: 4px;
             font-weight: bold;
         }
+        .input-error { color:#a00; font-size:0.8rem; margin-left:4px; }
         .container {
             max-width: 1728px;
             margin: 120px 20px 20px 160px;
@@ -234,6 +235,40 @@
         <label>Update mappings.json: <input type="file" id="mapping-file"></label>
         <button id="upload-map">Upload Mapping</button>
     </div>
+    <div id="theme-section" style="display:none;">
+        <h2>KPI Theme &amp; Thresholds</h2>
+        <div id="theme-toast" class="alert-container"></div>
+        <fieldset>
+            <legend>Colors</legend>
+            <div>
+                <label>Good BG <input type="text" id="color-good-bg" class="hex-input"></label><span class="input-error"></span>
+                <label>Good FG <input type="text" id="color-good-fg" class="hex-input"></label><span class="input-error"></span>
+                <label>Warn BG <input type="text" id="color-warn-bg" class="hex-input"></label><span class="input-error"></span>
+                <label>Warn FG <input type="text" id="color-warn-fg" class="hex-input"></label><span class="input-error"></span>
+                <label>Bad BG <input type="text" id="color-bad-bg" class="hex-input"></label><span class="input-error"></span>
+                <label>Bad FG <input type="text" id="color-bad-fg" class="hex-input"></label><span class="input-error"></span>
+                <label>Neutral BG <input type="text" id="color-neutral-bg" class="hex-input"></label><span class="input-error"></span>
+                <label>Neutral FG <input type="text" id="color-neutral-fg" class="hex-input"></label><span class="input-error"></span>
+            </div>
+        </fieldset>
+        <fieldset>
+            <legend>Thresholds</legend>
+            <div>
+                <label>Uptime % goodMin <input type="number" id="thr-uptimePct-goodMin" class="num-input"></label><span class="input-error"></span>
+                <label>Uptime % warnMin <input type="number" id="thr-uptimePct-warnMin" class="num-input"></label><span class="input-error"></span>
+                <label>Planned % goodMin <input type="number" id="thr-plannedPct-goodMin" class="num-input"></label><span class="input-error"></span>
+                <label>Planned % warnMin <input type="number" id="thr-plannedPct-warnMin" class="num-input"></label><span class="input-error"></span>
+                <label>Unplanned % goodMax <input type="number" id="thr-unplannedPct-goodMax" class="num-input"></label><span class="input-error"></span>
+                <label>Unplanned % warnMax <input type="number" id="thr-unplannedPct-warnMax" class="num-input"></label><span class="input-error"></span>
+                <label>MTTR (h) goodMax <input type="number" id="thr-mttrHours-goodMax" class="num-input"></label><span class="input-error"></span>
+                <label>MTTR (h) warnMax <input type="number" id="thr-mttrHours-warnMax" class="num-input"></label><span class="input-error"></span>
+                <label>MTBF (h) goodMin <input type="number" id="thr-mtbfHours-goodMin" class="num-input"></label><span class="input-error"></span>
+                <label>MTBF (h) warnMin <input type="number" id="thr-mtbfHours-warnMin" class="num-input"></label><span class="input-error"></span>
+            </div>
+        </fieldset>
+        <button id="save-theme" disabled>Save Theme</button>
+        <button id="reset-theme">Reset to Defaults</button>
+    </div>
     <button id="refresh-cache">Refresh Cache</button>
     </div>
     <script>
@@ -307,6 +342,7 @@
             document.getElementById('cols-pm').value = (cfg.columns['pm.html'] || []).join(',');
             document.getElementById('config-form').style.display = 'block';
             document.getElementById('mapping-section').style.display = 'block';
+            document.getElementById('theme-section').style.display = 'block';
             document.getElementById('login-section').style.display = 'none';
         };
         document.getElementById('config-form').onsubmit = async e => {
@@ -383,5 +419,6 @@
     import { initHeaderKPIs } from './js/header-kpis.js';
     initHeaderKPIs();
 </script>
+<script type="module" src="/js/admin.js"></script>
 </body>
 </html>

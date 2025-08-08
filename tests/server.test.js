@@ -107,6 +107,39 @@ describe('Status endpoint', () => {
   });
 });
 
+describe('KPI theme settings', () => {
+  let originalTheme;
+  beforeAll(async () => {
+    const res = await request(app).get('/api/settings/kpi-theme');
+    originalTheme = res.body;
+  });
+
+  afterAll(async () => {
+    if (originalTheme) {
+      await request(app)
+        .put('/api/settings/kpi-theme')
+        .send(originalTheme);
+    }
+  });
+
+  test('GET /api/settings/kpi-theme returns JSON', async () => {
+    const res = await request(app).get('/api/settings/kpi-theme');
+    expect(res.status).toBe(200);
+    expect(res.body.colors.good.bg).toBe('#10B981');
+  });
+
+  test('PUT /api/settings/kpi-theme saves theme', async () => {
+    const updated = JSON.parse(JSON.stringify(originalTheme));
+    updated.colors.good.bg = '#000000';
+    const putRes = await request(app)
+      .put('/api/settings/kpi-theme')
+      .send(updated);
+    expect(putRes.status).toBe(200);
+    const getRes = await request(app).get('/api/settings/kpi-theme');
+    expect(getRes.body.colors.good.bg).toBe('#000000');
+  });
+});
+
 describe('KPI loader error handling', () => {
   beforeEach(() => {
     process.env.CLIENT_ID = 'id';
