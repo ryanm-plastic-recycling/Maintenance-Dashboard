@@ -314,7 +314,9 @@ async function loadByAssetKpis({ start, end }) {
 
     const tasksRes = await fetch(byAssetUrl, { headers });
     if (!tasksRes.ok) {
-      const body = await tasksRes.text().catch(() => '');
+      const body = typeof tasksRes.text === 'function'
+        ? await tasksRes.text().catch(() => '')
+        : '';
       console.error('loadByAssetKpis tasks error:', tasksRes.status);
       throw new Error(`loadByAssetKpis tasks error: ${tasksRes.status}: ${body}`);
     }

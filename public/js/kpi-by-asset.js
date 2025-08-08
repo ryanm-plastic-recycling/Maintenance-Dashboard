@@ -1,3 +1,6 @@
+import { computeTrueOverall } from './compute-true-overall.js';
+import { headerKpisReady } from './header-kpis.js';
+
 let mappings;
 await fetch('/mappings.json')
   .then(r => r.json())
@@ -26,6 +29,7 @@ function fmt(dtIso) {
 }
 
 export async function loadAll() {
+  await headerKpisReady();
   const tf = timeframeSelect?.value || 'lastMonth';
   const loadingEl = document.getElementById('loading');
   const errorEl   = document.getElementById('error-banner');
@@ -75,6 +79,10 @@ export async function loadAll() {
     setText('avg-mtbf',    avg('mtbfHrs').toFixed(1));
     setText('avg-planned', ((avg('plannedCount')/(avg('plannedCount')+avg('unplannedCount')))*100||0).toFixed(1)+'%');
     setText('avg-unplanned',((avg('unplannedCount')/(avg('plannedCount')+avg('unplannedCount')))*100||0).toFixed(1)+'%');
+
+    // render true overall tiles
+    const overall = computeTrueOverall(data);
+    renderTrueOverall(overall);
   } catch (err) {
     console.error('loadAll failed:', err);
     if (errorEl) errorEl.style.display = 'block';
@@ -97,4 +105,27 @@ if (timeframeSelect) {
 // expose to non-module inline scripts that call loadAll()
 window.loadAll = loadAll;
 loadAll();
+
+function renderTrueOverall(kpis) {
+  const setTile = (testId, val, suffix) => {
+    const el = document.querySelector(`[data-testid="${testId}"]`);
+    if (!el) return;
+    if (val == null || isNaN(val)) {
+      el.textContent = '—';
+      el.title = 'No data';
+    } else {
+      const formatted = suffix === '%'
+        ? `${val.toFixed(1)}%`
+        : `${val.toFixed(1)} h`;
+      el.textContent = formatted;
+      el.removeAttribute('title');
+    }
+  };
+
+  setTile('true-overall-uptime', kpis.uptimePct, '%');
+  setTile('true-overall-mttr', kpis.mttrHrs, 'h');
+  setTile('true-overall-mtbf', kpis.mtbfHrs, 'h');
+  setTile('true-overall-planned', kpis.plannedPct, '%');
+  setTile('true-overall-unplanned', kpis.unplannedPct, '%');
+}
 

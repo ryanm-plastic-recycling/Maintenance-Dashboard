@@ -53,6 +53,23 @@
 #kpi-by-asset tfoot tr { position: sticky; bottom: 0; background: #f8fafc; z-index: 1; }
 #kpi-by-asset tfoot td { background: #f8fafc; } /* ensure solid bg over rows */
 
+/* True Overall tiles */
+#true-overall-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 20px;
+}
+#true-overall-row .kpi-tile {
+  flex: 1 1 180px;
+  background: #f8fafc;
+  padding: 10px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  text-align: center;
+}
+#true-overall-row .kpi-value { font-variant-numeric: tabular-nums; }
+
 /* === Timeframe label and select sizing for KPI-by-Asset page === */
 label[for="timeframe-select"] {
   font-size: 2em;        /* Twice normal size */
