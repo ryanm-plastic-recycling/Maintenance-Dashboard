@@ -17,15 +17,58 @@ function setText(id, text) {
   if (el) el.textContent = text;
 }
 
-function fmt(dtIso) {
-  const d = new Date(dtIso);
-  return d.toLocaleString([], {
-    year: 'numeric',
-    month: 'short',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit'
-  });
+// derive downtime hours from possible fields
+function getDowntimeHours(row) {
+  if (!row) return null;
+  const direct = row.downtimeHrs ?? row.downtimeHours
+    ?? row.totals?.downtimeHrs ?? row.totals?.downtimeHours;
+  if (typeof direct === 'number' && !isNaN(direct)) return direct;
+  // fallback to planned + unplanned downtime hours if provided
+  const planned = row.plannedDowntimeHours ?? row.plannedDowntimeHrs;
+  const unplanned = row.unplannedDowntimeHours ?? row.unplannedDowntimeHrs;
+  if (planned != null || unplanned != null) {
+    const sum = (Number(planned) || 0) + (Number(unplanned) || 0);
+    if (!isNaN(sum)) return sum;
+  }
+  return null;
+}
+
+function updateDateRangeLabel(tf, meta) {
+  const el = document.getElementById('date-range');
+  if (!el) return;
+  let start, end;
+  if (meta && meta.startISO && meta.endISO) {
+    start = new Date(meta.startISO);
+    end   = new Date(meta.endISO);
+  } else {
+    const now = new Date();
+    switch (tf) {
+      case 'lastMonth':
+        start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        end   = new Date(now.getFullYear(), now.getMonth(), 0);
+        break;
+      case 'trailing7Days':
+        start = new Date(now);
+        start.setDate(start.getDate() - 7);
+        end = now;
+        break;
+      case 'trailing30Days':
+        start = new Date(now);
+        start.setDate(start.getDate() - 30);
+        end = now;
+        break;
+      case 'trailing12Months':
+        start = new Date(now);
+        start.setFullYear(start.getFullYear() - 1);
+        end = now;
+        break;
+      default:
+        el.textContent = '';
+        return;
+    }
+  }
+  const fmt = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  el.textContent = `${fmt.format(start)} — ${fmt.format(end)}`;
 }
 
 export async function loadAll() {
@@ -41,14 +84,9 @@ export async function loadAll() {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     const assets = data.assets;
-  // show the exact server window next to the selector
-  if (data.range) {
-    setText('timeframe-label', data.range.label);
-    setText('timeframe-range', `${fmt(data.range.startISO)} – ${fmt(data.range.endISO)}`);
-  } else {
-    setText('timeframe-label', '');
-    setText('timeframe-range', '');
-  }
+
+    // update displayed date window
+    updateDateRangeLabel(tf, data.range);
 
     // clear table
     tbody.innerHTML = '';
@@ -56,8 +94,13 @@ export async function loadAll() {
     // each key is an assetID
     Object.values(assets).forEach(a => {
       const tr = document.createElement('tr');
+      const d = getDowntimeHours(a);
+      const downtimeTd = d == null
+        ? `<td class="col-downtime" data-testid="cell-downtime-hrs" title="No downtime data for selected range">—</td>`
+        : `<td class="col-downtime" data-testid="cell-downtime-hrs">${d.toFixed(1)}</td>`;
       tr.innerHTML = `
         <td>${a.name}</td>
+        ${downtimeTd}
         <td>${a.uptimePct.toFixed(1)}</td>
         <td>${a.mttrHrs.toFixed(1)}</td>
         <td>${a.mtbfHrs.toFixed(1)}</td>
@@ -74,6 +117,11 @@ export async function loadAll() {
       ? rows.reduce((sum,r) => sum + (r[key]||0), 0)/total
       : 0;
     setText('total-assets', total);
+    const downtimeVals = rows.map(getDowntimeHours).filter(v => v != null);
+    const avgDowntime = downtimeVals.length
+      ? downtimeVals.reduce((sum,v) => sum + v, 0) / downtimeVals.length
+      : null;
+    setText('avg-downtime', avgDowntime == null ? '—' : avgDowntime.toFixed(1));
     setText('avg-uptime',  avg('uptimePct').toFixed(1) + '%');
     setText('avg-mttr',    avg('mttrHrs').toFixed(1));
     setText('avg-mtbf',    avg('mtbfHrs').toFixed(1));
@@ -95,6 +143,8 @@ if (timeframeSelect) {
   const saved = localStorage.getItem('kpiTimeframe');
   if (saved && [...timeframeSelect.options].some(o => o.value === saved)) {
     timeframeSelect.value = saved;
+  } else {
+    timeframeSelect.value = 'lastMonth';
   }
   timeframeSelect.addEventListener('change', () => {
     localStorage.setItem('kpiTimeframe', timeframeSelect.value);
