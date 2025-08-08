@@ -655,7 +655,18 @@ async function handleKpisByAsset(req, res) {
     const cacheKey = `kpis_byAsset_${timeframe}`;
 
     const data = await app.fetchAndCache(cacheKey, async () => {
-      return await loadByAssetKpis(range);
+      const payload = await loadByAssetKpis(range);
+      // attach the actual window the server used
+      return {
+        ...payload,
+        range: {
+          label: timeframe,
+          startUnix: range.start.unix(),
+          endUnix: range.end.unix(),
+          startISO: range.start.toISOString(),
+          endISO: range.end.toISOString(),
+        }
+      };
     });
 
     res.json(data);
