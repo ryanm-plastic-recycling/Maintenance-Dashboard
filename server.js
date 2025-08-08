@@ -323,21 +323,46 @@ async function loadByAssetKpis({ start, end }) {
          : v;
   };
 
+  function isUnplannedType(t) {
+    const type = (t.type || t.workOrderType || t.category || '').toString().toLowerCase();
+    return type === '2' || type === '6' || type.includes('unplanned') || type.includes('work request');
+  }
+
+  function getDowntimeHours(t) {
+    if (Number.isFinite(t.downtimeHours)) return Number(t.downtimeHours);
+    if (Number.isFinite(t.downtimeMinutes)) return Number(t.downtimeMinutes) / 60;
+    if (Number.isFinite(t.metrics?.downtimeHours)) return Number(t.metrics.downtimeHours);
+    if (Number.isFinite(t.downtime)) return minutesFromTask(t) / 60;
+    return 0;
+  }
+
+  function countFailureEvents(tasksForAsset) {
+    let n = 0;
+    for (const t of tasksForAsset || []) {
+      if (isUnplannedType(t) && getDowntimeHours(t) > 0) n++;
+    }
+    return n;
+  }
+
   const result = { assets: {}, totals: {
     uptimePct: 0,
     downtimeHrs: 0,
     mttrHrs: 0,
     mtbfHrs: 0,
     plannedCount: 0,
-    unplannedCount: 0
+    unplannedCount: 0,
+    downtimeHoursUnplanned: 0,
+    operationalHours: 0,
+    failureEventCount: 0
   }};
 
   // totals for the whole report window
   let totalPeriodHours = 0;
   let totalDowntimeHours = 0;
-  let totalDowntimeMinUnplanned = 0;
+  let totalDowntimeHoursUnplanned = 0;
+  let totalOperationalHours = 0;
+  let totalFailureEvents = 0;
   let totalUnplannedWO = 0;
-  let allDates = [];
 
   for (const asset of mappings.productionAssets || []) {
     const id = asset.id;
@@ -380,24 +405,21 @@ async function loadByAssetKpis({ start, end }) {
     const unplannedTasks = tasksInRange.filter(t => t.type === 2 || t.type === 6);
     const unplannedCount = unplannedTasks.length;
 
-    // downtime mins (all vs unplanned)
     const downtimeMinutesAll = tasksInRange.reduce((sum, t) => sum + minutesFromTask(t), 0);
     const downtimeMinutesUnplanned = unplannedTasks.reduce((sum, t) => sum + minutesFromTask(t), 0);
 
-    // KPIs
-    const mttr = unplannedCount ? (downtimeMinutesUnplanned / 60) / unplannedCount : 0;
-    const dates = unplannedTasks.map(t => t.dateCompleted).sort((a,b) => a - b);
-    const intervals = dates.slice(1).map((d,i) => (dates[i+1] - dates[i]) / 3600);
-    const mtbf = intervals.length ? _.mean(intervals) : 0;
-
-    // uptime: denominator is report window length
     const periodHours = end.diff(start, 'seconds') / 3600;
     const downtimeHours = downtimeMinutesAll / 60;
+    const downtimeHoursUnplanned = downtimeMinutesUnplanned / 60;
+    const operationalHours = Math.max(0, periodHours - downtimeHours);
+    const failureEventCount = countFailureEvents(tasksInRange);
+
+    const mttr = failureEventCount ? downtimeHoursUnplanned / failureEventCount : 0;
+    const mtbf = failureEventCount ? operationalHours / failureEventCount : 0;
     const uptime = periodHours > 0
       ? Math.max(0, Math.min(100, ((periodHours - downtimeHours) / periodHours) * 100))
       : 0;
 
-    // save per-asset
     result.assets[id] = {
       name,
       uptimePct: +uptime.toFixed(1),
@@ -405,31 +427,36 @@ async function loadByAssetKpis({ start, end }) {
       mttrHrs: +mttr.toFixed(1),
       mtbfHrs: +mtbf.toFixed(1),
       plannedCount,
-      unplannedCount
+      unplannedCount,
+      downtimeHoursUnplanned: +downtimeHoursUnplanned.toFixed(1),
+      operationalHours: +operationalHours.toFixed(1),
+      failureEventCount
     };
 
-    // roll up
-    totalPeriodHours          += periodHours;
-    totalDowntimeHours        += downtimeHours;
-    totalDowntimeMinUnplanned += downtimeMinutesUnplanned;
-    totalUnplannedWO          += unplannedCount;
-    result.totals.plannedCount += plannedCount;
+    totalPeriodHours             += periodHours;
+    totalDowntimeHours           += downtimeHours;
+    totalDowntimeHoursUnplanned  += downtimeHoursUnplanned;
+    totalOperationalHours        += operationalHours;
+    totalFailureEvents           += failureEventCount;
+    totalUnplannedWO             += unplannedCount;
+    result.totals.plannedCount   += plannedCount;
     result.totals.unplannedCount += unplannedCount;
-    allDates = allDates.concat(dates);
   }
 
   // totals
-  result.totals.uptimePct   = totalPeriodHours
+  result.totals.uptimePct = totalPeriodHours
     ? +(((totalPeriodHours - totalDowntimeHours) / totalPeriodHours) * 100).toFixed(1)
     : 0;
   result.totals.downtimeHrs = +totalDowntimeHours.toFixed(1);
-  result.totals.mttrHrs     = totalUnplannedWO
-    ? +((totalDowntimeMinUnplanned / 60) / totalUnplannedWO).toFixed(1)
+  result.totals.downtimeHoursUnplanned = +totalDowntimeHoursUnplanned.toFixed(1);
+  result.totals.operationalHours = +totalOperationalHours.toFixed(1);
+  result.totals.failureEventCount = totalFailureEvents;
+  result.totals.mttrHrs = totalFailureEvents
+    ? +((totalDowntimeHoursUnplanned) / totalFailureEvents).toFixed(1)
     : 0;
-
-  const sorted = allDates.sort((a,b) => a - b);
-  const intervalsTot = sorted.slice(1).map((d,i) => (sorted[i+1] - sorted[i]) / 3600);
-  result.totals.mtbfHrs = intervalsTot.length ? +_.mean(intervalsTot).toFixed(1) : 0;
+  result.totals.mtbfHrs = totalFailureEvents
+    ? +((totalOperationalHours) / totalFailureEvents).toFixed(1)
+    : 0;
 
   return result;
 }

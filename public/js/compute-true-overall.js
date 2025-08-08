@@ -1,5 +1,24 @@
 import { getHeaderKpisCache } from './header-kpis.js';
 
+function getFailureEventCount(row) {
+  if (Number.isFinite(row?.failureEventCount)) return row.failureEventCount;
+  if (Array.isArray(row?.events)) {
+    let n = 0;
+    for (const e of row.events) {
+      const type = (e.type || e.workOrderType || '').toString().toLowerCase();
+      const unplanned = type.includes('unplanned') || type.includes('work request');
+      const dh = Number.isFinite(e.downtimeHours) ? e.downtimeHours
+              : Number.isFinite(e.downtimeMinutes) ? e.downtimeMinutes / 60
+              : Number.isFinite(e.metrics?.downtimeHours) ? e.metrics.downtimeHours
+              : 0;
+      if (unplanned && dh > 0) n++;
+    }
+    return n;
+  }
+  if (Number.isFinite(row?.unplannedWithDowntimeCount)) return row.unplannedWithDowntimeCount;
+  return 0;
+}
+
 /**
  * Compute true overall KPIs for the by-asset payload.
  * Prefers additive totals from payload.totals, falls back to summing per-asset fields.
@@ -9,21 +28,22 @@ import { getHeaderKpisCache } from './header-kpis.js';
  * @returns {{uptimePct: number|null, mttrHrs: number|null, mtbfHrs: number|null, plannedPct: number|null, unplannedPct: number|null}}
  */
 export function computeTrueOverall(data = {}) {
-  const assets = data.assets || {};
+  const rows = data.rows || data.byAsset || Object.values(data.assets || {});
   const totals = data.totals || {};
 
-  const sumField = (field) => {
-    if (typeof totals[field] === 'number') return totals[field];
-    return Object.values(assets).reduce((sum, a) => sum + (a[field] || 0), 0);
+  const getTotal = (field, derive) => {
+    if (Number.isFinite(totals[field])) return totals[field];
+    if (derive) return derive(rows);
+    return rows.reduce((sum, r) => sum + (Number(r[field]) || 0), 0);
   };
 
-  const downtime = sumField('downtimeHrs');
-  const scheduled = sumField('scheduledHrs');
-  const repair = sumField('repairHrs');
-  const runtime = sumField('runtimeHrs');
-  const failures = sumField('failureCount') || sumField('unplannedCount');
-  const planned = sumField('plannedCount');
-  const unplanned = sumField('unplannedCount');
+  const downtime = getTotal('downtimeHrs');
+  const scheduled = getTotal('scheduledHrs');
+  const planned = getTotal('plannedCount');
+  const unplanned = getTotal('unplannedCount');
+  const failures = getTotal('failureEventCount', rs => rs.reduce((a,r) => a + getFailureEventCount(r), 0));
+  const unplannedDowntime = getTotal('downtimeHoursUnplanned', rs => rs.reduce((a,r) => a + (Number(r?.downtimeHoursUnplanned) || 0), 0));
+  const operationalHours = getTotal('operationalHours', rs => rs.reduce((a,r) => a + (Number(r?.operationalHours) || 0), 0));
 
   const totalWo = planned + unplanned;
 
@@ -31,15 +51,14 @@ export function computeTrueOverall(data = {}) {
   if (scheduled > 0) {
     uptimePct = (1 - (downtime / scheduled)) * 100;
   } else {
-    // Fallback to server computed overall uptime so tile never blank
     const cached = getHeaderKpisCache();
     if (cached && typeof cached.overall?.uptimePct === 'number') {
       uptimePct = cached.overall.uptimePct;
     }
   }
 
-  const mttr = failures > 0 ? (repair / failures) : null;
-  const mtbf = failures > 0 ? (runtime / failures) : null;
+  const mttr = failures > 0 ? unplannedDowntime / failures : null;
+  const mtbf = failures > 0 ? operationalHours / failures : null;
   const plannedPct = totalWo > 0 ? (planned / totalWo) * 100 : null;
   const unplannedPct = totalWo > 0 ? (unplanned / totalWo) * 100 : null;
 
