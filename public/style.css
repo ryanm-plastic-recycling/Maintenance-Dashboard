@@ -15,7 +15,7 @@
 }
 .kpi-title { font-size: 1.2rem; color: #666; }
 .kpi-value { font-size: 1.5rem; font-weight: bold; }
-.mtbf-title { margin-top: 0.5rem; }
+.mtbf-title { margin-top: 0.2rem; }
 .header-clock {
   font-size: 1rem; font-weight: 500;
   min-width: 100px; text-align: center;
