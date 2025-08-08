@@ -59,6 +59,13 @@
   white-space: nowrap;
 }
 
+/* integer count columns */
+#kpi-by-asset th.col-int,
+#kpi-by-asset td.col-int {
+  text-align: center;
+  white-space: nowrap;
+}
+
 /* True Overall tiles */
 #true-overall-row {
   display: flex;
