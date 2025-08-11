@@ -296,18 +296,24 @@ export async function loadAll() {
     const avgDowntime = downtimeVals.length
       ? downtimeVals.reduce((sum,v) => sum + v, 0) / downtimeVals.length
       : null;
+    const totalDowntime = downtimeVals.reduce((sum,v) => sum + v, 0);
     setText('avg-downtime', avgDowntime == null ? '—' : avgDowntime.toFixed(1));
+    setText('total-downtime', downtimeVals.length ? totalDowntime.toFixed(1) : '—');
     setText('avg-uptime',  avg('uptimePct').toFixed(1) + '%');
 
     const avgUnplannedCount = unplannedCounts.length
       ? unplannedCounts.reduce((s,v) => s + v, 0) / unplannedCounts.length
       : null;
+    const totalUnplannedCount = unplannedCounts.reduce((s,v) => s + v, 0);
     setText('avg-unplanned-count', avgUnplannedCount == null ? '—' : avgUnplannedCount.toFixed(1));
+    setText('total-unplanned-count', unplannedCounts.length ? totalUnplannedCount.toString() : '—');
 
     const avgFailureEvents = failureCounts.length
       ? failureCounts.reduce((s,v) => s + v, 0) / failureCounts.length
       : null;
+    const totalFailureEvents = failureCounts.reduce((s,v) => s + v, 0);
     setText('avg-failure-events', avgFailureEvents == null ? '—' : avgFailureEvents.toFixed(1));
+    setText('total-failure-events', failureCounts.length ? totalFailureEvents.toString() : '—');
 
     const avgMTTR = mttrValues.length
       ? mttrValues.reduce((s,v) => s + v, 0) / mttrValues.length
@@ -320,12 +326,11 @@ export async function loadAll() {
     setText('avg-mtbf', avgMTBF == null ? '—' : avgMTBF.toFixed(1));
 
     const totalPlanned = plannedCounts.reduce((s,v) => s + v, 0);
-    const totalUnplanned = unplannedCounts.reduce((s,v) => s + v, 0);
-    const plannedPctAvg = (totalPlanned + totalUnplanned) > 0
-      ? (totalPlanned / (totalPlanned + totalUnplanned)) * 100
+    const plannedPctAvg = (totalPlanned + totalUnplannedCount) > 0
+      ? (totalPlanned / (totalPlanned + totalUnplannedCount)) * 100
       : null;
-    const unplannedPctAvg = (totalPlanned + totalUnplanned) > 0
-      ? (totalUnplanned / (totalPlanned + totalUnplanned)) * 100
+    const unplannedPctAvg = (totalPlanned + totalUnplannedCount) > 0
+      ? (totalUnplannedCount / (totalPlanned + totalUnplannedCount)) * 100
       : null;
     setText('avg-planned', plannedPctAvg == null ? '—' : plannedPctAvg.toFixed(1) + '%');
     setText('avg-unplanned', unplannedPctAvg == null ? '—' : unplannedPctAvg.toFixed(1) + '%');
