@@ -1,5 +1,19 @@
 (async function(){
-  await checkBurnIn();
+  const active = await checkBurnIn();
+  if (window.location.pathname === '/burnin.html') {
+    if (!active) {
+      localStorage.removeItem('burnInOverride');
+      window.location.href = '/index.html';
+    } else {
+      setInterval(async () => {
+        const stillBurn = await checkBurnIn();
+        if (!stillBurn) {
+          localStorage.removeItem('burnInOverride');
+          window.location.href = '/index.html';
+        }
+      }, 60000);
+    }
+  }
 })();
 
 async function checkBurnIn() {
