@@ -1,5 +1,4 @@
 import { computeTrueOverall } from './compute-true-overall.js';
-import { headerKpisReady } from './header-kpis.js';
 
 let mappings;
 await fetch('/mappings.json')
@@ -202,7 +201,6 @@ function updateDateRangeLabel(tf, meta) {
 }
 
 export async function loadAll() {
-  await headerKpisReady();
   const tf = timeframeSelect?.value || 'lastMonth';
   const loadingEl = document.getElementById('loading');
   const errorEl   = document.getElementById('error-banner');

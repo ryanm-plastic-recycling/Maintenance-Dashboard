@@ -1,5 +1,3 @@
-import { getHeaderKpisCache } from './header-kpis.js';
-
 function getFailureEventCount(row) {
   if (Number.isFinite(row?.failureEventCount)) return row.failureEventCount;
   if (Array.isArray(row?.events)) {
@@ -22,8 +20,7 @@ function getFailureEventCount(row) {
 /**
  * Compute true overall KPIs for the by-asset payload.
  * Prefers additive totals from payload.totals, falls back to summing per-asset fields.
- * For uptimePct, if we cannot compute due to missing hours, fall back to
- * headerKpisCache.overall.uptimePct so the tile never shows blank.
+ * For uptimePct, if we cannot compute due to missing hours the result is null.
  * @param {object} data - payload from /api/kpis/by-asset
  * @returns {{uptimePct: number|null, mttrHrs: number|null, mtbfHrs: number|null, plannedPct: number|null, unplannedPct: number|null}}
  */
@@ -38,23 +35,17 @@ export function computeTrueOverall(data = {}) {
   };
 
   const downtime = getTotal('downtimeHrs');
-  const scheduled = getTotal('scheduledHrs');
+  const operationalHours = getTotal('operationalHours', rs => rs.reduce((a,r) => a + (Number(r?.operationalHours) || 0), 0));
   const planned = getTotal('plannedCount');
   const unplanned = getTotal('unplannedCount');
   const failures = getTotal('failureEventCount', rs => rs.reduce((a,r) => a + getFailureEventCount(r), 0));
   const unplannedDowntime = getTotal('downtimeHoursUnplanned', rs => rs.reduce((a,r) => a + (Number(r?.downtimeHoursUnplanned) || 0), 0));
-  const operationalHours = getTotal('operationalHours', rs => rs.reduce((a,r) => a + (Number(r?.operationalHours) || 0), 0));
 
   const totalWo = planned + unplanned;
 
   let uptimePct = null;
-  if (scheduled > 0) {
-    uptimePct = (1 - (downtime / scheduled)) * 100;
-  } else {
-    const cached = getHeaderKpisCache();
-    if (cached && typeof cached.overall?.uptimePct === 'number') {
-      uptimePct = cached.overall.uptimePct;
-    }
+  if (operationalHours > 0) {
+    uptimePct = (1 - (downtime / operationalHours)) * 100;
   }
 
   const mttr = failures > 0 ? unplannedDowntime / failures : null;

@@ -14,6 +14,32 @@ dotenv.config();
 
 const API_V2 = `${process.env.API_BASE_URL}/v2`;
 
+const EXPECTED_RUN_DAYS = process.env.EXPECTED_RUN_DAYS || 'Mon-Fri';
+const EXPECTED_HOURS_PER_DAY = Number(process.env.EXPECTED_HOURS_PER_DAY || 24);
+
+function parseRunDays(spec) {
+  if (spec === 'Mon-Fri') return new Set([1,2,3,4,5]);
+  if (spec === 'Sun-Sat') return new Set([1,2,3,4,5,6,7]);
+  const map = { Mon:1, Tue:2, Wed:3, Thu:4, Fri:5, Sat:6, Sun:7 };
+  return new Set(spec.split(',').map(s => map[s.trim()]).filter(Boolean));
+}
+
+const RUN_DAYS = parseRunDays(EXPECTED_RUN_DAYS);
+
+function expectedOperationalHours(startISO, endISO) {
+  const start = moment(startISO);
+  const end   = moment(endISO);
+  let days = 0;
+  const cursor = start.clone().startOf('day');
+  const last   = end.clone().startOf('day');
+  while (cursor.isSameOrBefore(last)) {
+    const dow = cursor.isoWeekday();
+    if (RUN_DAYS.has(dow)) days += 1;
+    cursor.add(1, 'day');
+  }
+  return days * EXPECTED_HOURS_PER_DAY;
+}
+
 // Default to a 5 minute cache refresh if env var not set
 const cacheTtlSeconds = Number(process.env.CACHE_TTL_MINUTES ?? 5) * 60;
 const checkPeriod = Number(process.env.CACHE_CHECK_PERIOD_SECONDS ?? 1800);
@@ -357,10 +383,10 @@ async function loadByAssetKpis({ start, end }) {
   }};
 
   // totals for the whole report window
-  let totalPeriodHours = 0;
+  let totalOperationalHours = 0;
   let totalDowntimeHours = 0;
   let totalDowntimeHoursUnplanned = 0;
-  let totalOperationalHours = 0;
+  let totalUptimeHours = 0;
   let totalFailureEvents = 0;
   let totalUnplannedWO = 0;
 
@@ -408,16 +434,16 @@ async function loadByAssetKpis({ start, end }) {
     const downtimeMinutesAll = tasksInRange.reduce((sum, t) => sum + minutesFromTask(t), 0);
     const downtimeMinutesUnplanned = unplannedTasks.reduce((sum, t) => sum + minutesFromTask(t), 0);
 
-    const periodHours = end.diff(start, 'seconds') / 3600;
+    const opHours = expectedOperationalHours(start.toISOString(), end.toISOString());
     const downtimeHours = downtimeMinutesAll / 60;
     const downtimeHoursUnplanned = downtimeMinutesUnplanned / 60;
-    const operationalHours = Math.max(0, periodHours - downtimeHours);
+    const uptimeHours = Math.max(0, opHours - downtimeHours);
     const failureEventCount = countFailureEvents(tasksInRange);
 
     const mttr = failureEventCount ? downtimeHoursUnplanned / failureEventCount : 0;
-    const mtbf = failureEventCount ? operationalHours / failureEventCount : 0;
-    const uptime = periodHours > 0
-      ? Math.max(0, Math.min(100, ((periodHours - downtimeHours) / periodHours) * 100))
+    const mtbf = failureEventCount ? uptimeHours / failureEventCount : 0;
+    const uptime = opHours > 0
+      ? Math.max(0, Math.min(100, (uptimeHours / opHours) * 100))
       : 0;
 
     result.assets[id] = {
@@ -429,23 +455,23 @@ async function loadByAssetKpis({ start, end }) {
       plannedCount,
       unplannedCount,
       downtimeHoursUnplanned: +downtimeHoursUnplanned.toFixed(1),
-      operationalHours: +operationalHours.toFixed(1),
+      operationalHours: +opHours.toFixed(1),
       failureEventCount
     };
 
-    totalPeriodHours             += periodHours;
-    totalDowntimeHours           += downtimeHours;
-    totalDowntimeHoursUnplanned  += downtimeHoursUnplanned;
-    totalOperationalHours        += operationalHours;
-    totalFailureEvents           += failureEventCount;
-    totalUnplannedWO             += unplannedCount;
-    result.totals.plannedCount   += plannedCount;
+    totalOperationalHours       += opHours;
+    totalUptimeHours            += uptimeHours;
+    totalDowntimeHours          += downtimeHours;
+    totalDowntimeHoursUnplanned += downtimeHoursUnplanned;
+    totalFailureEvents          += failureEventCount;
+    totalUnplannedWO            += unplannedCount;
+    result.totals.plannedCount  += plannedCount;
     result.totals.unplannedCount += unplannedCount;
   }
 
   // totals
-  result.totals.uptimePct = totalPeriodHours
-    ? +(((totalPeriodHours - totalDowntimeHours) / totalPeriodHours) * 100).toFixed(1)
+  result.totals.uptimePct = totalOperationalHours
+    ? +((totalUptimeHours / totalOperationalHours) * 100).toFixed(1)
     : 0;
   result.totals.downtimeHrs = +totalDowntimeHours.toFixed(1);
   result.totals.downtimeHoursUnplanned = +totalDowntimeHoursUnplanned.toFixed(1);
@@ -455,7 +481,7 @@ async function loadByAssetKpis({ start, end }) {
     ? +((totalDowntimeHoursUnplanned) / totalFailureEvents).toFixed(1)
     : 0;
   result.totals.mtbfHrs = totalFailureEvents
-    ? +((totalOperationalHours) / totalFailureEvents).toFixed(1)
+    ? +((totalUptimeHours) / totalFailureEvents).toFixed(1)
     : 0;
 
   return result;

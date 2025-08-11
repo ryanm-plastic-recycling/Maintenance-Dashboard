@@ -14,6 +14,32 @@ dotenv.config();
 
 const API_V2 = `${process.env.API_BASE_URL}/v2`;
 
+const EXPECTED_RUN_DAYS = process.env.EXPECTED_RUN_DAYS || 'Mon-Fri';
+const EXPECTED_HOURS_PER_DAY = Number(process.env.EXPECTED_HOURS_PER_DAY || 24);
+
+function parseRunDays(spec) {
+  if (spec === 'Mon-Fri') return new Set([1,2,3,4,5]);
+  if (spec === 'Sun-Sat') return new Set([1,2,3,4,5,6,7]);
+  const map = { Mon:1, Tue:2, Wed:3, Thu:4, Fri:5, Sat:6, Sun:7 };
+  return new Set(spec.split(',').map(s => map[s.trim()]).filter(Boolean));
+}
+
+const RUN_DAYS = parseRunDays(EXPECTED_RUN_DAYS);
+
+function expectedOperationalHours(startISO, endISO) {
+  const start = moment(startISO);
+  const end   = moment(endISO);
+  let days = 0;
+  const cursor = start.clone().startOf('day');
+  const last   = end.clone().startOf('day');
+  while (cursor.isSameOrBefore(last)) {
+    const dow = cursor.isoWeekday();
+    if (RUN_DAYS.has(dow)) days += 1;
+    cursor.add(1, 'day');
+  }
+  return days * EXPECTED_HOURS_PER_DAY;
+}
+
 // Default to a 5 minute cache refresh if env var not set
 const cacheTtlSeconds = Number(process.env.CACHE_TTL_MINUTES ?? 5) * 60;
 const checkPeriod = Number(process.env.CACHE_CHECK_PERIOD_SECONDS ?? 1800);
@@ -329,13 +355,16 @@ async function loadByAssetKpis({ start, end }) {
     mttrHrs: 0,
     mtbfHrs: 0,
     plannedCount: 0,
-    unplannedCount: 0
+    unplannedCount: 0,
+    downtimeHoursUnplanned: 0,
+    operationalHours: 0
   }};
 
   // totals for the whole report window
-  let totalPeriodHours = 0;
+  let totalOperationalHours = 0;
   let totalDowntimeHours = 0;
-  let totalDowntimeMinUnplanned = 0;
+  let totalDowntimeHoursUnplanned = 0;
+  let totalUptimeHours = 0;
   let totalUnplannedWO = 0;
   let allDates = [];
 
@@ -390,11 +419,12 @@ async function loadByAssetKpis({ start, end }) {
     const intervals = dates.slice(1).map((d,i) => (dates[i+1] - dates[i]) / 3600);
     const mtbf = intervals.length ? _.mean(intervals) : 0;
 
-    // uptime: denominator is report window length
-    const periodHours = end.diff(start, 'seconds') / 3600;
+    const opHours = expectedOperationalHours(start.toISOString(), end.toISOString());
     const downtimeHours = downtimeMinutesAll / 60;
-    const uptime = periodHours > 0
-      ? Math.max(0, Math.min(100, ((periodHours - downtimeHours) / periodHours) * 100))
+    const downtimeHoursUnplanned = downtimeMinutesUnplanned / 60;
+    const uptimeHours = Math.max(0, opHours - downtimeHours);
+    const uptime = opHours > 0
+      ? Math.max(0, Math.min(100, (uptimeHours / opHours) * 100))
       : 0;
 
     // save per-asset
@@ -405,31 +435,36 @@ async function loadByAssetKpis({ start, end }) {
       mttrHrs: +mttr.toFixed(1),
       mtbfHrs: +mtbf.toFixed(1),
       plannedCount,
-      unplannedCount
+      unplannedCount,
+      downtimeHoursUnplanned: +downtimeHoursUnplanned.toFixed(1),
+      operationalHours: +opHours.toFixed(1)
     };
 
     // roll up
-    totalPeriodHours          += periodHours;
-    totalDowntimeHours        += downtimeHours;
-    totalDowntimeMinUnplanned += downtimeMinutesUnplanned;
-    totalUnplannedWO          += unplannedCount;
-    result.totals.plannedCount += plannedCount;
+    totalOperationalHours       += opHours;
+    totalUptimeHours            += uptimeHours;
+    totalDowntimeHours          += downtimeHours;
+    totalDowntimeHoursUnplanned += downtimeHoursUnplanned;
+    totalUnplannedWO            += unplannedCount;
+    result.totals.plannedCount  += plannedCount;
     result.totals.unplannedCount += unplannedCount;
     allDates = allDates.concat(dates);
   }
 
   // totals
-  result.totals.uptimePct   = totalPeriodHours
-    ? +(((totalPeriodHours - totalDowntimeHours) / totalPeriodHours) * 100).toFixed(1)
+  result.totals.uptimePct   = totalOperationalHours
+    ? +((totalUptimeHours / totalOperationalHours) * 100).toFixed(1)
     : 0;
   result.totals.downtimeHrs = +totalDowntimeHours.toFixed(1);
   result.totals.mttrHrs     = totalUnplannedWO
-    ? +((totalDowntimeMinUnplanned / 60) / totalUnplannedWO).toFixed(1)
+    ? +((totalDowntimeHoursUnplanned) / totalUnplannedWO).toFixed(1)
     : 0;
 
   const sorted = allDates.sort((a,b) => a - b);
   const intervalsTot = sorted.slice(1).map((d,i) => (sorted[i+1] - sorted[i]) / 3600);
   result.totals.mtbfHrs = intervalsTot.length ? +_.mean(intervalsTot).toFixed(1) : 0;
+  result.totals.downtimeHoursUnplanned = +totalDowntimeHoursUnplanned.toFixed(1);
+  result.totals.operationalHours = +totalOperationalHours.toFixed(1);
 
   return result;
 }
