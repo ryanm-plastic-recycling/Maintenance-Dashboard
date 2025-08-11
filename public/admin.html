@@ -171,7 +171,9 @@
         }
         .header-mt {
             display: flex;
-            gap: 40px;
+            flex-direction: row; /* Explicitly force horizontal layout */
+            align-items: center;
+            gap: 40px; /* spacing between MTTR and MTBF */
         }
         .header-mt .header-metric {
             display: flex;
