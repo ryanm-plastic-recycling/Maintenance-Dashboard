@@ -195,6 +195,15 @@
         .top-border .header-kpi:last-of-type {
             margin-right: 160px;
         }
+        .header-mt {
+            display: flex;
+            gap: 40px;
+        }
+        .header-mt .header-metric {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
         #status-table tr {
             height: 72px;
         }
@@ -213,10 +222,14 @@
         <div id="uptime-value" class="kpi-value">--%</div>
       </div>
       <div class="header-mt">
-        <div class="kpi-title">MTTR (30d)</div>
-        <div id="mttr-value" class="kpi-value">--h</div>
-        <div class="kpi-title mtbf-title">MTBF (30d)</div>
-        <div id="mtbf-value" class="kpi-value">--h</div>
+        <div class="header-metric">
+          <div class="kpi-title">MTTR (30d)</div>
+          <div id="mttr-value" class="kpi-value">--h</div>
+        </div>
+        <div class="header-metric">
+          <div class="kpi-title mtbf-title">MTBF (30d)</div>
+          <div id="mtbf-value" class="kpi-value">--h</div>
+        </div>
       </div>
       <div id="clock">--:--:--</div>
       <div class="header-kpi">
