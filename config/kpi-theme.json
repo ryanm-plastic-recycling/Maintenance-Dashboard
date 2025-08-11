@@ -19,8 +19,8 @@
   },
   "thresholds": {
     "uptimePct": {
-      "goodMin": 98,
-      "warnMin": 95
+      "goodMin": 85,
+      "warnMin": 75
     },
     "plannedPct": {
       "goodMin": 70,
@@ -31,8 +31,8 @@
       "warnMax": 50
     },
     "mttrHours": {
-      "goodMax": 1.5,
-      "warnMax": 3
+      "goodMax": 2,
+      "warnMax": 4
     },
     "mtbfHours": {
       "goodMin": 72,
