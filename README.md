@@ -78,6 +78,12 @@ The cache is controlled via environment variables:
 - `STATUS_REFRESH_ENDPOINT` – route for manually forcing a refresh (default `/api/cache/refresh`)
 - `API_BASE_URL` – base URL for Limble API requests (default `https://api.limblecmms.com:443`)
 
+### Operational hours
+Machines are assumed to run 24 hours per day, Monday through Friday. Override this schedule with:
+
+- `EXPECTED_RUN_DAYS` – comma list or ranges like `Mon-Fri` (default `Mon-Fri`)
+- `EXPECTED_HOURS_PER_DAY` – hours counted for each run day (default `24`)
+
 ### KPI time ranges
 KPI calculations default to the previous calendar week and previous calendar month. Override
 these ranges by setting any of the following environment variables to Unix timestamps:
@@ -113,7 +119,8 @@ The admin interface is available at `http://<LOCAL_IP>:<PORT>/admin`.
 | mtbfHrs | Last calendar month | `(workHours - downtimeHours) / count(unplanned tasks)` |
 | planned vs unplanned count | Last calendar week | Number of tasks of each type |
 
-* All assets are assumed to run 24/5.
+* All assets are assumed to run 24/5 unless configured via `EXPECTED_RUN_DAYS`/`EXPECTED_HOURS_PER_DAY`.
+* Uptime percentage is computed as `(operationalHours - downtimeHours) / operationalHours`.
 * Time ranges can be overridden via the `KPI_*` environment variables
   (see [KPI time ranges](#kpi-time-ranges)). When unset, the server uses the
   last calendar week and previous calendar month.

@@ -1,77 +1,54 @@
-// public/js/header-kpis.js
+console.log('[header-kpis.js] module loaded');
 
-import { computeTrueOverall } from './compute-true-overall.js';
-
-let headerKpisCache;
-let initialFetchPromise;
-
-function renderHeader(kpis = {}) {
-  const uptimeEl = document.getElementById('uptime-value');
-  const mttrEl   = document.getElementById('mttr-value');
-  const mtbfEl   = document.getElementById('mtbf-value');
-  const pvupEl   = document.getElementById('planned-vs-unplanned');
-
-  const uptime = kpis.lastWeek?.uptimePct;
-  const mttr   = kpis.trailing30Days?.mttrHrs;
-  const mtbf   = kpis.trailing30Days?.mtbfHrs;
-  const pPct   = kpis.lastWeek?.plannedPct;
-  const uPct   = kpis.lastWeek?.unplannedPct;
-
-  if (uptimeEl) uptimeEl.innerText = uptime != null ? `${uptime.toFixed(1)}%` : '--%';
-  if (mttrEl)   mttrEl.innerText   = mttr   != null ? `${mttr.toFixed(1)}h`   : '--h';
-  if (mtbfEl)   mtbfEl.innerText   = mtbf   != null ? `${mtbf.toFixed(1)}h`   : '--h';
-  if (pvupEl) {
-    const p = pPct != null ? pPct.toFixed(0) : '--';
-    const u = uPct != null ? uPct.toFixed(0) : '--';
-    pvupEl.innerText = `${p}% vs ${u}%`;
-  }
+function setText(id, text) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = text;
 }
 
-async function _updateHeader() {
+function fmtPct(n) {
+  if (n == null || isNaN(n)) return '--%';
+  return `${Number(n).toFixed(1)}%`;
+}
+
+async function fetchJsonNo304(url) {
+  const u = `${url}${url.includes('?') ? '&' : '?'}t=${Date.now()}`;
+  const res = await fetch(u, { cache: 'no-store' });
+  if (!res.ok) {
+    if (res.status === 304) {
+      const res2 = await fetch(u, { cache: 'reload' });
+      if (!res2.ok) throw new Error(`HTTP ${res2.status}`);
+      return res2.json();
+    }
+    throw new Error(`HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function loadHeaderKpis() {
   try {
-    const [weekRes, monthRes] = await Promise.all([
-      fetch('/api/kpis/by-asset?timeframe=lastWeek'),
-      fetch('/api/kpis/by-asset?timeframe=trailing30Days')
-    ]);
+    const data = await fetchJsonNo304('/api/kpis/by-asset?timeframe=lastWeek');
 
-    if (!weekRes.ok) throw new Error(await weekRes.text());
-    if (!monthRes.ok) throw new Error(await monthRes.text());
+    // Prefer server aggregate; fallback to compute if missing
+    let uptime = data?.totals?.uptimePct;
+    if (uptime == null && data?.assets) {
+      const sums = Object.values(data.assets).reduce((a, x) => {
+        a.op += Number(x.operationalHours || 0);
+        a.dt += Number(x.downtimeHrs || 0);
+        return a;
+      }, { op: 0, dt: 0 });
+      uptime = sums.op ? (100 * (sums.op - sums.dt) / sums.op) : null;
+    }
 
-    const [weekData, monthData] = await Promise.all([
-      weekRes.json(),
-      monthRes.json()
-    ]);
-
-    const lastWeekOverall   = computeTrueOverall(weekData);
-    const trailing30Overall = computeTrueOverall(monthData);
-
-    headerKpisCache = {
-      lastWeek: lastWeekOverall,
-      trailing30Days: trailing30Overall,
-      overall: { uptimePct: lastWeekOverall.uptimePct }
-    };
-
-    renderHeader({
-      lastWeek: lastWeekOverall,
-      trailing30Days: trailing30Overall
-    });
-  } catch (err) {
-    console.error('Header KPI fetch failed:', err);
+    setText('uptime-value', fmtPct(uptime));
+  } catch (e) {
+    console.error('Header KPI load error', e);
+    setText('uptime-value', '--%');
   }
 }
 
-export function initHeaderKPIs() {
-  initialFetchPromise = _updateHeader();
-  setInterval(_updateHeader, 15 * 60 * 1000);
+// Ensure DOM is ready before writing to the header
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', loadHeaderKpis);
+} else {
+  loadHeaderKpis();
 }
-
-export function getHeaderKpisCache() {
-  return headerKpisCache;
-}
-
-export function headerKpisReady() {
-  return initialFetchPromise || Promise.resolve();
-}
-
-// expose for global use
-window.updateKPIs = _updateHeader;
