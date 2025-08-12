@@ -36,6 +36,7 @@
   <script>
     document.addEventListener('click', () => {
       localStorage.setItem('burnInOverride', 'off');
+      localStorage.removeItem('burnInOverrideEnd');
       const last = localStorage.getItem('lastPage') || '/index.html';
       window.location.href = last;
     });

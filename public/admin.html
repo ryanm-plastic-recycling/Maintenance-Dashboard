@@ -390,11 +390,24 @@
         };
         document.getElementById('enter-burnin').onclick = () => {
             localStorage.setItem('burnInOverride','on');
+            const sched = config.burnInSchedule || {start:'19:00', end:'05:00'};
+            const now = new Date();
+            const [sh,sm] = sched.start.split(':').map(Number);
+            const [eh,em] = sched.end.split(':').map(Number);
+            const start = new Date(now); start.setHours(sh,sm,0,0);
+            const end = new Date(now); end.setHours(eh,em,0,0);
+            if (start <= end) {
+                if (now >= end) end.setDate(end.getDate() + 1);
+            } else {
+                if ((now >= end && now < start) || now >= start) end.setDate(end.getDate() + 1);
+            }
+            localStorage.setItem('burnInOverrideEnd', end.getTime());
             localStorage.setItem('lastPage', window.location.pathname);
             window.location.href = '/burnin.html';
         };
         document.getElementById('exit-burnin').onclick = () => {
             localStorage.removeItem('burnInOverride');
+            localStorage.removeItem('burnInOverrideEnd');
             window.location.href = '/';
         };
         document.getElementById('upload-map').onclick = async () => {
