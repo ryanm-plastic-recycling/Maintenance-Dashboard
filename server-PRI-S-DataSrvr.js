@@ -115,7 +115,7 @@ const DEFAULT_THEME = {
     neutral:{ bg: '#374151', fg: '#FFFFFF' }
   },
   thresholds: {
-    uptimePct:   { goodMin: 98.0, warnMin: 95.0 },
+    downtimePct: { goodMax: 2.0, warnMax: 5.0 },
     plannedPct:  { goodMin: 70.0, warnMin: 50.0 },
     unplannedPct:{ goodMax: 30.0, warnMax: 50.0 },
     mttrHours:   { goodMax: 1.5,  warnMax: 3.0 },
@@ -313,8 +313,8 @@ async function loadOverallKpis() {
   // ─── END 30-DAY LABOR SECTION ──────────────────────────────────────────
   
   // Final KPI calculations
-  const uptimePct = totals.operationalHours
-    ? ((totals.operationalHours - totals.downtimeHours) / totals.operationalHours) * 100
+  const downtimePct = totals.operationalHours
+    ? Math.max(0, Math.min(100, (totals.downtimeHours / totals.operationalHours) * 100))
     : 0;
   const mttrHrs = totals.unplannedWO
     ? (totals.downtimeMinutes / 60) / totals.unplannedWO
@@ -325,7 +325,7 @@ async function loadOverallKpis() {
   const mtbfHrs     = intervals.length ? _.mean(intervals) : 0;
 
   return {
-    uptimePct: +uptimePct.toFixed(1),
+    downtimePct: +downtimePct.toFixed(1),
     downtimeHrs: +totals.downtimeHours.toFixed(1),
     mttrHrs: +mttrHrs.toFixed(1),
     mtbfHrs: +mtbfHrs.toFixed(1),
@@ -350,7 +350,7 @@ async function loadByAssetKpis({ start, end }) {
   };
 
   const result = { assets: {}, totals: {
-    uptimePct: 0,
+    downtimePct: 0,
     downtimeHrs: 0,
     mttrHrs: 0,
     mtbfHrs: 0,
@@ -423,14 +423,14 @@ async function loadByAssetKpis({ start, end }) {
     const downtimeHours = downtimeMinutesAll / 60;
     const downtimeHoursUnplanned = downtimeMinutesUnplanned / 60;
     const uptimeHours = Math.max(0, opHours - downtimeHours);
-    const uptime = opHours > 0
-      ? Math.max(0, Math.min(100, (uptimeHours / opHours) * 100))
+    const downtimePct = opHours > 0
+      ? Math.max(0, Math.min(100, (downtimeHours / opHours) * 100))
       : 0;
 
     // save per-asset
     result.assets[id] = {
       name,
-      uptimePct: +uptime.toFixed(1),
+      downtimePct: +downtimePct.toFixed(1),
       downtimeHrs: +downtimeHours.toFixed(1),
       mttrHrs: +mttr.toFixed(1),
       mtbfHrs: +mtbf.toFixed(1),
@@ -452,8 +452,8 @@ async function loadByAssetKpis({ start, end }) {
   }
 
   // totals
-  result.totals.uptimePct   = totalOperationalHours
-    ? +((totalUptimeHours / totalOperationalHours) * 100).toFixed(1)
+  result.totals.downtimePct   = totalOperationalHours
+    ? +((totalDowntimeHours / totalOperationalHours) * 100).toFixed(1)
     : 0;
   result.totals.downtimeHrs = +totalDowntimeHours.toFixed(1);
   result.totals.mttrHrs     = totalUnplannedWO
@@ -569,7 +569,7 @@ app.put('/api/settings/kpi-theme', (req, res) => {
   }
 
   const metricDefs = {
-    uptimePct: ['goodMin', 'warnMin'],
+    downtimePct: ['goodMax', 'warnMax'],
     plannedPct: ['goodMin', 'warnMin'],
     unplannedPct: ['goodMax', 'warnMax'],
     mttrHours: ['goodMax', 'warnMax'],

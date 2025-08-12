@@ -47,8 +47,8 @@
   <div class="top-border">
     <img src="img/pri-logo.png" alt="PRI Logo" class="logo" />
     <div class="header-kpi">
-      <div class="kpi-title">Maintenance Uptime (Last Week)</div>
-      <div id="uptime-value" class="kpi-value">--%</div>
+      <div class="kpi-title">Maintenance Downtime (Last Week)</div>
+      <div id="downtime-value" class="kpi-value">--%</div>
     </div>
     <div class="header-mt">
       <div class="header-metric">
@@ -83,9 +83,9 @@
     </div>
     <h2>All Assets — True Overall</h2>
     <div id="true-overall-row" class="true-overall-row">
-      <div class="kpi-tile" id="tile-uptime">
-        <div class="label">Uptime %</div>
-        <div class="value" data-testid="true-overall-uptime">--%</div>
+      <div class="kpi-tile" id="tile-downtime">
+        <div class="label">Downtime %</div>
+        <div class="value" data-testid="true-overall-downtime">--%</div>
       </div>
       <div class="kpi-tile" id="tile-mttr">
         <div class="label">MTTR (h)</div>
@@ -135,7 +135,7 @@
           <th class="col-downtime" data-testid="col-downtime-hrs">Downtime Hrs</th>
           <th class="col-int" data-testid="col-unplanned-count">Unplanned Count</th>
           <th class="col-int" data-testid="col-failure-events">Failure Events</th>
-          <th>Uptime %</th>
+          <th>Downtime %</th>
           <th>MTTR</th>
           <th>MTBF</th>
           <th>Planned %</th>
@@ -162,8 +162,8 @@
           <div id="avg-failure-events" class="kpi-value">--</div>
         </td>
         <td class="kpi-cell">
-          <div class="kpi-title">Avg Uptime %</div>
-          <div id="avg-uptime" class="kpi-value">--%</div>
+          <div class="kpi-title">Avg Downtime %</div>
+          <div id="avg-downtime-pct" class="kpi-value">--%</div>
         </td>
         <td class="kpi-cell">
           <div class="kpi-title">Avg MTTR (h)</div>

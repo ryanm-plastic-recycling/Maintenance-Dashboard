@@ -20,9 +20,9 @@ function getFailureEventCount(row) {
 /**
  * Compute true overall KPIs for the by-asset payload.
  * Prefers additive totals from payload.totals, falls back to summing per-asset fields.
- * For uptimePct, if we cannot compute due to missing hours the result is null.
+ * For downtimePct, if we cannot compute due to missing hours the result is null.
  * @param {object} data - payload from /api/kpis/by-asset
- * @returns {{uptimePct: number|null, mttrHrs: number|null, mtbfHrs: number|null, plannedPct: number|null, unplannedPct: number|null}}
+ * @returns {{downtimePct: number|null, mttrHrs: number|null, mtbfHrs: number|null, plannedPct: number|null, unplannedPct: number|null}}
  */
 export function computeTrueOverall(data = {}) {
   const rows = data.rows || data.byAsset || Object.values(data.assets || {});
@@ -43,9 +43,9 @@ export function computeTrueOverall(data = {}) {
 
   const totalWo = planned + unplanned;
 
-  let uptimePct = null;
+  let downtimePct = null;
   if (operationalHours > 0) {
-    uptimePct = (1 - (downtime / operationalHours)) * 100;
+    downtimePct = (downtime / operationalHours) * 100;
   }
 
   const mttr = failures > 0 ? unplannedDowntime / failures : null;
@@ -53,5 +53,5 @@ export function computeTrueOverall(data = {}) {
   const plannedPct = totalWo > 0 ? (planned / totalWo) * 100 : null;
   const unplannedPct = totalWo > 0 ? (unplanned / totalWo) * 100 : null;
 
-  return { uptimePct, mttrHrs: mttr, mtbfHrs: mtbf, plannedPct, unplannedPct };
+  return { downtimePct, mttrHrs: mttr, mtbfHrs: mtbf, plannedPct, unplannedPct };
 }

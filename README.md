@@ -113,14 +113,14 @@ The admin interface is available at `http://<LOCAL_IP>:<PORT>/admin`.
 
 | KPI | Timeframe | Description |
 |-----|-----------|-------------|
-| uptimePct | Last calendar week | `((workHours - downtimeHours) / workHours) * 100` |
+| downtimePct | Last calendar week | `(downtimeHours / operationalHours) * 100` |
 | downtimeHrs | Last calendar week | Sum of all downtime labor entries in hours |
 | mttrHrs | Last calendar month | `Σ downtimeHours / count(unplanned tasks)` |
 | mtbfHrs | Last calendar month | `(workHours - downtimeHours) / count(unplanned tasks)` |
 | planned vs unplanned count | Last calendar week | Number of tasks of each type |
 
 * All assets are assumed to run 24/5 unless configured via `EXPECTED_RUN_DAYS`/`EXPECTED_HOURS_PER_DAY`.
-* Uptime percentage is computed as `(operationalHours - downtimeHours) / operationalHours`.
+* Downtime percentage is computed as `(downtimeHours / operationalHours) * 100`.
 * Time ranges can be overridden via the `KPI_*` environment variables
   (see [KPI time ranges](#kpi-time-ranges)). When unset, the server uses the
   last calendar week and previous calendar month.
