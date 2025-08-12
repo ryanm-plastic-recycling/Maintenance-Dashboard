@@ -18,9 +18,9 @@
     }
   },
   "thresholds": {
-    "uptimePct": {
-      "goodMin": 85,
-      "warnMin": 75
+    "downtimePct": {
+      "goodMax": 15,
+      "warnMax": 25
     },
     "plannedPct": {
       "goodMin": 70,

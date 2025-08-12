@@ -15,7 +15,7 @@ const DEFAULT_THEME = {
     neutral: { bg: '#374151', fg: '#FFFFFF' }
   },
   thresholds: {
-    uptimePct:   { goodMin: 98.0, warnMin: 95.0 },
+    downtimePct: { goodMax: 2.0, warnMax: 5.0 },
     plannedPct:  { goodMin: 70.0, warnMin: 50.0 },
     unplannedPct:{ goodMax: 30.0, warnMax: 50.0 },
     mttrHours:   { goodMax: 1.5,  warnMax: 3.0 },
@@ -45,16 +45,18 @@ function setText(id, text) {
 function classifyByThreshold(metricKey, value, theme) {
   if (value == null || isNaN(value)) return 'neutral';
   const t = theme?.thresholds?.[metricKey] || {};
-  if (metricKey === 'uptimePct' || metricKey === 'plannedPct' || metricKey === 'mtbfHours') {
-    const { goodMin, warnMin } = t;
-    if (typeof goodMin === 'number' && value >= goodMin) return 'good';
-    if (typeof warnMin === 'number' && value >= warnMin) return 'warn';
+  if (typeof t.goodMax === 'number' || typeof t.warnMax === 'number') {
+    const goodMax = typeof t.goodMax === 'number' ? t.goodMax : Infinity;
+    const warnMax = typeof t.warnMax === 'number' ? t.warnMax : Infinity;
+    if (value <= goodMax) return 'good';
+    if (value <= warnMax) return 'warn';
     return 'bad';
   }
-  if (metricKey === 'unplannedPct' || metricKey === 'mttrHours') {
-    const { goodMax, warnMax } = t;
-    if (typeof goodMax === 'number' && value <= goodMax) return 'good';
-    if (typeof warnMax === 'number' && value <= warnMax) return 'warn';
+  if (typeof t.goodMin === 'number' || typeof t.warnMin === 'number') {
+    const goodMin = typeof t.goodMin === 'number' ? t.goodMin : -Infinity;
+    const warnMin = typeof t.warnMin === 'number' ? t.warnMin : -Infinity;
+    if (value >= goodMin) return 'good';
+    if (value >= warnMin) return 'warn';
     return 'bad';
   }
   return 'neutral';
@@ -267,7 +269,7 @@ export async function loadAll() {
         ${downtimeTd}
         ${unplannedTd}
         ${failureTd}
-        <td>${a.uptimePct.toFixed(1)}</td>
+        <td>${a.downtimePct.toFixed(1)}</td>
         ${mttrTd}
         ${mtbfTd}
         <td>${plannedPct == null ? '—' : plannedPct.toFixed(1)}</td>
@@ -297,7 +299,7 @@ export async function loadAll() {
     const totalDowntime = downtimeVals.reduce((sum,v) => sum + v, 0);
     setText('avg-downtime', avgDowntime == null ? '—' : avgDowntime.toFixed(1));
     setText('total-downtime', downtimeVals.length ? totalDowntime.toFixed(1) : '—');
-    setText('avg-uptime',  avg('uptimePct').toFixed(1) + '%');
+    setText('avg-downtime-pct', avg('downtimePct').toFixed(1) + '%');
 
     const avgUnplannedCount = unplannedCounts.length
       ? unplannedCounts.reduce((s,v) => s + v, 0) / unplannedCounts.length
@@ -363,7 +365,7 @@ loadAll();
 
 function renderTrueOverall(kpis) {
   const specs = [
-    { id: 'tile-uptime',     key: 'uptimePct',    val: kpis.uptimePct,   suffix: '%' },
+    { id: 'tile-downtime',   key: 'downtimePct',  val: kpis.downtimePct, suffix: '%' },
     { id: 'tile-mttr',       key: 'mttrHours',    val: kpis.mttrHrs,     suffix: 'h' },
     { id: 'tile-mtbf',       key: 'mtbfHours',    val: kpis.mtbfHrs,     suffix: 'h' },
     { id: 'tile-planned',    key: 'plannedPct',   val: kpis.plannedPct,  suffix: '%' },

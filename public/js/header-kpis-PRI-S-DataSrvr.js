@@ -29,20 +29,20 @@ export async function loadHeaderKpis() {
     const data = await fetchJsonNo304('/api/kpis/by-asset?timeframe=lastWeek');
 
     // Prefer server aggregate; fallback to compute if missing
-    let uptime = data?.totals?.uptimePct;
-    if (uptime == null && data?.assets) {
+    let downtime = data?.totals?.downtimePct;
+    if (downtime == null && data?.assets) {
       const sums = Object.values(data.assets).reduce((a, x) => {
         a.op += Number(x.operationalHours || 0);
         a.dt += Number(x.downtimeHrs || 0);
         return a;
       }, { op: 0, dt: 0 });
-      uptime = sums.op ? (100 * (sums.op - sums.dt) / sums.op) : null;
+      downtime = sums.op ? (100 * sums.dt / sums.op) : null;
     }
 
-    setText('uptime-value', fmtPct(uptime));
+    setText('downtime-value', fmtPct(downtime));
   } catch (e) {
     console.error('Header KPI load error', e);
-    setText('uptime-value', '--%');
+    setText('downtime-value', '--%');
   }
 }
 

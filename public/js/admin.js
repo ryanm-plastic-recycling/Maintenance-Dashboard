@@ -6,7 +6,7 @@ const DEFAULT_THEME = {
     neutral: { bg: '#374151', fg: '#FFFFFF' }
   },
   thresholds: {
-    uptimePct:   { goodMin: 98.0, warnMin: 95.0 },
+    downtimePct: { goodMax: 2.0, warnMax: 5.0 },
     plannedPct:  { goodMin: 70.0, warnMin: 50.0 },
     unplannedPct:{ goodMax: 30.0, warnMax: 50.0 },
     mttrHours:   { goodMax: 1.5,  warnMax: 3.0 },
@@ -19,7 +19,7 @@ const hexInputs = [
   'color-bad-bg','color-bad-fg','color-neutral-bg','color-neutral-fg'
 ];
 const numInputs = [
-  'thr-uptimePct-goodMin','thr-uptimePct-warnMin',
+  'thr-downtimePct-goodMax','thr-downtimePct-warnMax',
   'thr-plannedPct-goodMin','thr-plannedPct-warnMin',
   'thr-unplannedPct-goodMax','thr-unplannedPct-warnMax',
   'thr-mttrHours-goodMax','thr-mttrHours-warnMax',
@@ -37,8 +37,8 @@ function populate(theme) {
   $('color-bad-fg').value = theme.colors.bad.fg;
   $('color-neutral-bg').value = theme.colors.neutral.bg;
   $('color-neutral-fg').value = theme.colors.neutral.fg;
-  $('thr-uptimePct-goodMin').value = theme.thresholds.uptimePct.goodMin;
-  $('thr-uptimePct-warnMin').value = theme.thresholds.uptimePct.warnMin;
+  $('thr-downtimePct-goodMax').value = theme.thresholds.downtimePct.goodMax;
+  $('thr-downtimePct-warnMax').value = theme.thresholds.downtimePct.warnMax;
   $('thr-plannedPct-goodMin').value = theme.thresholds.plannedPct.goodMin;
   $('thr-plannedPct-warnMin').value = theme.thresholds.plannedPct.warnMin;
   $('thr-unplannedPct-goodMax').value = theme.thresholds.unplannedPct.goodMax;
@@ -58,7 +58,7 @@ function collect() {
       neutral:{ bg: $('color-neutral-bg').value.trim(), fg: $('color-neutral-fg').value.trim() }
     },
     thresholds: {
-      uptimePct:   { goodMin: parseFloat($('thr-uptimePct-goodMin').value),   warnMin: parseFloat($('thr-uptimePct-warnMin').value) },
+      downtimePct: { goodMax: parseFloat($('thr-downtimePct-goodMax').value), warnMax: parseFloat($('thr-downtimePct-warnMax').value) },
       plannedPct:  { goodMin: parseFloat($('thr-plannedPct-goodMin').value),  warnMin: parseFloat($('thr-plannedPct-warnMin').value) },
       unplannedPct:{ goodMax: parseFloat($('thr-unplannedPct-goodMax').value), warnMax: parseFloat($('thr-unplannedPct-warnMax').value) },
       mttrHours:   { goodMax: parseFloat($('thr-mttrHours-goodMax').value),  warnMax: parseFloat($('thr-mttrHours-warnMax').value) },

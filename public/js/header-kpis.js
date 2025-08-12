@@ -64,9 +64,9 @@ export async function initHeaderKPIs() {
     const weekOverall  = computeTrueOverall(weekData)  || {};
     const monthOverall = computeTrueOverall(monthData) || {};
 
-    // Uptime (last week)
-    const uptime = weekOverall.uptimePct ?? weekData?.totals?.uptimePct ?? null;
-    setText('uptime-value', fmtPct(uptime));
+    // Downtime (last week)
+    const downtime = weekOverall.downtimePct ?? weekData?.totals?.downtimePct ?? null;
+    setText('downtime-value', fmtPct(downtime));
 
     // MTTR / MTBF (last 30 days)
     const mttr = monthOverall.mttrHrs ?? monthData?.totals?.mttrHrs ?? null;
@@ -85,7 +85,7 @@ export async function initHeaderKPIs() {
 
   } catch (err) {
     console.error('Header KPI load error:', err);
-    setText('uptime-value', '--%');
+    setText('downtime-value', '--%');
     setText('mttr-value', '--h');
     setText('mtbf-value', '--h');
     setText('planned-vs-unplanned', '--% vs --%');

@@ -10,7 +10,7 @@ const serverModule = await import('../server.js');
 const app = serverModule.default;
 
 const dummyOverall = {
-  uptimePct: 98,
+  downtimePct: 2,
   downtimeHrs: 2,
   mttrHrs: 1,
   mtbfHrs: 100,
@@ -22,7 +22,7 @@ const dummyByAsset = {
   assets: {
     '2399': {
       name: 'Asset1',
-      uptimePct: 97,
+      downtimePct: 3,
       downtimeHrs: 3,
       mttrHrs: 2,
       mtbfHrs: 50,
@@ -31,7 +31,7 @@ const dummyByAsset = {
     }
   },
   totals: {
-    uptimePct: 97,
+    downtimePct: 3,
     downtimeHrs: 3,
     mttrHrs: 2,
     mtbfHrs: 50,
