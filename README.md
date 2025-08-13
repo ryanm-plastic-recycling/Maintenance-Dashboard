@@ -135,19 +135,3 @@ The frontend calls `/api/kpis/by-asset?timeframe=...` where the values are:
 
 The server computes `{start, end}` using moment and returns KPIs for that range.
 Results are cached per timeframe key.
-
-## HACO Strategy
-
-This repository includes a reference implementation of the Heikin-Ashi Candlestick Oscillator (HACO) located in `src/indicators/haco.ts` with helper signal wrappers in `src/signals/haco.ts`. The indicator mirrors the MetaStock logic including double-TEMA calculations with a zero-lag adjustment and PREV-style state persistence.
-
-### Parameters
-
-- `lengthUp` – TEMA length for the uptrend gate (default `34`)
-- `lengthDown` – TEMA length for the downtrend gate (default `34`)
-- `alertLookbackBars` – number of previous bars checked when emulating `Alert(cond,2)` (default `1`)
-
-### Exposed Conditions
-
-For each bar the computation exposes boolean fields such as `keep1U_alert`, `keep1U_price`, `keep2U`, `keepingU`, `keepallU`, `keep3U`, `utr` and their mirrored downtrend counterparts (`keep1D`, `keep2D`, `keepingD`, `keepallD`, `keep3D`, `dtr`). Transition flags `upw` and `dnw` indicate new uptrend or downtrend events and the persistent `state` tracks the current trend.
-
-Unit tests in `tests/haco.indicator.test.ts` and `tests/haco.signals.test.ts` verify Heikin‑Ashi recursion, alert lookback behaviour and signal wrappers.
