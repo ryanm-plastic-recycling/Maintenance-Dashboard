@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Journal</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <table id="journal-table" class="table">
+    <thead>
+      <tr>
+        <th>Symbol</th>
+        <th>Qty</th>
+        <th>Price</th>
+        <th>Current</th>
+      </tr>
+    </thead>
+    <tbody id="journal-tbody">
+      <!-- Existing rows rendered server-side or via JS -->
+    </tbody>
+    <tfoot>
+      <tr>
+        <th colspan="2">Total Invested</th>
+        <td id="total-invested" colspan="2">$0.00</td>
+      </tr>
+      <tr>
+        <th colspan="2">Current Positions</th>
+        <td id="current-positions" colspan="2">$0.00</td>
+      </tr>
+      <tr>
+        <th colspan="2">Total Profit</th>
+        <td id="total-profit" colspan="2" class="profit-val">$0.00</td>
+      </tr>
+      <tr>
+        <th colspan="2">% Return</th>
+        <td id="percent-return" colspan="2" class="profit-val">—</td>
+      </tr>
+    </tfoot>
+  </table>
+
+  <!-- existing scripts -->
+  <script src="/js/journal.js"></script>
+</body>
+</html>
