@@ -728,6 +728,12 @@ app.get('/api/hours', async (req, res) => {
     }
 });
 
+// Ensure API responses are not cached by browsers/CDNs (prevents 304 + JSON mismatch)
+app.use('/api', (req, res, next) => {
+  res.set('Cache-Control', 'no-store');
+  next();
+});
+
 // ---- Admin schedule API ----
 app.get('/api/admin/schedules', async (req, res) => {
   const pool = await poolPromise;
@@ -780,20 +786,43 @@ app.get('/api/kpis/header', async (req, res) => {
 });
 
 app.get('/api/kpis/by-asset', async (req, res) => {
-  const tf = req.query.timeframe || 'lastMonth';
+  // Accept legacy synonyms to keep old front-ends working
+  const alias = { last30d: 'last30', trailing30Days: 'last30' };
+  const tfRaw = (req.query.timeframe || 'lastMonth').toString();
+  const tf = alias[tfRaw] || tfRaw;
   const pool = await poolPromise;
-  const top = await pool.request().input('tf', sql.NVarChar, tf)
-    .query(`SELECT TOP (1) SnapshotAt FROM dbo.KpiByAssetCache WHERE Timeframe=@tf ORDER BY SnapshotAt DESC`);
+  const q = `
+    SELECT TOP (1) SnapshotAt FROM dbo.KpiByAssetCache WHERE Timeframe=@tf ORDER BY SnapshotAt DESC;
+  `;
+  const top = await pool.request().input('tf', sql.NVarChar, tf).query(q);
   const latest = top.recordset[0]?.SnapshotAt;
-  if (!latest) return res.json({ rows: [], lastRefreshUtc: null });
-  const rows = await pool.request()
+  if (!latest) return res.json({ rows: [], assets: {}, lastRefreshUtc: null, range: null });
+  const rs = await pool.request()
     .input('tf', sql.NVarChar, tf)
     .input('snap', sql.DateTime2, latest)
     .query(`
       SELECT AssetID,Name,RangeStart,RangeEnd,UptimePct,DowntimeHrs,MttrHrs,MtbfHrs,PlannedPct,UnplannedPct
       FROM dbo.KpiByAssetCache WHERE Timeframe=@tf AND SnapshotAt=@snap ORDER BY Name
     `);
-  res.json({ rows: rows.recordset, lastRefreshUtc: latest });
+  const rows = rs.recordset || [];
+  // Provide a front-end friendly "assets" map + a "range" object for date labels
+  const assets = {};
+  for (const r of rows) {
+    assets[String(r.AssetID)] = {
+      assetID: r.AssetID,
+      name:    r.Name || `Asset ${r.AssetID}`,
+      // downtimePct isn't stored; derive from UptimePct if present
+      downtimePct: (typeof r.UptimePct === 'number') ? (100 - Number(r.UptimePct)) : null,
+      // keep common names your helpers may probe:
+      DowntimeHrs: r.DowntimeHrs,
+      MttrHrs:     r.MttrHrs,
+      MtbfHrs:     r.MtbfHrs,
+      PlannedPct:  r.PlannedPct,
+      UnplannedPct:r.UnplannedPct
+    };
+  }
+  const range = rows.length ? { start: rows[0].RangeStart, end: rows[0].RangeEnd } : null;
+  res.json({ rows, assets, range, lastRefreshUtc: latest });
 });
 
 app.get('/api/workorders/:page', async (req, res) => {
@@ -809,6 +838,12 @@ app.get('/api/workorders/:page', async (req, res) => {
   const latest = recordset[0].SnapshotAt;
   const data = JSON.parse(recordset[0].Data);
   res.json({ rows: data, lastRefreshUtc: latest });
+});
+
+// Back-compat alias for old front-end call
+app.get('/api/status', async (req, res) => {
+  req.params = { page: 'prodstatus' };
+  return app._router.handle(req, res, () => {});
 });
 
 const shouldListen =
