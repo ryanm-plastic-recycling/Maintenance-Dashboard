@@ -835,6 +835,9 @@ const jobs = {
   async etl_assets_fields()  { /* placeholder for heavy ETL job */ }
 };
 
-poolPromise.then(async (pool) => { await startScheduler(pool, jobs); });
+poolPromise.then(async (pool) => { 
+  await startScheduler(pool, jobs);
+  console.log('[scheduler] started and tasks registered');
+});
 
 export default app;
