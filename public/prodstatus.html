@@ -525,7 +525,7 @@
       }
 
       async function loadStatus() {
-        const res = await fetch('/api/status');
+        const res = await fetch('/api/workorders/prodstatus');
         const { status, nextRefresh } = await res.json();
         renderStatus(status);
         scheduleRefresh(Math.max(0, nextRefresh - Date.now()));
