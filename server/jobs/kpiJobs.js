@@ -1,31 +1,31 @@
 import fs  from 'fs';
 import sql from 'mssql';
+import moment from 'moment-timezone';
 
 const cfg = JSON.parse(fs.readFileSync('config.json','utf-8'));
 const TF  = cfg.kpiByAssetTimeframes || ["lastMonth"]; // safe default
 
 function tfRange(now, tf) {
-  const d = new Date(now);
-  const utc = (y,m,day,h=0,min=0,s=0)=> new Date(Date.UTC(y,m,day,h,min,s));
-  const startOfWeek = (dt) => {
-    const day = dt.getUTCDay();
-    const mondayOffset = (day+6)%7;
-    const st = new Date(Date.UTC(dt.getUTCFullYear(), dt.getUTCMonth(), dt.getUTCDate() - mondayOffset));
-    return utc(st.getUTCFullYear(), st.getUTCMonth(), st.getUTCDate());
-  };
-  const startOfMonth = (dt)=> utc(dt.getUTCFullYear(), dt.getUTCMonth(), 1);
-  const startOfYear  = (dt)=> utc(dt.getUTCFullYear(), 0, 1);
-  const endNow = utc(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), d.getUTCHours(), d.getUTCMinutes(), 0);
+  const Z = 'America/Indiana/Indianapolis';
+  const n = moment.tz(now, Z);
+  const startOfWeekMon = n.clone().startOf('week').add(1, 'day'); // ISO Monday
+  const startOfMonth   = n.clone().startOf('month');
+  const startOfYear    = n.clone().startOf('year');
+  const endNowLocal    = n.clone();
+  const range = (sLocal, eLocal) => ({
+    start: sLocal.clone().utc().toDate(),
+    end:   eLocal.clone().utc().toDate()
+  });
 
   switch (tf) {
-    case 'thisWeek':  return { start: startOfWeek(d), end: endNow };
-    case 'lastWeek':  { const s = startOfWeek(d); return { start: new Date(s-7*864e5), end: s }; }
-    case 'last30':    return { start: new Date(endNow-30*864e5), end: endNow };
-    case 'thisMonth': return { start: startOfMonth(d), end: endNow };
-    case 'lastMonth': { const s = startOfMonth(d); const ps = utc(s.getUTCFullYear(), s.getUTCMonth()-1, 1); return { start: ps, end: s }; }
-    case 'thisYear':  return { start: startOfYear(d), end: endNow };
-    case 'lastYear':  { const s = startOfYear(d); const ps = utc(s.getUTCFullYear()-1, 0, 1); return { start: ps, end: s }; }
-    default:          return { start: new Date(endNow-30*864e5), end: endNow };
+    case 'thisWeek':  return range(startOfWeekMon, endNowLocal);
+    case 'lastWeek':  return range(startOfWeekMon.clone().subtract(1,'week'), startOfWeekMon);
+    case 'last30':    return range(endNowLocal.clone().subtract(30,'days'), endNowLocal);
+    case 'thisMonth': return range(startOfMonth, endNowLocal);
+    case 'lastMonth': return range(startOfMonth.clone().subtract(1,'month'), startOfMonth);
+    case 'thisYear':  return range(startOfYear, endNowLocal);
+    case 'lastYear':  return range(startOfYear.clone().subtract(1,'year'), startOfYear);
+    default:          return range(endNowLocal.clone().subtract(30,'days'), endNowLocal);
   }
 }
 
@@ -100,7 +100,61 @@ export async function refreshByAssetKpis(pool) {
 }
 
 export async function refreshWorkOrders(pool, page) {
-  const json = JSON.stringify([{ id: 1, title: "Example WO", status: "Open" }]);
+  let query;
+  switch (page) {
+    case 'index': // general work orders
+      query = `
+        SELECT TOP (200)
+          t.taskID,
+          t.assetID,
+          t.priority,
+          t.name,
+          t.description,
+          t.type,
+          t.createdDate,
+          t.statusID
+        FROM dbo.WorkOrders t
+        WHERE t.isActive = 1
+        ORDER BY t.createdDate DESC
+        FOR JSON PATH
+      `;
+      break;
+    case 'pm': // PM work orders with due date
+      query = `
+        SELECT TOP (200)
+          t.taskID,
+          t.assetID,
+          t.priority,
+          t.name,
+          t.description,
+          t.type,
+          t.createdDate,
+          t.due,
+          t.statusID
+        FROM dbo.WorkOrdersPM t
+        WHERE t.isActive = 1
+        ORDER BY t.due ASC
+        FOR JSON PATH
+      `;
+      break;
+    case 'prodstatus': // production status tiles/list
+      query = `
+        SELECT TOP (200)
+          s.assetID,
+          s.assetName,
+          s.state,
+          s.lastChangeUTC,
+          s.note
+        FROM dbo.ProductionStatus s
+        ORDER BY s.lastChangeUTC DESC
+        FOR JSON PATH
+      `;
+      break;
+    default:
+      query = `SELECT '[]' AS [data] FOR JSON PATH, WITHOUT_ARRAY_WRAPPER`;
+  }
+  const rs = await pool.request().query(query);
+  const json = rs.recordset?.[0]?.[""] || rs.recordset?.[0]?.data || JSON.stringify([]);
   await pool.request()
     .input('Page', sql.NVarChar, page)
     .input('Data', sql.NVarChar(sql.MAX), json)
