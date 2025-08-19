@@ -210,7 +210,7 @@ export async function loadAll() {
   if (loadingEl) loadingEl.style.display = 'flex';
   if (errorEl)   errorEl.style.display = 'none';
   try {
-    const res = await fetch(`/api/kpis/by-asset?timeframe=${encodeURIComponent(tf)}`);
+    const res = await fetch(`/api/kpis/by-asset?timeframe=${encodeURIComponent(tf)}&t=${Date.now()}`, { cache: "no-store" });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     const lr = document.getElementById('last-refresh');
@@ -218,9 +218,21 @@ export async function loadAll() {
       const d = new Date(data.lastRefreshUtc);
       lr.textContent = `· Last refresh: ${d.toLocaleString()}`;
     }
-    console.debug('[kpi-by-asset] sample row keys:', Object.keys(data.rows?.[0] || Object.values(data.assets || {})[0] || {}));
-    console.debug('[kpi-by-asset] sample row values:', data.rows?.[0] || Object.values(data.assets || {})[0]);
-    const assets = data.assets;
+    const rows   = Array.isArray(data?.rows) ? data.rows : [];
+    // Prefer server-provided assets map; build one if missing (back-compat)
+    const assetsMap = data.assets && Object.keys(data.assets).length
+      ? data.assets
+      : Object.fromEntries(rows.map(r => [String(r.AssetID), {
+          assetID: r.AssetID,
+          name:    r.Name || `Asset ${r.AssetID}`,
+          downtimePct: (typeof r.UptimePct === 'number') ? (100 - Number(r.UptimePct)) : null,
+          DowntimeHrs: r.DowntimeHrs ?? null,
+          MttrHrs:     r.MttrHrs ?? null,
+          MtbfHrs:     r.MtbfHrs ?? null,
+          PlannedPct:  r.PlannedPct ?? null,
+          UnplannedPct:r.UnplannedPct ?? null
+        }]));
+    const assets = assetsMap;
 
     // update displayed date window
     updateDateRangeLabel(tf, data.range);
@@ -237,7 +249,7 @@ export async function loadAll() {
     Object.values(assets).forEach(a => {
       const tr = document.createElement('tr');
 
-      const d = getDowntimeHours(a);
+      const d = (typeof a.DowntimeHrs === 'number') ? a.DowntimeHrs : getDowntimeHours(a);
       const downtimeTd = d == null
         ? `<td class="col-downtime" data-testid="cell-downtime-hrs" title="No downtime data for selected range">—</td>`
         : `<td class="col-downtime" data-testid="cell-downtime-hrs">${d.toFixed(1)}</td>`;
@@ -252,15 +264,16 @@ export async function loadAll() {
         ? `<td class="col-int" data-testid="cell-failure-events" title="No failure events in range">—</td>`
         : `<td class="col-int" data-testid="cell-failure-events">${Math.round(failures)}</td>`;
 
-      const planned = Number(a.plannedCount) || 0;
+      const planned = Number(a.plannedCount) || 0; // if not present, 0 (we still show Pct if available)
       const totalWo = planned + (unplanned || 0);
-      const plannedPct = totalWo > 0 ? (planned / totalWo) * 100 : null;
-      const unplannedPct = totalWo > 0 ? ((unplanned || 0) / totalWo) * 100 : null;
+      // Prefer precomputed Pcts if supplied; otherwise compute
+      const plannedPct   = (typeof a.PlannedPct   === 'number') ? a.PlannedPct   : (totalWo > 0 ? (planned / totalWo) * 100 : null);
+      const unplannedPct = (typeof a.UnplannedPct === 'number') ? a.UnplannedPct : (totalWo > 0 ? ((unplanned || 0) / totalWo) * 100 : null);
 
       const unplannedDt = getUnplannedDowntimeHours(a);
       const opHours = getOperationalHours(a);
-      const mttr = computeRowMttr(a);
-      const mtbf = computeRowMtbf(a);
+      const mttr = (typeof a.MttrHrs === 'number') ? a.MttrHrs : computeRowMttr(a);
+      const mtbf = (typeof a.MtbfHrs === 'number') ? a.MtbfHrs : computeRowMtbf(a);
 
       const mttrTd = mttr == null
         ? `<td title="No failure events in range">—</td>`
