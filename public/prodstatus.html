@@ -248,7 +248,7 @@
     </div>
     <div class="container">
         <div id="alert-container" class="alert-container"></div>
-        <h1>Production Status</h1>
+        <h1>Production Status <small id="last-refresh-status" style="font-weight:normal;font-size:0.8rem;color:#555;"></small></h1>
         <div class="tabs">
             <a href="/index.html">Work Orders</a>
             <a href="/pm.html">PM Work Orders</a>
@@ -461,29 +461,23 @@
     function fetchData() {
 		// Make API request with user-input value and authorization header
 		// You need to fetch the asset data first to swap ID for Name
-        fetch('/api/assets') // Use the endpoint for fetching assets
-        .then(response => response.json())
-        .then(assetsData => {
-            // Create a mapping of assetID to assetName
-            const assetMapping = mappings.asset ? { ...mappings.asset } : {};
-            assetsData.forEach(asset => {
-                if (!assetMapping[asset.assetID]) {
-                    assetMapping[asset.assetID] = asset.name;
-                }
-            });
-			
-			fetch('/api/task') // Use the endpoint you set up on the server		
-				.then(response => {
-					console.log('Response status:', response.status);
-					return response.json();
-				})
+        const assetMapping = mappings.asset ? { ...mappings.asset } : {};
+                    fetch('/api/workorders/prodstatus')
+                        .then(response => {
+                                console.log('Response status:', response.status);
+                                return response.json();
+                        })
 			
 			//.then(response => response.json())
 			.then(data => {
 				//***console.log('Received data:', data);
 				
-				// Process data and update the table
-				const tasks = data;
+                                // Process data and update the table
+                                const tasks = data.rows || [];
+                                const lrEl = document.getElementById('last-refresh-status');
+                                if (lrEl && data.lastRefreshUtc) {
+                                    lrEl.textContent = `· Last refresh: ${new Date(data.lastRefreshUtc).toLocaleString()}`;
+                                }
 
 				// Clear existing table rows
 				workOrderDataContainer.innerHTML = '';
@@ -516,16 +510,11 @@
                                });
                                 applyColumnConfig();
                         })
-			.catch(error => {
-				console.error('Error fetching tasks:', error);
-				// Display error message on webpage
-				workOrderDataContainer.innerHTML = 'Error fetching data.';
-			});
-    })
-	.catch(error => {
-            console.error('Error fetching assets:', error);
-            workOrderDataContainer.innerHTML = 'Error fetching data.';
-        });
+                        .catch(error => {
+                                console.error('Error fetching tasks:', error);
+                                // Display error message on webpage
+                                workOrderDataContainer.innerHTML = 'Error fetching data.';
+                        });
         }
 
       function scheduleRefresh(delay) {

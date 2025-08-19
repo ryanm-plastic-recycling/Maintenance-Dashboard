@@ -213,6 +213,11 @@ export async function loadAll() {
     const res = await fetch(`/api/kpis/by-asset?timeframe=${encodeURIComponent(tf)}`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
+    const lr = document.getElementById('last-refresh');
+    if (lr && data.lastRefreshUtc) {
+      const d = new Date(data.lastRefreshUtc);
+      lr.textContent = `· Last refresh: ${d.toLocaleString()}`;
+    }
     console.debug('[kpi-by-asset] sample row keys:', Object.keys(data.rows?.[0] || Object.values(data.assets || {})[0] || {}));
     console.debug('[kpi-by-asset] sample row values:', data.rows?.[0] || Object.values(data.assets || {})[0]);
     const assets = data.assets;
