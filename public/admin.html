@@ -295,7 +295,18 @@
         <button id="sched-save">Save Schedules</button>
         <div id="sched-status" style="margin-top:.5rem;color:#555;"></div>
     </section>
-    <button id="refresh-cache">Refresh Cache</button>
+    <section class="card">
+      <h3>Run Now</h3>
+      <div>
+        <button id="run-header">Run Header KPIs</button>
+        <button id="run-byasset">Run By-Asset KPIs</button>
+        <button id="run-wo-index">Run WO: Index</button>
+        <button id="run-wo-pm">Run WO: PM</button>
+        <button id="run-wo-status">Run WO: Prod Status</button>
+        <button id="run-all">Refresh All</button>
+      </div>
+      <div id="run-status" style="margin-top:.5rem;color:#555;"></div>
+    </section>
     </div>
     <script>
         const rotateBtn = document.getElementById('toggle-rotation');

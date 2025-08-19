@@ -730,7 +730,7 @@ app.get('/api/hours', async (req, res) => {
 
 // Ensure API responses are not cached by browsers/CDNs (prevents 304 + JSON mismatch)
 app.use('/api', (req, res, next) => {
-  res.set('Cache-Control', 'no-store');
+  res.set('Cache-Control', 'no-store, max-age=0, must-revalidate');
   next();
 });
 
@@ -764,6 +764,39 @@ app.put('/api/admin/schedules', async (req, res) => {
   }
 });
 
+// ---- Admin: run a single job now (force) ----
+app.post('/api/admin/run', async (req, res) => {
+  const { job } = req.body || {};
+  if (!job || !jobs[job]) return res.status(400).json({ error: 'unknown job' });
+  try {
+    const p = await poolPromise;
+    await jobs[job]();
+    await p.request().input('n', sql.NVarChar, job)
+      .query(`UPDATE dbo.UpdateSchedules SET LastRun = SYSUTCDATETIME() WHERE Name = @n`);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: String(e) });
+  }
+});
+
+// ---- Admin: run common jobs now (header, by-asset, WOs) ----
+app.post('/api/admin/refresh-all', async (req, res) => {
+  try {
+    await jobs.header_kpis();
+    await jobs.by_asset_kpis();
+    await jobs.work_orders_index();
+    await jobs.work_orders_pm();
+    await jobs.work_orders_status();
+    const p = await poolPromise;
+    await p.request().query(`
+      UPDATE dbo.UpdateSchedules SET LastRun = SYSUTCDATETIME()
+      WHERE Name IN ('header_kpis','by_asset_kpis','work_orders_index','work_orders_pm','work_orders_status')
+    `);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: String(e) });
+  }
+});
 // ---- Snapshot-backed APIs ----
 app.get('/api/kpis/header', async (req, res) => {
   const pool = await poolPromise;
