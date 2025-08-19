@@ -285,6 +285,16 @@
         <button id="save-theme" disabled>Save Theme</button>
         <button id="reset-theme">Reset to Defaults</button>
     </div>
+    <section class="card" id="schedule-section" style="display:none;">
+        <h2>Update Schedules</h2>
+        <p>Edit cron expressions; toggle enable.</p>
+        <table id="sched-table">
+            <thead><tr><th>Name</th><th>Cron</th><th>Enabled</th></tr></thead>
+            <tbody></tbody>
+        </table>
+        <button id="sched-save">Save Schedules</button>
+        <div id="sched-status"></div>
+    </section>
     <button id="refresh-cache">Refresh Cache</button>
     </div>
     <script>
@@ -425,6 +435,34 @@
             fetch('/api/cache/refresh', { method: 'POST' })
                 .then(r => r.json()).then(console.log);
         };
+        async function loadSchedules() {
+            const res = await fetch('/api/admin/schedules');
+            const rows = await res.json();
+            const tb = document.querySelector('#sched-table tbody');
+            tb.innerHTML = '';
+            for (const r of rows) {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `<td><code>${r.Name}</code></td>`+
+                  `<td><input data-name="${r.Name}" class="cron" value="${r.Cron}"></td>`+
+                  `<td><input data-name="${r.Name}" class="enabled" type="checkbox" ${r.Enabled ? 'checked':''}></td>`;
+                tb.appendChild(tr);
+            }
+        }
+        async function saveSchedules() {
+            const rows = [];
+            document.querySelectorAll('#sched-table tbody tr').forEach(tr => {
+                const name = tr.querySelector('code').textContent;
+                const cron = tr.querySelector('input.cron').value.trim();
+                const enabled = tr.querySelector('input.enabled').checked;
+                rows.push({ Name: name, Cron: cron, Enabled: enabled });
+            });
+            const res = await fetch('/api/admin/schedules', {
+                method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(rows)
+            });
+            document.getElementById('sched-status').textContent = res.ok ? 'Saved' : 'Save failed';
+        }
+        document.getElementById('sched-save').addEventListener('click', saveSchedules);
+        loadSchedules();
     </script>
 <script>
     // clock

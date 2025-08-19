@@ -232,7 +232,7 @@
     </div>
     <div class="container">
         <div id="alert-container" class="alert-container"></div>
-        <h1>Work Order Status</h1>
+        <h1>Work Order Status <small id="last-refresh-index" style="font-weight:normal;font-size:0.8rem;color:#555;"></small></h1>
         <div class="tabs">
             <a href="/index.html" class="active">Work Orders</a>
             <a href="/pm.html">PM Work Orders</a>
@@ -425,73 +425,47 @@
     function fetchData() {
 		// Make API request with user-input value and authorization header
 		// You need to fetch the asset data first to swap ID for Name
-		fetch('/api/assets') // Use the endpoint for fetching assets
-        .then(response => response.json())
-        .then(assetsData => {
-            // Create a mapping of assetID to assetName
-            const assetMapping = mappings.asset ? { ...mappings.asset } : {};
-            assetsData.forEach(asset => {
-                if (!assetMapping[asset.assetID]) {
-                    assetMapping[asset.assetID] = asset.name;
-                }
-            });
-			
-			fetch('/api/task') // Use the endpoint you set up on the server		
-				.then(response => {
-					console.log('Response status:', response.status);
-					return response.json();
-				})
-			
-			//.then(response => response.json())
-			.then(data => {
-				//***console.log('Received data:', data);
-				
-				// Process data and update the table
-				const tasks = data;
-
-				// Clear existing table rows
-				workOrderDataContainer.innerHTML = '';
-				
-                                // Load mappings from configuration file
-                                const statusMapping = mappings.status || {};
-                                const typeMapping = mappings.type || {};
-                                const locationMapping = mappings.location || {};
-                                const teamMapping = mappings.team || {};
-                                const priorityMapping = mappings.priority || {};
-				
-				// Filter and display the relevant data
-                               tasks.forEach(task => {
-                                       const row = document.createElement('tr');
-                                       row.innerHTML = `
-                                                <td data-col="locationID">${locationMapping[task.locationID] || task.locationID}</td>
-                                                <td data-col="taskID">${task.taskID}</td>
-                                                <td data-col="assetID">${assetMapping[task.assetID] || task.assetID}</td>
-                                                <td data-col="priority">${priorityMapping[task.priority] || task.priority}</td>
-                                                <td data-col="name">${task.name}</td>
-                                                <td data-col="description">${task.description}</td>
-                                                <td data-col="type">${typeMapping[task.type] || task.type}</td>
-                                                <td data-col="createdDate">${formatDateTime(task.createdDate)}</td>
-                                                <td data-col="due">${formatDate(task.due)}</td>
-                                                <td data-col="statusID">${statusMapping[task.statusID] || task.statusID}</td>
-                                                <td data-col="teamID">${teamMapping[task.teamID] || task.teamID}</td>
-                                               <td data-col="assignedTo">${task.assignedTo || task.assignedUser || ""}</td>
-                                       `;
-                                       workOrderDataContainer.appendChild(row);
-                               });
-                                applyColumnConfig();
-                        })
-			.catch(error => {
-				console.error('Error fetching tasks:', error);
-				// Display error message on webpage
-				workOrderDataContainer.innerHTML = 'Error fetching data.';
-			});
-    })
-	.catch(error => {
-            console.error('Error fetching assets:', error);
-            workOrderDataContainer.innerHTML = 'Error fetching data.';
-        });
-	}
-	refreshButton.addEventListener('click', () => {
+                const assetMapping = mappings.asset ? { ...mappings.asset } : {};
+                fetch('/api/workorders/index')
+                    .then(response => response.json())
+                    .then(data => {
+                        const tasks = data.rows || [];
+                        const lrEl = document.getElementById('last-refresh-index');
+                        if (lrEl && data.lastRefreshUtc) {
+                            lrEl.textContent = `· Last refresh: ${new Date(data.lastRefreshUtc).toLocaleString()}`;
+                        }
+                        workOrderDataContainer.innerHTML = '';
+                        const statusMapping = mappings.status || {};
+                        const typeMapping = mappings.type || {};
+                        const locationMapping = mappings.location || {};
+                        const teamMapping = mappings.team || {};
+                        const priorityMapping = mappings.priority || {};
+                        tasks.forEach(task => {
+                            const row = document.createElement('tr');
+                            row.innerHTML = `
+                                    <td data-col="locationID">${locationMapping[task.locationID] || task.locationID}</td>
+                                    <td data-col="taskID">${task.taskID}</td>
+                                    <td data-col="assetID">${assetMapping[task.assetID] || task.assetID}</td>
+                                    <td data-col="priority">${priorityMapping[task.priority] || task.priority}</td>
+                                    <td data-col="name">${task.name}</td>
+                                    <td data-col="description">${task.description}</td>
+                                    <td data-col="type">${typeMapping[task.type] || task.type}</td>
+                                    <td data-col="createdDate">${formatDateTime(task.createdDate)}</td>
+                                    <td data-col="due">${formatDate(task.due)}</td>
+                                    <td data-col="statusID">${statusMapping[task.statusID] || task.statusID}</td>
+                                    <td data-col="teamID">${teamMapping[task.teamID] || task.teamID}</td>
+                                   <td data-col="assignedTo">${task.assignedTo || task.assignedUser || ""}</td>
+                            `;
+                            workOrderDataContainer.appendChild(row);
+                        });
+                        applyColumnConfig();
+                    })
+                    .catch(error => {
+                        console.error('Error fetching tasks:', error);
+                        workOrderDataContainer.innerHTML = 'Error fetching data.';
+                    });
+        }
+        refreshButton.addEventListener('click', () => {
         // Fetch and load the data without reloading the page
         fetchData();
     });

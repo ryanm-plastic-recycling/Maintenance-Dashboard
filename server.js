@@ -7,8 +7,10 @@ import dotenv   from 'dotenv';
 import os       from 'os';
 import moment   from 'moment';
 import _        from 'lodash';
-import NodeCache from 'node-cache';
 import cors     from 'cors';
+import sql      from 'mssql';
+import { start as startScheduler, reload as reloadScheduler } from './server/scheduler.js';
+import { refreshHeaderKpis, refreshByAssetKpis, refreshWorkOrders } from './server/jobs/kpiJobs.js';
 
 dotenv.config();
 
@@ -40,19 +42,16 @@ function expectedOperationalHours(startISO, endISO) {
   return days * EXPECTED_HOURS_PER_DAY;
 }
 
-// Default to a 5 minute cache refresh if env var not set
-const cacheTtlSeconds = Number(process.env.CACHE_TTL_MINUTES ?? 5) * 60;
-const checkPeriod = Number(process.env.CACHE_CHECK_PERIOD_SECONDS ?? 1800);
-const cache = new NodeCache({ stdTTL: cacheTtlSeconds, checkperiod: checkPeriod });
+// MSSQL pool
+const sqlConfig = {
+  server: process.env.AZURE_SQL_SERVER,
+  database: process.env.AZURE_SQL_DB,
+  user: process.env.AZURE_SQL_USER,
+  password: process.env.AZURE_SQL_PASS,
+  options: { encrypt: true }
+};
+const poolPromise = new sql.ConnectionPool(sqlConfig).connect();
 
-async function fetchAndCache(key, loaderFn) {
-  let data = cache.get(key);
-  if (data === undefined) {
-    data = await loaderFn();
-    cache.set(key, data);
-  }
-  return data;
-}
 
 function resolveRange(timeframe) {
   const now = moment();
@@ -123,16 +122,17 @@ const DEFAULT_THEME = {
   }
 };
 
+let themeCache = null;
+
 function readTheme() {
   try {
-    const cached = cache.get('kpi-theme');
-    if (cached) return cached;
+    if (themeCache) return themeCache;
     const obj = JSON.parse(fs.readFileSync(THEME_PATH, 'utf8'));
-    cache.set('kpi-theme', obj, 60);
+    themeCache = obj;
     return obj;
   } catch {
     writeTheme(DEFAULT_THEME);
-    cache.set('kpi-theme', DEFAULT_THEME, 60);
+    themeCache = DEFAULT_THEME;
     return DEFAULT_THEME;
   }
 }
@@ -140,7 +140,7 @@ function readTheme() {
 function writeTheme(obj) {
   fs.mkdirSync(path.dirname(THEME_PATH), { recursive: true });
   fs.writeFileSync(THEME_PATH, JSON.stringify(obj, null, 2), 'utf8');
-  cache.del('kpi-theme');
+  themeCache = obj;
 }
 
 // ─── load mappings and build assetIDs once ───────────────────────────────
@@ -510,7 +510,6 @@ const ipv4 = Object.values(nets)
 
 // ─── express setup ────────────────────────────────────────────────────────
 const app = express();
-app.fetchAndCache = fetchAndCache;
 app.use(cors());
 app.use(express.json());
 const PORT = process.env.PORT || 3000;
@@ -729,128 +728,113 @@ app.get('/api/hours', async (req, res) => {
     }
 });
 
-app.get('/api/kpis', async (req, res) => {
-  try {
-    // Pull from cache (or load & cache on miss)
-    const overall = await app.fetchAndCache('kpis_overall', loadOverallKpis);
-    const byAsset = await app.fetchAndCache(
-      'kpis_byAsset_lastMonth',
-      () => loadByAssetKpis(resolveRange('lastMonth'))
-    );
+// ---- Admin schedule API ----
+app.get('/api/admin/schedules', async (req, res) => {
+  const pool = await poolPromise;
+  const { recordset } = await pool.request().query(`SELECT Name,Cron,Enabled,LastRun FROM dbo.UpdateSchedules ORDER BY Name`);
+  res.json(recordset);
+});
 
-    // Return both overall and per‐asset KPIs
-    res.json({ overall, byAsset });
-  } catch (err) {
-    console.error('KPI error:', err);
-    res.status(500).json({ error: 'Failed to fetch KPIs' });
+app.put('/api/admin/schedules', async (req, res) => {
+  const body = req.body;
+  if (!Array.isArray(body)) return res.status(400).json({ error: 'array required' });
+  const pool = await poolPromise;
+  const tx = new sql.Transaction(pool);
+  await tx.begin();
+  try {
+    for (const r of body) {
+      await new sql.Request(tx)
+        .input('Name', sql.NVarChar, r.Name)
+        .input('Cron', sql.NVarChar, r.Cron)
+        .input('Enabled', sql.Bit, r.Enabled ? 1 : 0)
+        .query(`UPDATE dbo.UpdateSchedules SET Cron=@Cron, Enabled=@Enabled WHERE Name=@Name`);
+    }
+    await tx.commit();
+    await reloadScheduler(pool, jobs);
+    res.json({ ok: true });
+  } catch (e) {
+    await tx.rollback();
+    res.status(500).json({ error: String(e) });
   }
 });
 
-// New endpoint: return only aggregate KPIs for header cards
+// ---- Snapshot-backed APIs ----
 app.get('/api/kpis/header', async (req, res) => {
-  try {
-    const overall = await app.fetchAndCache('kpis_overall', loadOverallKpis);
-    res.json(overall);
-  } catch (err) {
-    console.error('KPI header error:', err);
-    res.status(500).json({ error: 'Failed to fetch KPI header' });
-  }
+  const pool = await poolPromise;
+  const q = `
+    WITH x AS (
+      SELECT TOP (1) * FROM dbo.KpiHeaderCache WHERE Timeframe='lastWeek' ORDER BY SnapshotAt DESC
+    ), y AS (
+      SELECT TOP (1) * FROM dbo.KpiHeaderCache WHERE Timeframe='last30' ORDER BY SnapshotAt DESC
+    )
+    SELECT 
+      (SELECT SnapshotAt,RangeStart,RangeEnd,UptimePct,DowntimeHrs,PlannedCount,UnplannedCount FROM x FOR JSON PATH, WITHOUT_ARRAY_WRAPPER) AS weekly,
+      (SELECT SnapshotAt,RangeStart,RangeEnd,MttrHrs,MtbfHrs FROM y FOR JSON PATH, WITHOUT_ARRAY_WRAPPER) AS monthly
+  `;
+  const { recordset } = await pool.request().query(q);
+  const row = recordset[0] || {};
+  const weekly = row.weekly ? JSON.parse(row.weekly) : null;
+  const monthly = row.monthly ? JSON.parse(row.monthly) : null;
+  const lastRefreshUtc = weekly?.SnapshotAt || monthly?.SnapshotAt || null;
+  res.json({ weekly, monthly, lastRefreshUtc });
 });
 
-app.get('/api/status', async (req, res) => {
-  try {
-    const status = await app.fetchAndCache('status', loadAssetStatus);
-    const nextRefresh = cache.getTtl('status') ?? Date.now() + cacheTtlSeconds * 1000;
-    res.json({ status, nextRefresh });
-  } catch (err) {
-    console.error('Status error:', err);
-    res.status(500).json({ error: 'Failed to fetch status' });
-  }
+app.get('/api/kpis/by-asset', async (req, res) => {
+  const tf = req.query.timeframe || 'lastMonth';
+  const pool = await poolPromise;
+  const top = await pool.request().input('tf', sql.NVarChar, tf)
+    .query(`SELECT TOP (1) SnapshotAt FROM dbo.KpiByAssetCache WHERE Timeframe=@tf ORDER BY SnapshotAt DESC`);
+  const latest = top.recordset[0]?.SnapshotAt;
+  if (!latest) return res.json({ rows: [], lastRefreshUtc: null });
+  const rows = await pool.request()
+    .input('tf', sql.NVarChar, tf)
+    .input('snap', sql.DateTime2, latest)
+    .query(`
+      SELECT AssetID,Name,RangeStart,RangeEnd,UptimePct,DowntimeHrs,MttrHrs,MtbfHrs,PlannedPct,UnplannedPct
+      FROM dbo.KpiByAssetCache WHERE Timeframe=@tf AND SnapshotAt=@snap ORDER BY Name
+    `);
+  res.json({ rows: rows.recordset, lastRefreshUtc: latest });
 });
 
-app.post(process.env.STATUS_REFRESH_ENDPOINT || '/api/cache/refresh', async (req, res) => {
-  const byAssetKeys = cache.keys().filter(k => k.startsWith('kpis_byAsset_'));
-  cache.del(['kpis_overall', 'status', ...byAssetKeys]);
-  await Promise.all([
-    app.fetchAndCache('kpis_overall', loadOverallKpis),
-    app.fetchAndCache('kpis_byAsset_lastMonth', () => loadByAssetKpis(resolveRange('lastMonth'))),
-    app.fetchAndCache('status', loadAssetStatus),
-  ]);
-  res.send({ ok: true });
+app.get('/api/workorders/:page', async (req, res) => {
+  const page = req.params.page;
+  const pool = await poolPromise;
+  const { recordset } = await pool.request()
+    .input('page', sql.NVarChar, page)
+    .query(`
+      SELECT TOP (1) SnapshotAt, Data FROM dbo.WorkOrdersCache
+      WHERE Page=@page ORDER BY SnapshotAt DESC
+    `);
+  if (!recordset.length) return res.json({ rows: [], lastRefreshUtc: null });
+  const latest = recordset[0].SnapshotAt;
+  const data = JSON.parse(recordset[0].Data);
+  res.json({ rows: data, lastRefreshUtc: latest });
 });
-
-async function handleKpisByAsset(req, res) {
-  try {
-    const timeframe = String(req.query.timeframe || 'lastMonth');
-    const range = resolveRange(timeframe);
-    const cacheKey = `kpis_byAsset_${timeframe}`;
-
-    const data = await app.fetchAndCache(cacheKey, async () => {
-      const payload = await loadByAssetKpis(range);
-      // attach the actual window the server used
-      return {
-        ...payload,
-        range: {
-          label: timeframe,
-          startUnix: range.start.unix(),
-          endUnix: range.end.unix(),
-          startISO: range.start.toISOString(),
-          endISO: range.end.toISOString(),
-        }
-      };
-    });
-
-    res.json(data);
-  } catch (err) {
-    console.error('KPIs by asset error:', err);
-    res.status(500).json({ error: 'Failed to fetch KPIs by asset' });
-  }
-}
-
-app.get('/api/kpis-by-asset', handleKpisByAsset);
-app.get('/api/kpis/by-asset', handleKpisByAsset);
 
 const shouldListen =
   process.env.NODE_ENV !== 'test' || process.env.FORCE_LISTEN === 'true';
 
-  if (shouldListen) {
-    app.listen(PORT, () => {
-      console.log(`Local:  http://localhost:${PORT}/`);
-      console.log(`On LAN: http://${ipv4}:${PORT}/`);
-      console.log(`NOICE! Server running at ${PORT}.`);
-    });
-    const refreshMs = cacheTtlSeconds * 1000;
-    setInterval(async () => {
-      try {
-        await Promise.all([
-          app
-            .fetchAndCache('kpis_overall', loadOverallKpis)
-            .catch((err) => {
-              console.error('Failed to refresh kpis_overall cache:', err);
-              throw err;
-            }),
-          app
-            .fetchAndCache('kpis_byAsset_lastMonth', () => loadByAssetKpis(resolveRange('lastMonth')))
-            .catch((err) => {
-              console.error('Failed to refresh kpis_byAsset cache:', err);
-              throw err;
-            }),
-          app
-            .fetchAndCache('status', loadAssetStatus)
-            .catch((err) => {
-              console.error('Failed to refresh status cache:', err);
-              throw err;
-            }),
-        ]);
-        console.log('✅ Cache refreshed at', new Date().toISOString());
-      } catch (err) {
-        console.error('❌ Cache refresh failed:', err);
-      }
-    }, refreshMs);
-  } else {
-    console.warn(
-      'Skipping app.listen because NODE_ENV is "test". Set FORCE_LISTEN=true to override.'
-    );
-  }
-export { fetchAndCache, loadOverallKpis, loadByAssetKpis };
+if (shouldListen) {
+  app.listen(PORT, () => {
+    console.log(`Local:  http://localhost:${PORT}/`);
+    console.log(`On LAN: http://${ipv4}:${PORT}/`);
+    console.log(`NOICE! Server running at ${PORT}.`);
+  });
+} else {
+  console.warn(
+    'Skipping app.listen because NODE_ENV is "test". Set FORCE_LISTEN=true to override.'
+  );
+}
+
+const jobs = {
+  async header_kpis()        { const p = await poolPromise; return refreshHeaderKpis(p); },
+  async by_asset_kpis()      { const p = await poolPromise; return refreshByAssetKpis(p); },
+  async work_orders_index()  { const p = await poolPromise; return refreshWorkOrders(p, 'index'); },
+  async work_orders_pm()     { const p = await poolPromise; return refreshWorkOrders(p, 'pm'); },
+  async work_orders_status() { const p = await poolPromise; return refreshWorkOrders(p, 'prodstatus'); },
+  async etl_assets_fields()  { /* placeholder for heavy ETL job */ }
+};
+
+poolPromise.then(async (pool) => { await startScheduler(pool, jobs); });
+
 export default app;
