@@ -71,14 +71,14 @@ function validate() {
   let ok = true;
   hexInputs.forEach(id => {
     const el = $(id); const err = el.nextElementSibling;
-    if (!hexRe.test(el.value.trim())) { err.textContent = 'Invalid'; ok = false; }
-    else { err.textContent = ''; }
+    if (!hexRe.test(el.value.trim())) { if (err) err.textContent = 'Invalid'; ok = false; }
+    else { if (err) err.textContent = ''; }
   });
   numInputs.forEach(id => {
     const el = $(id); const err = el.nextElementSibling;
     const v = parseFloat(el.value);
-    if (!isFinite(v)) { err.textContent = 'Invalid'; ok = false; }
-    else { err.textContent = ''; }
+    if (!isFinite(v)) { if (err) err.textContent = 'Invalid'; ok = false; }
+    else { if (err) err.textContent = ''; }
   });
   $('save-theme').disabled = !ok;
   return ok;
@@ -145,3 +145,44 @@ $('reset-theme').addEventListener('click', async () => {
 document.querySelectorAll('#theme-section input').forEach(el => el.addEventListener('input', validate));
 
 loadTheme();
+
+async function loadSchedules() {
+  try {
+    const res = await fetch('/api/admin/schedules');
+    if (!res.ok) return;
+    const rows = await res.json();
+    const tb = document.querySelector('#sched-table tbody');
+    if (!tb) return;
+    tb.innerHTML = '';
+    rows.forEach(r => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><code>${r.Name}</code></td>
+        <td><input data-name="${r.Name}" class="cron" value="${r.Cron}"></td>
+        <td><input data-name="${r.Name}" class="enabled" type="checkbox" ${r.Enabled ? 'checked':''}></td>`;
+      tb.appendChild(tr);
+    });
+  } catch { /* ignore */ }
+}
+
+async function saveSchedules() {
+  const tb = document.querySelector('#sched-table tbody');
+  if (!tb) return;
+  const rows = [];
+  tb.querySelectorAll('tr').forEach(tr => {
+    const name = tr.querySelector('code').textContent;
+    const cron = tr.querySelector('input.cron').value.trim();
+    const enabled = tr.querySelector('input.enabled').checked;
+    rows.push({ Name: name, Cron: cron, Enabled: enabled });
+  });
+  const res = await fetch('/api/admin/schedules', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(rows)
+  });
+  const el = document.getElementById('sched-status');
+  if (el) el.textContent = res.ok ? 'Saved' : 'Save failed';
+}
+
+document.getElementById('sched-save')?.addEventListener('click', saveSchedules);
+loadSchedules();

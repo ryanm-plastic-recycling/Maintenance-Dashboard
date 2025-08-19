@@ -1,6 +1,4 @@
 // public/js/header-kpis.js
-import { computeTrueOverall } from './compute-true-overall.js';
-
 console.log('[header-kpis.js] module loaded');
 
 function setText(id, text) {
@@ -21,7 +19,6 @@ async function fetchJsonNo304(url) {
   const u = `${url}${url.includes('?') ? '&' : '?'}t=${Date.now()}`;
   const res = await fetch(u, { cache: 'no-store' });
   if (!res.ok) {
-    // graceful retry if somehow 304 or other caching weirdness
     const res2 = await fetch(u, { cache: 'reload' });
     if (!res2.ok) throw new Error(`HTTP ${res.status} then ${res2.status}`);
     return res2.json();
@@ -29,60 +26,42 @@ async function fetchJsonNo304(url) {
   return res.json();
 }
 
-// Try last30d first (backwards-compat), then trailing30Days
-async function fetchThirtyDayWindow() {
-  try {
-    return await fetchJsonNo304('/api/kpis/by-asset?timeframe=last30d');
-  } catch (e) {
-    return await fetchJsonNo304('/api/kpis/by-asset?timeframe=trailing30Days');
-  }
+// Fetch consolidated header KPIs
+async function fetchHeader() {
+  return await fetchJsonNo304('/api/kpis/header');
 }
 
-function computePlannedUnplannedPct(src) {
-  // Prefer server/compute-true-overall if it provides plannedPct/unplannedPct
-  const o = computeTrueOverall(src) || {};
-  if (o.plannedPct != null && o.unplannedPct != null) return { p: o.plannedPct, u: o.unplannedPct };
-
-  // Fallback: derive from counts
-  const p = Number(src?.totals?.plannedCount || 0);
-  const u = Number(src?.totals?.unplannedCount || 0);
-  const denom = p + u;
-  if (!denom) return { p: null, u: null };
-  const plannedPct = (100 * p) / denom;
-  return { p: plannedPct, u: 100 - plannedPct };
-}
-
-export async function initHeaderKPIs() {
+export async function loadHeaderKpis() {
   try {
-    // parallel fetch (week + 30d) with cache-busting
-    const [weekData, monthData] = await Promise.all([
-      fetchJsonNo304('/api/kpis/by-asset?timeframe=lastWeek'),
-      fetchThirtyDayWindow()
-    ]);
+    const header = await fetchHeader();
+    const weekly  = header?.weekly  || {};
+    const monthly = header?.monthly || {};
 
-    // Overall aggregates (prefer computeTrueOverall but tolerate missing fields)
-    const weekOverall  = computeTrueOverall(weekData)  || {};
-    const monthOverall = computeTrueOverall(monthData) || {};
-
-    // Downtime (last week)
-    const downtime = weekOverall.downtimePct ?? weekData?.totals?.downtimePct ?? null;
+    // Downtime percentage is derived from UptimePct
+    const downtime = (typeof weekly.UptimePct === 'number') ? (100 - Number(weekly.UptimePct)) : null;
     setText('downtime-value', fmtPct(downtime));
 
-    // MTTR / MTBF (last 30 days)
-    const mttr = monthOverall.mttrHrs ?? monthData?.totals?.mttrHrs ?? null;
-    const mtbf = monthOverall.mtbfHrs ?? monthData?.totals?.mtbfHrs ?? null;
+    // MTTR / MTBF
+    const mttr = typeof monthly.MttrHrs === 'number' ? monthly.MttrHrs : null;
+    const mtbf = typeof monthly.MtbfHrs === 'number' ? monthly.MtbfHrs : null;
     setText('mttr-value', fmtHrs(mttr));
     setText('mtbf-value', fmtHrs(mtbf));
 
-    // Planned vs Unplanned (last week)
-    const { p, u } = computePlannedUnplannedPct(weekData);
+    // Planned vs Unplanned percentages from counts
+    const pCount = Number(weekly.PlannedCount) || 0;
+    const uCount = Number(weekly.UnplannedCount) || 0;
+    const denom = pCount + uCount;
+    const plannedPct = denom ? (pCount / denom) * 100 : null;
+    const unplannedPct = denom ? (uCount / denom) * 100 : null;
     const pvup = document.getElementById('planned-vs-unplanned');
     if (pvup) {
-      const pText = p == null ? '--' : p.toFixed(0);
-      const uText = u == null ? '--' : u.toFixed(0);
+      const pText = plannedPct == null ? '--' : plannedPct.toFixed(0);
+      const uText = unplannedPct == null ? '--' : unplannedPct.toFixed(0);
       pvup.textContent = `${pText}% vs ${uText}%`;
     }
 
+    // Expose last refresh if needed
+    window.__headerLastRefreshUtc = header?.lastRefreshUtc || null;
   } catch (err) {
     console.error('Header KPI load error:', err);
     setText('downtime-value', '--%');
@@ -92,12 +71,12 @@ export async function initHeaderKPIs() {
   }
 
   // refresh every 15 minutes
-  setTimeout(initHeaderKPIs, 15 * 60 * 1000);
+  setTimeout(loadHeaderKpis, 15 * 60 * 1000);
 }
 
-// Ensure DOM ready
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initHeaderKPIs);
+  document.addEventListener('DOMContentLoaded', loadHeaderKpis);
 } else {
-  initHeaderKPIs();
+  loadHeaderKpis();
 }
+
