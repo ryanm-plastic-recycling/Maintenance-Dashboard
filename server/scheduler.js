@@ -17,7 +17,10 @@ async function loadSchedules(pool) {
 
 function schedule(name, cronExpr, handler) {
   if (tasks[name]) { tasks[name].stop(); delete tasks[name]; }
-  tasks[name] = cron.schedule(cronExpr, handler, { scheduled: true });
+  tasks[name] = cron.schedule(cronExpr, handler, {
+   scheduled: true,
+   timezone: 'America/Indiana/Indianapolis'
+  });
 }
 
 export async function start(pool, jobs) {
