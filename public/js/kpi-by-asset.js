@@ -218,13 +218,17 @@ export async function loadAll() {
       const d = new Date(data.lastRefreshUtc);
       lr.textContent = `· Last refresh: ${d.toLocaleString()}`;
     }
-    const rows   = Array.isArray(data?.rows) ? data.rows : [];
+    // Avoid duplicate const 'rows' and add defensive guards
+    const rowsData = Array.isArray(data?.rows) ? data.rows : [];
+    console.debug('[kpi-by-asset] sample row keys:', Object.keys(rowsData?.[0] || Object.values(data.assets || {})[0] || {}));
+    console.debug('[kpi-by-asset] sample row values:', rowsData?.[0] || Object.values(data.assets || {})[0]);
     // Prefer server-provided assets map; build one if missing (back-compat)
-    const assetsMap = data.assets && Object.keys(data.assets).length
+    const assets = data.assets && Object.keys(data.assets).length
       ? data.assets
-      : Object.fromEntries(rows.map(r => [String(r.AssetID), {
+      : Object.fromEntries(rowsData.map(r => [String(r.AssetID), {
           assetID: r.AssetID,
           name:    r.Name || `Asset ${r.AssetID}`,
+          // derive downtimePct if uptime is present
           downtimePct: (typeof r.UptimePct === 'number') ? (100 - Number(r.UptimePct)) : null,
           DowntimeHrs: r.DowntimeHrs ?? null,
           MttrHrs:     r.MttrHrs ?? null,
@@ -232,7 +236,6 @@ export async function loadAll() {
           PlannedPct:  r.PlannedPct ?? null,
           UnplannedPct:r.UnplannedPct ?? null
         }]));
-    const assets = assetsMap;
 
     // update displayed date window
     updateDateRangeLabel(tf, data.range);
