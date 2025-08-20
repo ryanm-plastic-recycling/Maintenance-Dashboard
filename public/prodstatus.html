@@ -525,16 +525,17 @@
       }
 
       async function loadStatus() {
-        // Use cached endpoint (alias /api/status exists too)
-        const res = await fetch('/api/workorders/prodstatus', { cache: 'no-store' });
+        // Primary: cached endpoint; alias /api/status also exists for back-compat
+        const res = await fetch('/api/workorders/prodstatus?t=' + Date.now(), { cache: 'no-store' });
         const data = await res.json();
+        // rows may be in data.rows or (legacy) data.tiles; normalize to an array
         const rows = Array.isArray(data?.rows) ? data.rows
                     : (Array.isArray(data?.tiles) ? data.tiles : []);
         if (!rows.length) {
           console.warn('[prodstatus] no rows to render yet');
           return;
         }
-        renderStatus(rows);
+        renderStatus(rows, data.lastRefreshUtc);
         if (data.nextRefresh) scheduleRefresh(Math.max(0, data.nextRefresh - Date.now()));
       }
 
@@ -543,16 +544,24 @@
         await loadStatus();
       }
 
-      function renderStatus(statusArr) {
+      function renderStatus(rows, lastRefreshUtc) {
+        // Defensive helpers
+        const asArr  = (x) => Array.isArray(x) ? x : [];
+        const sfind  = (x, fn) => asArr(x).find(fn);
+        const sfor   = (x, fn) => asArr(x).forEach(fn);
+
         const tbody = document.getElementById('status-data');
         tbody.innerHTML = '';
-        const rows = Array.isArray(statusArr) ? statusArr : [];
-        (mappings.productionAssets || []).forEach(item => {
-          const entry = rows.find(s => s.assetID === item.id) || {};
+        if (lastRefreshUtc) {
+          const lrEl = document.getElementById('last-refresh-status');
+          if (lrEl) lrEl.textContent = `· Last refresh: ${new Date(lastRefreshUtc).toLocaleString()}`;
+        }
+        sfor(mappings.productionAssets, item => {
+          const entry = sfind(rows, s => s.assetID === item.id) || {};
           const tr = document.createElement('tr');
           const colorMap = mappings.statusColorMapping || {};
           const textMap  = mappings.statusTextMapping || {};
-          const statusId = Object.keys(textMap).find(k => textMap[k] === entry.status);
+          const statusId = sfind(Object.keys(textMap), k => textMap[k] === entry.status);
           const bg = colorMap[statusId] || colorMap[entry.status] || '#fff';
           tr.style.backgroundColor = bg;
           const bgLower = bg.toLowerCase();

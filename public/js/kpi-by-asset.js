@@ -227,6 +227,7 @@ export async function loadAll() {
       : Object.fromEntries(rowsData.map(r => [String(r.AssetID), {
           assetID: r.AssetID,
           name:    r.Name || `Asset ${r.AssetID}`,
+          // derive downtimePct if uptime is present
           downtimePct: (typeof r.UptimePct === 'number') ? (100 - Number(r.UptimePct)) : null,
           DowntimeHrs: r.DowntimeHrs ?? null,
           MttrHrs:     r.MttrHrs ?? null,
