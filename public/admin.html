@@ -304,8 +304,10 @@
         <button id="run-wo-pm">Run WO: PM</button>
         <button id="run-wo-status">Run WO: Prod Status</button>
         <button id="run-all">Refresh All</button>
+        <button id="btn-full-refresh">Full Refresh (Limble → SQL → UI)</button>
       </div>
       <div id="run-status" style="margin-top:.5rem;color:#555;"></div>
+      <pre id="admin-log" style="height:200px;overflow:auto;background:#111;color:#0f0;padding:8px;"></pre>
     </section>
     </div>
     <script>
@@ -481,12 +483,28 @@
   (document.getElementById('run-byasset')  || {}).onclick = ()=>runJob('by_asset_kpis');
   (document.getElementById('run-wo-index') || {}).onclick = ()=>runJob('work_orders_index');
   (document.getElementById('run-wo-pm')    || {}).onclick = ()=>runJob('work_orders_pm');
-  (document.getElementById('run-wo-status')|| {}).onclick = ()=>runJob('work_orders_status');
-  (document.getElementById('run-all')      || {}).onclick = async ()=>{
-    const res = await fetch('/api/admin/refresh-all', { method: 'POST' });
-    const el = document.getElementById('run-status');
-    if (el) el.textContent = res.ok ? 'Refreshed all' : 'Refresh all failed';
-  };
+(document.getElementById('run-wo-status')|| {}).onclick = ()=>runJob('work_orders_status');
+(document.getElementById('run-all')      || {}).onclick = async ()=>{
+  const res = await fetch('/api/admin/refresh-all', { method: 'POST' });
+  const el = document.getElementById('run-status');
+  if (el) el.textContent = res.ok ? 'Refreshed all' : 'Refresh all failed';
+};
+</script>
+<script>
+  const logEl = document.getElementById('admin-log');
+  const log = msg => { logEl.textContent += msg + '\n'; logEl.scrollTop = logEl.scrollHeight; };
+  document.getElementById('btn-full-refresh')?.addEventListener('click', async (event) => {
+    const btn = event.target; btn.disabled = true; log('Starting full refresh…');
+    try {
+      const res = await fetch('/api/admin/full-refresh', { method:'POST' });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error || 'Error');
+      data.steps.forEach(s => log(`${s.step}: ${s.ms}ms`));
+      log('✅ Full refresh complete');
+    } catch (e) {
+      log('❌ ' + e.message);
+    } finally { btn.disabled = false; }
+  });
 </script>
 <script type="module" src="js/header-kpis.js" defer></script>
 <script type="module" src="/js/admin.js"></script>

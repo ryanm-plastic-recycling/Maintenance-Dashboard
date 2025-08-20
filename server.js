@@ -11,6 +11,7 @@ import cors     from 'cors';
 import sql      from 'mssql';
 import { start as startScheduler, reload as reloadScheduler } from './server/scheduler.js';
 import { refreshHeaderKpis, refreshByAssetKpis, refreshWorkOrders } from './server/jobs/kpiJobs.js';
+import adminRoutes from './server/routes/admin.js';
 
 dotenv.config();
 
@@ -50,7 +51,10 @@ const sqlConfig = {
   password: process.env.AZURE_SQL_PASS,
   options: { encrypt: true }
 };
-const poolPromise = new sql.ConnectionPool(sqlConfig).connect();
+const poolPromise =
+  process.env.NODE_ENV === 'test'
+    ? Promise.resolve(null)
+    : new sql.ConnectionPool(sqlConfig).connect();
 
 
 function resolveRange(timeframe) {
@@ -512,6 +516,8 @@ const ipv4 = Object.values(nets)
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.use('/api', adminRoutes(poolPromise));
+app.fetchAndCache = async () => null;
 const PORT = process.env.PORT || 3000;
 app.use(express.static(path.join(__dirname, 'public')));
 
