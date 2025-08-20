@@ -557,32 +557,42 @@
           if (lrEl) lrEl.textContent = `· Last refresh: ${new Date(lastRefreshUtc).toLocaleString()}`;
         }
         sfor(mappings.productionAssets, item => {
-          const entry = sfind(rows, s => s.assetID === item.id) || {};
-          const tr = document.createElement('tr');
-          const colorMap = mappings.statusColorMapping || {};
-          // Support both numeric codes and plain text
+		  // 1) Coerce IDs to strings so match works no matter what SQL returns
+		  const entry = sfind(rows, s => String(s.assetID) === String(item.id)) || {};
+		
+		  const colorMap = mappings.statusColorMapping || {};
 		  const textMap  = mappings.statusTextMapping || {};
+		
+		  // 2) Prefer the plain text if present; else fall back to code
 		  const codeOrText = entry.assetStatus ?? entry.status ?? entry.statusID;
-		  // if it's numeric, map it; if it's already text, use it directly
-		  const text = textMap[codeOrText] || codeOrText || 'N/A';
-		  // keep your color mapping working with both ID and text
+		
+		  // 3) Normalize text (trim + remove NBSP) so mapping/color lookups work
+		  const textRaw = textMap[codeOrText] || codeOrText || 'N/A';
+		  const text = (typeof textRaw === 'string')
+		    ? textRaw.replace(/\u00A0/g, ' ').trim()
+		    : textRaw;
+		
+		  // 4) Resolve a color: try ID via reverse-map; else try the text; else white
 		  const statusId = Object.keys(textMap).find(k => textMap[k] === text) || codeOrText;
 		  const bg = colorMap[statusId] || colorMap[text] || '#fff';
+		
+		  const tr = document.createElement('tr');
+		  tr.style.backgroundColor = bg;
+		
+		  const bgLower = bg.toLowerCase();
+		  let fg = '#000';
+		  if (bgLower === '#d64550' || bgLower === 'red') fg = '#fff';
+		  else if (bgLower === '#118dff' || bgLower === 'blue') fg = '#fff';
+		
+		  tr.style.color = fg;
+		
+		  tr.innerHTML = `
+		    <td>${item.name}</td>
+		    <td>${text}</td>
+		  `;
+		  tbody.appendChild(tr);
+		});
 
-          tr.style.backgroundColor = bg;
-          const bgLower = bg.toLowerCase();
-          let fg = '#000';
-          if (bgLower === '#d64550' || bgLower === 'red') fg = '#ffffff';
-          else if (bgLower === '#0aac00' || bgLower === 'green') fg = '#000000';
-          else if (bgLower === '#118dff' || bgLower === 'blue') fg = '#ffffff';
-          else if (bgLower === '#d9b300' || bgLower === 'yellow') fg = '#000000';
-          tr.style.color = fg;
-          tr.innerHTML = `
-			  <td>${item.name}</td>
-			  <td>${text}</td>
-			`;
-          tbody.appendChild(tr);
-        });
       }
 
       refreshButton.addEventListener('click', () => {
