@@ -545,7 +545,9 @@
       }
 
       function renderStatus(rows, lastRefreshUtc) {
-        // Defensive helpers
+        // 1) Log the incoming rows once, up front
+  		console.debug('[prodstatus] rows length:', rows?.length, 'sample row:', rows?.[0]);
+		  // Defensive helpers
         const asArr  = (x) => Array.isArray(x) ? x : [];
         const sfind  = (x, fn) => asArr(x).find(fn);
         const sfor   = (x, fn) => asArr(x).forEach(fn);
