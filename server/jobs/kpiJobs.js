@@ -230,7 +230,9 @@ export async function refreshWorkOrders(pool, page) {
       t.CreatedDate  AS createdDate,
       t.StatusID     AS statusID
     FROM dbo.LimbleKPITasks t
-    WHERE t.DateCompleted IS NULL
+    WHERE t.Type IN (2, 6)              -- unplanned only
+      AND t.DateCompleted IS NULL       -- not completed
+      AND t.LocationID = 13425          -- Rockville location only
     ORDER BY t.CreatedDate DESC
     FOR JSON PATH
   `;
@@ -246,8 +248,9 @@ export async function refreshWorkOrders(pool, page) {
       t.Due          AS [due],
       t.StatusID     AS statusID
     FROM dbo.LimbleKPITasks t
-    WHERE t.Type = 1  -- PM
+    WHERE t.Type = 1  -- PM WO Only
       AND t.DateCompleted IS NULL
+      AND t.LocationID = 13425          -- Rockville location only
     ORDER BY t.Due ASC
     FOR JSON PATH
   `;
@@ -262,7 +265,7 @@ export async function refreshWorkOrders(pool, page) {
     open_unplanned AS (
       SELECT DISTINCT t.AssetID
       FROM dbo.LimbleKPITasks t
-      WHERE t.Type = 2  -- Unplanned WO
+      WHERE t.Type = 2  -- Unplanned WO and WO Requester
         AND t.DateCompleted IS NULL
     ),
     open_pm AS (
