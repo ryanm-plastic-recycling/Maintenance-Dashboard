@@ -255,44 +255,18 @@ export async function refreshWorkOrders(pool, page) {
     FOR JSON PATH
   `;
   const defaultProdStatusSql = `
-    ;WITH latest_any AS (
-      SELECT
-        t.AssetID,
-        MAX(COALESCE(t.LastEdited, t.CreatedDate)) AS lastChangeUTC
-      FROM dbo.LimbleKPITasks t
-      GROUP BY t.AssetID
-    ),
-    open_unplanned AS (
-      SELECT DISTINCT t.AssetID
-      FROM dbo.LimbleKPITasks t
-      WHERE t.Type = 2  -- Unplanned WO and WO Requester
-        AND t.DateCompleted IS NULL
-    ),
-    open_pm AS (
-      SELECT DISTINCT t.AssetID
-      FROM dbo.LimbleKPITasks t
-      WHERE t.Type = 1  -- PM
-        AND t.DateCompleted IS NULL
-    )
-    SELECT TOP (1000)
-      a.AssetID                    AS assetID,
-      a.Name                       AS assetName,
-      CAST(
-        CASE
-          WHEN u.AssetID IS NOT NULL THEN 7   -- Unavailable
-          WHEN p.AssetID IS NOT NULL THEN 3   -- In Preventive Maintenance
-          ELSE 6                              -- Available
-        END
-      AS int)                      AS [state],
-      y.lastChangeUTC              AS lastChangeUTC,
-      CAST(NULL AS nvarchar(200))  AS note
-    FROM dbo.LimbleKPIAssets a
-    LEFT JOIN latest_any   y ON y.AssetID = a.AssetID
-    LEFT JOIN open_unplanned u ON u.AssetID = a.AssetID
-    LEFT JOIN open_pm        p ON p.AssetID = a.AssetID
-    ORDER BY y.lastChangeUTC DESC
-    FOR JSON PATH
-  `;
+  SELECT
+    af.AssetID      AS assetID,
+    a.Name          AS assetName,
+    af.ValueText    AS assetStatus,
+    af.LastEdited   AS lastChangeUTC
+  FROM dbo.LimbleKPIAssetFields af
+  INNER JOIN dbo.LimbleKPIAssets a
+    ON a.AssetID = af.AssetID
+  WHERE af.FieldID = 95  -- Asset Status
+  ORDER BY af.LastEdited DESC
+  FOR JSON PATH
+`;
 
   const q = ((process.env[key] || '').trim()) ||
             (page === 'index'     ? defaultIndexSql
