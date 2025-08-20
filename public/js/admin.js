@@ -197,7 +197,16 @@ async function runJob(name) {
       body: JSON.stringify({ job: name })
     });
     if (res.ok) {
-      msg = `Ran ${name}`;
+      let body = '';
+      try { body = await res.text(); } catch {}
+      try {
+        const j = JSON.parse(body || '{}');
+        const r = j.result || {};
+        const extra = Object.keys(r).length ? ` (result: ${JSON.stringify(r)})` : '';
+        msg = `Ran ${name}${extra}`;
+      } catch {
+        msg = `Ran ${name}`;
+      }
     } else {
       // Try to parse JSON error, else show raw text
       let body = '';

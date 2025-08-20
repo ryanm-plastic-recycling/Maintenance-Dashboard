@@ -770,28 +770,29 @@ app.post('/api/admin/run', async (req, res) => {
     const { job } = req.body || {};
     if (!job) return res.status(400).json({ error: 'missing job' });
     const pool = await poolPromise;
+    let result;
     switch (job) {
       case 'header_kpis':
-        await refreshHeaderKpis(pool);
+        result = await refreshHeaderKpis(pool);
         break;
       case 'by_asset_kpis':
-        await refreshByAssetKpis(pool);
+        result = await refreshByAssetKpis(pool);
         break;
       case 'work_orders_index':
-        await refreshWorkOrders(pool, 'index');
+        result = await refreshWorkOrders(pool, 'index');
         break;
       case 'work_orders_pm':
-        await refreshWorkOrders(pool, 'pm');
+        result = await refreshWorkOrders(pool, 'pm');
         break;
       case 'work_orders_status':
-        await refreshWorkOrders(pool, 'prodstatus');
+        result = await refreshWorkOrders(pool, 'prodstatus');
         break;
       default:
         return res.status(400).json({ error: 'unknown job' });
     }
     await pool.request().input('n', sql.NVarChar, job)
       .query(`UPDATE dbo.UpdateSchedules SET LastRun = SYSUTCDATETIME() WHERE Name = @n`);
-    res.json({ ok: true });
+    res.json({ ok: true, result });
   } catch (e) {
     res.status(500).json({ error: String(e) });
   }

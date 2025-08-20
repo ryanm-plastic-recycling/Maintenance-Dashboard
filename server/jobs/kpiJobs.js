@@ -1,59 +1,134 @@
 import fs  from 'fs';
 import sql from 'mssql';
-import moment from 'moment-timezone';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
 const cfg = JSON.parse(fs.readFileSync('config.json','utf-8'));
 const TF  = cfg.kpiByAssetTimeframes || ["lastMonth"]; // safe default
 
-function loadMappings() {
+function tfRange(now, tf) {
+  const d = new Date(now);
+  const utc = (y, m, day, h = 0, min = 0, s = 0) =>
+    new Date(Date.UTC(y, m, day, h, min, s));
+  const startOfWeek = (dt) => {
+    const day = dt.getUTCDay(); // 0 Sun..6 Sat
+    const mondayOffset = (day + 6) % 7;
+    const st = new Date(
+      Date.UTC(
+        dt.getUTCFullYear(),
+        dt.getUTCMonth(),
+        dt.getUTCDate() - mondayOffset
+      )
+    );
+    return utc(
+      st.getUTCFullYear(),
+      st.getUTCMonth(),
+      st.getUTCDate()
+    );
+  };
+  const startOfMonth = (dt) => utc(dt.getUTCFullYear(), dt.getUTCMonth(), 1);
+  const startOfYear = (dt) => utc(dt.getUTCFullYear(), 0, 1);
+  const endNow = utc(
+    d.getUTCFullYear(),
+    d.getUTCMonth(),
+    d.getUTCDate(),
+    d.getUTCHours(),
+    d.getUTCMinutes(),
+    0
+  );
+
+  switch (tf) {
+    case 'thisWeek':
+      return { start: startOfWeek(d), end: endNow };
+    case 'lastWeek': {
+      const s = startOfWeek(d);
+      return { start: new Date(s - 7 * 864e5), end: s };
+    }
+    case 'last30':
+      return { start: new Date(endNow - 30 * 864e5), end: endNow };
+    case 'thisMonth':
+      return { start: startOfMonth(d), end: endNow };
+    case 'lastMonth': {
+      const s = startOfMonth(d);
+      const ps = utc(s.getUTCFullYear(), s.getUTCMonth() - 1, 1);
+      return { start: ps, end: s };
+    }
+    case 'thisYear':
+      return { start: startOfYear(d), end: endNow };
+    case 'lastYear': {
+      const s = startOfYear(d);
+      const ps = utc(s.getUTCFullYear() - 1, 0, 1);
+      return { start: ps, end: s };
+    }
+    default:
+      return { start: new Date(endNow - 30 * 864e5), end: endNow };
+  }
+}
+
+function loadMappingsRaw() {
   // Resolve project root from this file: server/jobs -> <root>
   const __dirname = path.dirname(fileURLToPath(import.meta.url));
   const ROOT = path.resolve(__dirname, '..', '..');
   const envPath = process.env.MAPPINGS_PATH && process.env.MAPPINGS_PATH.trim();
   const candidates = [
-    envPath,                                   // explicit override
-    path.join(ROOT, 'mappings.json'),          // repo root
-    path.join(ROOT, 'public', 'mappings.json') // public folder (used by front-end)
+    envPath, // explicit override
+    path.join(ROOT, 'mappings.json'), // repo root
+    path.join(ROOT, 'public', 'mappings.json'), // public folder (front-end uses this)
   ].filter(Boolean);
   for (const p of candidates) {
     try {
       if (fs.existsSync(p)) {
         const txt = fs.readFileSync(p, 'utf-8');
-        const json = JSON.parse(txt);
-        if (json && Array.isArray(json.assets)) return json;
+        return JSON.parse(txt);
       }
     } catch (e) {
-      console.warn('[kpiJobs] failed to load mappings at', p, String(e));
+      console.warn('[kpiJobs] failed to read mappings at', p, String(e));
     }
   }
-  console.warn('[kpiJobs] mappings.json not found in', candidates);
-  return { assets: [] };
+  console.warn('[kpiJobs] mappings.json not found in any known location');
+  return null;
 }
 
-function tfRange(now, tf) {
-  const Z = 'America/Indiana/Indianapolis';
-  const n = moment.tz(now, Z);
-  const startOfWeekMon = n.clone().startOf('week').add(1, 'day'); // ISO Monday
-  const startOfMonth   = n.clone().startOf('month');
-  const startOfYear    = n.clone().startOf('year');
-  const endNowLocal    = n.clone();
-  const range = (sLocal, eLocal) => ({
-    start: sLocal.clone().utc().toDate(),
-    end:   eLocal.clone().utc().toDate()
-  });
-
-  switch (tf) {
-    case 'thisWeek':  return range(startOfWeekMon, endNowLocal);
-    case 'lastWeek':  return range(startOfWeekMon.clone().subtract(1,'week'), startOfWeekMon);
-    case 'last30':    return range(endNowLocal.clone().subtract(30,'days'), endNowLocal);
-    case 'thisMonth': return range(startOfMonth, endNowLocal);
-    case 'lastMonth': return range(startOfMonth.clone().subtract(1,'month'), startOfMonth);
-    case 'thisYear':  return range(startOfYear, endNowLocal);
-    case 'lastYear':  return range(startOfYear.clone().subtract(1,'year'), startOfYear);
-    default:          return range(endNowLocal.clone().subtract(30,'days'), endNowLocal);
+function normalizeAssets(m) {
+  // Accept various shapes and normalize to [{assetID:number, name:string}]
+  const out = [];
+  const push = (id, name) => {
+    const n = Number(id);
+    if (!Number.isFinite(n)) return;
+    out.push({ assetID: n, name: name || `Asset ${n}` });
+  };
+  if (!m || typeof m !== 'object') return [];
+  // 1) { assets: [{assetID|id, name}] }
+  if (Array.isArray(m.assets)) {
+    m.assets.forEach((x) =>
+      push(
+        x.assetID ?? x.id ?? x.AssetID ?? x.AssetId,
+        x.name ?? x.Name ?? x.displayName
+      )
+    );
   }
+  // 2) { productionAssets: [{id, name}] }
+  if (Array.isArray(m.productionAssets)) {
+    m.productionAssets.forEach((x) =>
+      push(x.id ?? x.assetID, x.name ?? x.displayName ?? x.title)
+    );
+  }
+  // 3) { assetsById: { "101": { name: "E1" }, ... } }
+  if (m.assetsById && typeof m.assetsById === 'object') {
+    for (const [k, v] of Object.entries(m.assetsById)) {
+      push(k, (v && (v.name ?? v.Name)) || v);
+    }
+  }
+  // 4) { assetMap: { "101": "E1", ... } }
+  if (m.assetMap && typeof m.assetMap === 'object') {
+    for (const [k, v] of Object.entries(m.assetMap)) push(k, v);
+  }
+  // Deduplicate by assetID (first wins)
+  const dedup = new Map();
+  out.forEach((a) => {
+    if (!dedup.has(a.assetID)) dedup.set(a.assetID, a);
+  });
+  return Array.from(dedup.values());
 }
 
 export async function refreshHeaderKpis(pool) {
@@ -62,6 +137,7 @@ export async function refreshHeaderKpis(pool) {
     { tf: 'lastWeek', k: 'UP' },
     { tf: 'last30',   k: 'MT' }
   ];
+  let inserted = 0;
 
   for (const r of ranges) {
     const { start, end } = tfRange(now, r.tf);
@@ -87,18 +163,24 @@ export async function refreshHeaderKpis(pool) {
         INSERT INTO dbo.KpiHeaderCache(Timeframe,RangeStart,RangeEnd,UptimePct,DowntimeHrs, MttrHrs, MtbfHrs,PlannedCount,UnplannedCount)
         VALUES(@Timeframe,@RangeStart,@RangeEnd,@UptimePct,@DowntimeHrs,@MttrHrs,@MtbfHrs,@PlannedCount,@UnplannedCount)
       `);
+    inserted++;
   }
+  return { inserted, ranges: ranges.length };
 }
 
 export async function refreshByAssetKpis(pool) {
   const now = new Date();
-  const mappings = loadMappings(); // expects { assets: [{assetID, name}, ...] }
-  const assets = Array.isArray(mappings.assets) ? mappings.assets : [];
-  if (assets.length === 0) {
-    console.warn('[kpiJobs] No assets in mappings; by-asset snapshot will be empty (no crash).');
+  // Load + normalize asset map from mappings.json
+  const mappings = loadMappingsRaw();
+  const assets = normalizeAssets(mappings);
+  if (!assets.length) {
+    console.warn('[kpiJobs] No assets found in mappings.json; by-asset snapshot will be empty.');
   }
 
+  let inserted = 0;
+  let tfCount = 0;
   for (const tf of TF) {
+    tfCount++;
     const { start, end } = tfRange(now, tf);
     for (const a of assets) {
       const row = {
@@ -125,8 +207,10 @@ export async function refreshByAssetKpis(pool) {
           INSERT INTO dbo.KpiByAssetCache(Timeframe,AssetID,Name,RangeStart,RangeEnd,UptimePct,DowntimeHrs,MttrHrs,MtbfHrs,PlannedPct,UnplannedPct)
           VALUES(@Timeframe,@AssetID,@Name,@RangeStart,@RangeEnd,@UptimePct,@DowntimeHrs,@MttrHrs,@MtbfHrs,@PlannedPct,@UnplannedPct)
         `);
+      inserted++;
     }
   }
+  return { inserted, assets: assets.length, timeframes: tfCount };
 }
 
 export async function refreshWorkOrders(pool, page) {
@@ -189,5 +273,6 @@ export async function refreshWorkOrders(pool, page) {
     .input('Page', sql.NVarChar, page)
     .input('Data', sql.NVarChar(sql.MAX), json)
     .query(`INSERT INTO dbo.WorkOrdersCache(Page,Data) VALUES(@Page,@Data)`);
+  return { inserted: 1, page };
 }
 
