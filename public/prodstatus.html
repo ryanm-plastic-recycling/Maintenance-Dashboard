@@ -560,9 +560,15 @@
           const entry = sfind(rows, s => s.assetID === item.id) || {};
           const tr = document.createElement('tr');
           const colorMap = mappings.statusColorMapping || {};
-          const textMap  = mappings.statusTextMapping || {};
-          const statusId = sfind(Object.keys(textMap), k => textMap[k] === entry.status);
-          const bg = colorMap[statusId] || colorMap[entry.status] || '#fff';
+          // Support both numeric codes and plain text
+		  const textMap  = mappings.statusTextMapping || {};
+		  const codeOrText = entry.assetStatus ?? entry.status ?? entry.statusID;
+		  // if it's numeric, map it; if it's already text, use it directly
+		  const text = textMap[codeOrText] || codeOrText || 'N/A';
+		  // keep your color mapping working with both ID and text
+		  const statusId = Object.keys(textMap).find(k => textMap[k] === text) || codeOrText;
+		  const bg = colorMap[statusId] || colorMap[text] || '#fff';
+
           tr.style.backgroundColor = bg;
           const bgLower = bg.toLowerCase();
           let fg = '#000';
@@ -572,9 +578,9 @@
           else if (bgLower === '#d9b300' || bgLower === 'yellow') fg = '#000000';
           tr.style.color = fg;
           tr.innerHTML = `
-            <td>${item.name}</td>
-            <td>${entry.status ?? 'N/A'}</td>
-          `;
+			  <td>${item.name}</td>
+			  <td>${text}</td>
+			`;
           tbody.appendChild(tr);
         });
       }
