@@ -214,65 +214,107 @@ export async function refreshByAssetKpis(pool) {
 }
 
 export async function refreshWorkOrders(pool, page) {
-  let query;
-  switch (page) {
-    case 'index': // general work orders
-      query = `
-        SELECT TOP (200)
-          t.taskID,
-          t.assetID,
-          t.priority,
-          t.name,
-          t.description,
-          t.type,
-          t.createdDate,
-          t.statusID
-        FROM dbo.WorkOrders t
-        WHERE t.isActive = 1
-        ORDER BY t.createdDate DESC
-        FOR JSON PATH
-      `;
-      break;
-    case 'pm': // PM work orders with due date
-      query = `
-        SELECT TOP (200)
-          t.taskID,
-          t.assetID,
-          t.priority,
-          t.name,
-          t.description,
-          t.type,
-          t.createdDate,
-          t.due,
-          t.statusID
-        FROM dbo.WorkOrdersPM t
-        WHERE t.isActive = 1
-        ORDER BY t.due ASC
-        FOR JSON PATH
-      `;
-      break;
-    case 'prodstatus': // production status tiles/list
-      query = `
-        SELECT TOP (200)
-          s.assetID,
-          s.assetName,
-          s.state,
-          s.lastChangeUTC,
-          s.note
-        FROM dbo.ProductionStatus s
-        ORDER BY s.lastChangeUTC DESC
-        FOR JSON PATH
-      `;
-      break;
-    default:
-      query = `SELECT '[]' AS [data] FOR JSON PATH, WITHOUT_ARRAY_WRAPPER`;
+  const key = page === 'index' ? 'WO_INDEX_SQL'
+            : page === 'pm'    ? 'WO_PM_SQL'
+            :                    'PROD_STATUS_SQL';
+
+  // Built-in defaults that match your schema (overridden by .env if present)
+  const defaultIndexSql = `
+    SELECT TOP (200)
+      t.TaskID       AS taskID,
+      t.AssetID      AS assetID,
+      t.Priority     AS priority,
+      t.Name         AS name,
+      t.Description  AS description,
+      t.Type         AS [type],
+      t.CreatedDate  AS createdDate,
+      t.StatusID     AS statusID
+    FROM dbo.LimbleKPITasks t
+    WHERE t.DateCompleted IS NULL
+    ORDER BY t.CreatedDate DESC
+    FOR JSON PATH
+  `;
+  const defaultPmSql = `
+    SELECT TOP (200)
+      t.TaskID       AS taskID,
+      t.AssetID      AS assetID,
+      t.Priority     AS priority,
+      t.Name         AS name,
+      t.Description  AS description,
+      t.Type         AS [type],
+      t.CreatedDate  AS createdDate,
+      t.Due          AS [due],
+      t.StatusID     AS statusID
+    FROM dbo.LimbleKPITasks t
+    WHERE t.Type = 1  -- PM
+      AND t.DateCompleted IS NULL
+    ORDER BY t.Due ASC
+    FOR JSON PATH
+  `;
+  const defaultProdStatusSql = `
+    ;WITH latest_any AS (
+      SELECT
+        t.AssetID,
+        MAX(COALESCE(t.LastEdited, t.CreatedDate)) AS lastChangeUTC
+      FROM dbo.LimbleKPITasks t
+      GROUP BY t.AssetID
+    ),
+    open_unplanned AS (
+      SELECT DISTINCT t.AssetID
+      FROM dbo.LimbleKPITasks t
+      WHERE t.Type = 2  -- Unplanned WO
+        AND t.DateCompleted IS NULL
+    ),
+    open_pm AS (
+      SELECT DISTINCT t.AssetID
+      FROM dbo.LimbleKPITasks t
+      WHERE t.Type = 1  -- PM
+        AND t.DateCompleted IS NULL
+    )
+    SELECT TOP (1000)
+      a.AssetID                    AS assetID,
+      a.Name                       AS assetName,
+      CAST(
+        CASE
+          WHEN u.AssetID IS NOT NULL THEN 7   -- Unavailable
+          WHEN p.AssetID IS NOT NULL THEN 3   -- In Preventive Maintenance
+          ELSE 6                              -- Available
+        END
+      AS int)                      AS [state],
+      y.lastChangeUTC              AS lastChangeUTC,
+      CAST(NULL AS nvarchar(200))  AS note
+    FROM dbo.LimbleKPIAssets a
+    LEFT JOIN latest_any   y ON y.AssetID = a.AssetID
+    LEFT JOIN open_unplanned u ON u.AssetID = a.AssetID
+    LEFT JOIN open_pm        p ON p.AssetID = a.AssetID
+    ORDER BY y.lastChangeUTC DESC
+    FOR JSON PATH
+  `;
+
+  const q = ((process.env[key] || '').trim()) ||
+            (page === 'index'     ? defaultIndexSql
+           : page === 'pm'        ? defaultPmSql
+                                  : defaultProdStatusSql);
+  let json = '[]';
+  let source = 'empty';
+  let error  = null;
+  let rowCount = 0;
+  try {
+    if (!q) throw new Error(`Missing env ${key}`);
+    const rs = await pool.request().query(q);
+    json = rs.recordset?.[0]?.[''] || rs.recordset?.[0]?.data || JSON.stringify(rs.recordset) || '[]';
+    rowCount = rs.recordset?.length || 0;
+    source = process.env[key] ? 'env' : 'default';
+  } catch (e) {
+    error = e?.message || String(e);
+    console.warn('[refreshWorkOrders]', error);
   }
-  const rs = await pool.request().query(query);
-  const json = rs.recordset?.[0]?.[""] || rs.recordset?.[0]?.data || JSON.stringify([]);
+
   await pool.request()
     .input('Page', sql.NVarChar, page)
     .input('Data', sql.NVarChar(sql.MAX), json)
     .query(`INSERT INTO dbo.WorkOrdersCache(Page,Data) VALUES(@Page,@Data)`);
-  return { inserted: 1, page };
+
+  return { page, source, rows: rowCount, error };
 }
 
