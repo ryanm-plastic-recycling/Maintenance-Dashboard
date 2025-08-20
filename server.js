@@ -766,12 +766,30 @@ app.put('/api/admin/schedules', async (req, res) => {
 
 // ---- Admin: run a single job now (force) ----
 app.post('/api/admin/run', async (req, res) => {
-  const { job } = req.body || {};
-  if (!job || !jobs[job]) return res.status(400).json({ error: 'unknown job' });
   try {
-    const p = await poolPromise;
-    await jobs[job]();
-    await p.request().input('n', sql.NVarChar, job)
+    const { job } = req.body || {};
+    if (!job) return res.status(400).json({ error: 'missing job' });
+    const pool = await poolPromise;
+    switch (job) {
+      case 'header_kpis':
+        await refreshHeaderKpis(pool);
+        break;
+      case 'by_asset_kpis':
+        await refreshByAssetKpis(pool);
+        break;
+      case 'work_orders_index':
+        await refreshWorkOrders(pool, 'index');
+        break;
+      case 'work_orders_pm':
+        await refreshWorkOrders(pool, 'pm');
+        break;
+      case 'work_orders_status':
+        await refreshWorkOrders(pool, 'prodstatus');
+        break;
+      default:
+        return res.status(400).json({ error: 'unknown job' });
+    }
+    await pool.request().input('n', sql.NVarChar, job)
       .query(`UPDATE dbo.UpdateSchedules SET LastRun = SYSUTCDATETIME() WHERE Name = @n`);
     res.json({ ok: true });
   } catch (e) {
@@ -782,13 +800,13 @@ app.post('/api/admin/run', async (req, res) => {
 // ---- Admin: run common jobs now (header, by-asset, WOs) ----
 app.post('/api/admin/refresh-all', async (req, res) => {
   try {
-    await jobs.header_kpis();
-    await jobs.by_asset_kpis();
-    await jobs.work_orders_index();
-    await jobs.work_orders_pm();
-    await jobs.work_orders_status();
-    const p = await poolPromise;
-    await p.request().query(`
+    const pool = await poolPromise;
+    await refreshHeaderKpis(pool);
+    await refreshByAssetKpis(pool);
+    await refreshWorkOrders(pool, 'index');
+    await refreshWorkOrders(pool, 'pm');
+    await refreshWorkOrders(pool, 'prodstatus');
+    await pool.request().query(`
       UPDATE dbo.UpdateSchedules SET LastRun = SYSUTCDATETIME()
       WHERE Name IN ('header_kpis','by_asset_kpis','work_orders_index','work_orders_pm','work_orders_status')
     `);
@@ -796,6 +814,19 @@ app.post('/api/admin/refresh-all', async (req, res) => {
   } catch (e) {
     res.status(500).json({ error: String(e) });
   }
+});
+
+// ---- Route aliases for back-compat ----
+// Old front-ends called /api/status; alias to cached prodstatus feed
+app.get('/api/status', (req, res) => {
+  const qs = req.originalUrl.includes('?') ? req.originalUrl.slice(req.originalUrl.indexOf('?')) : '';
+  res.redirect(307, `/api/workorders/prodstatus${qs}`);
+});
+
+// Some pages might call /api/kpis-by-asset; alias to /api/kpis/by-asset
+app.get('/api/kpis-by-asset', (req, res) => {
+  const qs = req.originalUrl.includes('?') ? req.originalUrl.slice(req.originalUrl.indexOf('?')) : '';
+  res.redirect(307, `/api/kpis/by-asset${qs}`);
 });
 // ---- Snapshot-backed APIs ----
 app.get('/api/kpis/header', async (req, res) => {
@@ -859,7 +890,7 @@ app.get('/api/kpis/by-asset', async (req, res) => {
 });
 
 app.get('/api/workorders/:page', async (req, res) => {
-  const page = req.params.page;
+  const page = req.params.page; // 'index' | 'pm' | 'prodstatus'
   const pool = await poolPromise;
   const { recordset } = await pool.request()
     .input('page', sql.NVarChar, page)
@@ -870,13 +901,9 @@ app.get('/api/workorders/:page', async (req, res) => {
   if (!recordset.length) return res.json({ rows: [], lastRefreshUtc: null });
   const latest = recordset[0].SnapshotAt;
   const data = JSON.parse(recordset[0].Data);
-  res.json({ rows: data, lastRefreshUtc: latest });
-});
-
-// Back-compat alias for old front-end call
-app.get('/api/status', async (req, res) => {
-  req.params = { page: 'prodstatus' };
-  return app._router.handle(req, res, () => {});
+  const payload = { rows: data, lastRefreshUtc: latest };
+  if (page === 'prodstatus') payload.tiles = data; // back-compat
+  res.json(payload);
 });
 
 const shouldListen =

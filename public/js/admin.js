@@ -187,13 +187,15 @@ async function saveSchedules() {
 document.getElementById('sched-save')?.addEventListener('click', saveSchedules);
 loadSchedules();
 
+// ---- Run Now wiring (guarded) ----
 async function runJob(name) {
   const res = await fetch('/api/admin/run', {
     method: 'POST',
-    headers: {'Content-Type':'application/json'},
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ job: name })
   });
-  document.getElementById('run-status').textContent = res.ok ? `Ran ${name}` : `Failed ${name}`;
+  const el = document.getElementById('run-status');
+  if (el) el.textContent = res.ok ? `Ran ${name}` : `Failed ${name}`;
 }
 (document.getElementById('run-header')   || {}).onclick = ()=>runJob('header_kpis');
 (document.getElementById('run-byasset')  || {}).onclick = ()=>runJob('by_asset_kpis');

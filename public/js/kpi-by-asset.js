@@ -218,12 +218,11 @@ export async function loadAll() {
       const d = new Date(data.lastRefreshUtc);
       lr.textContent = `· Last refresh: ${d.toLocaleString()}`;
     }
-    // Avoid duplicate const 'rows' and add defensive guards
     const rowsData = Array.isArray(data?.rows) ? data.rows : [];
     console.debug('[kpi-by-asset] sample row keys:', Object.keys(rowsData?.[0] || Object.values(data.assets || {})[0] || {}));
     console.debug('[kpi-by-asset] sample row values:', rowsData?.[0] || Object.values(data.assets || {})[0]);
     // Prefer server-provided assets map; build one if missing (back-compat)
-    const assets = data.assets && Object.keys(data.assets).length
+    const assets = (data.assets && Object.keys(data.assets).length)
       ? data.assets
       : Object.fromEntries(rowsData.map(r => [String(r.AssetID), {
           assetID: r.AssetID,
