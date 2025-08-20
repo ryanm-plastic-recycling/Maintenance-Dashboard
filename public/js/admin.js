@@ -189,13 +189,26 @@ loadSchedules();
 
 // ---- Run Now wiring (guarded) ----
 async function runJob(name) {
-  const res = await fetch('/api/admin/run', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ job: name })
-  });
+  let msg = '';
+  try {
+    const res = await fetch('/api/admin/run', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ job: name })
+    });
+    if (res.ok) {
+      msg = `Ran ${name}`;
+    } else {
+      // Try to parse JSON error, else show raw text
+      let body = '';
+      try { body = await res.text(); } catch {}
+      msg = `Failed ${name}${body ? `: ${body}` : ''}`;
+    }
+  } catch (e) {
+    msg = `Failed ${name}: ${String(e)}`;
+  }
   const el = document.getElementById('run-status');
-  if (el) el.textContent = res.ok ? `Ran ${name}` : `Failed ${name}`;
+  if (el) el.textContent = msg;
 }
 (document.getElementById('run-header')   || {}).onclick = ()=>runJob('header_kpis');
 (document.getElementById('run-byasset')  || {}).onclick = ()=>runJob('by_asset_kpis');

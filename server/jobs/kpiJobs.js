@@ -1,9 +1,36 @@
 import fs  from 'fs';
 import sql from 'mssql';
 import moment from 'moment-timezone';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 const cfg = JSON.parse(fs.readFileSync('config.json','utf-8'));
 const TF  = cfg.kpiByAssetTimeframes || ["lastMonth"]; // safe default
+
+function loadMappings() {
+  // Resolve project root from this file: server/jobs -> <root>
+  const __dirname = path.dirname(fileURLToPath(import.meta.url));
+  const ROOT = path.resolve(__dirname, '..', '..');
+  const envPath = process.env.MAPPINGS_PATH && process.env.MAPPINGS_PATH.trim();
+  const candidates = [
+    envPath,                                   // explicit override
+    path.join(ROOT, 'mappings.json'),          // repo root
+    path.join(ROOT, 'public', 'mappings.json') // public folder (used by front-end)
+  ].filter(Boolean);
+  for (const p of candidates) {
+    try {
+      if (fs.existsSync(p)) {
+        const txt = fs.readFileSync(p, 'utf-8');
+        const json = JSON.parse(txt);
+        if (json && Array.isArray(json.assets)) return json;
+      }
+    } catch (e) {
+      console.warn('[kpiJobs] failed to load mappings at', p, String(e));
+    }
+  }
+  console.warn('[kpiJobs] mappings.json not found in', candidates);
+  return { assets: [] };
+}
 
 function tfRange(now, tf) {
   const Z = 'America/Indiana/Indianapolis';
@@ -65,8 +92,11 @@ export async function refreshHeaderKpis(pool) {
 
 export async function refreshByAssetKpis(pool) {
   const now = new Date();
-  const mappings = JSON.parse(fs.readFileSync('mappings.json','utf-8'));
-  const assets = mappings.assets || [];
+  const mappings = loadMappings(); // expects { assets: [{assetID, name}, ...] }
+  const assets = Array.isArray(mappings.assets) ? mappings.assets : [];
+  if (assets.length === 0) {
+    console.warn('[kpiJobs] No assets in mappings; by-asset snapshot will be empty (no crash).');
+  }
 
   for (const tf of TF) {
     const { start, end } = tfRange(now, tf);

@@ -8,3 +8,13 @@
 - Each endpoint returns `lastRefreshUtc` for UI display.
 - NodeCache removed.
 
+### Asset mappings source
+- Server jobs load `mappings.json` from:
+  1) `MAPPINGS_PATH` (env var), or
+  2) repo root `./mappings.json`, or
+  3) `./public/mappings.json`
+- Expected shape: 
+  ```json
+  { "assets": [ { "assetID": 101, "name": "Extrusion Line E1" }, ... ] }
+  ```
+
