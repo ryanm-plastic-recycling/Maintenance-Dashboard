@@ -525,11 +525,17 @@
       }
 
       async function loadStatus() {
-        // Primary: cached endpoint; alias /api/status also exists for back-compat
-        const res = await fetch('/api/workorders/prodstatus');
-        const { status, nextRefresh } = await res.json();
-        renderStatus(status);
-        scheduleRefresh(Math.max(0, nextRefresh - Date.now()));
+        // Use cached endpoint (alias /api/status exists too)
+        const res = await fetch('/api/workorders/prodstatus', { cache: 'no-store' });
+        const data = await res.json();
+        const rows = Array.isArray(data?.rows) ? data.rows
+                    : (Array.isArray(data?.tiles) ? data.tiles : []);
+        if (!rows.length) {
+          console.warn('[prodstatus] no rows to render yet');
+          return;
+        }
+        renderStatus(rows);
+        if (data.nextRefresh) scheduleRefresh(Math.max(0, data.nextRefresh - Date.now()));
       }
 
       async function refreshAll() {
@@ -537,11 +543,12 @@
         await loadStatus();
       }
 
-      function renderStatus(status) {
+      function renderStatus(statusArr) {
         const tbody = document.getElementById('status-data');
         tbody.innerHTML = '';
+        const rows = Array.isArray(statusArr) ? statusArr : [];
         (mappings.productionAssets || []).forEach(item => {
-          const entry = status.find(s => s.assetID === item.id) || {};
+          const entry = rows.find(s => s.assetID === item.id) || {};
           const tr = document.createElement('tr');
           const colorMap = mappings.statusColorMapping || {};
           const textMap  = mappings.statusTextMapping || {};

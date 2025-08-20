@@ -187,20 +187,23 @@ async function saveSchedules() {
 document.getElementById('sched-save')?.addEventListener('click', saveSchedules);
 loadSchedules();
 
+// ---- Run Now wiring (guarded) ----
 async function runJob(name) {
   const res = await fetch('/api/admin/run', {
     method: 'POST',
-    headers: {'Content-Type':'application/json'},
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ job: name })
   });
-  document.getElementById('run-status').textContent = res.ok ? `Ran ${name}` : `Failed ${name}`;
+  const el = document.getElementById('run-status');
+  if (el) el.textContent = res.ok ? `Ran ${name}` : `Failed ${name}`;
 }
-document.getElementById('run-header')?.addEventListener('click', ()=>runJob('header_kpis'));
-document.getElementById('run-byasset')?.addEventListener('click', ()=>runJob('by_asset_kpis'));
-document.getElementById('run-wo-index')?.addEventListener('click', ()=>runJob('work_orders_index'));
-document.getElementById('run-wo-pm')?.addEventListener('click', ()=>runJob('work_orders_pm'));
-document.getElementById('run-wo-status')?.addEventListener('click', ()=>runJob('work_orders_status'));
-document.getElementById('run-all')?.addEventListener('click', async ()=>{
+(document.getElementById('run-header')   || {}).onclick = ()=>runJob('header_kpis');
+(document.getElementById('run-byasset')  || {}).onclick = ()=>runJob('by_asset_kpis');
+(document.getElementById('run-wo-index') || {}).onclick = ()=>runJob('work_orders_index');
+(document.getElementById('run-wo-pm')    || {}).onclick = ()=>runJob('work_orders_pm');
+(document.getElementById('run-wo-status')|| {}).onclick = ()=>runJob('work_orders_status');
+(document.getElementById('run-all')      || {}).onclick = async ()=>{
   const res = await fetch('/api/admin/refresh-all', { method: 'POST' });
-  document.getElementById('run-status').textContent = res.ok ? 'Refreshed all' : 'Refresh all failed';
-});
+  const el = document.getElementById('run-status');
+  if (el) el.textContent = res.ok ? 'Refreshed all' : 'Refresh all failed';
+};
