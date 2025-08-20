@@ -3,6 +3,7 @@
  * Replace this stub with your real ETL logic or stored-proc call.
  */
 export async function syncLimbleToSql(pool) {
-  // e.g. await pool.request().execute('dbo.SyncFromLimble');
-  return { ok: true, note: 'stubbed limble→SQL sync' };
+  const proc = process.env.LIMBLE_SYNC_PROC || 'dbo.SyncFromLimble';
+  const rs = await pool.request().execute(proc);
+  return { ok: true, proc, rowsAffected: rs?.rowsAffected };
 }
