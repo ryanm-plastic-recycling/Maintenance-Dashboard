@@ -544,6 +544,32 @@
         await loadStatus();
       }
 
+	  async function loadStatus() {
+		  const res = await fetch('/api/workorders/prodstatus?t=' + Date.now(), { cache: 'no-store' });
+		  const data = await res.json();
+		
+		  // rows may be in rows or tiles
+		  let rows = Array.isArray(data?.rows) ? data.rows
+		           : (Array.isArray(data?.tiles) ? data.tiles : []);
+		
+		  // --- normalize the SQL wrapper if present ---
+		  if (Array.isArray(rows) && rows.length === 1 && rows[0] && typeof rows[0] === 'object') {
+		    const k = Object.keys(rows[0])[0]; // e.g., "JSON_F52E2B61-18A1-11d1-B105-00805F49916B"
+		    const v = k && rows[0][k];
+		    if (k && typeof v === 'string' && v.startsWith('[')) {
+		      try { rows = JSON.parse(v); } catch { /* leave as-is if parse fails */ }
+		    }
+		  }
+		
+		  if (!rows.length) {
+		    console.warn('[prodstatus] no rows to render yet');
+		    return;
+		  }
+		
+		  renderStatus(rows, data.lastRefreshUtc);
+		  if (data.nextRefresh) scheduleRefresh(Math.max(0, data.nextRefresh - Date.now()));
+		}
+
       function renderStatus(rows, lastRefreshUtc) {
         // 1) Log the incoming rows once, up front
   		console.log('[prodstatus] rows length:', rows?.length, 'sample row:', rows?.[0]);
