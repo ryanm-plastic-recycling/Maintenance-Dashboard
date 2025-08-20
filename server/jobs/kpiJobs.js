@@ -272,10 +272,10 @@ export async function refreshWorkOrders(pool, page) {
             (page === 'index'     ? defaultIndexSql
            : page === 'pm'        ? defaultPmSql
                                   : defaultProdStatusSql);
-  let json = '[]';
+  let json   = '[]';
   let source = 'empty';
   let error  = null;
-  let rowCount = 0;
+  let parsedLen = 0;
   try {
     if (!q) throw new Error(`Missing env ${key}`);
     const rs = await pool.request().query(q);
@@ -285,9 +285,10 @@ export async function refreshWorkOrders(pool, page) {
       const key0 = Object.keys(row0)[0]; // may be 'JSON_F52E2B61-18A1-11d1-B105-00805F49916B'
       const val0 = row0[key0];
       json = (typeof val0 === 'string' && (val0.startsWith('[') || val0.startsWith('{')))
-          ? val0
-          : (row0.data || '[]');
-    }
+        ? val0
+        : (row0.data || '[]');
+      try { parsedLen = Array.isArray(JSON.parse(json)) ? JSON.parse(json).length : 0; } catch {}
+     }
     await pool.request()
       .input('Page', sql.NVarChar, page)
       .input('Data', sql.NVarChar(sql.MAX), json)
@@ -299,11 +300,12 @@ export async function refreshWorkOrders(pool, page) {
     console.warn('[refreshWorkOrders]', error);
   }
 
+  // single write, after we’ve finalized `json`
   await pool.request()
     .input('Page', sql.NVarChar, page)
     .input('Data', sql.NVarChar(sql.MAX), json)
     .query(`INSERT INTO dbo.WorkOrdersCache(Page,Data) VALUES(@Page,@Data)`);
 
-  return { page, source, rows: rowCount, error };
+  return { page, source, rows: parsedLen, error };
 }
 
