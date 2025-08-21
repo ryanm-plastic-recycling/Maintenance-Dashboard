@@ -131,6 +131,45 @@ function normalizeAssets(m) {
   return Array.from(dedup.values());
 }
 
+export async function refreshHeaderKpis(pool) {
+  const now = new Date();
+  const ranges = [
+    { tf: 'lastWeek' },
+    { tf: 'last30' }
+  ];
+  let inserted = 0;
+
+  for (const r of ranges) {
+    const { start, end } = tfRange(now, r.tf);
+    // TODO: replace placeholders with real aggregates
+    const uptimePct      = 99.9;
+    const downtimeHrs    = 1.2;
+    const mttrHrs        = 3.4;
+    const mtbfHrs        = 120.0;
+    const plannedCount   = 10;
+    const unplannedCount = 6;
+
+    await pool.request()
+      .input('Timeframe',     sql.NVarChar, r.tf)
+      .input('RangeStart',    sql.DateTime2, start)
+      .input('RangeEnd',      sql.DateTime2, end)
+      .input('UptimePct',     sql.Decimal(5,1), uptimePct)
+      .input('DowntimeHrs',   sql.Decimal(10,1), downtimeHrs)
+      .input('MttrHrs',       sql.Decimal(10,1), mttrHrs)
+      .input('MtbfHrs',       sql.Decimal(10,1), mtbfHrs)
+      .input('PlannedCount',  sql.Int, plannedCount)
+      .input('UnplannedCount',sql.Int, unplannedCount)
+      .query(`
+        INSERT INTO dbo.KpiHeaderCache
+          (Timeframe,RangeStart,RangeEnd,UptimePct,DowntimeHrs,MttrHrs,MtbfHrs,PlannedCount,UnplannedCount)
+        VALUES
+          (@Timeframe,@RangeStart,@RangeEnd,@UptimePct,@DowntimeHrs,@MttrHrs,@MtbfHrs,@PlannedCount,@UnplannedCount)
+      `);
+    inserted++;
+  }
+  return { inserted, ranges: ranges.length };
+}
+
 export async function refreshWorkOrders(pool, page) {
   const key = page === 'index' ? 'WO_INDEX_SQL'
             : page === 'pm'    ? 'WO_PM_SQL'
