@@ -326,9 +326,6 @@
             console.error('Failed to load mappings:', err);
             fetchData();
         });
-	
-        const fmtDate = ts => (parseTs(ts)?.toLocaleDateString() ?? '');
-        const fmtDateTime = ts => (parseTs(ts)?.toLocaleString() ?? '');
 
         function getWeatherIcon(desc) {
             const d = desc.toLowerCase();
