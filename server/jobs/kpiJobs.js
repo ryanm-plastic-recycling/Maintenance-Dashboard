@@ -211,18 +211,24 @@ export async function refreshWorkOrders(pool, page) {
     FOR JSON PATH
   `;
   const defaultProdStatusSql = `
-    SELECT
-      af.AssetID      AS assetID,
-      a.Name          AS assetName,
-      af.ValueText    AS assetStatus,
-      af.LastEdited   AS lastChangeUTC
-    FROM dbo.LimbleKPIAssetFields af
-    INNER JOIN dbo.LimbleKPIAssets a
-      ON a.AssetID = af.AssetID
-    WHERE af.FieldID = 95
-    ORDER BY af.LastEdited DESC
+    ;WITH s AS (
+      SELECT
+        af.AssetID     AS assetID,
+        a.Name         AS assetName,
+        af.ValueText   AS assetStatus,
+        af.LastEdited  AS lastChangeUTC,
+        ROW_NUMBER() OVER (PARTITION BY af.AssetID ORDER BY af.LastEdited DESC) AS rn
+      FROM dbo.LimbleKPIAssetFields af
+      INNER JOIN dbo.LimbleKPIAssets a
+        ON a.AssetID = af.AssetID
+      WHERE af.FieldID = 95
+    )
+    SELECT assetID, assetName, assetStatus, lastChangeUTC
+    FROM s
+    WHERE rn = 1
+    ORDER BY assetName
     FOR JSON PATH
-  `;
+    `;
 
   const q = ((process.env[key] || '').trim()) ||
             (page === 'index' ? defaultIndexSql
