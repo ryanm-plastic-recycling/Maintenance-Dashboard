@@ -131,41 +131,98 @@ function normalizeAssets(m) {
   return Array.from(dedup.values());
 }
 
-export async function refreshHeaderKpis(pool) {
-  const now = new Date();
-  const ranges = [
-    { tf: 'lastWeek', k: 'UP' },
-    { tf: 'last30',   k: 'MT' }
-  ];
-  let inserted = 0;
+export async function refreshWorkOrders(pool, page) {
+  const key = page === 'index' ? 'WO_INDEX_SQL'
+            : page === 'pm'    ? 'WO_PM_SQL'
+            :                    'PROD_STATUS_SQL';
 
-  for (const r of ranges) {
-    const { start, end } = tfRange(now, r.tf);
-    // Placeholder values; replace with real aggregation queries
-    const uptimePct      = 99.9;
-    const downtimeHrs    = 1.2;
-    const mttrHrs        = 3.4;
-    const mtbfHrs        = 120.0;
-    const plannedCount   = 10;
-    const unplannedCount = 6;
+  const defaultIndexSql = `
+    SELECT TOP (200)
+      t.TaskID       AS taskID,
+      t.AssetID      AS assetID,
+      t.Priority     AS priority,
+      t.Name         AS name,
+      t.Description  AS description,
+      t.Type         AS [type],
+      t.CreatedDate  AS createdDate,
+      t.StatusID     AS statusID
+    FROM dbo.LimbleKPITasks t
+    WHERE t.Type IN (2, 6)
+      AND t.DateCompleted IS NULL
+      AND t.LocationID = 13425
+    ORDER BY t.CreatedDate DESC
+    FOR JSON PATH
+  `;
+  const defaultPmSql = `
+    SELECT TOP (200)
+      t.TaskID       AS taskID,
+      t.AssetID      AS assetID,
+      t.Priority     AS priority,
+      t.Name         AS name,
+      t.Description  AS description,
+      t.Type         AS [type],
+      t.CreatedDate  AS createdDate,
+      t.Due          AS [due],
+      t.StatusID     AS statusID
+    FROM dbo.LimbleKPITasks t
+    WHERE t.Type = 1
+      AND t.DateCompleted IS NULL
+      AND t.LocationID = 13425
+    ORDER BY t.Due ASC
+    FOR JSON PATH
+  `;
+  const defaultProdStatusSql = `
+    SELECT
+      af.AssetID      AS assetID,
+      a.Name          AS assetName,
+      af.ValueText    AS assetStatus,
+      af.LastEdited   AS lastChangeUTC
+    FROM dbo.LimbleKPIAssetFields af
+    INNER JOIN dbo.LimbleKPIAssets a
+      ON a.AssetID = af.AssetID
+    WHERE af.FieldID = 95
+    ORDER BY af.LastEdited DESC
+    FOR JSON PATH
+  `;
 
-    await pool.request()
-      .input('Timeframe', sql.NVarChar, r.tf)
-      .input('RangeStart', sql.DateTime2, start)
-      .input('RangeEnd', sql.DateTime2, end)
-      .input('UptimePct', sql.Decimal(5,1), uptimePct)
-      .input('DowntimeHrs', sql.Decimal(10,1), downtimeHrs)
-      .input('MttrHrs', sql.Decimal(10,1), mttrHrs)
-      .input('MtbfHrs', sql.Decimal(10,1), mtbfHrs)
-      .input('PlannedCount', sql.Int, plannedCount)
-      .input('UnplannedCount', sql.Int, unplannedCount)
-      .query(`
-        INSERT INTO dbo.KpiHeaderCache(Timeframe,RangeStart,RangeEnd,UptimePct,DowntimeHrs, MttrHrs, MtbfHrs,PlannedCount,UnplannedCount)
-        VALUES(@Timeframe,@RangeStart,@RangeEnd,@UptimePct,@DowntimeHrs,@MttrHrs,@MtbfHrs,@PlannedCount,@UnplannedCount)
-      `);
-    inserted++;
+  const q = ((process.env[key] || '').trim()) ||
+            (page === 'index' ? defaultIndexSql
+           : page === 'pm'    ? defaultPmSql
+                               : defaultProdStatusSql);
+
+  let json   = '[]';
+  let source = 'empty';
+  let error  = null;
+  let parsedLen = 0;
+
+  try {
+    if (!q) throw new Error(`Missing env ${key}`);
+    const rs = await pool.request().query(q);
+
+    if (rs.recordset?.length) {
+      const row0 = rs.recordset[0];
+      const key0 = Object.keys(row0)[0]; // e.g. JSON_F52E2B61-...
+      const val0 = row0[key0];
+      json = (typeof val0 === 'string' && (val0.startsWith('[') || val0.startsWith('{')))
+        ? val0
+        : (row0.data || '[]');
+      try {
+        const parsed = JSON.parse(json);
+        parsedLen = Array.isArray(parsed) ? parsed.length : 0;
+      } catch { /* leave parsedLen = 0 */ }
+    }
+    source = process.env[key] ? 'env' : 'default';
+  } catch (e) {
+    error = e?.message || String(e);
+    console.warn('[refreshWorkOrders]', error);
   }
-  return { inserted, ranges: ranges.length };
+
+  await pool.request()
+    .input('Page', sql.NVarChar, page)
+    .input('Data', sql.NVarChar(sql.MAX), json)
+    .query(`INSERT INTO dbo.WorkOrdersCache(Page,Data) VALUES(@Page,@Data)`);
+
+  return { page, source, rows: parsedLen, error };
 }
 
 export async function refreshByAssetKpis(pool) {
