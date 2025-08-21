@@ -317,23 +317,16 @@
         });
 	
 	// Function to format Unix timestamp to "YYYY-MM-DD" format
-	function formatDate(timestamp) {
-		const date = new Date(timestamp * 1000); // Convert to milliseconds
-		const year = date.getFullYear();
-		const month = String(date.getMonth() + 1).padStart(2, '0'); // Month is 0-indexed
-		const day = String(date.getDate()).padStart(2, '0');
-		return `${year}-${month}-${day}`;
-	}
-	// Function to format Unix timestamp to "YYYY-MM-DD" format with hour and minute
-        function formatDateTime(timestamp) {
-                const date = new Date(timestamp * 1000); // Convert to milliseconds
-                const year = date.getFullYear();
-                const month = String(date.getMonth() + 1).padStart(2, '0'); // Month is 0-indexed
-                const day = String(date.getDate()).padStart(2, '0');
-                const hours = String(date.getHours()).padStart(2, '0');
-                const minutes = String(date.getMinutes()).padStart(2, '0');
-                return `${year}-${month}-${day} ${hours}:${minutes}`;
+        function parseTs(ts){
+                if(ts==null) return null;
+                if(typeof ts==='number') return new Date(ts*1000);
+                const s=String(ts).trim();
+                if(/^\d+$/.test(s)) return new Date(Number(s)*1000);
+                const d=new Date(s);
+                return isNaN(d)?null:d;
         }
+        const fmtDate = ts => (parseTs(ts)?.toLocaleDateString() ?? '');
+        const fmtDateTime = ts => (parseTs(ts)?.toLocaleString() ?? '');
 
         function getWeatherIcon(desc) {
             const d = desc.toLowerCase();
@@ -438,7 +431,10 @@
 				//***console.log('Received data:', data);
 				
                                 // Process data and update the table
-                                const tasks = data.rows || [];
+                        let tasks = data.rows || [];
+                        tasks.sort((a,b)=> (parseTs(b.createdDate)?.getTime()??0) - (parseTs(a.createdDate)?.getTime()??0));
+                        const maxRows = (config.maxRows && config.maxRows['pm.html']) || 40;
+                        const render = tasks.slice(0, maxRows);
                                 const lrEl = document.getElementById('last-refresh-pm');
                                 if (lrEl && data.lastRefreshUtc) {
                                     lrEl.textContent = `· Last refresh: ${new Date(data.lastRefreshUtc).toLocaleString()}`;
@@ -455,7 +451,7 @@
                                 const priorityMapping = mappings.priority || {};
 				
                                 // Filter and display the relevant data
-                                tasks.forEach(task => {
+                        render.forEach(task => {
                                         const row = document.createElement('tr');
                                         row.innerHTML = `
                                                 <td data-col="locationID">${locationMapping[task.locationID] || task.locationID}</td>
@@ -465,8 +461,8 @@
                                                 <td data-col="name">${task.name}</td>
                                                 <td data-col="description">${task.description}</td>
                                                 <td data-col="type">${typeMapping[task.type] || task.type}</td>
-                                                <td data-col="createdDate">${formatDateTime(task.createdDate)}</td>
-                                                <td data-col="due">${formatDate(task.due)}</td>
+                                                <td data-col="createdDate">${fmtDateTime(task.createdDate)}</td>
+                                                <td data-col="due">${fmtDate(task.due)}</td>
                                                 <td data-col="statusID">${statusMapping[task.statusID] || task.statusID}</td>
                                                 <td data-col="teamID">${teamMapping[task.teamID] || task.teamID}</td>
                                                 <td data-col="assignedTo">${task.assignedTo || task.assignedUser || ""}</td>
