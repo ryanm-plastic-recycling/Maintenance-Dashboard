@@ -494,57 +494,68 @@
 		}
 
       function renderStatus(rows, lastRefreshUtc) {
-        // 1) Log the incoming rows once, up front
-  		console.log('[prodstatus] rows length:', rows?.length, 'sample row:', rows?.[0]);
+		  // 1) Log once for sanity
+		  console.log('[prodstatus] rows length:', rows?.length, 'sample row:', rows?.[0]);
+		
 		  // Defensive helpers
-        const asArr  = (x) => Array.isArray(x) ? x : [];
-        const sfind  = (x, fn) => asArr(x).find(fn);
-        const sfor   = (x, fn) => asArr(x).forEach(fn);
+		  const asArr = (x) => Array.isArray(x) ? x : [];
+		  const sfind = (x, fn) => asArr(x).find(fn);
+		  const sfor  = (x, fn) => asArr(x).forEach(fn);
+		
+		  // Header: last refresh
+		  const tbody = document.getElementById('status-data');
+		  tbody.innerHTML = '';
+		  if (lastRefreshUtc) {
+		    const lrEl = document.getElementById('last-refresh-status');
+		    if (lrEl) lrEl.textContent = `· Last refresh: ${new Date(lastRefreshUtc).toLocaleString()}`;
+		  }
+		
+		  const colorMap = mappings.statusColorMapping || {};
+		  const textMap  = mappings.statusTextMapping  || {};
+		
+		  sfor(mappings.productionAssets, (item) => {
+		    // Match by AssetID (string compare to be robust against types)
+		    const entry = sfind(rows, r => String(r.assetID) === String(item.id)) || {};
+		
+		    // Prefer Field-95 text from assets/fields upsert; fall back to any legacy fields
+		    const raw =
+		      entry.assetStatus ?? entry.value ?? entry.valueText ??
+		      entry.statusText  ?? entry.status ?? entry.statusID ?? 'N/A';
+		
+		    // If it's numeric (or numeric-looking), map via textMap; else use as-is
+		    let text;
+		    if (typeof raw === 'number' || (/^\d+$/).test(String(raw).trim())) {
+		      text = textMap[String(raw)] || String(raw);
+		    } else {
+		      text = String(raw);
+		    }
+		
+		    // Normalize whitespace and trim
+		    text = text.replace(/\u00A0/g, ' ').trim();
+		
+		    // Resolve a color: if textMap maps some ID -> this text, use that ID for color; else use text directly
+		    const idFromText = Object.keys(textMap).find(k => (textMap[k] || '').toString().toLowerCase() === text.toLowerCase());
+		    const keyForColor = idFromText || text;
+		    const bg = colorMap[keyForColor] || '#fff';
+		
+		    // Foreground contrast: keep your explicit exceptions, otherwise default to black
+		    const tr = document.createElement('tr');
+		    tr.style.backgroundColor = bg;
+		
+		    const bgLower = String(bg).toLowerCase();
+		    let fg = '#000';
+		    if (bgLower === '#d64550' || bgLower === 'red') fg = '#fff';
+		    else if (bgLower === '#118dff' || bgLower === 'blue') fg = '#fff';
+		    tr.style.color = fg;
+		
+		    tr.innerHTML = `
+		      <td>${item.name}</td>
+		      <td>${text}</td>
+		    `;
+		    tbody.appendChild(tr);
+		  });
+		}
 
-        const tbody = document.getElementById('status-data');
-        tbody.innerHTML = '';
-        if (lastRefreshUtc) {
-          const lrEl = document.getElementById('last-refresh-status');
-          if (lrEl) lrEl.textContent = `· Last refresh: ${new Date(lastRefreshUtc).toLocaleString()}`;
-        }
-        sfor(mappings.productionAssets, item => {
-		  // 1) Coerce IDs to strings so match works no matter what SQL returns
-		  const entry = sfind(rows, s => String(s.assetID) === String(item.id)) || {};
-		
-                  const colorMap = mappings.statusColorMapping || {};
-                  const textMap  = mappings.statusTextMapping || {};
-                  const raw =
-                    entry.assetStatus ?? entry.value ?? entry.valueText ??
-                    entry.statusText ?? entry.status ?? entry.statusID ?? 'N/A';
-                  let text;
-                  if (typeof raw === 'number' || (/^\d+$/).test(String(raw).trim())) {
-                    text = textMap[String(raw)] || String(raw);
-                  } else {
-                    text = String(raw);
-                  }
-                  text = text.replace(/\u00A0/g,' ').trim();
-                  const statusIdFromText = Object.keys(textMap).find(k => textMap[k] === text);
-                  const keyForColor = statusIdFromText || text;
-                  const bg = colorMap[keyForColor] || '#fff';
-		
-		  const tr = document.createElement('tr');
-		  tr.style.backgroundColor = bg;
-		
-		  const bgLower = bg.toLowerCase();
-		  let fg = '#000';
-		  if (bgLower === '#d64550' || bgLower === 'red') fg = '#fff';
-		  else if (bgLower === '#118dff' || bgLower === 'blue') fg = '#fff';
-		
-		  tr.style.color = fg;
-		
-		  tr.innerHTML = `
-		    <td>${item.name}</td>
-		    <td>${text}</td>
-		  `;
-		  tbody.appendChild(tr);
-		});
-
-      }
 
       refreshButton.addEventListener('click', () => {
         clearTimeout(refreshTimeout);
