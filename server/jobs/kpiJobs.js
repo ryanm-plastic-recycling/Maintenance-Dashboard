@@ -279,7 +279,6 @@ export async function refreshWorkOrders(pool, page) {
   try {
     if (!q) throw new Error(`Missing env ${key}`);
     const rs = await pool.request().query(q);
-    let json = '[]';
     if (rs.recordset?.length) {
       const row0 = rs.recordset[0];
       const key0 = Object.keys(row0)[0]; // may be 'JSON_F52E2B61-18A1-11d1-B105-00805F49916B'
@@ -289,11 +288,6 @@ export async function refreshWorkOrders(pool, page) {
         : (row0.data || '[]');
       try { parsedLen = Array.isArray(JSON.parse(json)) ? JSON.parse(json).length : 0; } catch {}
      }
-    await pool.request()
-      .input('Page', sql.NVarChar, page)
-      .input('Data', sql.NVarChar(sql.MAX), json)
-      .query(`INSERT INTO dbo.WorkOrdersCache(Page,Data) VALUES(@Page,@Data)`);
-    rowCount = rs.recordset?.length || 0;
     source = process.env[key] ? 'env' : 'default';
   } catch (e) {
     error = e?.message || String(e);
@@ -305,7 +299,6 @@ export async function refreshWorkOrders(pool, page) {
     .input('Page', sql.NVarChar, page)
     .input('Data', sql.NVarChar(sql.MAX), json)
     .query(`INSERT INTO dbo.WorkOrdersCache(Page,Data) VALUES(@Page,@Data)`);
-
   return { page, source, rows: parsedLen, error };
 }
 
