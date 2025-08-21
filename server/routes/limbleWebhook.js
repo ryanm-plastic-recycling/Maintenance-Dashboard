@@ -20,6 +20,7 @@ export default function limbleWebhook(poolPromise) {
   const r = express.Router();
 
   r.post('/limble/webhook', express.json({ limit:'1mb' }), async (req, res) => {
+    // const pool = await poolPromise; // uncomment if you query SQL here
     try {
       const apiKey = process.env.LIMBLE_API_KEY;
       if (!apiKey) return res.status(406).json({ ok:false, error:'no api key' });
