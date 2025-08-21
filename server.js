@@ -12,6 +12,7 @@ import sql      from 'mssql';
 import { start as startScheduler, reload as reloadScheduler } from './server/scheduler.js';
 import { refreshHeaderKpis, refreshByAssetKpis, refreshWorkOrders } from './server/jobs/kpiJobs.js';
 import adminRoutes from './server/routes/admin.js';
+import limbleWebhook from './server/routes/limbleWebhook.js';
 
 dotenv.config();
 
@@ -520,7 +521,7 @@ app.use('/api', adminRoutes(poolPromise));
 app.fetchAndCache = async () => null;
 const PORT = process.env.PORT || 3000;
 app.use(express.static(path.join(__dirname, 'public')));
-
+app.use('/api', limbleWebhook(pool));
 // Serve the HTML file for the root path
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
