@@ -57,7 +57,6 @@ const poolPromise =
     ? Promise.resolve(null)
     : new sql.ConnectionPool(sqlConfig).connect();
 
-
 function resolveRange(timeframe) {
   const now = moment();
   switch (timeframe) {
@@ -521,7 +520,7 @@ app.use('/api', adminRoutes(poolPromise));
 app.fetchAndCache = async () => null;
 const PORT = process.env.PORT || 3000;
 app.use(express.static(path.join(__dirname, 'public')));
-app.use('/api', limbleWebhook(pool));
+app.use('/api', limbleWebhook(poolPromise));
 // Serve the HTML file for the root path
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
