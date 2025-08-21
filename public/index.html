@@ -279,12 +279,23 @@
     //const fetchButton = document.getElementById('fetch-button');
     //const inputValue = document.getElementById('input-value');
     //const workOrderDataContainer = document.getElementById('work-order-data');
-        const refreshButton = document.getElementById('refresh-button');
+    const refreshButton = document.getElementById('refresh-button');
     const workOrderDataContainer = document.getElementById('work-order-data');
     const rotateBtn = document.getElementById('toggle-rotation');
     let mappings = {};
     let config = {};
-
+	// Robust date parsing: epoch sec | numeric string | ISO
+	  function parseTs(ts){
+	    if (ts==null) return null;
+	    if (typeof ts==='number') return new Date(ts*1000);
+	    const s=String(ts).trim();
+	    if (/^\d+$/.test(s)) return new Date(Number(s)*1000);
+	    const d=new Date(s);
+	    return isNaN(d)?null:d;
+	  }
+  const fmtDate    = ts => (parseTs(ts)?.toLocaleDateString() ?? '');
+  const fmtDateTime= ts => (parseTs(ts)?.toLocaleString() ?? '');
+		
     fetch('/config.json')
         .then(res => res.json())
         .then(cfg => { config = cfg; rotatePages(); })
