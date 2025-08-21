@@ -511,21 +511,21 @@
 		  // 1) Coerce IDs to strings so match works no matter what SQL returns
 		  const entry = sfind(rows, s => String(s.assetID) === String(item.id)) || {};
 		
-		  const colorMap = mappings.statusColorMapping || {};
-		  const textMap  = mappings.statusTextMapping || {};
-		
-		  // 2) Prefer the plain text if present; else fall back to code
-		  const codeOrText = entry.assetStatus ?? entry.status ?? entry.statusID;
-		
-		  // 3) Normalize text (trim + remove NBSP) so mapping/color lookups work
-		  const textRaw = textMap[codeOrText] || codeOrText || 'N/A';
-		  const text = (typeof textRaw === 'string')
-		    ? textRaw.replace(/\u00A0/g, ' ').trim()
-		    : textRaw;
-		
-		  // 4) Resolve a color: try ID via reverse-map; else try the text; else white
-		  const statusId = Object.keys(textMap).find(k => textMap[k] === text) || codeOrText;
-		  const bg = colorMap[statusId] || colorMap[text] || '#fff';
+                  const colorMap = mappings.statusColorMapping || {};
+                  const textMap  = mappings.statusTextMapping || {};
+                  const raw =
+                    entry.assetStatus ?? entry.value ?? entry.valueText ??
+                    entry.statusText ?? entry.status ?? entry.statusID ?? 'N/A';
+                  let text;
+                  if (typeof raw === 'number' || (/^\d+$/).test(String(raw).trim())) {
+                    text = textMap[String(raw)] || String(raw);
+                  } else {
+                    text = String(raw);
+                  }
+                  text = text.replace(/\u00A0/g,' ').trim();
+                  const statusIdFromText = Object.keys(textMap).find(k => textMap[k] === text);
+                  const keyForColor = statusIdFromText || text;
+                  const bg = colorMap[keyForColor] || '#fff';
 		
 		  const tr = document.createElement('tr');
 		  tr.style.backgroundColor = bg;

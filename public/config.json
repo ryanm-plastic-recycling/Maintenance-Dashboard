@@ -1,4 +1,9 @@
 {
+  "maxRows": {
+    "index.html": 40,
+    "pm.html": 40
+  },
+  "kpiByAssetDefaultTimeframe": "lastMonth",
   "pages": [
     "index.html",
     "pm.html",

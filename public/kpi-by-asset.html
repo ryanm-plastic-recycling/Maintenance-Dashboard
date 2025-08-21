@@ -5,282 +5,78 @@
   <title>KPIs by Asset</title>
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="css/style.css">
-    <script src="burnin.js" defer></script>
-  <style>
-    body { font-family: Arial, sans-serif; margin:0; padding:0; background:#f0f0f0; color:#333; position:relative; }
-    .top-border { position:fixed; top:0; left:0; width:100%; height:96px; background:rgba(146,208,80,1); z-index:2; display:flex; align-items:center; padding-right:20px; }
-    .top-border img { max-height:75px; width:auto; object-fit:contain; }
-    .right-top-image { position:fixed; top:0; right:0; padding:10px; z-index:3; }
-    .right-top-image img { height:75px; width:auto; }
-    #clock { flex:1; text-align:center; font-size:48px; font-weight:bold; }
-    .clock-date { display:block; font-size:20px; }
-    .left-border { position:fixed; top:0; left:0; width:128px; height:100%; background:rgba(146,208,80,1); z-index:1; }
-    #toggle-rotation { display:block; width:110px; margin:110px auto 10px; font-size:12px; background-color: blue; color: white; }
-    #refresh-timer { margin-left:10px; font-weight:bold; }
-    .container { max-width: none; width: auto; margin:120px 20px 20px 160px; padding:20px; background:#fff; box-shadow:0 2px 4px rgba(0,0,0,0.1); border-radius:8px; position:relative; z-index:1; }
-    h1 { text-align:center; margin-bottom:20px; color:rgba(37,64,143,1); }
-    table { width:100%; border-collapse:collapse; border:1px solid #ddd; font-size:1.8rem; }
-    .table-wrap { max-height: none; overflow: visible; }
-    th, td { padding:12px; text-align:center; border-bottom:1px solid #ddd; }
-    th { background:#25408F; color:#fff; }
-    tbody tr:nth-child(even) { background:#e0e0e0; }
-    tbody tr:nth-child(odd) { background:#fff; }
-    .logo { position:absolute; top:20px; left:20px; max-width:200px; max-height:200px; width:auto; height:auto; }
-    .tabs { margin:10px 0; }
-    .tabs a { text-decoration:none; color:#000; padding:8px 12px; border:1px solid #ccc; border-bottom:none; background:#eee; border-radius:4px 4px 0 0; margin-right:4px; }
-    .tabs a.active { background:#fff; font-weight:bold; }
-    .top-border .header-kpi:first-of-type,
-    .top-border .header-mt { margin-left:160px; }
-    .top-border .header-kpi:last-of-type { margin-right:160px; }
-    .header-mt {
-    display: flex;
-    flex-direction: row; /* Explicitly force horizontal layout */
-    align-items: center;
-    gap: 40px; /* spacing between MTTR and MTBF */
-}
-    .header-mt .header-metric { display:flex; flex-direction:column; align-items:center; }
-    .true-overall-row { padding-bottom:4px; }
-  </style>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="burnin.js" defer></script>
 </head>
 <body>
-  <div class="top-border">
-    <img src="img/pri-logo.png" alt="PRI Logo" class="logo" />
-    <div class="header-kpi">
-      <div class="kpi-title">Maintenance Downtime (Last Week)</div>
-      <div id="downtime-value" class="kpi-value">--%</div>
-    </div>
-    <div class="header-mt">
-      <div class="header-metric">
-        <div class="kpi-title">MTTR (30d)</div>
-        <div id="mttr-value" class="kpi-value">--h</div>
-      </div>
-      <div class="header-metric">
-        <div class="kpi-title mtbf-title">MTBF (30d)</div>
-        <div id="mtbf-value" class="kpi-value">--h</div>
-      </div>
-    </div>
-    <div id="clock">--:--:--</div>
-    <div class="header-kpi">
-      <div class="kpi-title">Planned vs Unplanned (Last Week)</div>
-      <div id="planned-vs-unplanned" class="kpi-value">--% vs --%</div>
-    </div>
-  </div>
-  <div class="right-top-image">
-    <img src="img/innovation-logo.png" alt="Innovation Logo" />
-  </div>
-  <div class="left-border">
-    <button id="toggle-rotation">Pause Rotation</button>
-  </div>
-  <div class="container">
-    <h1>Asset KPIs <small id="last-refresh" style="font-weight:normal;font-size:0.8rem;color:#555;"></small></h1>
-    <div class="tabs">
-      <a href="/index.html">Work Orders</a>
-      <a href="/pm.html">PM Work Orders</a>
-      <a href="/prodstatus.html">Production Status</a>
-      <a href="/kpi-by-asset.html" class="active">KPIs by Asset</a>
-      <a href="/admin">Admin</a>
-    </div>
-    <h2>All Assets — True Overall</h2>
-    <div id="true-overall-row" class="true-overall-row">
-      <div class="kpi-tile" id="tile-downtime">
-        <div class="label">Downtime %</div>
-        <div class="value" data-testid="true-overall-downtime">--%</div>
-      </div>
-      <div class="kpi-tile" id="tile-mttr">
-        <div class="label">MTTR (h)</div>
-        <div class="value" data-testid="true-overall-mttr">--</div>
-      </div>
-      <div class="kpi-tile" id="tile-mtbf">
-        <div class="label">MTBF (h)</div>
-        <div class="value" data-testid="true-overall-mtbf">--</div>
-      </div>
-      <div class="kpi-tile" id="tile-planned">
-        <div class="label">Planned %</div>
-        <div class="value" data-testid="true-overall-planned">--%</div>
-      </div>
-      <div class="kpi-tile" id="tile-unplanned">
-        <div class="label">Unplanned %</div>
-        <div class="value" data-testid="true-overall-unplanned">--%</div>
-      </div>
-    </div>
-    <div class="controls">
-      <label for="timeframe-select">Timeframe:</label>
-      <select id="timeframe-select">
-        <option value="currentWeek">Current Week</option>
+<main>
+  <h1>KPIs by Asset <small id="kpi-range" style="font-weight:normal;font-size:0.9rem;color:#555;"></small></h1>
+  <div style="margin:8px 0;">
+    <label>Timeframe:
+      <select id="tf-select">
+        <option value="lastMonth">Last Month</option>
+        <option value="last30">Last 30 Days</option>
         <option value="lastWeek">Last Week</option>
-        <option value="currentMonth">Current Month</option>
-        <option value="lastMonth" selected>Last Month</option>
-        <option value="currentYear">Current Year</option>
-        <option value="lastYear">Last Year</option>
-        <option value="trailing7Days">Trailing 7 Days</option>
-        <option value="trailing30Days">Trailing 30 Days</option>
-        <option value="trailing12Months">Trailing 12 Months</option>
       </select>
-      <span id="date-range" style="margin-left:8px; opacity:.8;"></span>
-    </div>
-    <div>
-      <button id="refresh-button">Refresh</button>
-      <span id="refresh-timer"></span>
-    </div>
-    <div id="error-banner" style="display:none;color:red;">Failed to load KPIs</div>
-    <div id="loading" style="display:none;">
-      <div class="spinner"></div>
-    </div>
-    <div class="table-wrap">
-    <table id="kpi-by-asset">
-      <thead>
-        <tr>
-          <th>Asset Name</th>
-          <th class="col-downtime" data-testid="col-downtime-hrs">Downtime Hrs</th>
-          <th class="col-int" data-testid="col-unplanned-count">Unplanned Count</th>
-          <th class="col-int" data-testid="col-failure-events">Failure Events</th>
-          <th>Downtime %</th>
-          <th>MTTR</th>
-          <th>MTBF</th>
-          <th>Planned %</th>
-          <th>Unplanned %</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-      <tfoot>
-      <tr class="kpi-summary-row">
-        <td class="kpi-cell">
-          <div class="kpi-title">Total Assets</div>
-          <div id="total-assets" class="kpi-value">--</div>
-        </td>
-        <td class="kpi-cell">
-          <div class="kpi-title">Avg Downtime Hrs</div>
-          <div id="avg-downtime" class="kpi-value">--</div>
-        </td>
-        <td class="kpi-cell">
-          <div class="kpi-title">Avg Unplanned Count</div>
-          <div id="avg-unplanned-count" class="kpi-value">--</div>
-        </td>
-        <td class="kpi-cell">
-          <div class="kpi-title">Avg Failure Events</div>
-          <div id="avg-failure-events" class="kpi-value">--</div>
-        </td>
-        <td class="kpi-cell">
-          <div class="kpi-title">Avg Downtime %</div>
-          <div id="avg-downtime-pct" class="kpi-value">--%</div>
-        </td>
-        <td class="kpi-cell">
-          <div class="kpi-title">Avg MTTR (h)</div>
-          <div id="avg-mttr" class="kpi-value">--</div>
-        </td>
-        <td class="kpi-cell">
-          <div class="kpi-title">Avg MTBF (h)</div>
-          <div id="avg-mtbf" class="kpi-value">--</div>
-        </td>
-        <td class="kpi-cell">
-          <div class="kpi-title">Avg Planned %</div>
-          <div id="avg-planned" class="kpi-value">--%</div>
-        </td>
-        <td class="kpi-cell">
-          <div class="kpi-title">Avg Unplanned %</div>
-          <div id="avg-unplanned" class="kpi-value">--%</div>
-        </td>
-      </tr>
-      <tr class="kpi-total-row">
-        <td class="kpi-cell"></td>
-        <td class="kpi-cell">
-          <div class="kpi-title">Total Downtime Hrs</div>
-          <div id="total-downtime" class="kpi-value">--</div>
-        </td>
-        <td class="kpi-cell">
-          <div class="kpi-title">Total Unplanned Count</div>
-          <div id="total-unplanned-count" class="kpi-value">--</div>
-        </td>
-        <td class="kpi-cell">
-          <div class="kpi-title">Total Failure Events</div>
-          <div id="total-failure-events" class="kpi-value">--</div>
-        </td>
-        <td class="kpi-cell"></td>
-        <td class="kpi-cell"></td>
-        <td class="kpi-cell"></td>
-        <td class="kpi-cell"></td>
-        <td class="kpi-cell"></td>
-      </tr>
-      </tfoot>
-      </table>
-      </div>
-
+    </label>
   </div>
-  <script type="module" src="js/header-kpis.js" defer></script>
-  <script type="module" src="/js/kpi-by-asset.js"></script>
-  <script>
-    const rotateBtn = document.getElementById('toggle-rotation');
-    const refreshTimerEl = document.getElementById('refresh-timer');
-    const refreshButton  = document.getElementById('refresh-button');
-    const refreshInterval = 900000; // 15 minutes
-    let refreshCountdown = refreshInterval / 1000;
-    let config = {};
-
-    fetch('/config.json')
-      .then(r => r.json())
-      .then(cfg => { config = cfg; rotatePages(); })
-      .catch(() => { config = {}; });
-
-    function updateRotateButton() {
-      const paused = localStorage.getItem('rotationPaused') === 'true';
-      rotateBtn.textContent = paused ? 'Resume Rotation' : 'Pause Rotation';
-      rotateBtn.style.backgroundColor = paused ? 'red' : 'blue';
-      rotateBtn.style.color = 'white';
+  <table>
+    <thead>
+      <tr>
+        <th>Asset</th>
+        <th>Downtime %</th>
+        <th>Downtime (h)</th>
+        <th>MTTR (h)</th>
+        <th>MTBF (h)</th>
+        <th>Planned %</th>
+        <th>Unplanned %</th>
+      </tr>
+    </thead>
+    <tbody id="kpi-by-asset-body"></tbody>
+  </table>
+</main>
+<script>
+  async function loadKpis(tf) {
+    const res = await fetch(`/api/kpis/by-asset?timeframe=${encodeURIComponent(tf)}`, { cache: 'no-store' });
+    const data = await res.json();
+    const assets = data.assets || {};
+    const ids = Object.keys(assets);
+    const tbody = document.getElementById('kpi-by-asset-body');
+    tbody.innerHTML = '';
+    if (!ids.length) {
+      console.warn('[kpi-by-asset] no rows for', tf);
+      return;
     }
-    rotateBtn.addEventListener('click', () => {
-      const paused = localStorage.getItem('rotationPaused') === 'true';
-      localStorage.setItem('rotationPaused', paused ? 'false' : 'true');
-      updateRotateButton();
+    ids.forEach(id => {
+      const a = assets[id];
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${a.name}</td>
+        <td>${a.downtimePct ?? ''}%</td>
+        <td>${a.DowntimeHrs ?? ''}</td>
+        <td>${a.MttrHrs ?? ''}</td>
+        <td>${a.MtbfHrs ?? ''}</td>
+        <td>${a.PlannedPct ?? ''}%</td>
+        <td>${a.UnplannedPct ?? ''}%</td>
+      `;
+      tbody.appendChild(tr);
     });
-    updateRotateButton();
-
-    function updateRefreshTimer() {
-      const m = Math.floor(refreshCountdown / 60);
-      const s = String(refreshCountdown % 60).padStart(2, '0');
-      refreshTimerEl.textContent = `Next refresh in ${m}:${s}`;
-      refreshCountdown = refreshCountdown > 0 ? refreshCountdown - 1 : refreshInterval / 1000;
+    const rangeEl = document.getElementById('kpi-range');
+    if (rangeEl && data.range) {
+      rangeEl.textContent = `Range: ${new Date(data.range.start).toLocaleDateString()} – ${new Date(data.range.end).toLocaleDateString()}`;
     }
-    setInterval(updateRefreshTimer, 1000);
-    updateRefreshTimer();
-
-    function rotatePages() {
-      if (!config.pages) return;
-      const page = window.location.pathname.split('/').pop() || 'kpi-by-asset.html';
-      const pages = config.pages;
-      const interval = config.interval || 15000;
-      const next = pages[(pages.indexOf(page) + 1) % pages.length];
-      setTimeout(async () => {
-                if (await checkBurnIn()) return;
-                if (localStorage.getItem('rotationPaused') === 'true') return;
-                if (next && next !== page) window.location.href = '/' + next;
-            }, interval);
+  }
+  (async () => {
+    try {
+      const cfg = await fetch('/config.json').then(r=>r.json()).catch(()=>({}));
+      const tf = cfg.kpiByAssetDefaultTimeframe || 'lastMonth';
+      const tfSel = document.getElementById('tf-select');
+      if (tfSel) tfSel.value = tf;
+      await loadKpis(tf);
+      tfSel?.addEventListener('change', e => loadKpis(e.target.value));
+    } catch(e) {
+      console.error('[kpi-by-asset] init error', e);
     }
-
-    setInterval(() => { loadAll(); refreshCountdown = refreshInterval / 1000; }, refreshInterval);
-    refreshButton.addEventListener('click', () => {
-      loadAll();
-      refreshCountdown = refreshInterval / 1000;
-    });
-  </script>
-  <script>
-    // clock
-    function updateClock() {
-      const now = new Date();
-      const dateFmt = new Intl.DateTimeFormat('en-US', {
-        timeZone: 'America/Indiana/Indianapolis',
-        weekday:'short', month:'short', day:'numeric', year:'numeric'
-      });
-      const timeFmt = new Intl.DateTimeFormat('en-US', {
-        timeZone: 'America/Indiana/Indianapolis',
-        hour:'numeric', minute:'2-digit', second:'2-digit'
-      });
-      document.getElementById('clock').innerHTML =
-        `<span class="clock-date">${dateFmt.format(now)}</span>${timeFmt.format(now)}`;
-    }
-    setInterval(updateClock, 1000);
-    updateClock();
-
-  </script>
+  })();
+</script>
 </body>
 </html>
