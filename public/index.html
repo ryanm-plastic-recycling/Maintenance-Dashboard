@@ -324,18 +324,6 @@
             console.error('Failed to load mappings:', err);
             fetchData();
         });
-	
-        function parseTs(ts){
-                if(ts==null) return null;
-                if(typeof ts==='number') return new Date(ts*1000);
-                const s=String(ts).trim();
-                if(/^\d+$/.test(s)) return new Date(Number(s)*1000);
-                const d=new Date(s);
-                return isNaN(d)?null:d;
-        }
-        const fmtDate = ts => (parseTs(ts)?.toLocaleDateString() ?? '');
-        const fmtDateTime = ts => (parseTs(ts)?.toLocaleString() ?? '');
-
 
         function getWeatherIcon(desc) {
             const d = desc.toLowerCase();
@@ -397,18 +385,18 @@
         fetchWeather();
 
         function applyColumnConfig() {
-            if (!config.columns) return;
-            const page = window.location.pathname.split('/').pop() || 'index.html';
-            const cols = config.columns[page] || [];
-            document.querySelectorAll('th').forEach(th => {
-                if (!cols.includes(th.dataset.col)) th.style.display = 'none'; else th.style.display = '';
-            });
-            document.querySelectorAll('#work-order-data tr').forEach(tr => {
-                tr.querySelectorAll('td').forEach(td => {
-                    if (!cols.includes(td.dataset.col)) td.style.display = 'none'; else td.style.display = '';
-                });
-            });
-        }
+		  if (!config.columns) return;
+		  const page = window.location.pathname.split('/').pop() || 'index.html';
+		  const cols = config.columns[page] || [];
+		  document.querySelectorAll('th[data-col]').forEach(th => {
+		    th.style.display = cols.includes(th.dataset.col) ? '' : 'none';
+		  });
+		  document.querySelectorAll('#work-order-data tr').forEach(tr => {
+		    tr.querySelectorAll('td[data-col]').forEach(td => {
+		      td.style.display = cols.includes(td.dataset.col) ? '' : 'none';
+		    });
+		  });
+		}
 
         function rotatePages() {
             if (!config.pages) return;
@@ -433,9 +421,17 @@
                     .then(response => response.json())
                     .then(data => {
                         let tasks = data.rows || [];
-                        tasks.sort((a,b)=> (parseTs(b.createdDate)?.getTime()??0) - (parseTs(a.createdDate)?.getTime()??0));
-                        const maxRows = (config.maxRows && config.maxRows['index.html']) || 40;
-                        const render = tasks.slice(0, maxRows);
+						// score: createdDate ms, fallback taskID
+						const scored = tasks.map(t => ({
+						  t,
+						  k: parseTs(t.createdDate)?.getTime() ?? -Infinity,
+						  id: Number(t.taskID) || -Infinity
+						}));
+						scored.sort((a,b) => (b.k - a.k) || (b.id - a.id));
+						
+						const maxRows = (config.maxRows && config.maxRows['index.html']) || 40;
+						const render = scored.slice(0, maxRows).map(x => x.t);
+
                         const lrEl = document.getElementById('last-refresh-index');
                         if (lrEl && data.lastRefreshUtc) {
                             lrEl.textContent = `· Last refresh: ${new Date(data.lastRefreshUtc).toLocaleString()}`;
