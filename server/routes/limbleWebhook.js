@@ -16,7 +16,7 @@ function verifySignature(req, apiKey) {
   return crypto.timingSafeEqual(Buffer.from(calc,'hex'), Buffer.from(sig,'hex'));
 }
 
-export default function limbleWebhook(pool) {
+export default function limbleWebhook(poolPromise) {
   const r = express.Router();
 
   r.post('/limble/webhook', express.json({ limit:'1mb' }), async (req, res) => {
