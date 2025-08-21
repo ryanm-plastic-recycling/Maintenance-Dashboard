@@ -493,16 +493,13 @@
 		  if (data.nextRefresh) scheduleRefresh(Math.max(0, data.nextRefresh - Date.now()));
 		}
 
-      function renderStatus(rows, lastRefreshUtc) {
-		  // 1) Log once for sanity
+     function renderStatus(rows, lastRefreshUtc) {
 		  console.log('[prodstatus] rows length:', rows?.length, 'sample row:', rows?.[0]);
 		
-		  // Defensive helpers
-		  const asArr = (x) => Array.isArray(x) ? x : [];
+		  const asArr = x => Array.isArray(x) ? x : [];
 		  const sfind = (x, fn) => asArr(x).find(fn);
 		  const sfor  = (x, fn) => asArr(x).forEach(fn);
 		
-		  // Header: last refresh
 		  const tbody = document.getElementById('status-data');
 		  tbody.innerHTML = '';
 		  if (lastRefreshUtc) {
@@ -514,31 +511,27 @@
 		  const textMap  = mappings.statusTextMapping  || {};
 		
 		  sfor(mappings.productionAssets, (item) => {
-		    // Match by AssetID (string compare to be robust against types)
 		    const entry = sfind(rows, r => String(r.assetID) === String(item.id)) || {};
 		
-		    // Prefer Field-95 text from assets/fields upsert; fall back to any legacy fields
+		    // Prefer Field-95 text (assets/fields): value/valueText; then any legacy fields
 		    const raw =
 		      entry.assetStatus ?? entry.value ?? entry.valueText ??
 		      entry.statusText  ?? entry.status ?? entry.statusID ?? 'N/A';
 		
-		    // If it's numeric (or numeric-looking), map via textMap; else use as-is
+		    // map numeric-looking codes via textMap; otherwise use text as-is
 		    let text;
 		    if (typeof raw === 'number' || (/^\d+$/).test(String(raw).trim())) {
 		      text = textMap[String(raw)] || String(raw);
 		    } else {
 		      text = String(raw);
 		    }
-		
-		    // Normalize whitespace and trim
 		    text = text.replace(/\u00A0/g, ' ').trim();
 		
-		    // Resolve a color: if textMap maps some ID -> this text, use that ID for color; else use text directly
+		    // find a color by mapped id or by text
 		    const idFromText = Object.keys(textMap).find(k => (textMap[k] || '').toString().toLowerCase() === text.toLowerCase());
 		    const keyForColor = idFromText || text;
 		    const bg = colorMap[keyForColor] || '#fff';
 		
-		    // Foreground contrast: keep your explicit exceptions, otherwise default to black
 		    const tr = document.createElement('tr');
 		    tr.style.backgroundColor = bg;
 		
@@ -555,7 +548,6 @@
 		    tbody.appendChild(tr);
 		  });
 		}
-
 
       refreshButton.addEventListener('click', () => {
         clearTimeout(refreshTimeout);
