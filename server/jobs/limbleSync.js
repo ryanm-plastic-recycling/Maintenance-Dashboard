@@ -4,7 +4,9 @@
  */
 export async function syncLimbleToSql(pool) {
   const proc = process.env.LIMBLE_SYNC_PROC;
-  if (!proc) return { ok:false, error:'LIMBLE_SYNC_PROC not set' };
+  if (!proc) {
+    return { ok: true, skipped: true, note: 'LIMBLE_SYNC_PROC not set; skipping Limble sync' };
+  }
   const rs = await pool.request().execute(proc);
-  return { ok:true, proc, rowsAffected: rs?.rowsAffected };
+  return { ok: true, proc, rowsAffected: rs?.rowsAffected };
 }
