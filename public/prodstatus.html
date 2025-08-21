@@ -455,88 +455,12 @@
                 if (next && next !== page) window.location.href = '/' + next;
             }, interval);
         }
-
-
-
-    function fetchData() {
-		// Make API request with user-input value and authorization header
-		// You need to fetch the asset data first to swap ID for Name
-        const assetMapping = mappings.asset ? { ...mappings.asset } : {};
-                    fetch('/api/workorders/prodstatus')
-                        .then(response => {
-                                console.log('Response status:', response.status);
-                                return response.json();
-                        })
-			
-			//.then(response => response.json())
-			.then(data => {
-				//***console.log('Received data:', data);
-				
-                                // Process data and update the table
-                                const tasks = data.rows || [];
-                                const lrEl = document.getElementById('last-refresh-status');
-                                if (lrEl && data.lastRefreshUtc) {
-                                    lrEl.textContent = `· Last refresh: ${new Date(data.lastRefreshUtc).toLocaleString()}`;
-                                }
-
-				// Clear existing table rows
-				workOrderDataContainer.innerHTML = '';
-				
-                                // Load mappings from configuration file
-                                const statusMapping = mappings.status || {};
-                                const typeMapping = mappings.type || {};
-                                const locationMapping = mappings.location || {};
-                                const teamMapping = mappings.team || {};
-                                const priorityMapping = mappings.priority || {};
-				
-				// Filter and display the relevant data
-                               tasks.forEach(task => {
-                                       const row = document.createElement('tr');
-                                       row.innerHTML = `
-                                                <td data-col="locationID">${locationMapping[task.locationID] || task.locationID}</td>
-                                                <td data-col="taskID">${task.taskID}</td>
-                                                <td data-col="assetID">${assetMapping[task.assetID] || task.assetID}</td>
-                                                <td data-col="priority">${priorityMapping[task.priority] || task.priority}</td>
-                                                <td data-col="name">${task.name}</td>
-                                                <td data-col="description">${task.description}</td>
-                                                <td data-col="type">${typeMapping[task.type] || task.type}</td>
-                                                <td data-col="createdDate">${formatDateTime(task.createdDate)}</td>
-                                                <td data-col="due">${formatDate(task.due)}</td>
-                                                <td data-col="statusID">${statusMapping[task.statusID] || task.statusID}</td>
-                                                <td data-col="teamID">${teamMapping[task.teamID] || task.teamID}</td>
-                                               <td data-col="assignedTo">${task.assignedTo || task.assignedUser || ""}</td>
-                                       `;
-                                       workOrderDataContainer.appendChild(row);
-                               });
-                                applyColumnConfig();
-                        })
-                        .catch(error => {
-                                console.error('Error fetching tasks:', error);
-                                // Display error message on webpage
-                                workOrderDataContainer.innerHTML = 'Error fetching data.';
-                        });
-        }
-
+		
       function scheduleRefresh(delay) {
         clearTimeout(refreshTimeout);
         refreshCountdown = Math.floor(delay / 1000);
         updateRefreshTimer();
         refreshTimeout = setTimeout(refreshAll, delay);
-      }
-
-      async function loadStatus() {
-        // Primary: cached endpoint; alias /api/status also exists for back-compat
-        const res = await fetch('/api/workorders/prodstatus?t=' + Date.now(), { cache: 'no-store' });
-        const data = await res.json();
-        // rows may be in data.rows or (legacy) data.tiles; normalize to an array
-        const rows = Array.isArray(data?.rows) ? data.rows
-                    : (Array.isArray(data?.tiles) ? data.tiles : []);
-        if (!rows.length) {
-          console.warn('[prodstatus] no rows to render yet');
-          return;
-        }
-        renderStatus(rows, data.lastRefreshUtc);
-        if (data.nextRefresh) scheduleRefresh(Math.max(0, data.nextRefresh - Date.now()));
       }
 
       async function refreshAll() {
