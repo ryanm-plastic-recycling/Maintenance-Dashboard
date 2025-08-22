@@ -186,9 +186,10 @@ export async function refreshWorkOrders(pool, page) {
       t.CreatedDate  AS createdDate,
       t.StatusID     AS statusID
     FROM dbo.LimbleKPITasks t
-    WHERE t.Type IN (2, 6)
-      AND t.DateCompleted IS NULL
-      AND t.LocationID = 13425
+    WHERE t.Type IN (2, 6)                 -- unplanned WOs & work requestors
+      AND t.DateCompleted IS NULL          -- still open
+      AND t.LocationID = 13425             -- Rockville location
+      AND t.CreatedDate >= DATEADD(DAY, -7, SYSUTCDATETIME()) -- last 7 days only
     ORDER BY t.CreatedDate DESC
     FOR JSON PATH
   `;
