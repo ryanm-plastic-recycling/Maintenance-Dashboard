@@ -204,7 +204,7 @@ export async function refreshWorkOrders(pool, page) {
       t.Due          AS [due],
       t.StatusID     AS statusID
     FROM dbo.LimbleKPITasks t
-    WHERE t.Type = 1
+    WHERE t.Type IN (1,4)
       AND t.DateCompleted IS NULL
       AND t.LocationID = 13425
     ORDER BY t.Due ASC
