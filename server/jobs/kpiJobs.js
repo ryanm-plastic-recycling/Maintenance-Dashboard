@@ -267,7 +267,6 @@ export async function refreshWorkOrders(pool, page) {
     .input('Page', sql.NVarChar, page)
     .input('Data', sql.NVarChar(sql.MAX), json)
     .query(`
-      TRUNCATE TABLE dbo.WorkOrdersCache;
       MERGE dbo.WorkOrdersCache AS target
       USING (SELECT @Page AS Page, @Data AS Data) AS source
         ON target.Page = source.Page
