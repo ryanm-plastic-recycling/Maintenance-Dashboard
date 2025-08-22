@@ -266,7 +266,16 @@ export async function refreshWorkOrders(pool, page) {
   await pool.request()
     .input('Page', sql.NVarChar, page)
     .input('Data', sql.NVarChar(sql.MAX), json)
-    .query(`INSERT INTO dbo.WorkOrdersCache(Page,Data) VALUES(@Page,@Data)`);
+    .query(`
+      MERGE dbo.WorkOrdersCache AS target
+      USING (SELECT @Page AS Page, @Data AS Data) AS source
+        ON target.Page = source.Page
+      WHEN MATCHED THEN
+        UPDATE SET Data = source.Data, SnapshotAt = SYSUTCDATETIME()
+      WHEN NOT MATCHED THEN
+        INSERT (Page, Data) VALUES (source.Page, source.Data);
+    `);
+
 
   return { page, source, rows: parsedLen, error };
 }
