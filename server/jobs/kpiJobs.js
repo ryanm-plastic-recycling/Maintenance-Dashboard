@@ -189,7 +189,7 @@ export async function refreshWorkOrders(pool, page) {
     WHERE t.Type IN (2, 6)                 -- unplanned WOs & work requestors
       AND t.DateCompleted IS NULL          -- still open
       AND t.LocationID = 13425             -- Rockville location
-      AND t.CreatedDate >= DATEADD(DAY, -7, SYSUTCDATETIME()) -- last 7 days only
+      AND t.CreatedDate >= DATEADD(DAY, -7, SYSDATETIME())
     ORDER BY t.CreatedDate DESC
     FOR JSON PATH
   `;
@@ -208,7 +208,7 @@ export async function refreshWorkOrders(pool, page) {
     WHERE t.Type = 1
       AND t.DateCompleted IS NULL
       AND t.LocationID = 13425
-      AND t.CreatedDate >= DATEADD(DAY, -7, SYSUTCDATETIME()) -- last 7 days only
+      AND t.CreatedDate >= DATEADD(DAY, -7, SYSDATETIME())
     ORDER BY t.Due ASC
     FOR JSON PATH
   `;
