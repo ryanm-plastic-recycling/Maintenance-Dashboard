@@ -284,33 +284,36 @@
     let mappings = {};
     let config = {};
 	// ---- Timezone-aware helpers (local = America/Indiana/Indianapolis)
-  	const LOCAL_TZ = 'America/Indiana/Indianapolis';	
+	const LOCAL_TZ = 'America/Indiana/Indianapolis';
+	
 	function parseTs(ts) {
-	    if (ts == null) return null;
-	    if (typeof ts === 'number') return new Date(ts * 1000);
-	    const s = String(ts).trim();
-	    if (/^\d+$/.test(s)) return new Date(Number(s) * 1000);
-	    // Treat ISO strings with no timezone as UTC
-	    const iso = /[Zz]|[+-]\d\d:?\d\d/.test(s) ? s : s + 'Z';
-	    const d = new Date(iso);
-	    return isNaN(d) ? null : d;
-	  }
+	  if (ts == null) return null;
+	  if (typeof ts === 'number') return new Date(ts * 1000);
+	  const s = String(ts).trim();
+	  if (/^\d+$/.test(s)) return new Date(Number(s) * 1000);
+	  const iso = /[Zz]|[+-]\d\d:?\d\d/.test(s) ? s : s + 'Z'; // assume UTC if no zone
+	  const d = new Date(iso);
+	  return isNaN(d) ? null : d;
+	}
 	
-	  const fmtDate = (ts) => {
-	    const d = parseTs(ts);
-	    return d ? d.toLocaleDateString('en-US', { timeZone: LOCAL_TZ }) : '';
-	  };
+	const nz = (v) => (v === 0 || v === '0' || v == null) ? null : v;  // <— here
 	
-	  const fmtDateTime = (ts) => {
-	    const d = parseTs(ts);
-	    return d
-	      ? d.toLocaleString('en-US', {
-	          timeZone: LOCAL_TZ,
-	          year: 'numeric', month: '2-digit', day: '2-digit',
-	          hour: '2-digit', minute: '2-digit'
-	        })
-	      : '';
-	  };
+	const fmtDate = (ts) => {
+	  const d = parseTs(ts);
+	  return d ? d.toLocaleDateString('en-US', { timeZone: LOCAL_TZ }) : '';
+	};
+	
+	const fmtDateTime = (ts) => {
+	  const d = parseTs(ts);
+	  return d
+	    ? d.toLocaleString('en-US', {
+	        timeZone: LOCAL_TZ,
+	        year: 'numeric', month: '2-digit', day: '2-digit',
+	        hour: '2-digit', minute: '2-digit'
+	      })
+	    : '';
+	};
+
 		
     fetch('/config.json')
         .then(res => res.json())
@@ -443,12 +446,16 @@
 			.then(data => {
 			  const tasks = Array.isArray(data.rows) ? data.rows : [];
 				// Keep rows that have a numeric taskID
-				const onlyWithId = tasks.filter(t => Number.isFinite(Number(t.taskID)));
+				// Keep rows that have a numeric taskID AND at least one real date
+				const onlyWithId = tasks.filter(t =>
+				  Number.isFinite(Number(t.taskID)) &&
+				  (Number(t.lastEdited) > 0 || Number(t.due) > 0 || Number(t.createdDate) > 0)
+				);
 				
 				// Sort newest taskID first
-				onlyWithId.sort((a, b) => Number(b.taskID) - Number(a.taskID));
+				onlyWithId.sort((a,b) => Number(b.taskID) - Number(a.taskID));
 				
-				// Show 40 newest PM tasks (or use config override)
+				// Show 40 newest PM tasks (or config override)
 				const maxRows = (config.maxRows && config.maxRows['pm.html']) || 40;
 				const render = onlyWithId.slice(0, maxRows);
 			
@@ -459,30 +466,33 @@
 			  }
 			
 			  // Render rows
-			  const tbody = document.getElementById('pm-data'); // or use pmBody if you prefer
-			  tbody.innerHTML = '';
-			  render.forEach(task => {
-			    const created = parseTs(task.lastEdited) || parseTs(task.due) || parseTs(task.createdDate);
-			    const createdStr = created ? fmtDateTime(created.toISOString()) : '';
-			    const dueStr     = task.due ? fmtDate(task.due) : '';
-			
-			    const row = document.createElement('tr');
-			    row.innerHTML = `
-			      <td data-col="locationID">${mappings.location?.[task.locationID] ?? task.locationID ?? ''}</td>
-			      <td data-col="taskID">${task.taskID ?? ''}</td>
-			      <td data-col="assetID">${(mappings.asset?.[task.assetID]) ?? task.assetID ?? ''}</td>
-			      <td data-col="priority">${mappings.priority?.[task.priority] ?? task.priority ?? ''}</td>
-			      <td data-col="name">${task.name ?? ''}</td>
-			      <td data-col="description">${task.description ?? ''}</td>
-			      <td data-col="type">${mappings.type?.[task.type] ?? task.type ?? ''}</td>
-			      <td data-col="createdDate">${createdStr}</td>
-			      <td data-col="due">${dueStr}</td>
-			      <td data-col="statusID">${mappings.status?.[task.statusID] ?? task.statusID ?? ''}</td>
-			      <td data-col="teamID">${mappings.team?.[task.teamID] ?? task.teamID ?? ''}</td>
-			      <td data-col="assignedTo">${task.assignedTo || task.assignedUser || ''}</td>
-			    `;
-			    tbody.appendChild(row);
-			  });
+			  const tbody = document.getElementById('pm-data');
+				tbody.innerHTML = '';
+				render.forEach(task => {
+				  const created =
+				    parseTs(nz(task.lastEdited)) ||
+				    parseTs(nz(task.due)) ||
+				    parseTs(nz(task.createdDate));
+				  const createdStr = created ? fmtDateTime(created.toISOString()) : '';
+				  const dueStr     = task.due ? fmtDate(task.due) : '';
+				
+				  const row = document.createElement('tr');
+				  row.innerHTML = `
+				    <td data-col="locationID">${mappings.location?.[task.locationID] ?? task.locationID ?? ''}</td>
+				    <td data-col="taskID">${task.taskID ?? ''}</td>
+				    <td data-col="assetID">${mappings.asset?.[task.assetID] ?? task.assetID ?? ''}</td>
+				    <td data-col="priority">${mappings.priority?.[task.priority] ?? task.priority ?? ''}</td>
+				    <td data-col="name">${task.name ?? ''}</td>
+				    <td data-col="description">${task.description ?? ''}</td>
+				    <td data-col="type">${mappings.type?.[task.type] ?? task.type ?? ''}</td>
+				    <td data-col="createdDate">${createdStr}</td>
+				    <td data-col="due">${dueStr}</td>
+				    <td data-col="statusID">${mappings.status?.[task.statusID] ?? task.statusID ?? ''}</td>
+				    <td data-col="teamID">${mappings.team?.[task.teamID] ?? task.teamID ?? ''}</td>
+				    <td data-col="assignedTo">${task.assignedTo || task.assignedUser || ''}</td>
+				  `;
+				  tbody.appendChild(row);
+				});
 			
 			  applyColumnConfig();
 			})
