@@ -278,11 +278,8 @@
     
 	<script>
     // User input section
-    //const fetchButton = document.getElementById('fetch-button');
-    //const inputValue = document.getElementById('input-value');
-    //const workOrderDataContainer = document.getElementById('work-order-data');
     const refreshButton = document.getElementById('refresh-button');
-    const workOrderDataContainer = document.getElementById('work-order-data');
+    const pmBody = document.getElementById('pm-data');
     const rotateBtn = document.getElementById('toggle-rotation');
     let mappings = {};
     let config = {};
@@ -410,7 +407,7 @@
 		  document.querySelectorAll('th[data-col]').forEach(th => {
 		    th.style.display = cols.includes(th.dataset.col) ? '' : 'none';
 		  });
-		  document.querySelectorAll('#work-order-data tr').forEach(tr => {
+		  document.querySelectorAll('#pm-data tr').forEach(tr => {
 		    tr.querySelectorAll('td[data-col]').forEach(td => {
 		      td.style.display = cols.includes(td.dataset.col) ? '' : 'none';
 		    });
@@ -451,8 +448,8 @@
 				// Sort newest taskID first
 				onlyWithId.sort((a, b) => Number(b.taskID) - Number(a.taskID));
 				
-				// Limit to 20 (or use config if you prefer)
-				const maxRows = 20; // or (config.maxRows && config.maxRows['pm.html']) || 20;
+				// Show 40 newest PM tasks (or use config override)
+				const maxRows = (config.maxRows && config.maxRows['pm.html']) || 40;
 				const render = onlyWithId.slice(0, maxRows);
 			
 			  const lrEl = document.getElementById('last-refresh-pm');
@@ -461,7 +458,8 @@
 			      .toLocaleString('en-US', { timeZone: 'America/Indiana/Indianapolis' })}`;
 			  }
 			
-			  const tbody = document.getElementById('pm-data');
+			  // Render rows
+			  const tbody = document.getElementById('pm-data'); // or use pmBody if you prefer
 			  tbody.innerHTML = '';
 			  render.forEach(task => {
 			    const created = parseTs(task.lastEdited) || parseTs(task.due) || parseTs(task.createdDate);
@@ -470,17 +468,17 @@
 			
 			    const row = document.createElement('tr');
 			    row.innerHTML = `
-			      <td data-col="locationID">${task.locationID ?? ''}</td>
+			      <td data-col="locationID">${mappings.location?.[task.locationID] ?? task.locationID ?? ''}</td>
 			      <td data-col="taskID">${task.taskID ?? ''}</td>
-			      <td data-col="assetID">${task.assetID ?? ''}</td>
-			      <td data-col="priority">${task.priority ?? ''}</td>
+			      <td data-col="assetID">${(mappings.asset?.[task.assetID]) ?? task.assetID ?? ''}</td>
+			      <td data-col="priority">${mappings.priority?.[task.priority] ?? task.priority ?? ''}</td>
 			      <td data-col="name">${task.name ?? ''}</td>
 			      <td data-col="description">${task.description ?? ''}</td>
-			      <td data-col="type">${task.type ?? ''}</td>
+			      <td data-col="type">${mappings.type?.[task.type] ?? task.type ?? ''}</td>
 			      <td data-col="createdDate">${createdStr}</td>
 			      <td data-col="due">${dueStr}</td>
-			      <td data-col="statusID">${task.statusID ?? ''}</td>
-			      <td data-col="teamID">${task.teamID ?? ''}</td>
+			      <td data-col="statusID">${mappings.status?.[task.statusID] ?? task.statusID ?? ''}</td>
+			      <td data-col="teamID">${mappings.team?.[task.teamID] ?? task.teamID ?? ''}</td>
 			      <td data-col="assignedTo">${task.assignedTo || task.assignedUser || ''}</td>
 			    `;
 			    tbody.appendChild(row);
@@ -491,7 +489,7 @@
                         .catch(error => {
                                 console.error('Error fetching tasks:', error);
                                 // Display error message on webpage
-                                workOrderDataContainer.innerHTML = 'Error fetching data.';
+                                pmBody.innerHTML = 'Error fetching data.';
                         });
         }
         refreshButton.addEventListener('click', () => {
