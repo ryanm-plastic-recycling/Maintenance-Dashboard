@@ -409,6 +409,7 @@
 		  if (!config.columns) return;
 		  const page = window.location.pathname.split('/').pop() || 'pm.html';
 		  const cols = config.columns[page] || [];
+		  if (!cols.length) return; // show all columns by default when not configured
 		  document.querySelectorAll('th[data-col]').forEach(th => {
 		    th.style.display = cols.includes(th.dataset.col) ? '' : 'none';
 		  });
@@ -453,7 +454,7 @@
 				  Number.isFinite(Number(t.taskID)) &&
 				  (Number(t.lastEdited) > 0 || Number(t.due) > 0 || Number(t.createdDate) > 0)
 				);
-				
+				const onlyWithId = tasks.filter(t => Number.isFinite(Number(t.taskID)));
 				// Sort newest taskID first
 				onlyWithId.sort((a,b) => Number(b.taskID) - Number(a.taskID));
 				
