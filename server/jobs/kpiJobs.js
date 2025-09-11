@@ -176,7 +176,7 @@ export async function refreshWorkOrders(pool, page) {
             :                    'PROD_STATUS_SQL';
 
   const defaultIndexSql = `
-    SELECT TOP (20)
+    SELECT TOP (200)
       t.TaskID       AS taskID,
       t.AssetID      AS assetID,
       t.Priority     AS priority,
@@ -193,7 +193,7 @@ export async function refreshWorkOrders(pool, page) {
     FOR JSON PATH
   `;
   const defaultPmSql = `
-    SELECT TOP (20)
+    SELECT TOP (200)
       t.TaskID       AS taskID,
       t.AssetID      AS assetID,
       t.Priority     AS priority,
