@@ -268,7 +268,7 @@
                     <th data-col="assignedTo">Assigned To</th>
                 </tr>
             </thead>
-            <tbody id="work-order-data">
+            <tbody id="pm-data">
                 <!-- Work order data will be inserted here -->
             </tbody>
         </table>
@@ -445,22 +445,15 @@
 			//.then(response => response.json())
 			.then(data => {
 			  const tasks = Array.isArray(data.rows) ? data.rows : [];
-			  // Build a sort key: lastEdited > due > createdDate
-			  const scored = tasks.map(t => {
-			    const d =
-			      parseTs(t.lastEdited) ||
-			      parseTs(t.due) ||
-			      parseTs(t.createdDate);
-			    return { t, k: d ? d.getTime() : -Infinity, d };
-			  })
-			  // drop anything without a usable date (prevents 1969)
-			  .filter(x => x.k !== -Infinity)
-			  // newest first
-			  .sort((a,b) => b.k - a.k);
-			
-			  // Limit rows (mirror index.html behavior)
-			  const maxRows = (config.maxRows && config.maxRows['pm.html']) || 40;
-			  const render = scored.slice(0, maxRows).map(x => x.t);
+				// Keep rows that have a numeric taskID
+				const onlyWithId = tasks.filter(t => Number.isFinite(Number(t.taskID)));
+				
+				// Sort newest taskID first
+				onlyWithId.sort((a, b) => Number(b.taskID) - Number(a.taskID));
+				
+				// Limit to 20 (or use config if you prefer)
+				const maxRows = 20; // or (config.maxRows && config.maxRows['pm.html']) || 20;
+				const render = onlyWithId.slice(0, maxRows);
 			
 			  const lrEl = document.getElementById('last-refresh-pm');
 			  if (lrEl && data.lastRefreshUtc) {
