@@ -481,10 +481,9 @@
 		  tbody.innerHTML = '';
 		  if (lastRefreshUtc) {
 		    const lrEl = document.getElementById('last-refresh-status');
-		    if (lrEl) lrEl.textContent = `· Last refresh: ${
+		    lrEl.textContent = `· Last refresh: ${
 			  new Date(lastRefreshUtc).toLocaleString('en-US', { timeZone: 'America/Indiana/Indianapolis' })
 			}`;
-
 		  }
 		
 		  const colorMap = mappings.statusColorMapping || {};
