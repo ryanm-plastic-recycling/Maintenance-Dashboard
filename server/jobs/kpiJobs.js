@@ -263,17 +263,10 @@ export async function refreshWorkOrders(pool, page) {
   }
 
   await pool.request()
-    .input('Page', sql.NVarChar, page)
-    .input('Data', sql.NVarChar(sql.MAX), json)
-    .query(`
-      MERGE dbo.WorkOrdersCache AS target
-      USING (SELECT @Page AS Page, @Data AS Data) AS source
-        ON target.Page = source.Page
-      WHEN MATCHED THEN
-        UPDATE SET Data = source.Data, SnapshotAt = SYSUTCDATETIME()
-      WHEN NOT MATCHED THEN
-        INSERT (Page, Data) VALUES (source.Page, source.Data);
-    `);
+    .input('Page',       sql.NVarChar(64), cacheName)          // 'index' | 'pm' | 'prodstatus'
+    .input('SnapshotAt', sql.DateTime2,     new Date())
+    .input('Data',       sql.NVarChar(sql.MAX), JSON.stringify(payload))
+    .execute('dbo.UpsertWorkOrdersCache');
 
 
   return { page, source, rows: parsedLen, error };
