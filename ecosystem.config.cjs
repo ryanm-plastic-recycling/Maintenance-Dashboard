@@ -19,7 +19,6 @@ module.exports = {
       },
       env_production: {
         NODE_ENV: 'production',
-        LIMBLE_SYNC_PROC: "dbo.SyncFromLimble",
         PORT: 7601,
         API_BASE_URL: "https://api.limblecmms.com:443",
         CLIENT_ID: process.env.CLIENT_ID,
