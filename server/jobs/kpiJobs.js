@@ -193,6 +193,7 @@ export async function refreshWorkOrders(pool, page) {
     FOR JSON PATH
   `;
   const defaultPmSql = `
+    DECLARE @loc INT = ${Number(process.env.LIMBLE_LOCATION_ID || 13425)};
     SELECT TOP (200)
       t.TaskID       AS taskID,
       t.AssetID      AS assetID,
@@ -200,16 +201,17 @@ export async function refreshWorkOrders(pool, page) {
       t.Name         AS name,
       t.Description  AS description,
       t.Type         AS [type],
-      t.CreatedDate  AS createdDate,
+      CONVERT(varchar(19), COALESCE(t.LastEdited, t.Due, t.CreatedDate), 126) AS createdDate,
       t.Due          AS [due],
       t.StatusID     AS statusID
     FROM dbo.LimbleKPITasks t
     WHERE t.Type IN (1,4)
       AND t.DateCompleted IS NULL
-      AND t.LocationID = 13425
-    ORDER BY t.Due ASC
+      AND (@loc IS NULL OR t.LocationID = @loc)
+    ORDER BY COALESCE(t.Due, t.LastEdited, t.CreatedDate) ASC, t.TaskID DESC
     FOR JSON PATH
   `;
+
   const defaultProdStatusSql = `
     ;WITH s AS (
       SELECT
