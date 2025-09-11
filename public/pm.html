@@ -409,7 +409,8 @@
 		  if (!config.columns) return;
 		  const page = window.location.pathname.split('/').pop() || 'pm.html';
 		  const cols = config.columns[page] || [];
-		  if (!cols.length) return; // show all columns by default when not configured
+		  if (!cols.length) return; // ← show all columns by default when not configured
+		
 		  document.querySelectorAll('th[data-col]').forEach(th => {
 		    th.style.display = cols.includes(th.dataset.col) ? '' : 'none';
 		  });
