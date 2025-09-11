@@ -263,11 +263,10 @@ export async function refreshWorkOrders(pool, page) {
   }
 
   await pool.request()
-    .input('Page',       sql.NVarChar(64), cacheName)          // 'index' | 'pm' | 'prodstatus'
+    .input('Page',       sql.NVarChar(64), page)     // page is 'index' | 'pm' | 'prodstatus'
     .input('SnapshotAt', sql.DateTime2,     new Date())
-    .input('Data',       sql.NVarChar(sql.MAX), JSON.stringify(payload))
+    .input('Data',       sql.NVarChar(sql.MAX), json) // json is already a JSON string in your code
     .execute('dbo.UpsertWorkOrdersCache');
-
 
   return { page, source, rows: parsedLen, error };
 }
