@@ -63,32 +63,55 @@ async function fetchAll(path, limit = 10000) {
 
   return all;
 }
-// Make sure we only load items newer than watermark
+function isAbsolute(u) { return /^https?:\/\//i.test(u || ''); }
+
 async function fetchTasksIncremental(lastTaskTimestamp) {
-  const base = process.env.TASKS_URL
-    || `/tasks?locations=${process.env.LIMBLE_LOCATION_ID || ''}&orderby=${process.env.TASKS_ORDERBY || '-lastEdited'}`;
+  const envUrl = (process.env.TASKS_URL || '').trim();
+  const order  = encodeURIComponent(process.env.TASKS_ORDERBY || '-lastEdited');
+  const limit  = Number(process.env.TASKS_LIMIT || 10000);
 
-  const sep = base.includes('?') ? '&' : '?';
-  const limit = 10000;
-  let all = [], page = 1, batch;
+  // If TASKS_URL is absolute, DO NOT add &page=
+  if (isAbsolute(envUrl)) {
+    const sep = envUrl.includes('?') ? '&' : '?';
+    const url = `${envUrl}${sep}orderby=${order}&limit=${limit}`;
+    const batch = await limbleGet(url);
+    return Array.isArray(batch) ? batch : [];
+  }
 
-  do {
-    batch = await limbleGet(`${base}${sep}limit=${limit}&page=${page}`);
-    if (!batch.length) break;
+  // Otherwise, relative path → normal paging works
+  const base = envUrl || `/tasks?locations=${process.env.LIMBLE_LOCATION_ID || ''}&orderby=${order}`;
+  const sep  = base.includes('?') ? '&' : '?';
+  let all = [], page = 1;
+
+  while (true) {
+    const pageUrl = `${base}${sep}limit=${limit}&page=${page}`;
+    let batch;
+    try {
+      batch = await limbleGet(pageUrl);
+    } catch (e) {
+      // fallback if paging 404s even on relative path
+      if (String(e.message || '').includes(' 404')) {
+        const noPage = `${base}${sep}limit=${limit}`;
+        batch = await limbleGet(noPage);
+      } else {
+        throw e;
+      }
+    }
+
+    if (!Array.isArray(batch) || batch.length === 0) break;
     all.push(...batch);
 
-    // oldest in this page
+    // stop once oldest item on this page is at/before watermark
     const oldest = batch[batch.length - 1];
-    const oldestEdited = new Date((oldest?.lastEdited || 0) * 1000);
-
-    // stop paging once we reached data at/before our watermark
+    const oldestEdited = new Date(((oldest?.lastEdited) || 0) * 1000);
     if (oldestEdited <= lastTaskTimestamp) break;
 
     page++;
-  } while (true);
+  }
 
   return all;
 }
+
 
 // 1) Fetch & upsert LimbleKPITasks (all columns)
 async function loadTasks(pool) {
@@ -99,7 +122,7 @@ async function loadTasks(pool) {
 
   // 2️⃣ Fetch every page (API already sorted by lastEdited)
   const data = await fetchTasksIncremental(lastTaskTimestamp);
-
+    .filter(t => new Date(((t?.lastEdited) || 0) * 1000) > lastTaskTimestamp);
   // Track counts and max timestamp
   let maxTs     = lastTaskTimestamp;
   let processed = 0;
