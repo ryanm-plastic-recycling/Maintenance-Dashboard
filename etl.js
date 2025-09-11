@@ -63,7 +63,32 @@ async function fetchAll(path, limit = 10000) {
 
   return all;
 }
+// Make sure we only load items newer than watermark
+async function fetchTasksIncremental(lastTaskTimestamp) {
+  const base = process.env.TASKS_URL
+    || `/tasks?locations=${process.env.LIMBLE_LOCATION_ID || ''}&orderby=${process.env.TASKS_ORDERBY || '-lastEdited'}`;
 
+  const sep = base.includes('?') ? '&' : '?';
+  const limit = 10000;
+  let all = [], page = 1, batch;
+
+  do {
+    batch = await limbleGet(`${base}${sep}limit=${limit}&page=${page}`);
+    if (!batch.length) break;
+    all.push(...batch);
+
+    // oldest in this page
+    const oldest = batch[batch.length - 1];
+    const oldestEdited = new Date((oldest?.lastEdited || 0) * 1000);
+
+    // stop paging once we reached data at/before our watermark
+    if (oldestEdited <= lastTaskTimestamp) break;
+
+    page++;
+  } while (true);
+
+  return all;
+}
 
 // 1) Fetch & upsert LimbleKPITasks (all columns)
 async function loadTasks(pool) {
@@ -73,7 +98,7 @@ async function loadTasks(pool) {
   const lastTaskTimestamp = stateRes.recordset[0].LastTaskTimestamp;
 
   // 2️⃣ Fetch every page (API already sorted by lastEdited)
-  const data = await fetchAll('/tasks');
+  const data = await fetchTasksIncremental(lastTaskTimestamp);
 
   // Track counts and max timestamp
   let maxTs     = lastTaskTimestamp;
