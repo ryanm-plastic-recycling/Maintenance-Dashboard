@@ -106,7 +106,7 @@ async function loadTasks(pool) {
   ps.input('Downtime',          sql.Int);
   ps.input('CompletionNotes',   sql.NVarChar(sql.MAX));
   ps.input('RequestorName',     sql.NVarChar(100));
-  ps.input('RequestorEmail',    sql.NVarChar(200));
+  ps.input('RequestorEmail',    sql.NVarChar(256));
   ps.input('RequestorPhone',    sql.NVarChar(50));
   ps.input('RequestTitle',      sql.NVarChar(200));
   ps.input('StatusID',          sql.Int);
@@ -193,7 +193,12 @@ async function loadTasks(pool) {
   for (let i = 0; i < data.length; i++) {
     const t = data[i];
     const taskDate = new Date(t.lastEdited * 1000);
-
+    const rawEmail =
+      t.requester?.email ??
+      t.requestorEmail ??
+      t.requesterEmail ??
+      null;
+    const email = rawEmail ? String(rawEmail).slice(0, 256) : null;
     if (taskDate <= lastTaskTimestamp) {
       skipped += data.length - i;
       break;
@@ -225,7 +230,7 @@ async function loadTasks(pool) {
         Downtime:          t.downtime,
         CompletionNotes:   t.completionNotes,
         RequestorName:     t.requestorName,
-        RequestorEmail:    t.requestorEmail,
+        RequestorEmail:    email,
         RequestorPhone:    t.requestorPhone,
         RequestTitle:      t.requestTitle,
         StatusID:          t.statusID,
@@ -248,7 +253,7 @@ async function loadTasks(pool) {
     }
   }
 
-  await ps.unprepare();
+  await ps.unprepare().catch(() => {});
 
   // 5️⃣ Write back the max timestamp for next run
   await pool.request()
