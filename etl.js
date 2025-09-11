@@ -121,7 +121,7 @@ async function loadTasks(pool) {
   const lastTaskTimestamp = stateRes.recordset[0].LastTaskTimestamp;
 
   // 2️⃣ Fetch every page (API already sorted by lastEdited)
-  const data = await fetchTasksIncremental(lastTaskTimestamp);
+  const data = await fetchTasksIncremental(lastTaskTimestamp)
     .filter(t => new Date(((t?.lastEdited) || 0) * 1000) > lastTaskTimestamp);
   // Track counts and max timestamp
   let maxTs     = lastTaskTimestamp;
