@@ -285,16 +285,33 @@
     let mappings = {};
     let config = {};
 	// Robust date parsing: epoch sec | numeric string | ISO
-	  function parseTs(ts){
-	    if (ts==null) return null;
-	    if (typeof ts==='number') return new Date(ts*1000);
-	    const s=String(ts).trim();
-	    if (/^\d+$/.test(s)) return new Date(Number(s)*1000);
-	    const d=new Date(s);
-	    return isNaN(d)?null:d;
+	// ---- Timezone-aware helpers (local = America/Indiana/Indianapolis)
+  	const LOCAL_TZ = 'America/Indiana/Indianapolis';
+	function parseTs(ts) {
+	    if (ts == null) return null;
+	    if (typeof ts === 'number') return new Date(ts * 1000);
+	    const s = String(ts).trim();
+	    if (/^\d+$/.test(s)) return new Date(Number(s) * 1000);
+	    // Treat ISO strings with no timezone as UTC
+	    const iso = /[Zz]|[+-]\d\d:?\d\d/.test(s) ? s : s + 'Z';
+	    const d = new Date(iso);
+	    return isNaN(d) ? null : d;
 	  }
-  const fmtDate    = ts => (parseTs(ts)?.toLocaleDateString() ?? '');
-  const fmtDateTime= ts => (parseTs(ts)?.toLocaleString() ?? '');
+	  const fmtDate = (ts) => {
+	    const d = parseTs(ts);
+	    return d ? d.toLocaleDateString('en-US', { timeZone: LOCAL_TZ }) : '';
+	  };
+	
+	  const fmtDateTime = (ts) => {
+	    const d = parseTs(ts);
+	    return d
+	      ? d.toLocaleString('en-US', {
+	          timeZone: LOCAL_TZ,
+	          year: 'numeric', month: '2-digit', day: '2-digit',
+	          hour: '2-digit', minute: '2-digit'
+	        })
+	      : '';
+	  };
 		
     fetch('/config.json')
         .then(res => res.json())
@@ -434,7 +451,7 @@
 
                         const lrEl = document.getElementById('last-refresh-index');
                         if (lrEl && data.lastRefreshUtc) {
-                            lrEl.textContent = `· Last refresh: ${new Date(data.lastRefreshUtc).toLocaleString()}`;
+                            lrEl.textContent = `· Last refresh: ${new Date(data.lastRefreshUtc).toLocaleString('en-US', { timeZone: 'America/Indiana/Indianapolis' })}`;
                         }
                         workOrderDataContainer.innerHTML = '';
                         const statusMapping = mappings.status || {};
