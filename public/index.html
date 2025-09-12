@@ -434,7 +434,7 @@
 		// Make API request with user-input value and authorization header
 		// You need to fetch the asset data first to swap ID for Name
                 const assetMapping = mappings.asset ? { ...mappings.asset } : {};
-                fetch('/api/workorders/index')
+                fetch('/api/workorders/index?t=' + Date.now(), { cache: 'no-store' })
                     .then(response => response.json())
                     .then(data => {
                         let tasks = data.rows || [];
@@ -486,7 +486,12 @@
         }
         refreshButton.addEventListener('click', () => {
         // Fetch and load the data without reloading the page
-        fetchData();
+        // Kick once on load
+		fetchData();
+		
+		// Auto-refresh every 60s
+		const REFRESH_MS = 60_000;
+		setInterval(fetchData, REFRESH_MS);
     });
 
     // Fetch and load the data when the page loads
