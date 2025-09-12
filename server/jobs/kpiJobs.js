@@ -345,7 +345,7 @@ export async function refreshByAssetKpis(pool) {
       `);
     const schedMap = new Map(sched.recordset.map(r => [Number(r.AssetID), Number(r.ScheduledHrs || 0)]));
 
-    // aggregate per asset over window
+    // aggregate per-asset over window
     const rs = await pool.request()
       .input('start', sql.DateTime2, start)
       .input('end',   sql.DateTime2, end)
@@ -365,34 +365,40 @@ export async function refreshByAssetKpis(pool) {
     await pool.request().input('tf', sql.NVarChar, tf)
       .query(`DELETE FROM dbo.KpiByAssetCache WHERE Timeframe=@tf;`);
 
-    for (const r of rs.recordset) {
-      const assetID = Number(r.AssetID);
-      const downtimeHrs = Number(r.DowntimeHrs || 0);
-      const unplanned = Number(r.UnplannedCount || 0);
-      const planned   = Number(r.PlannedCount || 0);
-      const totalEv   = planned + unplanned;
+    const aggMap = new Map(rs.recordset.map(r => [Number(r.AssetID), r]));
+    // Choose target assets to display: mappings.productionAssets if available, else all known assets
+    const targetAssets = assets.length
+      ? assets.map(a => ({ assetID: a.assetID, name: a.name }))
+      : sched.recordset.map(r => ({ assetID: Number(r.AssetID), name: null }));
+
+    for (const a of targetAssets) {
+      const assetID = a.assetID;
+      const agg = aggMap.get(assetID) || { DowntimeHrs: 0, UnplannedCount: 0, PlannedCount: 0 };
+      const downtimeHrs = Number(agg.DowntimeHrs || 0);
+      const unplanned   = Number(agg.UnplannedCount || 0);
+      const planned     = Number(agg.PlannedCount || 0);
+      const totalEv     = planned + unplanned;
 
       const scheduledHrs = schedMap.get(assetID) || 0;
       const runHrs       = Math.max(0, scheduledHrs - downtimeHrs);
-
-      const mttrHrs    = unplanned > 0 ? downtimeHrs / unplanned : 0;
-      const mtbfHrs    = unplanned > 0 ? runHrs       / unplanned : 0;
-      const uptimePct  = scheduledHrs > 0 ? Math.max(0, Math.min(100, (1 - downtimeHrs / scheduledHrs) * 100)) : 0;
+      const mttrHrs      = unplanned > 0 ? downtimeHrs / unplanned : 0;
+      const mtbfHrs      = unplanned > 0 ? runHrs       / unplanned : 0;
+      const uptimePct    = scheduledHrs > 0 ? Math.max(0, Math.min(100, (1 - downtimeHrs / scheduledHrs) * 100)) : 100;
       const plannedPct   = totalEv > 0 ? (planned   / totalEv) * 100 : 0;
       const unplannedPct = totalEv > 0 ? (unplanned / totalEv) * 100 : 0;
 
       await pool.request()
-        .input('Timeframe', sql.NVarChar, tf)
-        .input('AssetID',   sql.Int, assetID)
-        .input('Name',      sql.NVarChar, assets.find(a => a.assetID === assetID)?.name || null)
-        .input('RangeStart', sql.DateTime2, start)
-        .input('RangeEnd',   sql.DateTime2, end)
-        .input('UptimePct',  sql.Decimal(5,1), uptimePct)
-        .input('DowntimeHrs',sql.Decimal(10,2), downtimeHrs)
-        .input('MttrHrs',    sql.Decimal(10,2), mttrHrs)
-        .input('MtbfHrs',    sql.Decimal(10,2), mtbfHrs)
-        .input('PlannedPct',   sql.Decimal(5,1), plannedPct)
-        .input('UnplannedPct', sql.Decimal(5,1), unplannedPct)
+        .input('Timeframe',     sql.NVarChar, tf)
+        .input('AssetID',       sql.Int, assetID)
+        .input('Name',          sql.NVarChar, a.name || null)
+        .input('RangeStart',    sql.DateTime2, start)
+        .input('RangeEnd',      sql.DateTime2, end)
+        .input('UptimePct',     sql.Decimal(5,1), uptimePct)
+        .input('DowntimeHrs',   sql.Decimal(10,2), downtimeHrs)
+        .input('MttrHrs',       sql.Decimal(10,2), mttrHrs)
+        .input('MtbfHrs',       sql.Decimal(10,2), mtbfHrs)
+        .input('PlannedPct',    sql.Decimal(5,1), plannedPct)
+        .input('UnplannedPct',  sql.Decimal(5,1), unplannedPct)
         .query(`
           INSERT INTO dbo.KpiByAssetCache
             (Timeframe, AssetID, Name, RangeStart, RangeEnd, UptimePct, DowntimeHrs, MttrHrs, MtbfHrs, PlannedPct, UnplannedPct)
