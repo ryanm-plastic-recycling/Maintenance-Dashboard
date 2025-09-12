@@ -484,20 +484,18 @@
                         workOrderDataContainer.innerHTML = 'Error fetching data.';
                     });
         }
-        refreshButton.addEventListener('click', () => {
-        // Fetch and load the data without reloading the page
-		fetchData();
     });
 
-    // 1) run once on load
+    // run once on load
 	fetchData();
 	
-	// 2) auto-refresh every 60s
+	// auto-refresh every 60s
 	const REFRESH_MS = 60_000;
 	setInterval(fetchData, REFRESH_MS);
 	
-	// keep the manual button too
+	// manual refresh
 	refreshButton.addEventListener('click', fetchData);
+
 </script>
 <script>
   // clock
