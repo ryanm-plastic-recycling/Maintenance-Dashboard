@@ -286,17 +286,37 @@
     const rotateBtn = document.getElementById('toggle-rotation');
     let mappings = {};
     let config = {};
-		
-	function parseTs(ts){
-	    if (ts==null) return null;
-	    if (typeof ts==='number') return new Date(ts*1000);
-	    const s=String(ts).trim();
-	    if (/^\d+$/.test(s)) return new Date(Number(s)*1000);
-	    const d=new Date(s);
-	    return isNaN(d)?null:d;
-	  }
-  const fmtDate    = ts => (parseTs(ts)?.toLocaleDateString() ?? '');
-  const fmtDateTime= ts => (parseTs(ts)?.toLocaleString() ?? '');
+
+	console.log('[pm] v1.5 loaded');
+
+	const LOCAL_TZ = 'America/Indiana/Indianapolis';
+
+	function parseTs(ts) {
+	  if (ts == null) return null;
+	  if (typeof ts === 'number') return new Date(ts * 1000);
+	  const s = String(ts).trim();
+	  if (/^\d+$/.test(s)) return new Date(Number(s) * 1000);
+	  // If no timezone suffix, assume UTC
+	  const iso = /[Zz]|[+-]\d\d:?\d\d/.test(s) ? s : s + 'Z';
+	  const d = new Date(iso);
+	  return isNaN(d) ? null : d;
+	}
+	
+	const fmtDate = (ts) => {
+	  const d = parseTs(ts);
+	  return d ? d.toLocaleDateString('en-US', { timeZone: LOCAL_TZ }) : '';
+	};
+	
+	const fmtDateTime = (ts) => {
+	  const d = parseTs(ts);
+	  return d
+	    ? d.toLocaleString('en-US', {
+	        timeZone: LOCAL_TZ,
+	        year: 'numeric', month: '2-digit', day: '2-digit',
+	        hour: '2-digit', minute: '2-digit'
+	      })
+	    : '';
+	};
 		
     fetch('/config.json')
         .then(res => res.json())
@@ -390,6 +410,8 @@
 		  if (!config.columns) return;
 		  const page = window.location.pathname.split('/').pop() || 'pm.html';
 		  const cols = config.columns[page] || [];
+		  if (!cols.length) return; // show all columns by default when not configured
+		
 		  document.querySelectorAll('th[data-col]').forEach(th => {
 		    th.style.display = cols.includes(th.dataset.col) ? '' : 'none';
 		  });
@@ -443,7 +465,8 @@
 
                                 const lrEl = document.getElementById('last-refresh-pm');
                                 if (lrEl && data.lastRefreshUtc) {
-                                    lrEl.textContent = `· Last refresh: ${new Date(data.lastRefreshUtc).toLocaleString()}`;
+                                    lrEl.textContent = `· Last refresh: ${new Date(data.lastRefreshUtc)
+  										.toLocaleString('en-US', { timeZone: 'America/Indiana/Indianapolis' })}`;
                                 }
 
 				// Clear existing table rows
