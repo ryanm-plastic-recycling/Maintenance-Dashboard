@@ -542,6 +542,55 @@ app.get('/admin', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
 
+app.get('/api/kpi/by-asset', async (req, res) => {
+  try {
+    // reuse an existing pool if you stash it on app.locals; otherwise connect now
+    let pool = req.app?.locals?.pool;
+    if (!pool || !pool.connected) {
+      // use your existing sqlConfig (same one used elsewhere in server.js)
+      pool = await sql.connect({
+        user:     process.env.AZURE_SQL_USER,
+        password: process.env.AZURE_SQL_PASS,
+        server:   process.env.AZURE_SQL_SERVER,
+        database: process.env.AZURE_SQL_DB,
+        options: { encrypt: true }
+      });
+    }
+
+    const tfRaw = String(req.query.tf ?? req.query.timeframe ?? 'lastMonth').trim();
+    const tfMap = {
+      lastMonth:'lastMonth', last30:'last30', lastWeek:'lastWeek',
+      thisWeek:'thisWeek', thisMonth:'thisMonth', thisYear:'thisYear', lastYear:'lastYear'
+    };
+    const tf = tfMap[tfRaw] || 'lastMonth';
+
+    const rowsRs = await pool.request()
+      .input('tf', sql.NVarChar, tf)
+      .query(`
+        SELECT AssetID, Name, Timeframe, RangeStart, RangeEnd,
+               UptimePct, DowntimeHrs, MttrHrs, MtbfHrs,
+               PlannedPct, UnplannedPct,
+               UnplannedCount, FailureEvents
+        FROM dbo.KpiByAssetCache
+        WHERE Timeframe = @tf
+        ORDER BY Name, AssetID;
+      `);
+
+    const tsRs = await pool.request()
+      .input('tf', sql.NVarChar, tf)
+      .query(`SELECT MAX(SnapshotAt) AS lastRefreshUtc FROM dbo.KpiByAssetCache WHERE Timeframe = @tf;`);
+
+    res.json({
+      timeframe: tf,
+      rows: rowsRs.recordset || [],
+      lastRefreshUtc: tsRs.recordset?.[0]?.lastRefreshUtc || null
+    });
+  } catch (e) {
+    console.error('[kpi/by-asset]', e);
+    res.status(500).json({ error: String(e.message || e) });
+  }
+});
+
 app.get('/api/config', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'config.json'));
 });
