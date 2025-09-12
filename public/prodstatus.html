@@ -290,6 +290,7 @@
  let refreshCountdown = 0;
  let mappings = {};
  let config = {};
+ let __ps_waiting = false;
 
     fetch('/config.json')
         .then(res => res.json())
@@ -413,7 +414,7 @@
             document.querySelectorAll('th[data-col]').forEach(th => {
                 if (!cols.includes(th.dataset.col)) th.style.display = 'none'; else th.style.display = '';
             });
-            document.querySelectorAll('#work-order-data tr').forEach(tr => {
+            document.querySelectorAll('#status-data tr').forEach(tr => {
                 tr.querySelectorAll('td[data-col]').forEach(td => {
                     if (!cols.includes(td.dataset.col)) td.style.display = 'none'; else td.style.display = '';
                 });
@@ -445,6 +446,9 @@
       }
 
 	  async function loadStatus() {
+		  if (__ps_waiting) return;
+		  __ps_waiting = true;
+		  try {
 		  const res = await fetch('/api/workorders/prodstatus?t=' + Date.now(), { cache: 'no-store' });
 		  const data = await res.json();
 		
@@ -468,7 +472,10 @@
 		
 		  renderStatus(rows, data.lastRefreshUtc);
 		  if (data.nextRefresh) scheduleRefresh(Math.max(0, data.nextRefresh - Date.now()));
-		}
+		} finally {
+	    __ps_waiting = false;
+	  }
+	}
 
      function renderStatus(rows, lastRefreshUtc) {
 		  console.log('[prodstatus] rows length:', rows?.length, 'sample row:', rows?.[0]);
@@ -533,10 +540,16 @@
         refreshAll();
       });
       refreshStatusButton.addEventListener('click', () => {
-        fetch(process.env.STATUS_REFRESH_ENDPOINT || '/api/cache/refresh', { method: 'POST' });
+        fetch('/api/cache/refresh', { method: 'POST' });
       });
 
     // Fetch and load the data when the page loads handled by refreshAll()
+	// run once on load
+	refreshAll(); // or call loadStatus() directly if that’s your entry
+	
+	// fallback tick if server doesn’t provide nextRefresh
+	setInterval(() => { if (!__ps_waiting) loadStatus(); }, 60_000);
+
     </script>
 <script>
   // clock
