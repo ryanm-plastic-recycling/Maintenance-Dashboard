@@ -256,11 +256,11 @@
             }, interval);
     }
 
-    setInterval(() => { loadAll(); refreshCountdown = refreshInterval / 1000; }, refreshInterval);
+    setInterval(() => { loadByAsset(); refreshCountdown = refreshInterval / 1000; }, refreshInterval);
     refreshButton.addEventListener('click', () => {
-      loadAll();
-      refreshCountdown = refreshInterval / 1000;
-    });
+     loadByAsset();
+     refreshCountdown = refreshInterval / 1000;
+   });
     
     async function loadByAsset() {
       const tf = (document.getElementById('timeframe-select')?.value || 'lastMonth'); // use the real select id
@@ -292,12 +292,6 @@
           .toLocaleString('en-US', { timeZone: 'America/Indiana/Indianapolis' });
       }
     }
-    
-      const lr = document.getElementById('last-refresh-by-asset');
-      if (lr && data.lastRefreshUtc) {
-        lr.textContent = '· Last refresh: ' + new Date(data.lastRefreshUtc)
-          .toLocaleString('en-US', { timeZone: 'America/Indiana/Indianapolis' });
-      }
     }
     
    // run once on load
