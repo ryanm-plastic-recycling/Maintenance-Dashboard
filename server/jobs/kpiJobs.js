@@ -132,43 +132,88 @@ function normalizeAssets(m) {
 }
 
 export async function refreshHeaderKpis(pool) {
-  const now = new Date();
-  const ranges = [
-    { tf: 'lastWeek' },
-    { tf: 'last30' }
-  ];
-  let inserted = 0;
+  const DOWNTIME_UNITS = (process.env.DOWNTIME_UNITS || 'minutes').toLowerCase();
+  const DT_FACTOR = DOWNTIME_UNITS === 'seconds' ? 1/3600
+                   : DOWNTIME_UNITS === 'hours'   ? 1
+                   :                                 1/60; // minutes -> hours
 
+  const ranges = [{ tf: 'lastWeek' }, { tf: 'last30' }];
+
+  // pull expected hours (HoursPerWeek) once
+  const a = await pool.request().query(`
+    SELECT SUM(COALESCE(HoursPerWeek, 0)) AS HrsPerWeek
+    FROM dbo.LimbleKPIAssets
+  `);
+  const hrsPerWeek = Number(a.recordset[0]?.HrsPerWeek || 0);
+
+  let inserted = 0;
   for (const r of ranges) {
-    const { start, end } = tfRange(now, r.tf);
-    // TODO: replace placeholders with real aggregates
-    const uptimePct      = 99.9;
-    const downtimeHrs    = 1.2;
-    const mttrHrs        = 3.4;
-    const mtbfHrs        = 120.0;
-    const plannedCount   = 10;
-    const unplannedCount = 6;
+    const { start, end } = tfRange(new Date(), r.tf);
+
+    // raw event/downtime rollups
+    const q = await pool.request()
+      .input('start', sql.DateTime2, start)
+      .input('end',   sql.DateTime2, end)
+      .input('f',     sql.Float,     DT_FACTOR)
+      .query(`
+        WITH window AS (
+          SELECT Type, Downtime, CreatedDate, DateCompleted
+          FROM dbo.LimbleKPITasks
+          WHERE (DateCompleted BETWEEN @start AND @end)
+        )
+        SELECT
+          SUM(CASE WHEN Type IN (2,6) THEN Downtime * @f ELSE 0 END) AS DowntimeHrs,
+          SUM(CASE WHEN Type IN (2,6) THEN 1 ELSE 0 END)            AS UnplannedCount,
+          SUM(CASE WHEN Type IN (1,4) THEN 1 ELSE 0 END)            AS PlannedCount
+        FROM window;
+      `);
+
+    const row = q.recordset[0] || {};
+    const downtimeHrs     = Number(row.DowntimeHrs || 0);
+    const unplannedCount  = Number(row.UnplannedCount || 0);
+    const plannedCount    = Number(row.PlannedCount || 0);
+
+    // scheduled hours over the range (use HoursPerWeek across all assets)
+    const weeks = Math.max(0, (end - start) / (7 * 24 * 3600 * 1000));
+    const scheduledHrs = hrsPerWeek * weeks;
+
+    // MTTR / MTBF / Uptime / splits
+    const mttrHrs   = unplannedCount > 0 ? downtimeHrs / unplannedCount : 0;
+    const runHrs    = Math.max(0, scheduledHrs - downtimeHrs);
+    const mtbfHrs   = unplannedCount > 0 ? runHrs / unplannedCount : 0;
+    const uptimePct = scheduledHrs > 0 ? Math.max(0, Math.min(100, (1 - downtimeHrs / scheduledHrs) * 100)) : 0;
+
+    const totalEvents = plannedCount + unplannedCount;
+    const plannedPct   = totalEvents > 0 ? (plannedCount / totalEvents)   * 100 : 0;
+    const unplannedPct = totalEvents > 0 ? (unplannedCount / totalEvents) * 100 : 0;
 
     await pool.request()
-      .input('Timeframe',     sql.NVarChar, r.tf)
-      .input('RangeStart',    sql.DateTime2, start)
-      .input('RangeEnd',      sql.DateTime2, end)
-      .input('UptimePct',     sql.Decimal(5,1), uptimePct)
-      .input('DowntimeHrs',   sql.Decimal(10,1), downtimeHrs)
-      .input('MttrHrs',       sql.Decimal(10,1), mttrHrs)
-      .input('MtbfHrs',       sql.Decimal(10,1), mtbfHrs)
-      .input('PlannedCount',  sql.Int, plannedCount)
-      .input('UnplannedCount',sql.Int, unplannedCount)
+      .input('Timeframe',   sql.NVarChar, r.tf)
+      .input('RangeStart',  sql.DateTime2, start)
+      .input('RangeEnd',    sql.DateTime2, end)
+      .input('UptimePct',   sql.Decimal(5,1), uptimePct)
+      .input('DowntimeHrs', sql.Decimal(10,2), downtimeHrs)
+      .input('MttrHrs',     sql.Decimal(10,2), mttrHrs)
+      .input('MtbfHrs',     sql.Decimal(10,2), mtbfHrs)
+      .input('PlannedCount',   sql.Int, plannedCount)
+      .input('UnplannedCount', sql.Int, unplannedCount)
+      .input('PlannedPct',     sql.Decimal(5,1), plannedPct)
+      .input('UnplannedPct',   sql.Decimal(5,1), unplannedPct)
       .query(`
+        -- replace the row for this timeframe
+        DELETE FROM dbo.KpiHeaderCache WHERE Timeframe = @Timeframe;
+
         INSERT INTO dbo.KpiHeaderCache
-          (Timeframe,RangeStart,RangeEnd,UptimePct,DowntimeHrs,MttrHrs,MtbfHrs,PlannedCount,UnplannedCount)
+          (Timeframe, RangeStart, RangeEnd, UptimePct, DowntimeHrs, MttrHrs, MtbfHrs, PlannedCount, UnplannedCount, PlannedPct, UnplannedPct)
         VALUES
-          (@Timeframe,@RangeStart,@RangeEnd,@UptimePct,@DowntimeHrs,@MttrHrs,@MtbfHrs,@PlannedCount,@UnplannedCount)
+          (@Timeframe, @RangeStart, @RangeEnd, @UptimePct, @DowntimeHrs, @MttrHrs, @MtbfHrs, @PlannedCount, @UnplannedCount, @PlannedPct, @UnplannedPct);
       `);
+
     inserted++;
   }
   return { inserted, ranges: ranges.length };
 }
+
 
 export async function refreshWorkOrders(pool, page) {
   const key = page === 'index' ? 'WO_INDEX_SQL'
@@ -274,47 +319,89 @@ export async function refreshWorkOrders(pool, page) {
 }
 
 export async function refreshByAssetKpis(pool) {
-  const now = new Date();
-  // Load + normalize asset map from mappings.json
-  const mappings = loadMappingsRaw();
-  const assets = normalizeAssets(mappings);
-  if (!assets.length) {
-    console.warn('[kpiJobs] No assets found in mappings.json; by-asset snapshot will be empty.');
-  }
+  const DOWNTIME_UNITS = (process.env.DOWNTIME_UNITS || 'minutes').toLowerCase();
+  const DT_FACTOR = DOWNTIME_UNITS === 'seconds' ? 1/3600
+                   : DOWNTIME_UNITS === 'hours'   ? 1
+                   :                                 1/60;
 
-  let inserted = 0;
-  let tfCount = 0;
+  const mappings = loadMappingsRaw();
+  const assets = normalizeAssets(mappings); // [{assetID, name}]
+  const TF = cfg.kpiByAssetTimeframes || ['lastMonth']; // keep your config
+
+  let inserted = 0, tfCount = 0;
   for (const tf of TF) {
     tfCount++;
-    const { start, end } = tfRange(now, tf);
-    for (const a of assets) {
-      const row = {
-        UptimePct:    100.0,
-        DowntimeHrs:  0.0,
-        MttrHrs:      0.0,
-        MtbfHrs:      0.0,
-        PlannedPct:   60.0,
-        UnplannedPct: 40.0
-      };
+    const { start, end } = tfRange(new Date(), tf);
+
+    // precompute scheduled hours proportional to timeframe per asset
+    // (use HoursPerWeek if present, else fall back to EXPECTED_HOURS_PER_DAY * run days)
+    const sched = await pool.request()
+      .input('start', sql.DateTime2, start)
+      .input('end',   sql.DateTime2, end)
+      .query(`
+        SELECT a.AssetID,
+               COALESCE(a.HoursPerWeek, 0) * DATEDIFF(second, @start, @end) / (7.0 * 24.0 * 3600.0) AS ScheduledHrs
+        FROM dbo.LimbleKPIAssets a
+      `);
+    const schedMap = new Map(sched.recordset.map(r => [Number(r.AssetID), Number(r.ScheduledHrs || 0)]));
+
+    // aggregate per asset over window
+    const rs = await pool.request()
+      .input('start', sql.DateTime2, start)
+      .input('end',   sql.DateTime2, end)
+      .input('f',     sql.Float,     DT_FACTOR)
+      .query(`
+        SELECT
+          t.AssetID,
+          SUM(CASE WHEN t.Type IN (2,6) THEN t.Downtime * @f ELSE 0 END) AS DowntimeHrs,
+          SUM(CASE WHEN t.Type IN (2,6) THEN 1 ELSE 0 END)                AS UnplannedCount,
+          SUM(CASE WHEN t.Type IN (1,4) THEN 1 ELSE 0 END)                AS PlannedCount
+        FROM dbo.LimbleKPITasks t
+        WHERE (t.DateCompleted BETWEEN @start AND @end)
+        GROUP BY t.AssetID
+      `);
+
+    // Replace rows for this timeframe
+    await pool.request().input('tf', sql.NVarChar, tf)
+      .query(`DELETE FROM dbo.KpiByAssetCache WHERE Timeframe=@tf;`);
+
+    for (const r of rs.recordset) {
+      const assetID = Number(r.AssetID);
+      const downtimeHrs = Number(r.DowntimeHrs || 0);
+      const unplanned = Number(r.UnplannedCount || 0);
+      const planned   = Number(r.PlannedCount || 0);
+      const totalEv   = planned + unplanned;
+
+      const scheduledHrs = schedMap.get(assetID) || 0;
+      const runHrs       = Math.max(0, scheduledHrs - downtimeHrs);
+
+      const mttrHrs    = unplanned > 0 ? downtimeHrs / unplanned : 0;
+      const mtbfHrs    = unplanned > 0 ? runHrs       / unplanned : 0;
+      const uptimePct  = scheduledHrs > 0 ? Math.max(0, Math.min(100, (1 - downtimeHrs / scheduledHrs) * 100)) : 0;
+      const plannedPct   = totalEv > 0 ? (planned   / totalEv) * 100 : 0;
+      const unplannedPct = totalEv > 0 ? (unplanned / totalEv) * 100 : 0;
+
       await pool.request()
         .input('Timeframe', sql.NVarChar, tf)
-        .input('AssetID', sql.Int, a.assetID)
-        .input('Name', sql.NVarChar, a.name || null)
+        .input('AssetID',   sql.Int, assetID)
+        .input('Name',      sql.NVarChar, assets.find(a => a.assetID === assetID)?.name || null)
         .input('RangeStart', sql.DateTime2, start)
-        .input('RangeEnd', sql.DateTime2, end)
-        .input('UptimePct', sql.Decimal(5,1), row.UptimePct)
-        .input('DowntimeHrs', sql.Decimal(10,1), row.DowntimeHrs)
-        .input('MttrHrs', sql.Decimal(10,1), row.MttrHrs)
-        .input('MtbfHrs', sql.Decimal(10,1), row.MtbfHrs)
-        .input('PlannedPct', sql.Decimal(5,1), row.PlannedPct)
-        .input('UnplannedPct', sql.Decimal(5,1), row.UnplannedPct)
+        .input('RangeEnd',   sql.DateTime2, end)
+        .input('UptimePct',  sql.Decimal(5,1), uptimePct)
+        .input('DowntimeHrs',sql.Decimal(10,2), downtimeHrs)
+        .input('MttrHrs',    sql.Decimal(10,2), mttrHrs)
+        .input('MtbfHrs',    sql.Decimal(10,2), mtbfHrs)
+        .input('PlannedPct',   sql.Decimal(5,1), plannedPct)
+        .input('UnplannedPct', sql.Decimal(5,1), unplannedPct)
         .query(`
-          INSERT INTO dbo.KpiByAssetCache(Timeframe,AssetID,Name,RangeStart,RangeEnd,UptimePct,DowntimeHrs,MttrHrs,MtbfHrs,PlannedPct,UnplannedPct)
-          VALUES(@Timeframe,@AssetID,@Name,@RangeStart,@RangeEnd,@UptimePct,@DowntimeHrs,@MttrHrs,@MtbfHrs,@PlannedPct,@UnplannedPct)
+          INSERT INTO dbo.KpiByAssetCache
+            (Timeframe, AssetID, Name, RangeStart, RangeEnd, UptimePct, DowntimeHrs, MttrHrs, MtbfHrs, PlannedPct, UnplannedPct)
+          VALUES
+            (@Timeframe, @AssetID, @Name, @RangeStart, @RangeEnd, @UptimePct, @DowntimeHrs, @MttrHrs, @MtbfHrs, @PlannedPct, @UnplannedPct)
         `);
       inserted++;
     }
   }
-  return { inserted, assets: assets.length, timeframes: tfCount };
+  return { inserted, assets: 'computed', timeframes: tfCount };
 }
 
