@@ -40,6 +40,12 @@
 }
     .header-mt .header-metric { display:flex; flex-direction:column; align-items:center; }
     .true-overall-row { padding-bottom:4px; }
+    .kpi-tile { background:#2f3547; color:#fff; padding:10px 14px; border-radius:10px; margin-right:10px; min-width:140px; display:inline-block; }
+    .kpi-tile.good { background:#2e7d32; }   /* green */
+    .kpi-tile.warn { background:#ef6c00; }   /* orange */
+    .kpi-tile.bad  { background:#c62828; }   /* red */
+    .kpi-tile .label { font-size:0.9rem; opacity:.85; }
+    .kpi-tile .value { font-size:1.6rem; font-weight:700; }
   </style>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
@@ -314,9 +320,15 @@
         plannedPct:   s.plannedPct   + Number(r.PlannedPct      || 0),
         unplannedPct: s.unplannedPct + Number(r.UnplannedPct    || 0),
       }), { downtime:0, unplanned:0, failures:0, uptimePct:0, mttr:0, mtbf:0, plannedPct:0, unplannedPct:0 });
+     
     
       // top tiles
       document.querySelector('[data-testid="true-overall-downtime"]').textContent = (n ? (100 - (sum.uptimePct / n)).toFixed(1) : '0.0') + '%';
+      // color code based on overall downtime %
+      const overallPct = n ? (100 - (sum.uptimePct / n)) : 0;
+      const dtTile = document.getElementById('tile-downtime');
+      dtTile.classList.remove('good','warn','bad');
+      dtTile.classList.add(overallPct <= 10 ? 'good' : overallPct <= 20 ? 'warn' : 'bad');
       document.querySelector('[data-testid="true-overall-mttr"]').textContent     = (sum.mttr / n).toFixed(2);
       document.querySelector('[data-testid="true-overall-mtbf"]').textContent     = (sum.mtbf / n).toFixed(2);
       document.querySelector('[data-testid="true-overall-planned"]').textContent  = (sum.plannedPct / n).toFixed(1) + '%';
