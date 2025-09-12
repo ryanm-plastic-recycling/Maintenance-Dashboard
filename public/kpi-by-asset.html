@@ -352,11 +352,7 @@
       }
     }
    // run once on load
-  loadByAsset();
-  
-  // auto-refresh every 60s  (or set refreshInterval = 60_000 if you prefer one timer)
-  setInterval(loadByAsset, 60_000);
-  
+  loadByAsset();  
   // manual refresh + react to timeframe changes
   document.getElementById('refresh-button').addEventListener('click', loadByAsset);
   document.getElementById('timeframe-select').addEventListener('change', loadByAsset);
