@@ -452,16 +452,12 @@
 				//***console.log('Received data:', data);
 				
                                 // Process data and update the table
-                        let tasks = data.rows || [];
-						const scored = tasks.map(t => ({
-						  t,
-						  k: parseTs(t.createdDate)?.getTime() ?? -Infinity,
-						  id: Number(t.taskID) || -Infinity
-						}));
-						scored.sort((a,b) => (b.k - a.k) || (b.id - a.id));
-						
+                        const tasks = Array.isArray(data.rows) ? data.rows : [];
+						const onlyWithId = tasks.filter(t => Number.isFinite(Number(t.taskID)));
+						onlyWithId.sort((a,b) => Number(b.taskID) - Number(a.taskID));
 						const maxRows = (config.maxRows && config.maxRows['pm.html']) || 40;
-						const render = scored.slice(0, maxRows).map(x => x.t);
+						const render = onlyWithId.slice(0, maxRows);
+
 
                                 const lrEl = document.getElementById('last-refresh-pm');
                                 if (lrEl && data.lastRefreshUtc) {
