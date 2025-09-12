@@ -268,7 +268,7 @@
                     <th data-col="assignedTo">Assigned To</th>
                 </tr>
             </thead>
-            <tbody id="pm-data">
+            <tbody id="work-order-data">
                 <!-- Work order data will be inserted here -->
             </tbody>
         </table>
@@ -278,44 +278,25 @@
     
 	<script>
     // User input section
+    //const fetchButton = document.getElementById('fetch-button');
+    //const inputValue = document.getElementById('input-value');
+    //const workOrderDataContainer = document.getElementById('work-order-data');
     const refreshButton = document.getElementById('refresh-button');
-    const pmBody = document.getElementById('pm-data');
+    const workOrderDataContainer = document.getElementById('work-order-data');
     const rotateBtn = document.getElementById('toggle-rotation');
     let mappings = {};
     let config = {};
-
-	console.log('[pm] v1.4 loaded');
-	// ---- Timezone-aware helpers (local = America/Indiana/Indianapolis)
-	const LOCAL_TZ = 'America/Indiana/Indianapolis';
-	
-	function parseTs(ts) {
-	  if (ts == null) return null;
-	  if (typeof ts === 'number') return new Date(ts * 1000);
-	  const s = String(ts).trim();
-	  if (/^\d+$/.test(s)) return new Date(Number(s) * 1000);
-	  const iso = /[Zz]|[+-]\d\d:?\d\d/.test(s) ? s : s + 'Z'; // assume UTC if no zone
-	  const d = new Date(iso);
-	  return isNaN(d) ? null : d;
-	}
-	
-	const nz = (v) => (v === 0 || v === '0' || v == null) ? null : v;  // <— here
-	
-	const fmtDate = (ts) => {
-	  const d = parseTs(ts);
-	  return d ? d.toLocaleDateString('en-US', { timeZone: LOCAL_TZ }) : '';
-	};
-	
-	const fmtDateTime = (ts) => {
-	  const d = parseTs(ts);
-	  return d
-	    ? d.toLocaleString('en-US', {
-	        timeZone: LOCAL_TZ,
-	        year: 'numeric', month: '2-digit', day: '2-digit',
-	        hour: '2-digit', minute: '2-digit'
-	      })
-	    : '';
-	};
-
+		
+	function parseTs(ts){
+	    if (ts==null) return null;
+	    if (typeof ts==='number') return new Date(ts*1000);
+	    const s=String(ts).trim();
+	    if (/^\d+$/.test(s)) return new Date(Number(s)*1000);
+	    const d=new Date(s);
+	    return isNaN(d)?null:d;
+	  }
+  const fmtDate    = ts => (parseTs(ts)?.toLocaleDateString() ?? '');
+  const fmtDateTime= ts => (parseTs(ts)?.toLocaleString() ?? '');
 		
     fetch('/config.json')
         .then(res => res.json())
@@ -409,12 +390,10 @@
 		  if (!config.columns) return;
 		  const page = window.location.pathname.split('/').pop() || 'pm.html';
 		  const cols = config.columns[page] || [];
-		  if (!cols.length) return; // ← show all columns by default when not configured
-		
 		  document.querySelectorAll('th[data-col]').forEach(th => {
 		    th.style.display = cols.includes(th.dataset.col) ? '' : 'none';
 		  });
-		  document.querySelectorAll('#pm-data tr').forEach(tr => {
+		  document.querySelectorAll('#work-order-data tr').forEach(tr => {
 		    tr.querySelectorAll('td[data-col]').forEach(td => {
 		      td.style.display = cols.includes(td.dataset.col) ? '' : 'none';
 		    });
@@ -448,62 +427,61 @@
 			
 			//.then(response => response.json())
 			.then(data => {
-			  const tasks = Array.isArray(data.rows) ? data.rows : [];
-				// Keep rows that have a numeric taskID
-				// Keep rows that have a numeric taskID AND at least one real date
-				const onlyWithId = tasks.filter(t =>
-				  Number.isFinite(Number(t.taskID)) &&
-				  (Number(t.lastEdited) > 0 || Number(t.due) > 0 || Number(t.createdDate) > 0)
-				);
-				const onlyWithId = tasks.filter(t => Number.isFinite(Number(t.taskID)));
-				// Sort newest taskID first
-				onlyWithId.sort((a,b) => Number(b.taskID) - Number(a.taskID));
+				//***console.log('Received data:', data);
 				
-				// Show 40 newest PM tasks (or config override)
-				const maxRows = (config.maxRows && config.maxRows['pm.html']) || 40;
-				const render = onlyWithId.slice(0, maxRows);
-			
-			  const lrEl = document.getElementById('last-refresh-pm');
-			  if (lrEl && data.lastRefreshUtc) {
-			    lrEl.textContent = `· Last refresh: ${new Date(data.lastRefreshUtc)
-			      .toLocaleString('en-US', { timeZone: 'America/Indiana/Indianapolis' })}`;
-			  }
-			
-			  // Render rows
-			  const tbody = document.getElementById('pm-data');
-				tbody.innerHTML = '';
-				render.forEach(task => {
-				  const created =
-				    parseTs(nz(task.lastEdited)) ||
-				    parseTs(nz(task.due)) ||
-				    parseTs(nz(task.createdDate));
-				  const createdStr = created ? fmtDateTime(created.toISOString()) : '';
-				  const dueStr     = task.due ? fmtDate(task.due) : '';
+                                // Process data and update the table
+                        let tasks = data.rows || [];
+						const scored = tasks.map(t => ({
+						  t,
+						  k: parseTs(t.createdDate)?.getTime() ?? -Infinity,
+						  id: Number(t.taskID) || -Infinity
+						}));
+						scored.sort((a,b) => (b.k - a.k) || (b.id - a.id));
+						
+						const maxRows = (config.maxRows && config.maxRows['pm.html']) || 40;
+						const render = scored.slice(0, maxRows).map(x => x.t);
+
+                                const lrEl = document.getElementById('last-refresh-pm');
+                                if (lrEl && data.lastRefreshUtc) {
+                                    lrEl.textContent = `· Last refresh: ${new Date(data.lastRefreshUtc).toLocaleString()}`;
+                                }
+
+				// Clear existing table rows
+				workOrderDataContainer.innerHTML = '';
 				
-				  const row = document.createElement('tr');
-				  row.innerHTML = `
-				    <td data-col="locationID">${mappings.location?.[task.locationID] ?? task.locationID ?? ''}</td>
-				    <td data-col="taskID">${task.taskID ?? ''}</td>
-				    <td data-col="assetID">${mappings.asset?.[task.assetID] ?? task.assetID ?? ''}</td>
-				    <td data-col="priority">${mappings.priority?.[task.priority] ?? task.priority ?? ''}</td>
-				    <td data-col="name">${task.name ?? ''}</td>
-				    <td data-col="description">${task.description ?? ''}</td>
-				    <td data-col="type">${mappings.type?.[task.type] ?? task.type ?? ''}</td>
-				    <td data-col="createdDate">${createdStr}</td>
-				    <td data-col="due">${dueStr}</td>
-				    <td data-col="statusID">${mappings.status?.[task.statusID] ?? task.statusID ?? ''}</td>
-				    <td data-col="teamID">${mappings.team?.[task.teamID] ?? task.teamID ?? ''}</td>
-				    <td data-col="assignedTo">${task.assignedTo || task.assignedUser || ''}</td>
-				  `;
-				  tbody.appendChild(row);
-				});
-			
-			  applyColumnConfig();
+                                // Load mappings from configuration file
+                                const statusMapping = mappings.status || {};
+                                const typeMapping = mappings.type || {};
+                                const locationMapping = mappings.location || {};
+                                const teamMapping = mappings.team || {};
+                                const priorityMapping = mappings.priority || {};
+				
+                                // Filter and display the relevant data
+                        render.forEach(task => {
+                                        const row = document.createElement('tr');
+                                        row.innerHTML = `
+                                                <td data-col="locationID">${locationMapping[task.locationID] || task.locationID}</td>
+                                                <td data-col="taskID">${task.taskID}</td>
+                                                <td data-col="assetID">${assetMapping[task.assetID] || task.assetID}</td>
+                                                <td data-col="priority">${priorityMapping[task.priority] || task.priority}</td>
+                                                <td data-col="name">${task.name}</td>
+                                                <td data-col="description">${task.description}</td>
+                                                <td data-col="type">${typeMapping[task.type] || task.type}</td>
+                                                <td data-col="createdDate">${fmtDateTime(task.createdDate)}</td>
+                                                <td data-col="due">${fmtDate(task.due)}</td>
+                                                <td data-col="statusID">${statusMapping[task.statusID] || task.statusID}</td>
+                                                <td data-col="teamID">${teamMapping[task.teamID] || task.teamID}</td>
+                                                <td data-col="assignedTo">${task.assignedTo || task.assignedUser || ""}</td>
+                                        `;
+                                        workOrderDataContainer.appendChild(row);
+                                });
+                                // Apply column visibility settings after rows have been added
+                                applyColumnConfig();
 			})
                         .catch(error => {
                                 console.error('Error fetching tasks:', error);
                                 // Display error message on webpage
-                                pmBody.innerHTML = 'Error fetching data.';
+                                workOrderDataContainer.innerHTML = 'Error fetching data.';
                         });
         }
         refreshButton.addEventListener('click', () => {
