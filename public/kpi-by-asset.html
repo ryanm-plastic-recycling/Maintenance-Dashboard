@@ -318,29 +318,6 @@
       
         return;
       }
-
-      // (4) NO-ROWS GUARD — put dashes and bail
-      if (!rows.length) {
-        document.querySelector('[data-testid="true-overall-downtime"]').textContent = '--';
-        document.querySelector('[data-testid="true-overall-mttr"]').textContent     = '--';
-        document.querySelector('[data-testid="true-overall-mtbf"]').textContent     = '--';
-        document.querySelector('[data-testid="true-overall-planned"]').textContent  = '--';
-        document.querySelector('[data-testid="true-overall-unplanned"]').textContent= '--';
-    
-        ['total-assets','avg-downtime','avg-unplanned-count','avg-failure-events',
-         'avg-downtime-pct','avg-mttr','avg-mtbf','avg-planned','avg-unplanned',
-         'total-downtime','total-unplanned-count','total-failure-events'
-        ].forEach(id => document.getElementById(id).textContent = '--');
-    
-        // neutralize downtime tile
-        document.getElementById('tile-downtime').classList.remove('good','warn','bad');
-    
-        // last refresh + range
-        const lr = document.getElementById('last-refresh');
-        if (lr) lr.textContent = '';
-        document.getElementById('date-range').textContent = '';
-        return; // ← stop here
-      }
     
       // (5) render table rows
       rows.forEach(r => {
@@ -396,32 +373,31 @@
     
       // (9) paint tiles with thresholds
       const t = {
-        downtimePct: { goodMax: 10.0, warnMax: 20.0 },
-        mttr:        { goodMax: 4.0, warnMax: 8.0 },
+        // low is good
+        downtimePct: { goodMax: 10.0,  warnMax: 20.0  },
+        mttr:        { goodMax: 4.0,  warnMax: 8.0  },
+        // high is good
         mtbf:        { goodMin: 108.0, warnMin: 72.0 },
         plannedPct:  { goodMin: 70.0, warnMin: 50.0 },
+        // low is good
         unplannedPct:{ goodMax: 30.0, warnMax: 50.0 }
       };
-      function paint(el, value, kind) {
+      
+      function paintMax(el, v, {goodMax, warnMax}) {
         el.classList.remove('good','warn','bad');
-        el.classList.add(
-          kind === 'min'
-            ? (value >= t[el._k].goodMin ? 'good' : value >= t[el._k].warnMin ? 'warn' : 'bad')
-            : (value <= t[el._k].goodMax ? 'good' : value <= t[el._k].warnMax ? 'warn' : 'bad')
-        );
+        el.classList.add(v <= goodMax ? 'good' : v <= warnMax ? 'warn' : 'bad');
       }
-      const tileDT  = document.getElementById('tile-downtime');  tileDT._k  = 'downtimePct';
-      const tileMTTR= document.getElementById('tile-mttr');      tileMTTR._k= 'mttr';
-      const tileMTBF= document.getElementById('tile-mtbf');      tileMTBF._k= 'mtbf';
-      const tilePlan= document.getElementById('tile-planned');   tilePlan._k= 'plannedPct';
-      const tileUnpl= document.getElementById('tile-unplanned'); tileUnpl._k= 'unplannedPct';
-    
-      paint(tileDT,   overallDowntimePct, 'max');
-      paint(tileMTTR, avgMttr,            'max');
-      paint(tileMTBF, avgMtbf,            'min');
-      paint(tilePlan, avgPlannedPct,      'min');
-      paint(tileUnpl, avgUnplannedPct,    'max');
-    
+      function paintMin(el, v, {goodMin, warnMin}) {
+        el.classList.remove('good','warn','bad');
+        el.classList.add(v >= goodMin ? 'good' : v >= warnMin ? 'warn' : 'bad');
+      }
+      
+      paintMax(document.getElementById('tile-downtime'), overallDowntimePct, t.downtimePct);
+      paintMax(document.getElementById('tile-mttr'),     avgMttr,            t.mttr);
+      paintMin(document.getElementById('tile-mtbf'),     avgMtbf,            t.mtbf);
+      paintMin(document.getElementById('tile-planned'),  avgPlannedPct,      t.plannedPct);
+      paintMax(document.getElementById('tile-unplanned'),avgUnplannedPct,    t.unplannedPct);
+
       // (10) footer totals/averages
       document.getElementById('total-assets').textContent           = n;
       document.getElementById('avg-downtime').textContent           = (s.downtime / n).toFixed(2);
