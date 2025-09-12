@@ -22,16 +22,21 @@ const sqlConfig = {
 // Collect rows that fail during upsert
 const badRows = [];
 
+function isAbsolute(u) { return /^https?:\/\//i.test(u || ''); }
+function withParam(u, k, v) {
+  const re = new RegExp(`[?&]${k}=`, 'i');
+  if (re.test(u)) return u;
+  return `${u}${u.includes('?') ? '&' : '?'}${k}=${v}`;
+}
+
 //— helper to GET JSON from Limble ——————————————————————————
-async function limbleGet(path) {
-  const url = `${LIMBLE_BASE}${path}`;
-  const res = await fetch(url, {
-    headers: { Authorization: LIMBLE_AUTH }
-  });
-    if (!res.ok) {
-      const txt = await res.text();
-      throw new Error(`Limble ${path} → ${res.status}\n${txt}`);
-    }
+async function limbleGet(pathOrUrl) {
+  const url = isAbsolute(pathOrUrl) ? pathOrUrl : `${LIMBLE_BASE}${pathOrUrl}`;
+  const res = await fetch(url, { headers: { Authorization: LIMBLE_AUTH } });
+  if (!res.ok) {
+    const txt = await res.text();
+    throw new Error(`Limble ${url} → ${res.status}\n${txt}`);
+  }
   return res.json();
 }
 
@@ -67,18 +72,46 @@ function isAbsolute(u) { return /^https?:\/\//i.test(u || ''); }
 
 async function fetchTasksIncremental(lastTaskTimestamp) {
   const envUrl = (process.env.TASKS_URL || '').trim();
-  const order  = encodeURIComponent(process.env.TASKS_ORDERBY || '-lastEdited');
-  const limit  = Number(process.env.TASKS_LIMIT || 10000);
+  const order  = process.env.TASKS_ORDERBY || '-lastEdited';
+  const limit  = String(Number(process.env.TASKS_LIMIT || 10000));
 
-  // If TASKS_URL is absolute, DO NOT add &page=
+  // If TASKS_URL is absolute, DO NOT page; try safe variants in order.
   if (isAbsolute(envUrl)) {
-    const sep = envUrl.includes('?') ? '&' : '?';
-    const url = `${envUrl}${sep}orderby=${order}&limit=${limit}`;
-    const batch = await limbleGet(url);
-    return Array.isArray(batch) ? batch : [];
+    const variants = [];
+
+    // 1) Keep your URL, just add order/limit if missing
+    let v1 = withParam(withParam(envUrl, 'orderby', order), 'limit', limit);
+    variants.push(v1);
+
+    // 2) Some tenants use locationIds= instead of locations=
+    if (/[?&]locations=/.test(envUrl)) {
+      const swapped = envUrl.replace(/([?&])locations=/i, '$1locationIds=');
+      let v2 = withParam(withParam(swapped, 'orderby', order), 'limit', limit);
+      variants.push(v2);
+    }
+
+    // 3) Base path (drop query entirely), add order/limit
+    const baseNoQuery = envUrl.split('?')[0];
+    variants.push(withParam(withParam(baseNoQuery, 'orderby', order), 'limit', limit));
+
+    // 4) Hard fallback: relative canonical /tasks with order/limit
+    variants.push(`/tasks?orderby=${encodeURIComponent(order)}&limit=${limit}`);
+
+    // Try in order; ignore 404 and keep going; rethrow anything else
+    for (const u of variants) {
+      try {
+        const batch = await limbleGet(u);
+        if (Array.isArray(batch)) return batch;
+      } catch (e) {
+        const msg = String(e?.message || '');
+        if (msg.includes(' 404')) continue;  // try next variant
+        throw e;                              // 401/429/5xx etc → surface it
+      }
+    }
+    throw new Error('All TASKS_URL variants returned 404. Consider using /tasks (relative) and filtering by LocationID in SQL.');
   }
 
-  // Otherwise, relative path → normal paging works
+  // Relative path → paging should work; keep watermark stop
   const base = envUrl || `/tasks?locations=${process.env.LIMBLE_LOCATION_ID || ''}&orderby=${order}`;
   const sep  = base.includes('?') ? '&' : '?';
   let all = [], page = 1;
@@ -90,7 +123,7 @@ async function fetchTasksIncremental(lastTaskTimestamp) {
       batch = await limbleGet(pageUrl);
     } catch (e) {
       // fallback if paging 404s even on relative path
-      if (String(e.message || '').includes(' 404')) {
+      if (String(e?.message || '').includes(' 404')) {
         const noPage = `${base}${sep}limit=${limit}`;
         batch = await limbleGet(noPage);
       } else {
@@ -101,27 +134,24 @@ async function fetchTasksIncremental(lastTaskTimestamp) {
     if (!Array.isArray(batch) || batch.length === 0) break;
     all.push(...batch);
 
-    // stop once oldest item on this page is at/before watermark
     const oldest = batch[batch.length - 1];
     const oldestEdited = new Date(((oldest?.lastEdited) || 0) * 1000);
     if (oldestEdited <= lastTaskTimestamp) break;
 
     page++;
   }
-
   return all;
 }
-
 
 // 1) Fetch & upsert LimbleKPITasks (all columns)
 async function loadTasks(pool) {
   // 1️⃣ Read our last run (watermark on lastEdited)
   const stateRes = await pool.request()
     .query(`SELECT LastTaskTimestamp FROM EtlStateLimbleTables WHERE Id = 0`);
-  const lastTaskTimestamp = stateRes.recordset[0].LastTaskTimestamp;
-
+  const lastTaskTimestamp = stateRes.recordset[0].LastTaskTimestamp || new Date(0);
+  
   // 2️⃣ Fetch every page (API already sorted by lastEdited)
-  const data = await fetchTasksIncremental(lastTaskTimestamp)
+  const data = (await fetchTasksIncremental(lastTaskTimestamp))
     .filter(t => new Date(((t?.lastEdited) || 0) * 1000) > lastTaskTimestamp);
   // Track counts and max timestamp
   let maxTs     = lastTaskTimestamp;
