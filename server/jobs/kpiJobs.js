@@ -351,6 +351,7 @@ export async function refreshByAssetKpis(pool) {
           t.AssetID,
           SUM(CASE WHEN t.Type IN (2,6) THEN t.Downtime * @f ELSE 0 END) AS DowntimeHrs,
           SUM(CASE WHEN t.Type IN (2,6) THEN 1 ELSE 0 END)                AS UnplannedCount,
+          SUM(CASE WHEN t.Type IN (1,4) THEN 1 ELSE 0 END)                AS PlannedCount,
           SUM(CASE WHEN t.Type IN (2,6) AND t.Downtime * @f > 0 THEN 1 ELSE 0 END) AS FailureEvents
         FROM dbo.LimbleKPITasks t
         WHERE (t.DateCompleted BETWEEN @start AND @end)
@@ -373,6 +374,7 @@ export async function refreshByAssetKpis(pool) {
       const agg = aggMap.get(assetID) || { DowntimeHrs: 0, UnplannedCount: 0, PlannedCount: 0 };
       const downtimeHrs = Number(agg.DowntimeHrs || 0);
       const unplanned   = Number(agg.UnplannedCount || 0);
+      const planned       = Number(agg.PlannedCount   || 0);
       const failureEvents = Number(agg.FailureEvents || 0);
       const planned     = Number(agg.PlannedCount || 0);
       const totalEv     = planned + unplanned;
