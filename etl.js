@@ -68,7 +68,6 @@ async function fetchAll(path, limit = 10000) {
 
   return all;
 }
-function isAbsolute(u) { return /^https?:\/\//i.test(u || ''); }
 
 async function fetchTasksIncremental(lastTaskTimestamp) {
   const envUrl = (process.env.TASKS_URL || '').trim();
