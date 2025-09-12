@@ -558,7 +558,7 @@ app.get('/api/kpi/by-asset', async (req, res) => {
         SELECT AssetID, Name, Timeframe, RangeStart, RangeEnd,
                UptimePct, DowntimeHrs, MttrHrs, MtbfHrs,
                PlannedPct, UnplannedPct,
-               UnplannedCount, FailureEvents
+               UnplannedCount, FailureEvents, ScheduledHrs
         FROM dbo.KpiByAssetCache
         WHERE Timeframe = @tf
         ORDER BY Name, AssetID;
