@@ -71,47 +71,51 @@ async function fetchAll(path, limit = 10000) {
 
 async function fetchTasksIncremental(lastTaskTimestamp) {
   const envUrl = (process.env.TASKS_URL || '').trim();
-  const order  = process.env.TASKS_ORDERBY || '-lastEdited';
   const limit  = String(Number(process.env.TASKS_LIMIT || 10000));
 
-  // If TASKS_URL is absolute, DO NOT page; try safe variants in order.
+  // Absolute TASKS_URL: DO NOT add orderby; try a few safe variants.
   if (isAbsolute(envUrl)) {
     const variants = [];
 
-    // 1) Keep your URL, just add order/limit if missing
-    let v1 = withParam(withParam(envUrl, 'orderby', order), 'limit', limit);
-    variants.push(v1);
+    // 0) try as-is
+    variants.push(envUrl);
 
-    // 2) Some tenants use locationIds= instead of locations=
-    if (/[?&]locations=/.test(envUrl)) {
+    // 1) add limit only (if not present)
+    variants.push(withParam(envUrl, 'limit', limit));
+
+    // 2) locations -> locationIds (both: as-is and +limit)
+    if (/[?&]locations=/i.test(envUrl)) {
       const swapped = envUrl.replace(/([?&])locations=/i, '$1locationIds=');
-      let v2 = withParam(withParam(swapped, 'orderby', order), 'limit', limit);
-      variants.push(v2);
+      variants.push(swapped);
+      variants.push(withParam(swapped, 'limit', limit));
     }
 
-    // 3) Base path (drop query entirely), add order/limit
+    // 3) base path (no query) + limit
     const baseNoQuery = envUrl.split('?')[0];
-    variants.push(withParam(withParam(baseNoQuery, 'orderby', order), 'limit', limit));
+    variants.push(withParam(baseNoQuery, 'limit', limit));
 
-    // 4) Hard fallback: relative canonical /tasks with order/limit
-    variants.push(`/tasks?orderby=${encodeURIComponent(order)}&limit=${limit}`);
+    // 4) relative canonical /tasks with limit
+    variants.push(`/tasks?limit=${limit}`);
 
-    // Try in order; ignore 404 and keep going; rethrow anything else
     for (const u of variants) {
       try {
         const batch = await limbleGet(u);
-        if (Array.isArray(batch)) return batch;
+        if (Array.isArray(batch)) {
+          // console.log('[etl] tasks variant used:', u, 'count=', batch.length);
+          return batch;
+        }
       } catch (e) {
         const msg = String(e?.message || '');
-        if (msg.includes(' 404')) continue;  // try next variant
-        throw e;                              // 401/429/5xx etc → surface it
+        // ignore 404/400 and try the next variant; surface other errors
+        if (msg.includes(' 404') || msg.includes(' 400')) continue;
+        throw e;
       }
     }
-    throw new Error('All TASKS_URL variants returned 404. Consider using /tasks (relative) and filtering by LocationID in SQL.');
+    throw new Error('All TASKS_URL variants failed (404/400). Consider relative /tasks and SQL filtering.');
   }
 
-  // Relative path → paging should work; keep watermark stop
-  const base = envUrl || `/tasks?locations=${process.env.LIMBLE_LOCATION_ID || ''}&orderby=${order}`;
+  // Relative path → paging; still no orderby unless you explicitly trust it
+  const base = envUrl || `/tasks?locations=${process.env.LIMBLE_LOCATION_ID || ''}`;
   const sep  = base.includes('?') ? '&' : '?';
   let all = [], page = 1;
 
@@ -121,7 +125,7 @@ async function fetchTasksIncremental(lastTaskTimestamp) {
     try {
       batch = await limbleGet(pageUrl);
     } catch (e) {
-      // fallback if paging 404s even on relative path
+      // fallback: single shot without page
       if (String(e?.message || '').includes(' 404')) {
         const noPage = `${base}${sep}limit=${limit}`;
         batch = await limbleGet(noPage);
@@ -129,7 +133,6 @@ async function fetchTasksIncremental(lastTaskTimestamp) {
         throw e;
       }
     }
-
     if (!Array.isArray(batch) || batch.length === 0) break;
     all.push(...batch);
 
