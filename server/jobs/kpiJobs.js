@@ -188,26 +188,22 @@ export async function refreshHeaderKpis(pool) {
     const unplannedPct = totalEvents > 0 ? (unplannedCount / totalEvents) * 100 : 0;
 
     await pool.request()
-      .input('Timeframe',   sql.NVarChar, r.tf)
-      .input('RangeStart',  sql.DateTime2, start)
-      .input('RangeEnd',    sql.DateTime2, end)
-      .input('UptimePct',   sql.Decimal(5,1), uptimePct)
-      .input('DowntimeHrs', sql.Decimal(10,2), downtimeHrs)
-      .input('MttrHrs',     sql.Decimal(10,2), mttrHrs)
-      .input('MtbfHrs',     sql.Decimal(10,2), mtbfHrs)
-      .input('PlannedCount',   sql.Int, plannedCount)
-      .input('UnplannedCount', sql.Int, unplannedCount)
-      .input('PlannedPct',     sql.Decimal(5,1), plannedPct)
-      .input('UnplannedPct',   sql.Decimal(5,1), unplannedPct)
-      .query(`
-        -- replace the row for this timeframe
-        DELETE FROM dbo.KpiHeaderCache WHERE Timeframe = @Timeframe;
-
-        INSERT INTO dbo.KpiHeaderCache
-          (Timeframe, RangeStart, RangeEnd, UptimePct, DowntimeHrs, MttrHrs, MtbfHrs, PlannedCount, UnplannedCount, PlannedPct, UnplannedPct)
-        VALUES
-          (@Timeframe, @RangeStart, @RangeEnd, @UptimePct, @DowntimeHrs, @MttrHrs, @MtbfHrs, @PlannedCount, @UnplannedCount, @PlannedPct, @UnplannedPct);
-      `);
+  .input('Timeframe',   sql.NVarChar, r.tf)
+  .input('RangeStart',  sql.DateTime2, start)
+  .input('RangeEnd',    sql.DateTime2, end)
+  .input('UptimePct',   sql.Decimal(5,1), uptimePct)
+  .input('DowntimeHrs', sql.Decimal(10,2), downtimeHrs)
+  .input('MttrHrs',     sql.Decimal(10,2), mttrHrs)
+  .input('MtbfHrs',     sql.Decimal(10,2), mtbfHrs)
+  .input('PlannedCount',   sql.Int, plannedCount)
+  .input('UnplannedCount', sql.Int, unplannedCount)
+  .query(`
+    DELETE FROM dbo.KpiHeaderCache WHERE Timeframe = @Timeframe;
+    INSERT INTO dbo.KpiHeaderCache
+      (Timeframe, RangeStart, RangeEnd, UptimePct, DowntimeHrs, MttrHrs, MtbfHrs, PlannedCount, UnplannedCount)
+    VALUES
+      (@Timeframe, @RangeStart, @RangeEnd, @UptimePct, @DowntimeHrs, @MttrHrs, @MtbfHrs, @PlannedCount, @UnplannedCount);
+  `);
 
     inserted++;
   }
