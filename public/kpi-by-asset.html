@@ -262,6 +262,41 @@
       loadAll();
       refreshCountdown = refreshInterval / 1000;
     });
+    
+    async function loadByAsset() {
+      const tf = (document.getElementById('tf-select')?.value || 'lastMonth'); // adjust to your control
+      const res = await fetch(`/api/kpi/by-asset?tf=${encodeURIComponent(tf)}&t=${Date.now()}`, { cache: 'no-store' });
+      const data = await res.json();
+      const rows = Array.isArray(data.rows) ? data.rows : [];
+    
+      // render rows into your table (ids to match your markup)
+      const tbody = document.getElementById('kpi-asset-body');
+      tbody.innerHTML = '';
+      rows.forEach(r => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${r.Name ?? r.AssetID}</td>
+          <td>${r.UptimePct?.toFixed?.(1) ?? ''}%</td>
+          <td>${r.DowntimeHrs?.toFixed?.(2) ?? ''}</td>
+          <td>${r.MttrHrs?.toFixed?.(2) ?? ''}</td>
+          <td>${r.MtbfHrs?.toFixed?.(2) ?? ''}</td>
+          <td>${r.UnplannedCount ?? 0}</td>
+          <td>${r.FailureEvents ?? 0}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    
+      const lr = document.getElementById('last-refresh-by-asset');
+      if (lr && data.lastRefreshUtc) {
+        lr.textContent = '· Last refresh: ' + new Date(data.lastRefreshUtc)
+          .toLocaleString('en-US', { timeZone: 'America/Indiana/Indianapolis' });
+      }
+    }
+    
+    // on load + every 60s
+    loadByAsset();
+    setInterval(loadByAsset, 60_000);
+
   </script>
   <script>
     // clock
