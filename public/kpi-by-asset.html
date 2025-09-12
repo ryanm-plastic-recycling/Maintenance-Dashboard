@@ -292,7 +292,33 @@
       // (3) clear table
       const tbody = document.getElementById('kpi-asset-body');
       tbody.innerHTML = '';
-    
+      // If snapshot has no rows, show dashes and neutral tiles, then stop
+      if (!rows.length) {
+        // top tiles
+        document.querySelector('[data-testid="true-overall-downtime"]').textContent = '--';
+        document.querySelector('[data-testid="true-overall-mttr"]').textContent     = '--';
+        document.querySelector('[data-testid="true-overall-mtbf"]').textContent     = '--';
+        document.querySelector('[data-testid="true-overall-planned"]').textContent  = '--';
+        document.querySelector('[data-testid="true-overall-unplanned"]').textContent= '--';
+      
+        // footer cells
+        [
+          'total-assets','avg-downtime','avg-unplanned-count','avg-failure-events',
+          'avg-downtime-pct','avg-mttr','avg-mtbf','avg-planned','avg-unplanned',
+          'total-downtime','total-unplanned-count','total-failure-events'
+        ].forEach(id => document.getElementById(id).textContent = '--');
+      
+        // neutralize downtime tile color
+        const dtTile = document.getElementById('tile-downtime');
+        dtTile.classList.remove('good','warn','bad');
+      
+        // wipe last refresh / date-range labels
+        const lr = document.getElementById('last-refresh'); if (lr) lr.textContent = '';
+        const dr = document.getElementById('date-range');   if (dr) dr.textContent = '';
+      
+        return;
+      }
+
       // (4) NO-ROWS GUARD — put dashes and bail
       if (!rows.length) {
         document.querySelector('[data-testid="true-overall-downtime"]').textContent = '--';
