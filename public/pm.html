@@ -506,13 +506,17 @@
         refreshButton.addEventListener('click', () => {
         // Fetch and load the data without reloading the page
         fetchData();
-		const REFRESH_MS = 60_000;
-		setInterval(fetchData, REFRESH_MS);
-
     });
 
-    // Fetch and load the data when the page loads
-    //fetchData();
+    // 1) run once on load
+	fetchData();
+	
+	// 2) auto-refresh every 60s
+	const REFRESH_MS = 60_000;
+	setInterval(fetchData, REFRESH_MS);
+	
+	// keep the manual button too
+	refreshButton.addEventListener('click', fetchData);
 </script>
 <script>
   // clock
