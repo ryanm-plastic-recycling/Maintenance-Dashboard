@@ -575,40 +575,6 @@ app.get('/api/kpi/by-asset', async (req, res) => {
   }
 });
 
-    const tfRaw = String(req.query.tf ?? req.query.timeframe ?? 'lastMonth').trim();
-    const tfMap = {
-      lastMonth:'lastMonth', last30:'last30', lastWeek:'lastWeek',
-      thisWeek:'thisWeek', thisMonth:'thisMonth', thisYear:'thisYear', lastYear:'lastYear'
-    };
-    const tf = tfMap[tfRaw] || 'lastMonth';
-
-    const rowsRs = await pool.request()
-      .input('tf', sql.NVarChar, tf)
-      .query(`
-        SELECT AssetID, Name, Timeframe, RangeStart, RangeEnd,
-               UptimePct, DowntimeHrs, MttrHrs, MtbfHrs,
-               PlannedPct, UnplannedPct,
-               UnplannedCount, FailureEvents
-        FROM dbo.KpiByAssetCache
-        WHERE Timeframe = @tf
-        ORDER BY Name, AssetID;
-      `);
-
-    const tsRs = await pool.request()
-      .input('tf', sql.NVarChar, tf)
-      .query(`SELECT MAX(SnapshotAt) AS lastRefreshUtc FROM dbo.KpiByAssetCache WHERE Timeframe = @tf;`);
-
-    res.json({
-      timeframe: tf,
-      rows: rowsRs.recordset || [],
-      lastRefreshUtc: tsRs.recordset?.[0]?.lastRefreshUtc || null
-    });
-  } catch (e) {
-    console.error('[kpi/by-asset]', e);
-    res.status(500).json({ error: String(e.message || e) });
-  }
-});
-
 app.get('/api/config', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'config.json'));
 });
