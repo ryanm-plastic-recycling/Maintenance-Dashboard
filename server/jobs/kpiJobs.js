@@ -374,9 +374,8 @@ export async function refreshByAssetKpis(pool) {
       const agg = aggMap.get(assetID) || { DowntimeHrs: 0, UnplannedCount: 0, PlannedCount: 0 };
       const downtimeHrs = Number(agg.DowntimeHrs || 0);
       const unplanned   = Number(agg.UnplannedCount || 0);
-      const planned       = Number(agg.PlannedCount   || 0);
+      const planned = Number(agg.PlannedCount || 0);
       const failureEvents = Number(agg.FailureEvents || 0);
-      const planned     = Number(agg.PlannedCount || 0);
       const totalEv     = planned + unplanned;
 
       const scheduledHrs = schedMap.get(assetID) || 0;
