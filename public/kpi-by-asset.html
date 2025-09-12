@@ -142,7 +142,7 @@
           <th>Unplanned %</th>
         </tr>
       </thead>
-      <tbody></tbody>
+      <tbody id="kpi-asset-body"></tbody>
       <tfoot>
       <tr class="kpi-summary-row">
         <td class="kpi-cell">
@@ -208,7 +208,6 @@
 
   </div>
   <script type="module" src="js/header-kpis.js" defer></script>
-  <script type="module" src="/js/kpi-by-asset.js"></script>
   <script>
     const rotateBtn = document.getElementById('toggle-rotation');
     const refreshTimerEl = document.getElementById('refresh-timer');
@@ -264,27 +263,35 @@
     });
     
     async function loadByAsset() {
-      const tf = (document.getElementById('tf-select')?.value || 'lastMonth'); // adjust to your control
+      const tf = (document.getElementById('timeframe-select')?.value || 'lastMonth'); // use the real select id
       const res = await fetch(`/api/kpi/by-asset?tf=${encodeURIComponent(tf)}&t=${Date.now()}`, { cache: 'no-store' });
       const data = await res.json();
       const rows = Array.isArray(data.rows) ? data.rows : [];
     
-      // render rows into your table (ids to match your markup)
-      const tbody = document.getElementById('kpi-asset-body');
+      const tbody = document.getElementById('kpi-asset-body');  // match tbody id
       tbody.innerHTML = '';
       rows.forEach(r => {
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td>${r.Name ?? r.AssetID}</td>
-          <td>${r.UptimePct?.toFixed?.(1) ?? ''}%</td>
-          <td>${r.DowntimeHrs?.toFixed?.(2) ?? ''}</td>
-          <td>${r.MttrHrs?.toFixed?.(2) ?? ''}</td>
-          <td>${r.MtbfHrs?.toFixed?.(2) ?? ''}</td>
+          <td>${(r.DowntimeHrs ?? 0).toFixed(2)}</td>
           <td>${r.UnplannedCount ?? 0}</td>
           <td>${r.FailureEvents ?? 0}</td>
+          <td>${(r.UptimePct ?? 0).toFixed(1)}%</td>
+          <td>${(r.MttrHrs ?? 0).toFixed(2)}</td>
+          <td>${(r.MtbfHrs ?? 0).toFixed(2)}</td>
+          <td>${(r.PlannedPct ?? 0).toFixed(1)}%</td>
+          <td>${(r.UnplannedPct ?? 0).toFixed(1)}%</td>
         `;
         tbody.appendChild(tr);
       });
+    
+      const lr = document.getElementById('last-refresh');       // use existing id
+      if (lr && data.lastRefreshUtc) {
+        lr.textContent = '· Last refresh: ' + new Date(data.lastRefreshUtc)
+          .toLocaleString('en-US', { timeZone: 'America/Indiana/Indianapolis' });
+      }
+    }
     
       const lr = document.getElementById('last-refresh-by-asset');
       if (lr && data.lastRefreshUtc) {
@@ -293,9 +300,18 @@
       }
     }
     
-    // on load + every 60s
-    loadByAsset();
-    setInterval(loadByAsset, 60_000);
+   // run once on load
+  loadByAsset();
+  
+  // auto-refresh every 60s (or keep your 15 min interval if you prefer)
+  setInterval(loadByAsset, 60_000);
+  
+  // manual refresh
+  document.getElementById('refresh-button').addEventListener('click', loadByAsset);
+  
+  // refetch when timeframe changes
+  document.getElementById('timeframe-select').addEventListener('change', loadByAsset);
+
 
   </script>
   <script>
