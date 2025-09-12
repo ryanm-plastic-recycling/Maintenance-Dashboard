@@ -261,9 +261,21 @@
      loadByAsset();
      refreshCountdown = refreshInterval / 1000;
    });
-    
+    const TF_MAP = {
+      currentWeek:     'thisWeek',
+      lastWeek:        'lastWeek',
+      currentMonth:    'thisMonth',
+      lastMonth:       'lastMonth',
+      currentYear:     'thisYear',
+      lastYear:        'lastYear',
+      trailing7Days:   'lastWeek',   // approx until you add a true trailing-7
+      trailing30Days:  'last30',     // matches the cache you already compute
+      trailing12Months:'lastYear'    // approx until you add a true trailing-12
+    };
+
     async function loadByAsset() {
-      const tf = (document.getElementById('timeframe-select')?.value || 'lastMonth'); // use the real select id
+     const raw = (document.getElementById('timeframe-select')?.value || 'lastMonth');
+     const tf  = TF_MAP[raw] || 'lastMonth';
       const res = await fetch(`/api/kpi/by-asset?tf=${encodeURIComponent(tf)}&t=${Date.now()}`, { cache: 'no-store' });
       const data = await res.json();
       const rows = Array.isArray(data.rows) ? data.rows : [];
@@ -271,6 +283,42 @@
       const tbody = document.getElementById('kpi-asset-body');  // match tbody id
       tbody.innerHTML = '';
       rows.forEach(r => {
+        // ---- compute totals/averages for tiles + footer
+      const n = rows.length || 1;
+      const sum = rows.reduce((s, r) => ({
+        downtime:     s.downtime     + Number(r.DowntimeHrs     || --),
+        unplanned:    s.unplanned    + Number(r.UnplannedCount  || --),
+        failures:     s.failures     + Number(r.FailureEvents   || --),
+        uptimePct:    s.uptimePct    + Number(r.UptimePct       || --),
+        mttr:         s.mttr         + Number(r.MttrHrs         || --),
+        mtbf:         s.mtbf         + Number(r.MtbfHrs         || --),
+        plannedPct:   s.plannedPct   + Number(r.PlannedPct      || --),
+        unplannedPct: s.unplannedPct + Number(r.UnplannedPct    || --),
+      }), { downtime:0, unplanned:0, failures:0, uptimePct:0, mttr:0, mtbf:0, plannedPct:0, unplannedPct:0 });
+      
+      // top tiles (True Overall) – using your data-testid hooks
+      document.querySelector('[data-testid="true-overall-downtime"]').textContent = (n ? (100 - (sum.uptimePct / n)).toFixed(1) : '0.0') + '%';
+      document.querySelector('[data-testid="true-overall-mttr"]').textContent     = (sum.mttr / n).toFixed(2);
+      document.querySelector('[data-testid="true-overall-mtbf"]').textContent     = (sum.mtbf / n).toFixed(2);
+      document.querySelector('[data-testid="true-overall-planned"]').textContent  = (sum.plannedPct / n).toFixed(1) + '%';
+      document.querySelector('[data-testid="true-overall-unplanned"]').textContent= (sum.unplannedPct / n).toFixed(1) + '%';
+      
+      // footer – averages
+      document.getElementById('total-assets').textContent           = rows.length;
+      document.getElementById('avg-downtime').textContent           = (sum.downtime / n).toFixed(2);
+      document.getElementById('avg-unplanned-count').textContent    = (sum.unplanned / n).toFixed(2);
+      document.getElementById('avg-failure-events').textContent     = (sum.failures / n).toFixed(2);
+      document.getElementById('avg-downtime-pct').textContent       = (n ? (100 - (sum.uptimePct / n)).toFixed(1) : '0.0') + '%';
+      document.getElementById('avg-mttr').textContent               = (sum.mttr / n).toFixed(2);
+      document.getElementById('avg-mtbf').textContent               = (sum.mtbf / n).toFixed(2);
+      document.getElementById('avg-planned').textContent            = (sum.plannedPct / n).toFixed(1) + '%';
+      document.getElementById('avg-unplanned').textContent          = (sum.unplannedPct / n).toFixed(1) + '%';
+      
+      // footer – totals
+      document.getElementById('total-downtime').textContent         = sum.downtime.toFixed(2);
+      document.getElementById('total-unplanned-count').textContent  = sum.unplanned;
+      document.getElementById('total-failure-events').textContent   = sum.failures;
+
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td>${r.Name ?? r.AssetID}</td>
