@@ -273,52 +273,20 @@
       trailing12Months:'lastYear'    // approx until you add a true trailing-12
     };
 
-    async function loadByAsset() {
-     const raw = (document.getElementById('timeframe-select')?.value || 'lastMonth');
-     const tf  = TF_MAP[raw] || 'lastMonth';
-      const res = await fetch(`/api/kpi/by-asset?tf=${encodeURIComponent(tf)}&t=${Date.now()}`, { cache: 'no-store' });
+   async function loadByAsset() {
+      // map the dropdown value to server key
+      const raw = (document.getElementById('timeframe-select')?.value || 'lastMonth');
+      const tf  = TF_MAP[raw] || 'lastMonth';
+    
+      // fetch
+      const res  = await fetch(`/api/kpi/by-asset?tf=${encodeURIComponent(tf)}&t=${Date.now()}`, { cache: 'no-store' });
       const data = await res.json();
       const rows = Array.isArray(data.rows) ? data.rows : [];
     
-      const tbody = document.getElementById('kpi-asset-body');  // match tbody id
+      // render rows
+      const tbody = document.getElementById('kpi-asset-body');
       tbody.innerHTML = '';
       rows.forEach(r => {
-        // ---- compute totals/averages for tiles + footer
-      const n = rows.length || 1;
-      const sum = rows.reduce((s, r) => ({
-        downtime:     s.downtime     + Number(r.DowntimeHrs     || --),
-        unplanned:    s.unplanned    + Number(r.UnplannedCount  || --),
-        failures:     s.failures     + Number(r.FailureEvents   || --),
-        uptimePct:    s.uptimePct    + Number(r.UptimePct       || --),
-        mttr:         s.mttr         + Number(r.MttrHrs         || --),
-        mtbf:         s.mtbf         + Number(r.MtbfHrs         || --),
-        plannedPct:   s.plannedPct   + Number(r.PlannedPct      || --),
-        unplannedPct: s.unplannedPct + Number(r.UnplannedPct    || --),
-      }), { downtime:0, unplanned:0, failures:0, uptimePct:0, mttr:0, mtbf:0, plannedPct:0, unplannedPct:0 });
-      
-      // top tiles (True Overall) – using your data-testid hooks
-      document.querySelector('[data-testid="true-overall-downtime"]').textContent = (n ? (100 - (sum.uptimePct / n)).toFixed(1) : '0.0') + '%';
-      document.querySelector('[data-testid="true-overall-mttr"]').textContent     = (sum.mttr / n).toFixed(2);
-      document.querySelector('[data-testid="true-overall-mtbf"]').textContent     = (sum.mtbf / n).toFixed(2);
-      document.querySelector('[data-testid="true-overall-planned"]').textContent  = (sum.plannedPct / n).toFixed(1) + '%';
-      document.querySelector('[data-testid="true-overall-unplanned"]').textContent= (sum.unplannedPct / n).toFixed(1) + '%';
-      
-      // footer – averages
-      document.getElementById('total-assets').textContent           = rows.length;
-      document.getElementById('avg-downtime').textContent           = (sum.downtime / n).toFixed(2);
-      document.getElementById('avg-unplanned-count').textContent    = (sum.unplanned / n).toFixed(2);
-      document.getElementById('avg-failure-events').textContent     = (sum.failures / n).toFixed(2);
-      document.getElementById('avg-downtime-pct').textContent       = (n ? (100 - (sum.uptimePct / n)).toFixed(1) : '0.0') + '%';
-      document.getElementById('avg-mttr').textContent               = (sum.mttr / n).toFixed(2);
-      document.getElementById('avg-mtbf').textContent               = (sum.mtbf / n).toFixed(2);
-      document.getElementById('avg-planned').textContent            = (sum.plannedPct / n).toFixed(1) + '%';
-      document.getElementById('avg-unplanned').textContent          = (sum.unplannedPct / n).toFixed(1) + '%';
-      
-      // footer – totals
-      document.getElementById('total-downtime').textContent         = sum.downtime.toFixed(2);
-      document.getElementById('total-unplanned-count').textContent  = sum.unplanned;
-      document.getElementById('total-failure-events').textContent   = sum.failures;
-
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td>${r.Name ?? r.AssetID}</td>
@@ -334,27 +302,64 @@
         tbody.appendChild(tr);
       });
     
-      const lr = document.getElementById('last-refresh');       // use existing id
+      // ---- compute totals/averages for tiles + footer
+      const n = rows.length || 1;
+      const sum = rows.reduce((s, r) => ({
+        downtime:     s.downtime     + Number(r.DowntimeHrs     || 0),
+        unplanned:    s.unplanned    + Number(r.UnplannedCount  || 0),
+        failures:     s.failures     + Number(r.FailureEvents   || 0),
+        uptimePct:    s.uptimePct    + Number(r.UptimePct       || 0),
+        mttr:         s.mttr         + Number(r.MttrHrs         || 0),
+        mtbf:         s.mtbf         + Number(r.MtbfHrs         || 0),
+        plannedPct:   s.plannedPct   + Number(r.PlannedPct      || 0),
+        unplannedPct: s.unplannedPct + Number(r.UnplannedPct    || 0),
+      }), { downtime:0, unplanned:0, failures:0, uptimePct:0, mttr:0, mtbf:0, plannedPct:0, unplannedPct:0 });
+    
+      // top tiles
+      document.querySelector('[data-testid="true-overall-downtime"]').textContent = (n ? (100 - (sum.uptimePct / n)).toFixed(1) : '0.0') + '%';
+      document.querySelector('[data-testid="true-overall-mttr"]').textContent     = (sum.mttr / n).toFixed(2);
+      document.querySelector('[data-testid="true-overall-mtbf"]').textContent     = (sum.mtbf / n).toFixed(2);
+      document.querySelector('[data-testid="true-overall-planned"]').textContent  = (sum.plannedPct / n).toFixed(1) + '%';
+      document.querySelector('[data-testid="true-overall-unplanned"]').textContent= (sum.unplannedPct / n).toFixed(1) + '%';
+    
+      // footer – averages
+      document.getElementById('total-assets').textContent           = rows.length;
+      document.getElementById('avg-downtime').textContent           = (sum.downtime / n).toFixed(2);
+      document.getElementById('avg-unplanned-count').textContent    = (sum.unplanned / n).toFixed(2);
+      document.getElementById('avg-failure-events').textContent     = (sum.failures / n).toFixed(2);
+      document.getElementById('avg-downtime-pct').textContent       = (n ? (100 - (sum.uptimePct / n)).toFixed(1) : '0.0') + '%';
+      document.getElementById('avg-mttr').textContent               = (sum.mttr / n).toFixed(2);
+      document.getElementById('avg-mtbf').textContent               = (sum.mtbf / n).toFixed(2);
+      document.getElementById('avg-planned').textContent            = (sum.plannedPct / n).toFixed(1) + '%';
+      document.getElementById('avg-unplanned').textContent          = (sum.unplannedPct / n).toFixed(1) + '%';
+    
+      // footer – totals
+      document.getElementById('total-downtime').textContent         = sum.downtime.toFixed(2);
+      document.getElementById('total-unplanned-count').textContent  = sum.unplanned;
+      document.getElementById('total-failure-events').textContent   = sum.failures;
+    
+      // last refresh + (optional) date-range
+      const lr = document.getElementById('last-refresh');
       if (lr && data.lastRefreshUtc) {
         lr.textContent = '· Last refresh: ' + new Date(data.lastRefreshUtc)
           .toLocaleString('en-US', { timeZone: 'America/Indiana/Indianapolis' });
       }
+      const dr = document.getElementById('date-range');
+      if (dr && rows.length) {
+        const rs = new Date(rows[0].RangeStart);
+        const re = new Date(rows[0].RangeEnd);
+        dr.textContent = `${rs.toLocaleDateString('en-US',{timeZone:'America/Indiana/Indianapolis'})} — ${re.toLocaleDateString('en-US',{timeZone:'America/Indiana/Indianapolis'})}`;
+      }
     }
-    }
-    
    // run once on load
   loadByAsset();
   
-  // auto-refresh every 60s (or keep your 15 min interval if you prefer)
+  // auto-refresh every 60s  (or set refreshInterval = 60_000 if you prefer one timer)
   setInterval(loadByAsset, 60_000);
   
-  // manual refresh
+  // manual refresh + react to timeframe changes
   document.getElementById('refresh-button').addEventListener('click', loadByAsset);
-  
-  // refetch when timeframe changes
   document.getElementById('timeframe-select').addEventListener('change', loadByAsset);
-
-
   </script>
   <script>
     // clock
