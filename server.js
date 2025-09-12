@@ -913,6 +913,53 @@ app.get('/api/workorders/:page', async (req, res) => {
   res.json(payload);
 });
 
+// server.js
+// assumes `sql` (from 'mssql') and a shared `pool` are already in scope like your other routes
+
+app.get('/api/kpi/by-asset', async (req, res) => {
+  try {
+    const tfRaw = String(req.query.tf ?? req.query.timeframe ?? 'lastMonth').trim();
+    // map friendly labels if your UI sends them
+    const tfMap = {
+      lastMonth: 'lastMonth', last30: 'last30',
+      lastWeek: 'lastWeek', thisWeek: 'thisWeek',
+      thisMonth: 'thisMonth', thisYear: 'thisYear', lastYear: 'lastYear'
+    };
+    const tf = tfMap[tfRaw] || 'lastMonth';
+
+    // data rows
+    const rowsRs = await pool.request()
+      .input('tf', sql.NVarChar, tf)
+      .query(`
+        SELECT AssetID, Name, Timeframe, RangeStart, RangeEnd,
+               UptimePct, DowntimeHrs, MttrHrs, MtbfHrs,
+               PlannedPct, UnplannedPct,
+               UnplannedCount, FailureEvents
+        FROM dbo.KpiByAssetCache
+        WHERE Timeframe = @tf
+        ORDER BY Name, AssetID;
+      `);
+
+    // last refresh (from snapshot time)
+    const tsRs = await pool.request()
+      .input('tf', sql.NVarChar, tf)
+      .query(`
+        SELECT MAX(SnapshotAt) AS lastRefreshUtc
+        FROM dbo.KpiByAssetCache
+        WHERE Timeframe = @tf;
+      `);
+
+    res.json({
+      timeframe: tf,
+      rows: rowsRs.recordset || [],
+      lastRefreshUtc: tsRs.recordset?.[0]?.lastRefreshUtc || null,
+    });
+  } catch (e) {
+    console.error('[kpi/by-asset]', e);
+    res.status(500).json({ error: String(e.message || e) });
+  }
+});
+
 const shouldListen =
   process.env.NODE_ENV !== 'test' || process.env.FORCE_LISTEN === 'true';
 
