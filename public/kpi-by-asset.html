@@ -320,7 +320,12 @@
         plannedPct:   s.plannedPct   + Number(r.PlannedPct      || 0),
         unplannedPct: s.unplannedPct + Number(r.UnplannedPct    || 0),
       }), { downtime:0, unplanned:0, failures:0, uptimePct:0, mttr:0, mtbf:0, plannedPct:0, unplannedPct:0 });
-     
+
+     const sumDowntime = rows.reduce((s,r)=> s + Number(r.DowntimeHrs   || 0), 0);
+     const sumSched    = rows.reduce((s,r)=> s + Number(r.ScheduledHrs  || 0), 0);
+     const overallPct  = sumSched > 0 ? (sumDowntime / sumSched) * 100 : 0;
+     document.querySelector('[data-testid="true-overall-downtime"]').textContent = overallPct.toFixed(1) + '%';
+
     
       // top tiles
       document.querySelector('[data-testid="true-overall-downtime"]').textContent = (n ? (100 - (sum.uptimePct / n)).toFixed(1) : '0.0') + '%';
