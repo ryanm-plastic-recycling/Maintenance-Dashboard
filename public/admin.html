@@ -303,7 +303,8 @@
         <button id="run-wo-index">Run WO: Index</button>
         <button id="run-wo-pm">Run WO: PM</button>
         <button id="run-wo-status">Run WO: Prod Status</button>
-        <button id="run-all">Refresh All</button>
+        <button id="run-all">Refresh Cache</button>
+        <button id="refresh-cache">Refresh All</button>
         <button id="run-limble-sync">Run Limble Sync</button>
         <button id="run-limble-sync-refresh">Run Limble Sync + Refresh</button>
         <button id="run-etl-assets-fields">Run ETL: Asset Fields</button>
@@ -472,29 +473,44 @@
 </script>
 <script>
   async function runJob(name) {
+    console.log('[admin] runJob:', name);
     const res = await fetch('/api/admin/run', {
       method: 'POST',
       headers: { 'Content-Type':'application/json' },
       body: JSON.stringify({ job: name })
     });
+    const json = await res.json().catch(() => ({}));
     const el = document.getElementById('run-status');
-    if (el) el.textContent = res.ok ? `Ran ${name}` : `Failed ${name}`;
+    if (el) el.textContent = res.ok ? `Ran ${name}` : `Failed ${name}: ${json?.error || res.status}`;
   }
 
-  // GUARD EACH LOOKUP
-  (document.getElementById('run-header')   || {}).onclick = ()=>runJob('header_kpis');
-  (document.getElementById('run-byasset')  || {}).onclick = ()=>runJob('by_asset_kpis');
-  (document.getElementById('run-wo-index') || {}).onclick = ()=>runJob('work_orders_index');
-  (document.getElementById('run-wo-pm')    || {}).onclick = ()=>runJob('work_orders_pm');
-  (document.getElementById('run-wo-status')|| {}).onclick = ()=>runJob('work_orders_status');
-  (document.getElementById('run-limble-sync')||{}).onclick = ()=>runJob('limble_sync');
-  (document.getElementById('run-etl-assets-fields')||{}).onclick = ()=>runJob('etl_assets_fields');
-  (document.getElementById('run-limble-sync-refresh')||{}).onclick = ()=>runJob('limble_sync_refresh');
-  (document.getElementById('run-all')      || {}).onclick = async ()=>{
-  const res = await fetch('/api/admin/refresh-all', { method: 'POST' });
-  const el = document.getElementById('run-status');
-  if (el) el.textContent = res.ok ? 'Refreshed all' : 'Refresh all failed';
-};
+  // Safely attach only if the element exists
+  const byId = (id) => document.getElementById(id);
+
+  (byId('run-header')               || {}).onclick = () => runJob('header_kpis');
+  (byId('run-byasset')              || {}).onclick = () => runJob('by_asset_kpis');
+  (byId('run-wo-index')             || {}).onclick = () => runJob('work_orders_index');
+  (byId('run-wo-pm')                || {}).onclick = () => runJob('work_orders_pm');
+  (byId('run-wo-status')            || {}).onclick = () => runJob('work_orders_status');
+  (byId('run-limble-sync')          || {}).onclick = () => runJob('limble_sync');
+  (byId('run-limble-sync-refresh')  || {}).onclick = () => runJob('limble_sync_refresh');
+  (byId('run-etl-assets-fields')    || {}).onclick = () => runJob('etl_assets_fields');
+
+  // This one was throwing; keep it only if you add the button
+  const rcBtn = byId('refresh-cache');
+  if (rcBtn) {
+    rcBtn.onclick = () => {
+      fetch('/api/cache/refresh', { method: 'POST' })
+        .then(r => r.json()).then(console.log);
+    };
+  }
+
+  // "Refresh All" stays as-is
+  (byId('run-all') || {}).onclick = async () => {
+    const res = await fetch('/api/admin/refresh-all', { method: 'POST' });
+    const el = byId('run-status');
+    if (el) el.textContent = res.ok ? 'Refreshed all' : `Refresh all failed (${res.status})`;
+  };
 </script>
 <script>
   const logEl = document.getElementById('admin-log');
