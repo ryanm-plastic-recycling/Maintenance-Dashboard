@@ -84,12 +84,19 @@ export async function syncLimbleToSql(pool) {
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
+// limbleSync.js
 async function getWatermarks(pool) {
   try {
     const rs = await pool.request().query(`
       SELECT TableName, LastPulledUtc
       FROM dbo.EtlStateLimbleTables
-      WHERE TableName IN ('Assets','AssetFields','Tasks','Heartbeat')
+      WHERE TableName IN (
+        'LimbleKPIAssets',
+        'LimbleKPIAssetFields',
+        'LimbleKPITasks',
+        'LimbleKPITasksLabor',   -- include if you add it
+        'Heartbeat'              -- keep if you ever set a generic “finished” tick
+      )
     `);
     const m = {};
     for (const r of rs.recordset || []) {
@@ -102,7 +109,12 @@ async function getWatermarks(pool) {
 }
 
 function advanced(after, before) {
-  // true if any watermark is newer than before (simple ISO string comparison)
-  const keys = ['Assets','AssetFields','Tasks','Heartbeat'];
+  const keys = [
+    'LimbleKPIAssets',
+    'LimbleKPIAssetFields',
+    'LimbleKPITasks',
+    'LimbleKPITasksLabor',   // include if you used it above
+    'Heartbeat'
+  ];
   return keys.some(k => (after?.[k] || '') > (before?.[k] || ''));
 }
