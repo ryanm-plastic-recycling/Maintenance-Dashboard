@@ -115,7 +115,6 @@ async function getWatermarks(pool) {
         'LimbleKPIAssets',
         'LimbleKPIAssetFields',
         'LimbleKPITasks',
-        'LimbleKPITasksLabor',   -- include if you add it
         'Heartbeat'              -- keep if you ever set a generic “finished” tick
       )
     `);
@@ -134,7 +133,6 @@ function advanced(after, before) {
     'LimbleKPIAssets',
     'LimbleKPIAssetFields',
     'LimbleKPITasks',
-    'LimbleKPITasksLabor',   // include if you used it above
     'Heartbeat'
   ];
   return keys.some(k => (after?.[k] || '') > (before?.[k] || ''));
