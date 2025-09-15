@@ -888,32 +888,6 @@ app.get('/api/status', (req, res) => {
   res.redirect(307, `/api/workorders/prodstatus${qs}`);
 });
 
-// Some pages might call /api/kpis-by-asset; alias to /api/kpis/by-asset
-app.get('/api/kpis-by-asset', (req, res) => {
-  const qs = req.originalUrl.includes('?') ? req.originalUrl.slice(req.originalUrl.indexOf('?')) : '';
-  res.redirect(307, `/api/kpis/by-asset${qs}`);
-});
-// ---- Snapshot-backed APIs ----
-app.get('/api/kpis/header', async (req, res) => {
-  const pool = await poolPromise;
-  const q = `
-    WITH x AS (
-      SELECT TOP (1) * FROM dbo.KpiHeaderCache WHERE Timeframe='lastWeek' ORDER BY SnapshotAt DESC
-    ), y AS (
-      SELECT TOP (1) * FROM dbo.KpiHeaderCache WHERE Timeframe='last30' ORDER BY SnapshotAt DESC
-    )
-    SELECT 
-      (SELECT SnapshotAt,RangeStart,RangeEnd,UptimePct,DowntimeHrs,PlannedCount,UnplannedCount FROM x FOR JSON PATH, WITHOUT_ARRAY_WRAPPER) AS weekly,
-      (SELECT SnapshotAt,RangeStart,RangeEnd,MttrHrs,MtbfHrs FROM y FOR JSON PATH, WITHOUT_ARRAY_WRAPPER) AS monthly
-  `;
-  const { recordset } = await pool.request().query(q);
-  const row = recordset[0] || {};
-  const weekly = row.weekly ? JSON.parse(row.weekly) : null;
-  const monthly = row.monthly ? JSON.parse(row.monthly) : null;
-  const lastRefreshUtc = weekly?.SnapshotAt || monthly?.SnapshotAt || null;
-  res.json({ weekly, monthly, lastRefreshUtc });
-});
-
 app.get('/api/kpis/by-asset', async (req, res) => {
   // Accept legacy synonyms to keep old front-ends working
   const alias = { last30d: 'last30', trailing30Days: 'last30' };
