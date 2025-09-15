@@ -25,7 +25,24 @@ export async function syncLimbleToSql(pool) {
       await execAsync(cmd, { shell: true });
     } else if (proc) {
       mode = 'proc';
-      await pool.request().execute(proc); // works only if your SQL has the proc
+    
+      // 1. Fetch JSON from Limble API (pseudo-code – replace with your actual API client)
+      const limbleTasksJson   = await fetchLimble('/tasks');   // returns stringified JSON
+      const limbleAssetsJson  = await fetchLimble('/assets');
+      const limbleFieldsJson  = await fetchLimble('/assetFields');
+    
+      // 2. Call your SQL procs with those payloads
+      await pool.request()
+        .input('payload', sql.NVarChar(sql.MAX), limbleTasksJson)
+        .execute('dbo.Upsert_LimbleKPITasks');
+    
+      await pool.request()
+        .input('payload', sql.NVarChar(sql.MAX), limbleAssetsJson)
+        .execute('dbo.Upsert_LimbleKPIAssets');
+    
+      await pool.request()
+        .input('payload', sql.NVarChar(sql.MAX), limbleFieldsJson)
+        .execute('dbo.Upsert_LimbleKPIAssetFields');
     } else {
       return { ok: true, skipped: true, note: 'No LIMBLE_ETL_TASK/LIMBLE_ETL_CMD/LIMBLE_SYNC_PROC set' };
     }
