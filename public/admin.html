@@ -180,6 +180,9 @@
             flex-direction: column;
             align-items: center;
         }
+        .row-controls .break { 
+            flex-basis:100%; height:0; 
+        }
         #config-form { display:none; margin-top:20px; }
         label { display:block; margin-top:10px; }
     </style>
@@ -298,18 +301,21 @@
     <section class="card">
       <h3>Run Now</h3>
       <div class="row-controls" style="display:flex;gap:.5rem;flex-wrap:wrap">
-        <button id="run-header">Run Header KPIs</button>
-        <button id="run-byasset">Run By-Asset KPIs</button>
-        <button id="run-wo-index">Run WO: Index</button>
-        <button id="run-wo-pm">Run WO: PM</button>
-        <button id="run-wo-status">Run WO: Prod Status</button>
-        <button id="run-all">Refresh All</button>
-        <button id="refresh-cache">Refresh Cache</button>
-        <button id="run-limble-sync">Run Limble Sync</button>
-        <button id="run-limble-sync-refresh">Run Limble Sync + Refresh</button>
-        <button id="run-etl-assets-fields">Run ETL: Asset Fields</button>
-        <button id="btn-full-refresh">Full Refresh (Limble → SQL → UI)</button>
-      </div>
+          <button id="run-header">Run Header KPIs</button>
+          <button id="run-byasset">Run By-Asset KPIs</button>
+          <button id="run-wo-index">Run WO: Index</button>
+          <button id="run-wo-pm">Run WO: PM</button>
+          <button id="run-wo-status">Run WO: Prod Status</button>
+          <button id="run-all">Refresh All</button>
+        
+          <span class="break"></span> <!-- FORCE NEW ROW BELOW THIS -->
+        
+          <button id="refresh-cache">Refresh Cache</button>
+          <button id="run-limble-sync">Run Limble Sync</button>
+          <button id="run-limble-sync-refresh">Run Limble Sync + Refresh</button>
+          <button id="run-etl-assets-fields">Run ETL: Asset Fields</button>
+          <button id="btn-full-refresh">Full Refresh (Limble → SQL → UI)</button>
+        </div>
       <div id="run-status" style="margin-top:.5rem;color:#555;"></div>
       <pre id="admin-log" style="height:200px;overflow:auto;background:#111;color:#0f0;padding:8px;"></pre>
     </section>
