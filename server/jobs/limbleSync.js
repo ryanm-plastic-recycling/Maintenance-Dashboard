@@ -12,7 +12,7 @@ const TIMEOUT_MS = 5 * 60 * 1000;
 const API_V2 = `${process.env.API_BASE_URL}/v2`;
 const LIMBLE_TOKEN = process.env.LIMBLE_TOKEN || process.env.LIMBLE_BEARER; // whatever you use today
 
-async function fetchAllPages(path, limit = 500) {
+export async function fetchAllPages(path, limit = 500) {
   let page = 1, out = [];
   for (;;) {
     const url = `${API_V2}${path}${path.includes('?') ? '&' : '?'}limit=${limit}&page=${page}`;
