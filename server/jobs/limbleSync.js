@@ -76,7 +76,7 @@ export async function syncLimbleToSql(pool) {
       // 1. Fetch JSON from Limble API (pseudo-code – replace with your actual API client)
       const limbleTasksJson   = await fetchAllPages('/tasks');        // if /tasks is paginated
       const limbleAssetsJson  = await fetchAllPages('/assets');       // if /assets is paginated
-      const limbleFieldsJson  = await fetchAllPages('/assetFields');  // if /assetFields is paginated
+      const limbleFieldsJson  = await fetchAllPages('/asset/fields/');  // if /asset/Fields is paginated
       
       // 2. Call your SQL procs with those payloads
       await pool.request()
