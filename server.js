@@ -499,7 +499,7 @@ async function loadAssetStatus() {
     .toString('base64');
   const headers = { 'Authorization': `Basic ${basicAuth}` };
 
-  const url = `${API_V2}/assets/fields?assets=${assetIDs}`;
+  const url = `${API_V2}/assets/fields/?assets=${encodeURIComponent(assetIDs)}`;
   const resp = await fetch(url, { headers });
   const data = await resp.json();
   const fields = Array.isArray(data) ? data : data.data || [];
