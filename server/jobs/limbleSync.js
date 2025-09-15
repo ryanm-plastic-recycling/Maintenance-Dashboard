@@ -114,8 +114,7 @@ async function getWatermarks(pool) {
       WHERE TableName IN (
         'LimbleKPIAssets',
         'LimbleKPIAssetFields',
-        'LimbleKPITasks',
-        'Heartbeat'              -- keep if you ever set a generic “finished” tick
+        'LimbleKPITasks'
       )
     `);
     const m = {};
@@ -132,8 +131,7 @@ function advanced(after, before) {
   const keys = [
     'LimbleKPIAssets',
     'LimbleKPIAssetFields',
-    'LimbleKPITasks',
-    'Heartbeat'
+    'LimbleKPITasks'
   ];
   return keys.some(k => (after?.[k] || '') > (before?.[k] || ''));
 }
