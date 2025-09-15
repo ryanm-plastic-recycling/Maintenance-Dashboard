@@ -58,15 +58,21 @@ export async function syncLimbleToSql(pool) {
 
   let mode = null;
   try {
-    if (task) {
+    // current order: task → cmd → proc
+    // change to: proc → task → cmd
+    if (proc) {
+      mode = 'proc';
+      // (your fetch + EXEC procs)
+    } else if (task) {
       mode = 'task';
       await execAsync(`schtasks /Run /TN "${task}"`);
     } else if (cmd) {
       mode = 'cmd';
       await execAsync(cmd, { shell: true });
-    } else if (proc) {
-      mode = 'proc';
-    
+    } else {
+      return { ok: true, skipped: true, note: 'No LIMBLE_* set' };
+    }
+    console.log('[limbleSync] mode:', mode);
       // 1. Fetch JSON from Limble API (pseudo-code – replace with your actual API client)
       const limbleTasksJson   = await fetchAllPages('/tasks');        // if /tasks is paginated
       const limbleAssetsJson  = await fetchAllPages('/assets');       // if /assets is paginated
