@@ -306,6 +306,7 @@
         <button id="run-all">Refresh All</button>
         <button id="run-limble-sync">Run Limble Sync</button>
         <button id="run-limble-sync-refresh">Run Limble Sync + Refresh</button>
+        <button id="run-etl-assets-fields">Run ETL: Asset Fields</button>
         <button id="btn-full-refresh">Full Refresh (Limble → SQL → UI)</button>
       </div>
       <div id="run-status" style="margin-top:.5rem;color:#555;"></div>
@@ -487,6 +488,7 @@
   (document.getElementById('run-wo-pm')    || {}).onclick = ()=>runJob('work_orders_pm');
   (document.getElementById('run-wo-status')|| {}).onclick = ()=>runJob('work_orders_status');
   (document.getElementById('run-limble-sync')||{}).onclick = ()=>runJob('limble_sync');
+  (document.getElementById('run-etl-assets-fields')||{}).onclick = ()=>runJob('etl_assets_fields');
   (document.getElementById('run-limble-sync-refresh')||{}).onclick = ()=>runJob('limble_sync_refresh');
   (document.getElementById('run-all')      || {}).onclick = async ()=>{
   const res = await fetch('/api/admin/refresh-all', { method: 'POST' });
