@@ -13,7 +13,6 @@ import adminRoutes from './server/routes/admin.js';
 import limbleWebhook from './server/routes/limbleWebhook.js';
 import { start as startScheduler, reload as reloadScheduler } from './server/scheduler.js';
 import { refreshHeaderKpis, refreshByAssetKpis, refreshWorkOrders } from './server/jobs/kpiJobs.js';
-import { syncLimbleToSql } from './server/jobs/limbleSync.js';
 import { runFullRefresh } from './server/jobs/pipeline.js';
 import { fetchAllPages, syncLimbleToSql } from './server/jobs/limbleSync.js';
 
@@ -161,15 +160,6 @@ const assetIdList = Array.isArray(mappings.productionAssets)
   ? mappings.productionAssets.map(a => a.id)
   : [];
 const assetIDs = assetIdList.join(',');
-
-async etl_assets_fields() {
-  const p = await poolPromise;
-  // use the same endpoint shape that works elsewhere
-  const json = await fetchAllPages('/assets/fields/');
-  await p.request().input('payload', sql.NVarChar(sql.MAX), json)
-    .execute('dbo.Upsert_LimbleKPIAssetFields');
-  return { ok: true };
-},
 
 async function loadOverallKpis() {
   const clientId     = process.env.CLIENT_ID;
