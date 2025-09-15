@@ -57,45 +57,38 @@ export async function syncLimbleToSql(pool) {
   const proc = process.env.LIMBLE_SYNC_PROC;
 
   let mode = null;
-  try {
-    // current order: task → cmd → proc
-    // change to: proc → task → cmd
-    if (proc) {
-      mode = 'proc';
-      // (your fetch + EXEC procs)
-    } else if (task) {
-      mode = 'task';
-      await execAsync(`schtasks /Run /TN "${task}"`);
-    } else if (cmd) {
-      mode = 'cmd';
-      await execAsync(cmd, { shell: true });
-    } else {
-      return { ok: true, skipped: true, note: 'No LIMBLE_* set' };
-    }
-    console.log('[limbleSync] mode:', mode);
-      // 1. Fetch JSON from Limble API (pseudo-code – replace with your actual API client)
-      const limbleTasksJson   = await fetchAllPages('/tasks');        // if /tasks is paginated
-      const limbleAssetsJson  = await fetchAllPages('/assets');       // if /assets is paginated
-      const limbleFieldsJson  = await fetchAllPages('/asset/fields/');  // if /asset/Fields is paginated
-      
-      // 2. Call your SQL procs with those payloads
-      await pool.request()
-        .input('payload', sql.NVarChar(sql.MAX), limbleTasksJson)
-        .execute('dbo.Upsert_LimbleKPITasks');
+    try {
+      if (proc) {
+        mode = 'proc';
+        console.log('[limbleSync] mode:', mode);
     
-      await pool.request()
-        .input('payload', sql.NVarChar(sql.MAX), limbleAssetsJson)
-        .execute('dbo.Upsert_LimbleKPIAssets');
+        const limbleTasksJson  = await fetchAllPages('/tasks');
+        const limbleAssetsJson = await fetchAllPages('/assets');
+        const limbleFieldsJson = await fetchAllPages('/assets/fields/');
     
-      await pool.request()
-        .input('payload', sql.NVarChar(sql.MAX), limbleFieldsJson)
-        .execute('dbo.Upsert_LimbleKPIAssetFields');
-    } else {
-      return { ok: true, skipped: true, note: 'No LIMBLE_ETL_TASK/LIMBLE_ETL_CMD/LIMBLE_SYNC_PROC set' };
+        await pool.request().input('payload', sql.NVarChar(sql.MAX), limbleTasksJson)
+          .execute('dbo.Upsert_LimbleKPITasks');
+        await pool.request().input('payload', sql.NVarChar(sql.MAX), limbleAssetsJson)
+          .execute('dbo.Upsert_LimbleKPIAssets');
+        await pool.request().input('payload', sql.NVarChar(sql.MAX), limbleFieldsJson)
+          .execute('dbo.Upsert_LimbleKPIAssetFields');
+    
+      } else if (task) {
+        mode = 'task';
+        console.log('[limbleSync] mode:', mode);
+        await execAsync(`schtasks /Run /TN "${task}"`);
+    
+      } else if (cmd) {
+        mode = 'cmd';
+        console.log('[limbleSync] mode:', mode);
+        await execAsync(cmd, { shell: true });
+    
+      } else {
+        return { ok: true, skipped: true, note: 'No LIMBLE_* set' };
+      }
+    } catch (e) {
+      return { ok: false, error: `Failed to start ETL (${mode || 'none'}): ${e.message}` };
     }
-  } catch (e) {
-    return { ok: false, error: `Failed to start ETL (${mode || 'none'}): ${e.message}` };
-  }
 
   // 3) Poll for completion (watermarks change)
   const t0 = Date.now();
