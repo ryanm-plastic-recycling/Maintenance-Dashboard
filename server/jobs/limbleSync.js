@@ -12,21 +12,18 @@ const TIMEOUT_MS = 5 * 60 * 1000;
 const API_V2 = `${process.env.API_BASE_URL}/v2`;
 const LIMBLE_TOKEN = process.env.LIMBLE_TOKEN || process.env.LIMBLE_BEARER; // whatever you use today
 
-export async function fetchAllPages(path, limit = 500) {
+export async function fetchAllPages(path, limit = 500, headersOverride = null) {
+  const defaultHeaders = { Authorization: `Bearer ${LIMBLE_TOKEN}`, Accept: 'application/json' };
+  const headers = headersOverride || defaultHeaders;
+
   let page = 1, out = [];
   for (;;) {
     const url = `${API_V2}${path}${path.includes('?') ? '&' : '?'}limit=${limit}&page=${page}`;
-    const res = await fetch(url, {
-      headers: { Authorization: `Bearer ${LIMBLE_TOKEN}`, Accept: 'application/json' }
-    });
+    const res = await fetch(url, { headers });
     if (!res.ok) throw new Error(`${path} -> ${res.status}`);
     const json = await res.json();
-
-    // adjust container per endpoint
-    const batch = Array.isArray(json) ? json
-                : (json.data?.tasks ?? json.data?.entries ?? json.data ?? []);
+    const batch = Array.isArray(json) ? json : (json.data?.tasks ?? json.data?.entries ?? json.data ?? []);
     if (!Array.isArray(batch) || batch.length === 0) break;
-
     out.push(...batch);
     page++;
   }
