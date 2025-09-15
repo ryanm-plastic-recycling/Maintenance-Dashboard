@@ -1,10 +1,30 @@
 // server/jobs/limbleSync.js
 import { exec } from 'child_process';
 import util from 'util';
+import sql from 'mssql';
+import fetch from 'node-fetch'; // you already use this in server.js
+
 const execAsync = util.promisify(exec);
 
 const WAIT_MS = 3000;
 const TIMEOUT_MS = 5 * 60 * 1000;
+
+const API_V2 = `${process.env.API_BASE_URL}/v2`;
+const LIMBLE_TOKEN = process.env.LIMBLE_TOKEN || process.env.LIMBLE_BEARER; // whatever you use today
+
+async function fetchLimble(path) {
+  const res = await fetch(`${API_V2}${path}`, {
+    headers: {
+      'Authorization': `Bearer ${LIMBLE_TOKEN}`,
+      'Content-Type': 'application/json',
+      'Accept': 'application/json'
+    }
+  });
+  if (!res.ok) throw new Error(`Limble ${path} -> ${res.status}`);
+  // If Limble returns an array of objects, we can pass a stringified array directly to your proc.
+  const data = await res.json();
+  return JSON.stringify(Array.isArray(data) ? data : (data.data ?? data)); 
+}
 
 export async function syncLimbleToSql(pool) {
   // 1) Snapshot watermarks BEFORE
