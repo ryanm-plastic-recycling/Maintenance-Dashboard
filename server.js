@@ -520,7 +520,6 @@ async function full_refresh_daily() {
   const p = await poolPromise;
   return runFullRefresh(p);
 }
-jobs.full_refresh_daily = full_refresh_daily;
 
 // ─── network info ─────────────────────────────────────────────────────────
 const nets = os.networkInterfaces();
@@ -986,6 +985,7 @@ const jobs = {
   },
   async limble_sync()       { const p = await poolPromise; return syncLimbleToSql(p); },
   async limble_sync_refresh(){ return limble_sync_and_refresh_all(); },
+  async full_refresh_daily() { const p = await poolPromise; return runFullRefresh(p); },
 };
 
 poolPromise.then(async (pool) => { 
