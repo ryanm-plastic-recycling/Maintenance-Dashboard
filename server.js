@@ -992,22 +992,11 @@ const jobs = {
   async work_orders_index()  { const p = await poolPromise; return refreshWorkOrders(p, 'index'); },
   async work_orders_pm()     { const p = await poolPromise; return refreshWorkOrders(p, 'pm'); },
   async work_orders_status() { const p = await poolPromise; return refreshWorkOrders(p, 'prodstatus'); },
-  async etl_assets_fields() {
+  etl_assets_fields: async () => {
     const p = await poolPromise;
-    // reuse your fetchLimble helper (export it from limbleSync.js or inline the same logic here)
-    const resp = await fetch(`${process.env.API_BASE_URL}/v2/assetFields`, {
-      headers: {
-        'Authorization': `Bearer ${process.env.LIMBLE_TOKEN || process.env.LIMBLE_BEARER}`,
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      }
-    });
-    if (!resp.ok) throw new Error(`Limble assetFields -> ${resp.status}`);
-    const data = await resp.json();
-    const json = JSON.stringify(Array.isArray(data) ? data : (data.data ?? data));
+    const json = await fetchAllPages('/assets/fields/');
     await p.request().input('payload', sql.NVarChar(sql.MAX), json)
       .execute('dbo.Upsert_LimbleKPIAssetFields');
-    // (optional) update watermark for 'AssetFields' here if you chose Option 2
     return { ok: true };
   },
   async limble_sync()       { const p = await poolPromise; return syncLimbleToSql(p); },
