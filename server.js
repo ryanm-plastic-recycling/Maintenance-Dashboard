@@ -835,6 +835,9 @@ app.post('/api/admin/run', async (req, res) => {
       case 'work_orders_status':
         result = await refreshWorkOrders(pool, 'prodstatus');
         break;
+      case 'etl_assets_fields':
+        result = await jobs.etl_assets_fields();
+        break;
       case 'limble_sync':
         result = await syncLimbleToSql(pool);
         break;
@@ -999,7 +1002,7 @@ const jobs = {
       .execute('dbo.Upsert_LimbleKPIAssetFields');
     // (optional) update watermark for 'AssetFields' here if you chose Option 2
     return { ok: true };
-  }
+  },
   async limble_sync()       { const p = await poolPromise; return syncLimbleToSql(p); },
   async limble_sync_refresh(){ return limble_sync_and_refresh_all(); },
 };
