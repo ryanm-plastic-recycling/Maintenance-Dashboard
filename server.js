@@ -994,8 +994,10 @@ const jobs = {
   async work_orders_status() { const p = await poolPromise; return refreshWorkOrders(p, 'prodstatus'); },
   etl_assets_fields: async () => {
     const p = await poolPromise;
-    const json = await fetchAllPages('/assets/fields/');
-    await p.request().input('payload', sql.NVarChar(sql.MAX), json)
+    // Filter to just your production assets
+    const json = await fetchAllPages(`/assets/fields/?assets=${encodeURIComponent(assetIDs)}`);
+    await p.request()
+      .input('payload', sql.NVarChar(sql.MAX), json)
       .execute('dbo.Upsert_LimbleKPIAssetFields');
     return { ok: true };
   },
