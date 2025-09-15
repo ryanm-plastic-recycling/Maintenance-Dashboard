@@ -12,6 +12,27 @@ const TIMEOUT_MS = 5 * 60 * 1000;
 const API_V2 = `${process.env.API_BASE_URL}/v2`;
 const LIMBLE_TOKEN = process.env.LIMBLE_TOKEN || process.env.LIMBLE_BEARER; // whatever you use today
 
+async function fetchAllPages(path, limit = 500) {
+  let page = 1, out = [];
+  for (;;) {
+    const url = `${API_V2}${path}${path.includes('?') ? '&' : '?'}limit=${limit}&page=${page}`;
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${LIMBLE_TOKEN}`, Accept: 'application/json' }
+    });
+    if (!res.ok) throw new Error(`${path} -> ${res.status}`);
+    const json = await res.json();
+
+    // adjust container per endpoint
+    const batch = Array.isArray(json) ? json
+                : (json.data?.tasks ?? json.data?.entries ?? json.data ?? []);
+    if (!Array.isArray(batch) || batch.length === 0) break;
+
+    out.push(...batch);
+    page++;
+  }
+  return JSON.stringify(out);
+}
+
 async function fetchLimble(path) {
   const res = await fetch(`${API_V2}${path}`, {
     headers: {
@@ -47,10 +68,10 @@ export async function syncLimbleToSql(pool) {
       mode = 'proc';
     
       // 1. Fetch JSON from Limble API (pseudo-code – replace with your actual API client)
-      const limbleTasksJson   = await fetchLimble('/tasks');   // returns stringified JSON
-      const limbleAssetsJson  = await fetchLimble('/assets');
-      const limbleFieldsJson  = await fetchLimble('/assetFields');
-    
+      const limbleTasksJson   = await fetchAllPages('/tasks');        // if /tasks is paginated
+      const limbleAssetsJson  = await fetchAllPages('/assets');       // if /assets is paginated
+      const limbleFieldsJson  = await fetchAllPages('/assetFields');  // if /assetFields is paginated
+      
       // 2. Call your SQL procs with those payloads
       await pool.request()
         .input('payload', sql.NVarChar(sql.MAX), limbleTasksJson)
