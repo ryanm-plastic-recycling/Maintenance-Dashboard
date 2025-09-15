@@ -9,11 +9,12 @@ import moment   from 'moment';
 import _        from 'lodash';
 import cors     from 'cors';
 import sql      from 'mssql';
-import { start as startScheduler, reload as reloadScheduler } from './server/scheduler.js';
-import { refreshHeaderKpis, refreshByAssetKpis, refreshWorkOrders } from './server/jobs/kpiJobs.js';
 import adminRoutes from './server/routes/admin.js';
 import limbleWebhook from './server/routes/limbleWebhook.js';
+import { start as startScheduler, reload as reloadScheduler } from './server/scheduler.js';
+import { refreshHeaderKpis, refreshByAssetKpis, refreshWorkOrders } from './server/jobs/kpiJobs.js';
 import { syncLimbleToSql } from './server/jobs/limbleSync.js';
+import { runFullRefresh } from './server/jobs/pipeline.js';
 
 dotenv.config();
 
@@ -514,6 +515,12 @@ async function limble_sync_and_refresh_all() {
   await refreshWorkOrders(p, 'index');
   await refreshWorkOrders(p, 'pm');
 }
+
+async function full_refresh_daily() {
+  const p = await poolPromise;
+  return runFullRefresh(p);
+}
+jobs.full_refresh_daily = full_refresh_daily;
 
 // ─── network info ─────────────────────────────────────────────────────────
 const nets = os.networkInterfaces();
