@@ -13,6 +13,7 @@ import { start as startScheduler, reload as reloadScheduler } from './server/sch
 import { refreshHeaderKpis, refreshByAssetKpis, refreshWorkOrders } from './server/jobs/kpiJobs.js';
 import adminRoutes from './server/routes/admin.js';
 import limbleWebhook from './server/routes/limbleWebhook.js';
+import { syncLimbleToSql } from './server/jobs/limbleSync.js';
 
 dotenv.config();
 
@@ -967,7 +968,8 @@ const jobs = {
   async work_orders_index()  { const p = await poolPromise; return refreshWorkOrders(p, 'index'); },
   async work_orders_pm()     { const p = await poolPromise; return refreshWorkOrders(p, 'pm'); },
   async work_orders_status() { const p = await poolPromise; return refreshWorkOrders(p, 'prodstatus'); },
-  async etl_assets_fields()  { /* placeholder for heavy ETL job */ }
+  async etl_assets_fields()  { /* placeholder for heavy ETL job */ },
+  async limble_sync()       { const p = await poolPromise; return syncLimbleToSql(p); },
 };
 
 poolPromise.then(async (pool) => { 
