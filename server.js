@@ -498,7 +498,6 @@ async function loadAssetStatus() {
     .from(`${process.env.CLIENT_ID}:${process.env.CLIENT_SECRET}`)
     .toString('base64');
   const headers = { 'Authorization': `Basic ${basicAuth}` };
-
   const url = `${API_V2}/assets/fields/?assets=${encodeURIComponent(assetIDs)}`;
   const resp = await fetch(url, { headers });
   const data = await resp.json();
@@ -994,11 +993,20 @@ const jobs = {
   async work_orders_status() { const p = await poolPromise; return refreshWorkOrders(p, 'prodstatus'); },
   etl_assets_fields: async () => {
     const p = await poolPromise;
-    // Filter to just your production assets
-    const json = await fetchAllPages(`/assets/fields/?assets=${encodeURIComponent(assetIDs)}`);
+    const basic = 'Basic ' + Buffer
+      .from(`${process.env.CLIENT_ID}:${process.env.CLIENT_SECRET}`)
+      .toString('base64');
+  
+    const json = await fetchAllPages(
+      `/assets/fields/?assets=${encodeURIComponent(assetIDs)}`,
+      500,
+      { Authorization: basic, Accept: 'application/json' }
+    );
+  
     await p.request()
       .input('payload', sql.NVarChar(sql.MAX), json)
       .execute('dbo.Upsert_LimbleKPIAssetFields');
+  
     return { ok: true };
   },
   async limble_sync()       { const p = await poolPromise; return syncLimbleToSql(p); },
