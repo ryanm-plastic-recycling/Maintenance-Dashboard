@@ -87,39 +87,34 @@ export async function syncLimbleToSql(pool) {
           throw e;
         }
         
-        // 3) Assets (Bearer OK for most tenants)
+        // 3) Assets — Bearer usually works, but you can also force Basic if needed
         let limbleAssetsJson = '[]';
         try {
-          limbleAssetsJson = await fetchAllPages('/assets');
+          limbleAssetsJson = await fetchAllPages(
+            '/assets',
+            500,
+            { Authorization: `Bearer ${LIMBLE_TOKEN}`, Accept: 'application/json' }
+            // If Bearer gives 403, replace with: { Authorization: basic, Accept: 'application/json' }
+          );
           console.log('[limbleSync] fetch assets OK');
         } catch (e) {
           console.log('[limbleSync] fetch assets ERROR:', e.message);
-          // non-fatal if you want; comment next line to continue without assets
+          // non-fatal: assets missing won’t block tasks/fields
           // throw e;
         }
         
-        try {
-          await pool.request().input('payload', sql.NVarChar(sql.MAX), limbleAssetsJson)
-            .execute('dbo.Upsert_LimbleKPIAssets');
-          console.log('[limbleSync] Upsert_LimbleKPIAssets OK');
-        } catch (e) {
-          console.log('[limbleSync] Upsert_LimbleKPIAssets ERROR:', e.message);
-          // non-fatal if desired
-          // throw e;
-        }
-        
-        // 4) Fields — MUST use Basic; if URL gets too long, chunk assets
+        // 4) Fields — MUST use Basic and assetIDs (not empty string)
         let limbleFieldsJson = '[]';
         try {
           limbleFieldsJson = await fetchAllPages(
-            `/assets/fields/?assets=${encodeURIComponent(/* pass your assetIDs here if available */ '')}`,
+            `/assets/fields/?assets=${encodeURIComponent(assetIDs)}`,
             500,
             { Authorization: basic, Accept: 'application/json' }
           );
           console.log('[limbleSync] fetch fields OK');
         } catch (e) {
           console.log('[limbleSync] fetch fields ERROR:', e.message);
-          // non-fatal if you want tasks to continue
+          // non-fatal: fields missing won’t block tasks/assets
           // throw e;
         }
         
