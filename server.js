@@ -857,7 +857,12 @@ app.get('/api/kpis-by-asset', (req, res) => {
   const qs = req.originalUrl.includes('?') ? req.originalUrl.slice(req.originalUrl.indexOf('?')) : '';
   res.redirect(307, `/api/kpis/by-asset${qs}`);
 });
-
+app.get('/api/kpi/by-asset', (req, res) => {
+  const qs = req.originalUrl.includes('?')
+    ? req.originalUrl.slice(req.originalUrl.indexOf('?'))
+    : '';
+  res.redirect(307, `/api/kpis/by-asset${qs}`);
+});
 app.get('/api/kpis/by-asset', async (req, res) => {
   try {
     const tfRaw = String(req.query.tf ?? req.query.timeframe ?? 'lastMonth').trim();
