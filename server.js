@@ -789,38 +789,25 @@ app.post('/api/admin/run', async (req, res) => {
   try {
     const { job } = req.body || {};
     if (!job) return res.status(400).json({ error: 'missing job' });
-    const pool = await poolPromise;
+
     let result;
     switch (job) {
-      case 'header_kpis':
-        result = await refreshHeaderKpis(pool);
-        break;
-      case 'by_asset_kpis':
-        result = await refreshByAssetKpis(pool);
-        break;
-      case 'work_orders_index':
-        result = await refreshWorkOrders(pool, 'index');
-        break;
-      case 'work_orders_pm':
-        result = await refreshWorkOrders(pool, 'pm');
-        break;
-      case 'work_orders_status':
-        result = await refreshWorkOrders(pool, 'prodstatus');
-        break;
-      case 'etl_assets_fields':
-        result = await jobs.etl_assets_fields();
-        break;
-      case 'limble_sync':
-        result = await syncLimbleToSql(pool);
-        break;
-      case 'limble_sync_refresh':
-        result = await limble_sync_and_refresh_all();
-        break;
-      default:
-        return res.status(400).json({ error: 'unknown job' });
+      case 'header_kpis':         result = await jobs.header_kpis(); break;
+      case 'by_asset_kpis':       result = await jobs.by_asset_kpis(); break;
+      case 'work_orders_index':   result = await jobs.work_orders_index(); break;
+      case 'work_orders_pm':      result = await jobs.work_orders_pm(); break;
+      case 'work_orders_status':  result = await jobs.work_orders_status(); break;
+      case 'etl_assets_fields':   result = await jobs.etl_assets_fields(); break;
+      case 'limble_sync':         result = await jobs.limble_sync(); break;
+      case 'limble_sync_refresh': result = await jobs.limble_sync_refresh(); break;
+      case 'limble_sync_completed': result = await jobs.limble_sync_completed(); break;
+      case 'full_refresh_daily':  result = await jobs.full_refresh_daily(); break;
+      default: return res.status(400).json({ error: 'unknown job' });
     }
-    await pool.request().input('n', sql.NVarChar, job)
+
+    await (await poolPromise).request().input('n', sql.NVarChar, job)
       .query(`UPDATE dbo.UpdateSchedules SET LastRun = SYSUTCDATETIME() WHERE Name = @n`);
+
     res.json({ ok: true, result });
   } catch (e) {
     res.status(500).json({ error: String(e) });
@@ -939,39 +926,29 @@ const jobs = {
   async work_orders_index()  { const p = await poolPromise; return refreshWorkOrders(p, 'index'); },
   async work_orders_pm()     { const p = await poolPromise; return refreshWorkOrders(p, 'pm'); },
   async work_orders_status() { const p = await poolPromise; return refreshWorkOrders(p, 'prodstatus'); },
-  // existing jobs...
-  async limble_sync()        { const p = await poolPromise; return syncLimbleToSql(p); },
-  async limble_sync_refresh(){ const p = await poolPromise; await syncLimbleToSql(p); 
-                               await refreshWorkOrders(p,'prodstatus'); await refreshWorkOrders(p,'index'); await refreshWorkOrders(p,'pm'); 
-                               return { ok:true }; },
-  async full_refresh_daily() { const p = await poolPromise; return runFullRefresh(p); },
 
-  // NEW: daily completed lookback
-  async limble_sync_completed() { const p = await poolPromise; return syncLimbleCompletedOnly(p); },
+  // ETL helpers
+  etl_assets_fields: async () => {
+    const p = await poolPromise;
+    const basic = 'Basic ' + Buffer.from(`${process.env.CLIENT_ID}:${process.env.CLIENT_SECRET}`).toString('base64');
+    const json = await fetchAllPages(`/assets/fields/?assets=${encodeURIComponent(assetIDs)}`, 500, { Authorization: basic, Accept: 'application/json' });
+    await p.request().input('payload', sql.NVarChar(sql.MAX), json).execute('dbo.Upsert_LimbleKPIAssetFields');
+    return { ok: true };
+  },
+
+  // Limble syncs
+  async limble_sync()             { const p = await poolPromise; return syncLimbleToSql(p); },
+  async limble_sync_refresh()     { const p = await poolPromise;
+                                    await syncLimbleToSql(p);
+                                    await refreshWorkOrders(p,'prodstatus');
+                                    await refreshWorkOrders(p,'index');
+                                    await refreshWorkOrders(p,'pm');
+                                    return { ok:true }; },
+  async limble_sync_completed()   { const p = await poolPromise; return syncLimbleCompletedOnly(p); },
+
+  // Any long “full refresh” you keep
+  async full_refresh_daily()      { const p = await poolPromise; return runFullRefresh(p); },
 };
-
-// Add an Admin "run now" case:
-app.post('/api/admin/run', async (req, res) => {
-  try {
-    const { job } = req.body || {};
-    if (!job) return res.status(400).json({ error: 'missing job' });
-    const pool = await poolPromise;
-    let result;
-    switch (job) {
-      // ... existing cases ...
-      case 'limble_sync_completed':
-        result = await jobs.limble_sync_completed();
-        break;
-      default:
-        return res.status(400).json({ error: 'unknown job' });
-    }
-    await pool.request().input('n', sql.NVarChar, job)
-      .query(`UPDATE dbo.UpdateSchedules SET LastRun = SYSUTCDATETIME() WHERE Name = @n`);
-    res.json({ ok: true, result });
-  } catch (e) {
-    res.status(500).json({ error: String(e) });
-  }
-});
 
 const shouldListen =
   process.env.NODE_ENV !== 'test' || process.env.FORCE_LISTEN === 'true';
