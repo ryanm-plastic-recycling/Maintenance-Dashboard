@@ -58,21 +58,16 @@ export async function syncLimbleToSql(pool) {
       if (proc) {
         mode = 'proc';
         console.log('[limbleSync] mode:', mode);
-    
+        
         const basic = 'Basic ' + Buffer
           .from(`${process.env.CLIENT_ID}:${process.env.CLIENT_SECRET}`)
           .toString('base64');
         
+        // 1) Tasks (OPEN only, newest created first)
         const pathTasks = `/tasks?locations=${encodeURIComponent(process.env.LIMBLE_LOCATION_ID)}&status=0&orderBy=-createdDate`;
         console.log('[limbleSync] tasks path:', pathTasks);
         
-        const limbleTasksJson = await fetchAllPages(
-          pathTasks,
-          500,
-          { Authorization: basic, Accept: 'application/json' }
-        );
-        
-        // log BEFORE EXEC
+        const limbleTasksJson = await fetchAllPages(pathTasks, 500, { Authorization: basic, Accept: 'application/json' });
         let tasksArr = [];
         try {
           tasksArr = JSON.parse(limbleTasksJson);
@@ -80,53 +75,75 @@ export async function syncLimbleToSql(pool) {
           console.log('[limbleSync] tasks sample:', (tasksArr || []).slice(0, 3).map(t => ({
             TaskID: t.taskID, createdDate: t.createdDate, status: t.status, assetID: t.assetID
           })));
-        } catch {
-          console.log('[limbleSync] tasks parse error');
+        } catch { console.log('[limbleSync] tasks parse error'); }
+        
+        // 2) Upsert TASKS first — even if fields fail, tasks still refresh
+        try {
+          await pool.request().input('payload', sql.NVarChar(sql.MAX), limbleTasksJson)
+            .execute('dbo.Upsert_LimbleKPITasks');
+          console.log('[limbleSync] Upsert_LimbleKPITasks OK');
+        } catch (e) {
+          console.log('[limbleSync] Upsert_LimbleKPITasks ERROR:', e.message);
+          throw e;
         }
-        // If you prefer by TaskID instead of createdDate, use:
-        // `/tasks?locations=${encodeURIComponent(process.env.LIMBLE_LOCATION_ID)}&status=0&orderBy=-taskID`
-
-        const limbleAssetsJson = await fetchAllPages('/assets');
-        const limbleFieldsJson = await fetchAllPages('/assets/fields/');
-    
-      try {
-        await pool.request().input('payload', sql.NVarChar(sql.MAX), limbleTasksJson)
-          .execute('dbo.Upsert_LimbleKPITasks');
-        console.log('[limbleSync] Upsert_LimbleKPITasks OK');
-      } catch (e) {
-        console.log('[limbleSync] Upsert_LimbleKPITasks ERROR:', e.message);
-        throw e;
-      }
-      
-      try {
-        await pool.request().input('payload', sql.NVarChar(sql.MAX), limbleAssetsJson)
-          .execute('dbo.Upsert_LimbleKPIAssets');
-        console.log('[limbleSync] Upsert_LimbleKPIAssets OK');
-      } catch (e) {
-        console.log('[limbleSync] Upsert_LimbleKPIAssets ERROR:', e.message);
-        throw e;
-      }
-      
-      try {
-        await pool.request().input('payload', sql.NVarChar(sql.MAX), limbleFieldsJson)
-          .execute('dbo.Upsert_LimbleKPIAssetFields');
-        console.log('[limbleSync] Upsert_LimbleKPIAssetFields OK');
-      } catch (e) {
-        console.log('[limbleSync] Upsert_LimbleKPIAssetFields ERROR:', e.message);
-        throw e;
-      }
-      
-      // probe
-      try {
-        const { recordset } = await pool.request().query(`
-          SELECT TOP (1) TaskID, CreatedDate
-          FROM dbo.LimbleKPITasks
-          ORDER BY CreatedDate DESC;
-        `);
-        console.log('[limbleSync] SQL top task after upsert:', recordset?.[0]);
-      } catch (e) {
-        console.log('[limbleSync] probe error:', e.message);
-      }
+        
+        // 3) Assets (Bearer OK for most tenants)
+        let limbleAssetsJson = '[]';
+        try {
+          limbleAssetsJson = await fetchAllPages('/assets');
+          console.log('[limbleSync] fetch assets OK');
+        } catch (e) {
+          console.log('[limbleSync] fetch assets ERROR:', e.message);
+          // non-fatal if you want; comment next line to continue without assets
+          // throw e;
+        }
+        
+        try {
+          await pool.request().input('payload', sql.NVarChar(sql.MAX), limbleAssetsJson)
+            .execute('dbo.Upsert_LimbleKPIAssets');
+          console.log('[limbleSync] Upsert_LimbleKPIAssets OK');
+        } catch (e) {
+          console.log('[limbleSync] Upsert_LimbleKPIAssets ERROR:', e.message);
+          // non-fatal if desired
+          // throw e;
+        }
+        
+        // 4) Fields — MUST use Basic; if URL gets too long, chunk assets
+        let limbleFieldsJson = '[]';
+        try {
+          limbleFieldsJson = await fetchAllPages(
+            `/assets/fields/?assets=${encodeURIComponent(/* pass your assetIDs here if available */ '')}`,
+            500,
+            { Authorization: basic, Accept: 'application/json' }
+          );
+          console.log('[limbleSync] fetch fields OK');
+        } catch (e) {
+          console.log('[limbleSync] fetch fields ERROR:', e.message);
+          // non-fatal if you want tasks to continue
+          // throw e;
+        }
+        
+        try {
+          await pool.request().input('payload', sql.NVarChar(sql.MAX), limbleFieldsJson)
+            .execute('dbo.Upsert_LimbleKPIAssetFields');
+          console.log('[limbleSync] Upsert_LimbleKPIAssetFields OK');
+        } catch (e) {
+          console.log('[limbleSync] Upsert_LimbleKPIAssetFields ERROR:', e.message);
+          // non-fatal if desired
+          // throw e;
+        }
+        
+        // 5) Probe: confirm top task in SQL
+        try {
+          const { recordset } = await pool.request().query(`
+            SELECT TOP (1) TaskID, CreatedDate
+            FROM dbo.LimbleKPITasks
+            ORDER BY CreatedDate DESC;
+          `);
+          console.log('[limbleSync] SQL top task after upsert:', recordset?.[0]);
+        } catch (e) {
+          console.log('[limbleSync] probe error:', e.message);
+        }
 
       } else if (task) {
         mode = 'task';
