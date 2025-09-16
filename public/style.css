@@ -20,6 +20,10 @@
   font-size: 1rem; font-weight: 500;
   min-width: 100px; text-align: center;
 }
+/* basic colors for True Overall tiles */
+.good { background:#10B981 !important; color:#0B1B13 !important; }
+.warn { background:#FBBF24 !important; color:#1B1403 !important; }
+.bad  { background:#EF4444 !important; color:#1F0D0D !important; }
 
 /* Totals row styling */
 #kpi-by-asset tfoot td.kpi-cell {
