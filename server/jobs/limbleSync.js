@@ -168,7 +168,31 @@ export async function syncLimbleToSql(pool) {
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
-// limbleSync.js
+// server/jobs/limbleSync.js
+export async function syncLimbleCompletedOnly(pool) {
+  const API_V2 = `${process.env.API_BASE_URL}/v2`;
+  const basic = 'Basic ' + Buffer
+    .from(`${process.env.CLIENT_ID}:${process.env.CLIENT_SECRET}`)
+    .toString('base64');
+
+  const lookbackDays = Number(process.env.LIMBLE_COMPLETED_LOOKBACK_DAYS || 45);
+  const since = Math.floor((Date.now() - lookbackDays*24*3600*1000)/1000); // epoch seconds
+  const pathCompleted = `/tasks?locations=${encodeURIComponent(process.env.LIMBLE_LOCATION_ID)}&status=2&orderBy=-lastEdited&start=${since}`;
+
+  const json = await fetchAllPages(
+    pathCompleted,
+    500,
+    { Authorization: basic, Accept: 'application/json' }
+  );
+
+  await pool.request()
+    .input('payload', sql.NVarChar(sql.MAX), json)
+    .execute('dbo.Upsert_LimbleKPITasks');
+
+  console.log('[limbleSync] Upsert_LimbleKPITasks (completed lookback) OK');
+  return { ok: true, lookbackDays };
+}
+
 async function getWatermarks(pool) {
   try {
     const rs = await pool.request().query(`
