@@ -59,7 +59,13 @@ export async function syncLimbleToSql(pool) {
         mode = 'proc';
         console.log('[limbleSync] mode:', mode);
     
-        const limbleTasksJson  = await fetchAllPages('/tasks');
+        const basic = 'Basic ' + Buffer.from(`${process.env.CLIENT_ID}:${process.env.CLIENT_SECRET}`).toString('base64');
+        const limbleTasksJson = await fetchAllPages(
+          `/tasks?locations=${encodeURIComponent(process.env.LIMBLE_LOCATION_ID)}&orderBy=-lastEdited&status=0`,
+          500,
+          { Authorization: basic, Accept: 'application/json' }
+        );
+
         const limbleAssetsJson = await fetchAllPages('/assets');
         const limbleFieldsJson = await fetchAllPages('/assets/fields/');
     
