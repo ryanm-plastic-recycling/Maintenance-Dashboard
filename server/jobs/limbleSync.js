@@ -89,12 +89,34 @@ export async function syncLimbleToSql(pool) {
         const limbleAssetsJson = await fetchAllPages('/assets');
         const limbleFieldsJson = await fetchAllPages('/assets/fields/');
     
+      try {
         await pool.request().input('payload', sql.NVarChar(sql.MAX), limbleTasksJson)
           .execute('dbo.Upsert_LimbleKPITasks');
+        console.log('[limbleSync] Upsert_LimbleKPITasks OK');
+      } catch (e) {
+        console.log('[limbleSync] Upsert_LimbleKPITasks ERROR:', e.message);
+        throw e;
+      }
+      
+      try {
         await pool.request().input('payload', sql.NVarChar(sql.MAX), limbleAssetsJson)
           .execute('dbo.Upsert_LimbleKPIAssets');
+        console.log('[limbleSync] Upsert_LimbleKPIAssets OK');
+      } catch (e) {
+        console.log('[limbleSync] Upsert_LimbleKPIAssets ERROR:', e.message);
+        throw e;
+      }
+      
+      try {
         await pool.request().input('payload', sql.NVarChar(sql.MAX), limbleFieldsJson)
           .execute('dbo.Upsert_LimbleKPIAssetFields');
+        console.log('[limbleSync] Upsert_LimbleKPIAssetFields OK');
+      } catch (e) {
+        console.log('[limbleSync] Upsert_LimbleKPIAssetFields ERROR:', e.message);
+        throw e;
+      }
+      
+      // probe
       try {
         const { recordset } = await pool.request().query(`
           SELECT TOP (1) TaskID, CreatedDate
