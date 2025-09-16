@@ -477,16 +477,19 @@ export async function refreshByAssetKpis(pool) {
         .input('UnplannedCount', sql.Int, unplanned)
         .input('FailureEvents',  sql.Int, failureEvents)
         .input('ScheduledHrs',   sql.Decimal(12,2), scheduledHrs)
-        .input('SnapshotAt',     sql.DateTime2, snap)               // ← NEW: one shared snapshot
+        .input('SnapshotAt',     sql.DateTime2, snap)
+        .input('PlannedCount',            sql.Int,             planned)
+        .input('DowntimeHoursUnplanned',  sql.Decimal(10,2),   downtimeHoursUnplanned)
         .query(`
           INSERT INTO dbo.KpiByAssetCache
             (Timeframe, AssetID, Name, RangeStart, RangeEnd,
              UptimePct, DowntimeHrs, MttrHrs, MtbfHrs, PlannedPct, UnplannedPct,
-             UnplannedCount, FailureEvents, ScheduledHrs, SnapshotAt)
+             UnplannedCount, FailureEvents, ScheduledHrs, SnapshotAt,
+           PlannedCount, DowntimeHoursUnplanned)
           VALUES
             (@Timeframe,@AssetID,@Name,@RangeStart,@RangeEnd,
              @UptimePct,@DowntimeHrs,@MttrHrs,@MtbfHrs,@PlannedPct,@UnplannedPct,
-             @UnplannedCount,@FailureEvents,@ScheduledHrs,@SnapshotAt)
+             @UnplannedCount,@FailureEvents,@ScheduledHrs,@SnapshotAt,@PlannedCount,@DowntimeHoursUnplanned)
         `);
       inserted++;
     }
