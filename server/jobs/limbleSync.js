@@ -87,36 +87,33 @@ export async function syncLimbleToSql(pool) {
           throw e;
         }
         
-        // 3) Assets — Bearer usually works, but you can also force Basic if needed
+        // 3) Assets — use Basic if Bearer 403s
         let limbleAssetsJson = '[]';
         try {
           limbleAssetsJson = await fetchAllPages(
             '/assets',
             500,
-            { Authorization: `Bearer ${LIMBLE_TOKEN}`, Accept: 'application/json' }
-            // If Bearer gives 403, replace with: { Authorization: basic, Accept: 'application/json' }
+            { Authorization: basic, Accept: 'application/json' }  // ← Basic
           );
           console.log('[limbleSync] fetch assets OK');
         } catch (e) {
           console.log('[limbleSync] fetch assets ERROR:', e.message);
-          // non-fatal: assets missing won’t block tasks/fields
-          // throw e;
+          // non-fatal
         }
         
-        // 4) Fields — MUST use Basic and assetIDs (not empty string)
+        // 4) Fields — MUST use Basic
         let limbleFieldsJson = '[]';
         try {
           limbleFieldsJson = await fetchAllPages(
-            `/assets/fields/?assets=${encodeURIComponent(assetIDs)}`,
+            '/assets/fields/',           // ← no ?assets=
             500,
             { Authorization: basic, Accept: 'application/json' }
           );
           console.log('[limbleSync] fetch fields OK');
         } catch (e) {
           console.log('[limbleSync] fetch fields ERROR:', e.message);
-          // non-fatal: fields missing won’t block tasks/assets
-          // throw e;
         }
+
         
         try {
           await pool.request().input('payload', sql.NVarChar(sql.MAX), limbleFieldsJson)
