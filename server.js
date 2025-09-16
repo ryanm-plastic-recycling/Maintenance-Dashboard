@@ -1015,35 +1015,6 @@ if (shouldListen) {
   );
 }
 
-const jobs = {
-  async header_kpis()        { const p = await poolPromise; return refreshHeaderKpis(p); },
-  async by_asset_kpis()      { const p = await poolPromise; return refreshByAssetKpis(p); },
-  async work_orders_index()  { const p = await poolPromise; return refreshWorkOrders(p, 'index'); },
-  async work_orders_pm()     { const p = await poolPromise; return refreshWorkOrders(p, 'pm'); },
-  async work_orders_status() { const p = await poolPromise; return refreshWorkOrders(p, 'prodstatus'); },
-  etl_assets_fields: async () => {
-    const p = await poolPromise;
-    const basic = 'Basic ' + Buffer
-      .from(`${process.env.CLIENT_ID}:${process.env.CLIENT_SECRET}`)
-      .toString('base64');
-  
-    const json = await fetchAllPages(
-      `/assets/fields/?assets=${encodeURIComponent(assetIDs)}`,
-      500,
-      { Authorization: basic, Accept: 'application/json' }
-    );
-  
-    await p.request()
-      .input('payload', sql.NVarChar(sql.MAX), json)
-      .execute('dbo.Upsert_LimbleKPIAssetFields');
-  
-    return { ok: true };
-  },
-  async limble_sync()       { const p = await poolPromise; return syncLimbleToSql(p); },
-  async limble_sync_refresh(){ return limble_sync_and_refresh_all(); },
-  async full_refresh_daily() { const p = await poolPromise; return runFullRefresh(p); },
-};
-
 poolPromise.then(async (pool) => { 
   await startScheduler(pool, jobs);
   console.log('[scheduler] started and tasks registered');
