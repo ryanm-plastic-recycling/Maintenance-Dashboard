@@ -178,9 +178,9 @@ export async function refreshHeaderKpis(pool) {
     const scheduledHrs = hrsPerWeek * weeks;
 
     // MTTR / MTBF / Uptime / splits
-    const mttrHrs   = unplannedCount > 0 ? downtimeHrs / unplannedCount : 0;
+    const mttrHrs = failureEvents > 0 ? downtimeHrs / failureEvents : 0;
     const runHrs    = Math.max(0, scheduledHrs - downtimeHrs);
-    const mtbfHrs   = unplannedCount > 0 ? runHrs / unplannedCount : 0;
+    const mtbfHrs = failureEvents > 0 ? runHrs       / failureEvents : 0;
     const uptimePct = scheduledHrs > 0 ? Math.max(0, Math.min(100, (1 - downtimeHrs / scheduledHrs) * 100)) : 0;
 
     const totalEvents = plannedCount + unplannedCount;
