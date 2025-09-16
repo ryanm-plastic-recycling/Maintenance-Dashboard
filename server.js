@@ -14,7 +14,7 @@ import limbleWebhook from './server/routes/limbleWebhook.js';
 import { start as startScheduler, reload as reloadScheduler } from './server/scheduler.js';
 import { refreshHeaderKpis, refreshByAssetKpis, refreshWorkOrders } from './server/jobs/kpiJobs.js';
 import { runFullRefresh } from './server/jobs/pipeline.js';
-import { fetchAllPages, syncLimbleToSql } from './server/jobs/limbleSync.js';
+import { fetchAllPages, syncLimbleToSql, syncLimbleCompletedOnly } from './server/jobs/limbleSync.js';
 
 dotenv.config();
 
@@ -931,6 +931,46 @@ app.get('/api/workorders/:page', async (req, res) => {
   const payload = { rows: data, lastRefreshUtc: latest };
   if (page === 'prodstatus') payload.tiles = data; // back-compat
   res.json(payload);
+});
+
+const jobs = {
+  async header_kpis()        { const p = await poolPromise; return refreshHeaderKpis(p); },
+  async by_asset_kpis()      { const p = await poolPromise; return refreshByAssetKpis(p); },
+  async work_orders_index()  { const p = await poolPromise; return refreshWorkOrders(p, 'index'); },
+  async work_orders_pm()     { const p = await poolPromise; return refreshWorkOrders(p, 'pm'); },
+  async work_orders_status() { const p = await poolPromise; return refreshWorkOrders(p, 'prodstatus'); },
+  // existing jobs...
+  async limble_sync()        { const p = await poolPromise; return syncLimbleToSql(p); },
+  async limble_sync_refresh(){ const p = await poolPromise; await syncLimbleToSql(p); 
+                               await refreshWorkOrders(p,'prodstatus'); await refreshWorkOrders(p,'index'); await refreshWorkOrders(p,'pm'); 
+                               return { ok:true }; },
+  async full_refresh_daily() { const p = await poolPromise; return runFullRefresh(p); },
+
+  // NEW: daily completed lookback
+  async limble_sync_completed() { const p = await poolPromise; return syncLimbleCompletedOnly(p); },
+};
+
+// Add an Admin "run now" case:
+app.post('/api/admin/run', async (req, res) => {
+  try {
+    const { job } = req.body || {};
+    if (!job) return res.status(400).json({ error: 'missing job' });
+    const pool = await poolPromise;
+    let result;
+    switch (job) {
+      // ... existing cases ...
+      case 'limble_sync_completed':
+        result = await jobs.limble_sync_completed();
+        break;
+      default:
+        return res.status(400).json({ error: 'unknown job' });
+    }
+    await pool.request().input('n', sql.NVarChar, job)
+      .query(`UPDATE dbo.UpdateSchedules SET LastRun = SYSUTCDATETIME() WHERE Name = @n`);
+    res.json({ ok: true, result });
+  } catch (e) {
+    res.status(500).json({ error: String(e) });
+  }
 });
 
 const shouldListen =
