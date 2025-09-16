@@ -63,15 +63,28 @@ export async function syncLimbleToSql(pool) {
           .from(`${process.env.CLIENT_ID}:${process.env.CLIENT_SECRET}`)
           .toString('base64');
         
-        // Pull only OPEN tasks at your location, newest first by CreatedDate
+        const pathTasks = `/tasks?locations=${encodeURIComponent(process.env.LIMBLE_LOCATION_ID)}&status=0&orderBy=-createdDate`;
+        console.log('[limbleSync] tasks path:', pathTasks);
+        
         const limbleTasksJson = await fetchAllPages(
-          `/tasks?locations=${encodeURIComponent(process.env.LIMBLE_LOCATION_ID)}&status=0&orderBy=-createdDate`,
+          pathTasks,
           500,
           { Authorization: basic, Accept: 'application/json' }
         );
+        
+        // log BEFORE EXEC
+        let tasksArr = [];
+        try {
+          tasksArr = JSON.parse(limbleTasksJson);
+          console.log('[limbleSync] tasks count:', Array.isArray(tasksArr) ? tasksArr.length : 'not-array');
+          console.log('[limbleSync] tasks sample:', (tasksArr || []).slice(0, 3).map(t => ({
+            TaskID: t.taskID, createdDate: t.createdDate, status: t.status, assetID: t.assetID
+          })));
+        } catch {
+          console.log('[limbleSync] tasks parse error');
+        }
         // If you prefer by TaskID instead of createdDate, use:
         // `/tasks?locations=${encodeURIComponent(process.env.LIMBLE_LOCATION_ID)}&status=0&orderBy=-taskID`
-
 
         const limbleAssetsJson = await fetchAllPages('/assets');
         const limbleFieldsJson = await fetchAllPages('/assets/fields/');
@@ -82,7 +95,17 @@ export async function syncLimbleToSql(pool) {
           .execute('dbo.Upsert_LimbleKPIAssets');
         await pool.request().input('payload', sql.NVarChar(sql.MAX), limbleFieldsJson)
           .execute('dbo.Upsert_LimbleKPIAssetFields');
-    
+      try {
+        const { recordset } = await pool.request().query(`
+          SELECT TOP (1) TaskID, CreatedDate
+          FROM dbo.LimbleKPITasks
+          ORDER BY CreatedDate DESC;
+        `);
+        console.log('[limbleSync] SQL top task after upsert:', recordset?.[0]);
+      } catch (e) {
+        console.log('[limbleSync] probe error:', e.message);
+      }
+
       } else if (task) {
         mode = 'task';
         console.log('[limbleSync] mode:', mode);
