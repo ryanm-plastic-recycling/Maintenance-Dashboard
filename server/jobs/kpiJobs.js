@@ -210,108 +210,119 @@ export async function refreshHeaderKpis(pool) {
   return { inserted, ranges: ranges.length };
 }
 
-
+// server/jobs/kpiJobs.js (or wherever it lives)
 export async function refreshWorkOrders(pool, page) {
-  const key = page === 'index' ? 'WO_INDEX_SQL'
-            : page === 'pm'    ? 'WO_PM_SQL'
-            :                    'PROD_STATUS_SQL';
+  const loc = Number(process.env.LIMBLE_LOCATION_ID || 13425);
 
-  const defaultIndexSql = `
-    SELECT TOP (200)
-      t.TaskID       AS taskID,
-      t.AssetID      AS assetID,
-      t.Priority     AS priority,
-      t.Name         AS name,
-      t.Description  AS description,
-      t.Type         AS [type],
-      t.CreatedDate  AS createdDate,
-      t.StatusID     AS statusID
-    FROM dbo.LimbleKPITasks t
-    WHERE t.Type IN (2, 6)                 -- unplanned WOs & work requestors
-      AND t.DateCompleted IS NULL          -- still open
-      AND t.LocationID = 13425             -- Rockville location
-    ORDER BY t.CreatedDate DESC
-    FOR JSON PATH
-  `;
-  const defaultPmSql = `
-    DECLARE @loc INT = ${Number(process.env.LIMBLE_LOCATION_ID || 13425)};
-    SELECT TOP (200)
-      t.TaskID       AS taskID,
-      t.AssetID      AS assetID,
-      t.Priority     AS priority,
-      t.Name         AS name,
-      t.Description  AS description,
-      t.Type         AS [type],
-      CONVERT(varchar(19), COALESCE(t.LastEdited, t.Due, t.CreatedDate), 126) AS createdDate,
-      t.Due          AS [due],
-      t.StatusID     AS statusID
-    FROM dbo.LimbleKPITasks t
-    WHERE t.Type IN (1,4)
-      AND t.DateCompleted IS NULL
-      AND (@loc IS NULL OR t.LocationID = @loc)
-    ORDER BY COALESCE(t.Due, t.LastEdited, t.CreatedDate) ASC, t.TaskID DESC
-    FOR JSON PATH
-  `;
-
-  const defaultProdStatusSql = `
-    ;WITH s AS (
-      SELECT
-        af.AssetID     AS assetID,
-        a.Name         AS assetName,
-        af.ValueText   AS assetStatus,
-        af.LastEdited  AS lastChangeUTC,
-        ROW_NUMBER() OVER (PARTITION BY af.AssetID ORDER BY af.LastEdited DESC) AS rn
-      FROM dbo.LimbleKPIAssetFields af
-      INNER JOIN dbo.LimbleKPIAssets a
-        ON a.AssetID = af.AssetID
-      WHERE af.FieldID = 95
-    )
-    SELECT assetID, assetName, assetStatus, lastChangeUTC
-    FROM s
-    WHERE rn = 1
-    ORDER BY assetName
-    FOR JSON PATH
-    `;
-
-  const q = ((process.env[key] || '').trim()) ||
-            (page === 'index' ? defaultIndexSql
-           : page === 'pm'    ? defaultPmSql
-                               : defaultProdStatusSql);
-
-  let json   = '[]';
-  let source = 'empty';
-  let error  = null;
-  let parsedLen = 0;
+  let rows = [];
+  let error = null;
 
   try {
-    if (!q) throw new Error(`Missing env ${key}`);
-    const rs = await pool.request().query(q);
+    if (page === 'index') {
+      // General WOs: open or in-progress, last 14 days, newest first
+      const rs = await pool.request()
+        .input('loc', sql.Int, loc)
+        .query(`
+          SELECT TOP (200)
+            t.TaskID       AS taskID,
+            t.AssetID      AS assetID,
+            t.Priority     AS priority,
+            t.Name         AS name,
+            t.Description  AS description,
+            t.[Type]       AS [type],
+            t.CreatedDate  AS createdDate,
+            t.StatusID     AS statusID
+          FROM dbo.LimbleKPITasks t
+          WHERE t.StatusID IN (0,1)                              -- open/in-progress
+            AND t.CreatedDate >= DATEADD(day, -14, SYSUTCDATETIME())
+            AND (@loc IS NULL OR t.LocationID = @loc)             -- keep or drop as needed
+            AND t.[Type] IN (2,6)                                -- Unplanned & Work requester
+          ORDER BY t.CreatedDate DESC;
+        `);
+      rows = (rs.recordset || []).map(r => ({
+        ...r,
+        createdDate: r.createdDate ? new Date(r.createdDate).toISOString() : null
+      }));
 
-    if (rs.recordset?.length) {
-      const row0 = rs.recordset[0];
-      const key0 = Object.keys(row0)[0]; // e.g. JSON_F52E2B61-...
-      const val0 = row0[key0];
-      json = (typeof val0 === 'string' && (val0.startsWith('[') || val0.startsWith('{')))
-        ? val0
-        : (row0.data || '[]');
-      try {
-        const parsed = JSON.parse(json);
-        parsedLen = Array.isArray(parsed) ? parsed.length : 0;
-      } catch { /* leave parsedLen = 0 */ }
+    } else if (page === 'pm') {
+      // PM page: PM types, open/in-progress, last 30 days
+      const rs = await pool.request()
+        .input('loc', sql.Int, loc)
+        .query(`
+          SELECT TOP (200)
+            t.TaskID       AS taskID,
+            t.AssetID      AS assetID,
+            t.Priority     AS priority,
+            t.Name         AS name,
+            t.Description  AS description,
+            t.[Type]       AS [type],
+            t.CreatedDate  AS createdDate,
+            t.[Due]        AS [due],
+            t.StatusID     AS statusID
+          FROM dbo.LimbleKPITasks t
+          WHERE t.[Type] IN (1,4)                                -- PM types
+            AND t.StatusID IN (0,1)
+            AND t.CreatedDate >= DATEADD(day, -30, SYSUTCDATETIME())
+            AND (@loc IS NULL OR t.LocationID = @loc)
+          ORDER BY t.CreatedDate DESC;
+        `);
+      rows = (rs.recordset || []).map(r => ({
+        ...r,
+        createdDate: r.createdDate ? new Date(r.createdDate).toISOString() : null,
+        due:         r.due         ? new Date(r.due).toISOString()         : null
+      }));
+
+    } else if (page === 'prodstatus') {
+      // Production status from latest field 95 per asset
+      const rs = await pool.request().query(`
+        ;WITH s AS (
+          SELECT
+            af.AssetID     AS assetID,
+            a.Name         AS assetName,
+            af.ValueText   AS assetStatus,
+            af.LastEdited  AS lastChangeUTC,
+            ROW_NUMBER() OVER (PARTITION BY af.AssetID ORDER BY af.LastEdited DESC) AS rn
+          FROM dbo.LimbleKPIAssetFields af
+          INNER JOIN dbo.LimbleKPIAssets a ON a.AssetID = af.AssetID
+          WHERE af.FieldID = 95
+        )
+        SELECT assetID, assetName, assetStatus, lastChangeUTC
+        FROM s
+        WHERE rn = 1
+        ORDER BY assetName;
+      `);
+      rows = (rs.recordset || []).map(r => ({
+        ...r,
+        lastChangeUTC: r.lastChangeUTC ? new Date(r.lastChangeUTC).toISOString() : null
+      }));
+
+    } else {
+      throw new Error(`Unknown page '${page}'`);
     }
-    source = process.env[key] ? 'env' : 'default';
   } catch (e) {
     error = e?.message || String(e);
-    console.warn('[refreshWorkOrders]', error);
+    console.warn('[refreshWorkOrders]', page, error);
+    rows = [];
   }
 
+  // sanity log
+  if (rows.length) {
+    const maxCreated = rows[0].createdDate || rows[0].lastChangeUTC || null;
+    const minCreated = rows[rows.length - 1].createdDate || rows[rows.length - 1].lastChangeUTC || null;
+    console.log(`[refreshWorkOrders] ${page}: rows=${rows.length} window=${minCreated}..${maxCreated}`);
+  } else {
+    console.log(`[refreshWorkOrders] ${page}: rows=0`);
+  }
+
+  // write cache (once)
+  const payload = JSON.stringify(rows);
   await pool.request()
-    .input('Page',       sql.NVarChar(64), page)     // page is 'index' | 'pm' | 'prodstatus'
+    .input('Page',       sql.NVarChar(64), page)   // 'index' | 'pm' | 'prodstatus'
     .input('SnapshotAt', sql.DateTime2,     new Date())
-    .input('Data',       sql.NVarChar(sql.MAX), json) // json is already a JSON string in your code
+    .input('Data',       sql.NVarChar(sql.MAX), payload)
     .execute('dbo.UpsertWorkOrdersCache');
 
-  return { page, source, rows: parsedLen, error };
+  return { page, rows: rows.length, error };
 }
 
 export async function refreshByAssetKpis(pool) {
