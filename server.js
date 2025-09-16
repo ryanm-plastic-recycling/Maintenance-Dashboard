@@ -904,6 +904,7 @@ app.get('/api/kpis/by-asset', async (req, res) => {
       };
     }
     const range = rows.length ? { start: rows[0].RangeStart, end: rows[0].RangeEnd } : null;
+    console.log(`[kpis/by-asset] tf=${tf} rows=${rows.length} snap=${latest?.toISOString?.() || latest}`);
     res.json({ rows, assets, range, lastRefreshUtc: latest });
   } catch (e) {
     console.error('[kpis/by-asset]', e);
