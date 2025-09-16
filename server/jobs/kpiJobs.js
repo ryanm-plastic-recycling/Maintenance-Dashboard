@@ -184,18 +184,25 @@ export async function refreshHeaderKpis(pool) {
       start = new Date(end.getTime() - 30*24*3600*1000);
     }
 
+    // build a comma-separated list once
+    const ids = assets.length ? assets.map(a => a.assetID) : [];
+    const idsCsv = ids.join(',');
+    
     // event rollups (completed in window)
-    // 1) aggregate events (add FailureEvents)
+    // 1) aggregate events (filter to your mappings assets)
     const q = await pool.request()
       .input('start', sql.DateTime2, start)
       .input('end',   sql.DateTime2, end)
       .input('f',     sql.Float,     DT_FACTOR)
+      .input('ids',   sql.NVarChar,  idsCsv)
       .query(`
-        WITH window AS (
-          SELECT [Type], Downtime, DateCompleted
-          FROM dbo.LimbleKPITasks
-          WHERE (DateCompleted >= @start AND DateCompleted < @end)
-        )
+        WITH ids AS (SELECT TRY_CONVERT(int, value) AS AssetID FROM STRING_SPLIT(@ids, ','))
+           ,window AS (
+             SELECT t.AssetID, t.[Type], t.Downtime, t.DateCompleted
+             FROM dbo.LimbleKPITasks t
+             ${ids.length ? 'JOIN ids ON ids.AssetID = t.AssetID' : ''}
+             WHERE (t.DateCompleted >= @start AND t.DateCompleted < @end)
+           )
         SELECT
           SUM(CASE WHEN [Type] IN (2,6) THEN Downtime * @f ELSE 0 END) AS DowntimeHrs,
           SUM(CASE WHEN [Type] IN (2,6) THEN 1 ELSE 0 END)            AS UnplannedCount,
@@ -210,13 +217,14 @@ export async function refreshHeaderKpis(pool) {
     const plannedCount    = Number(row.PlannedCount || 0);
     const failureEvents   = Number(row.FailureEvents || 0);
     
-    // 2) scheduled hours using HoursPerWeek (proportional to window)
+    // 2) scheduled hours using HoursPerWeek to those mappings assets
     const sched = await pool.request()
-      .input('start', sql.DateTime2, start)
-      .input('end',   sql.DateTime2, end)
+      .input('ids', sql.NVarChar, idsCsv)
       .query(`
-        SELECT SUM(COALESCE(HoursPerWeek, 0)) AS HrsPerWeek
-        FROM dbo.LimbleKPIAssets
+        WITH ids AS (SELECT TRY_CONVERT(int, value) AS AssetID FROM STRING_SPLIT(@ids, ','))
+        SELECT SUM(COALESCE(a.HoursPerWeek, 0)) AS HrsPerWeek
+        FROM dbo.LimbleKPIAssets a
+        ${ids.length ? 'JOIN ids ON ids.AssetID = a.AssetID' : ''};
       `);
     const hoursPerWeekSum = Number(sched.recordset[0]?.HrsPerWeek || 0);
     const windowDays = Math.max(0, (end - start) / (24*3600*1000));
