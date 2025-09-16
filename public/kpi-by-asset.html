@@ -452,5 +452,37 @@
     updateClock();
 
   </script>
+  <script>
+  function isoLastWeekRangeUTC(now = new Date()) {
+    // force UTC midnight for consistency
+    const n = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+    const dow = n.getUTCDay();                       // 0..6 (Sun..Sat)
+    const monOffset = (dow + 6) % 7;                 // days since Monday
+    const thisMon = new Date(n); thisMod = thisMon.setUTCDate(n.getUTCDate() - monOffset);
+    const lastMon = new Date(thisMon); lastMon.setUTCDate(thisMon.getUTCDate() - 7);
+    const lastSun = new Date(thisMon); lastSun.setUTCDate(thisMon.getUTCDate() - 1);
+    return { start: new Date(lastMon), end: new Date(lastSun) };  // label: Mon..Sun
+  }
+  
+  function lastMonthRangeUTC(now = new Date()) {
+    const y = now.getUTCFullYear(), m = now.getUTCMonth();
+    const start = new Date(Date.UTC(y, m - 1, 1));
+    const end   = new Date(Date.UTC(y, m, 0)); // last day of prior month
+    return { start, end };
+  }
+  
+  // When setting the label for "Last Week"
+  const lw = isoLastWeekRangeUTC();
+  document.getElementById('date-range').textContent =
+    `${lw.start.toLocaleDateString('en-US',{ timeZone:'America/Indiana/Indianapolis' })} — ` +
+    `${lw.end.toLocaleDateString('en-US',{ timeZone:'America/Indiana/Indianapolis' })}`;
+  
+  // For "Last Month"
+  const lm = lastMonthRangeUTC();
+  document.getElementById('date-range').textContent =
+    `${lm.start.toLocaleDateString('en-US',{ timeZone:'America/Indiana/Indianapolis' })} — ` +
+    `${lm.end.toLocaleDateString('en-US',{ timeZone:'America/Indiana/Indianapolis' })}`;
+  </script>
+
 </body>
 </html>
