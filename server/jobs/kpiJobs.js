@@ -185,37 +185,51 @@ export async function refreshHeaderKpis(pool) {
     }
 
     // event rollups (completed in window)
+    // 1) aggregate events (add FailureEvents)
     const q = await pool.request()
       .input('start', sql.DateTime2, start)
       .input('end',   sql.DateTime2, end)
       .input('f',     sql.Float,     DT_FACTOR)
       .query(`
         WITH window AS (
-          SELECT [Type], Downtime, CreatedDate, DateCompleted
+          SELECT [Type], Downtime, DateCompleted
           FROM dbo.LimbleKPITasks
           WHERE (DateCompleted >= @start AND DateCompleted < @end)
         )
         SELECT
           SUM(CASE WHEN [Type] IN (2,6) THEN Downtime * @f ELSE 0 END) AS DowntimeHrs,
           SUM(CASE WHEN [Type] IN (2,6) THEN 1 ELSE 0 END)            AS UnplannedCount,
-          SUM(CASE WHEN [Type] IN (1,4) THEN 1 ELSE 0 END)            AS PlannedCount
+          SUM(CASE WHEN [Type] IN (1,4) THEN 1 ELSE 0 END)            AS PlannedCount,
+          SUM(CASE WHEN [Type] IN (2,6) AND (Downtime * @f) > 0 THEN 1 ELSE 0 END) AS FailureEvents
         FROM window;
       `);
-
+    
     const row = q.recordset[0] || {};
-    const downtimeHrs    = Number(row.DowntimeHrs || 0);
-    const unplannedCount = Number(row.UnplannedCount || 0);
-    const plannedCount   = Number(row.PlannedCount || 0);
-
-    // scheduled hours = expected hours per run-day × number of run-days in window × assetCount
-    const nRunDays   = runDaysBetween(start, new Date(end.getTime() - 1)); // inclusive end day if needed
-    const schedHrsOneAsset = nRunDays * EXPECTED_HOURS_PER_DAY;
-    const scheduledHrs     = schedHrsOneAsset * assetCount;
-
-    const runHrs    = Math.max(0, scheduledHrs - downtimeHrs);
-    const mttrHrs   = unplannedCount > 0 ? downtimeHrs / unplannedCount : 0;
-    const mtbfHrs   = unplannedCount > 0 ? runHrs       / unplannedCount : 0;
+    const downtimeHrs     = Number(row.DowntimeHrs || 0);
+    const unplannedCount  = Number(row.UnplannedCount || 0);
+    const plannedCount    = Number(row.PlannedCount || 0);
+    const failureEvents   = Number(row.FailureEvents || 0);
+    
+    // 2) scheduled hours using HoursPerWeek (proportional to window)
+    const sched = await pool.request()
+      .input('start', sql.DateTime2, start)
+      .input('end',   sql.DateTime2, end)
+      .query(`
+        SELECT SUM(COALESCE(HoursPerWeek, 0)) AS HrsPerWeek
+        FROM dbo.LimbleKPIAssets
+      `);
+    const hoursPerWeekSum = Number(sched.recordset[0]?.HrsPerWeek || 0);
+    const windowDays = Math.max(0, (end - start) / (24*3600*1000));
+    const scheduledHrs = hoursPerWeekSum * (windowDays / 7);
+    
+    // 3) MTTR/MTBF using failure events
+    const runHrs  = Math.max(0, scheduledHrs - downtimeHrs);
+    const mttrHrs = failureEvents > 0 ? downtimeHrs / failureEvents : 0;
+    const mtbfHrs = failureEvents > 0 ? runHrs       / failureEvents : 0;
+    
+    // 4) uptime% from scheduled vs run
     const uptimePct = scheduledHrs > 0 ? Math.max(0, Math.min(100, (runHrs / scheduledHrs) * 100)) : 0;
+
 
     const totalEvents  = plannedCount + unplannedCount;
     const plannedPct   = totalEvents > 0 ? (plannedCount / totalEvents)   * 100 : 0;
