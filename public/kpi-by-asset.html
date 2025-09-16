@@ -327,7 +327,7 @@
           <td>${(r.DowntimeHrs ?? 0).toFixed(2)}</td>
           <td>${r.UnplannedCount ?? 0}</td>
           <td>${r.FailureEvents ?? 0}</td>
-          <td>${(r.UptimePct ?? 0).toFixed(1)}%</td>
+          <td>${typeof r.UptimePct === 'number' ? (100 - r.UptimePct).toFixed(1) + '%' : ''}</td>
           <td>${(r.MttrHrs ?? 0).toFixed(2)}</td>
           <td>${(r.MtbfHrs ?? 0).toFixed(2)}</td>
           <td>${(r.PlannedPct ?? 0).toFixed(1)}%</td>
