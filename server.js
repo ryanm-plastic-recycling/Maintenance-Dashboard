@@ -883,7 +883,11 @@ app.get('/api/kpis/by-asset', async (req, res) => {
       .input('tf',   sql.NVarChar, tf)
       .input('snap', sql.DateTime2, latest)
       .query(`
-        SELECT AssetID, Name, RangeStart, RangeEnd, UptimePct, DowntimeHrs, MttrHrs, MtbfHrs, PlannedPct, UnplannedPct
+        SELECT
+          AssetID, Name, RangeStart, RangeEnd,
+          UptimePct, DowntimeHrs, MttrHrs, MtbfHrs,
+          PlannedPct, UnplannedPct,
+          UnplannedCount, FailureEvents, ScheduledHrs
         FROM dbo.KpiByAssetCache
         WHERE Timeframe=@tf AND SnapshotAt=@snap
         ORDER BY Name, AssetID;
