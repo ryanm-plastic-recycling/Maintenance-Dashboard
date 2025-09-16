@@ -332,16 +332,20 @@ export async function refreshByAssetKpis(pool) {
                    :                                 1/60;
 
   const mappings = loadMappingsRaw();
-  const assets = normalizeAssets(mappings); // [{assetID, name}]
-  const TF = cfg.kpiByAssetTimeframes || ['lastMonth']; // keep your config
+  const assets = normalizeAssets(mappings);
+  const TF = cfg.kpiByAssetTimeframes || ['lastMonth'];
 
   let inserted = 0, tfCount = 0;
+
   for (const tf of TF) {
     tfCount++;
+
+    // one snapshot for the ENTIRE timeframe batch
+    const snap = new Date();
+
     const { start, end } = tfRange(new Date(), tf);
 
-    // precompute scheduled hours proportional to timeframe per asset
-    // (use HoursPerWeek if present, else fall back to EXPECTED_HOURS_PER_DAY * run days)
+    // scheduled hours per asset
     const sched = await pool.request()
       .input('start', sql.DateTime2, start)
       .input('end',   sql.DateTime2, end)
@@ -352,7 +356,7 @@ export async function refreshByAssetKpis(pool) {
       `);
     const schedMap = new Map(sched.recordset.map(r => [Number(r.AssetID), Number(r.ScheduledHrs || 0)]));
 
-    // aggregate per-asset over window
+    // aggregate window (completed events)
     const rs = await pool.request()
       .input('start', sql.DateTime2, start)
       .input('end',   sql.DateTime2, end)
@@ -367,64 +371,65 @@ export async function refreshByAssetKpis(pool) {
         FROM dbo.LimbleKPITasks t
         WHERE (t.DateCompleted BETWEEN @start AND @end)
         GROUP BY t.AssetID
-
       `);
 
-    // Replace rows for this timeframe
+    // purge prior rows for this timeframe
     await pool.request().input('tf', sql.NVarChar, tf)
       .query(`DELETE FROM dbo.KpiByAssetCache WHERE Timeframe=@tf;`);
 
     const aggMap = new Map(rs.recordset.map(r => [Number(r.AssetID), r]));
-    // Choose target assets to display: mappings.productionAssets if available, else all known assets
     const targetAssets = assets.length
       ? assets.map(a => ({ assetID: a.assetID, name: a.name }))
       : sched.recordset.map(r => ({ assetID: Number(r.AssetID), name: null }));
 
     for (const a of targetAssets) {
       const assetID = a.assetID;
-      const agg = aggMap.get(assetID) || { DowntimeHrs: 0, UnplannedCount: 0, PlannedCount: 0 };
-      const downtimeHrs = Number(agg.DowntimeHrs || 0);
-      const unplanned   = Number(agg.UnplannedCount || 0);
-      const planned = Number(agg.PlannedCount || 0);
-      const failureEvents = Number(agg.FailureEvents || 0);
-      const totalEv     = planned + unplanned;
+      const name = a.name || null;
+      const agg  = aggMap.get(assetID) || { DowntimeHrs: 0, UnplannedCount: 0, PlannedCount: 0, FailureEvents: 0 };
 
-      const scheduledHrs = schedMap.get(assetID) || 0;
-      const runHrs       = Math.max(0, scheduledHrs - downtimeHrs);
-      const mttrHrs      = unplanned > 0 ? downtimeHrs / unplanned : 0;
-      const mtbfHrs      = unplanned > 0 ? runHrs       / unplanned : 0;
-      const uptimePct    = scheduledHrs > 0 ? Math.max(0, Math.min(100, (1 - downtimeHrs / scheduledHrs) * 100)) : 100;
-      const plannedPct   = totalEv > 0 ? (planned   / totalEv) * 100 : 0;
-      const unplannedPct = totalEv > 0 ? (unplanned / totalEv) * 100 : 0;
+      const downtimeHrs   = Number(agg.DowntimeHrs || 0);
+      const unplanned     = Number(agg.UnplannedCount || 0);
+      const planned       = Number(agg.PlannedCount || 0);
+      const failureEvents = Number(agg.FailureEvents || 0);
+      const totalEv       = planned + unplanned;
+
+      const scheduledHrs  = schedMap.get(assetID) || 0;
+      const runHrs        = Math.max(0, scheduledHrs - downtimeHrs);
+      const mttrHrs       = unplanned > 0 ? downtimeHrs / unplanned : 0;
+      const mtbfHrs       = unplanned > 0 ? runHrs       / unplanned : 0;
+      const uptimePct     = scheduledHrs > 0 ? Math.max(0, Math.min(100, (1 - downtimeHrs / scheduledHrs) * 100)) : 100;
+      const plannedPct    = totalEv > 0 ? (planned   / totalEv) * 100 : 0;
+      const unplannedPct  = totalEv > 0 ? (unplanned / totalEv) * 100 : 0;
 
       await pool.request()
-        .input('Timeframe',     sql.NVarChar, tf)
-        .input('AssetID',       sql.Int, assetID)
-        .input('Name',          sql.NVarChar, a.name || null)
-        .input('RangeStart',    sql.DateTime2, start)
-        .input('RangeEnd',      sql.DateTime2, end)
-        .input('UptimePct',     sql.Decimal(5,1), uptimePct)
-        .input('DowntimeHrs',   sql.Decimal(10,2), downtimeHrs)
-        .input('MttrHrs',       sql.Decimal(10,2), mttrHrs)
-        .input('MtbfHrs',       sql.Decimal(10,2), mtbfHrs)
-        .input('PlannedPct',    sql.Decimal(5,1), plannedPct)
-        .input('UnplannedPct',  sql.Decimal(5,1), unplannedPct)
-        .input('UnplannedCount',sql.Int, unplanned)
-        .input('FailureEvents', sql.Int, failureEvents)
-        .input('ScheduledHrs', sql.Decimal(12,2), scheduledHrs)
+        .input('Timeframe',    sql.NVarChar, tf)
+        .input('AssetID',      sql.Int,      assetID)
+        .input('Name',         sql.NVarChar, name)
+        .input('RangeStart',   sql.DateTime2, start)
+        .input('RangeEnd',     sql.DateTime2, end)
+        .input('UptimePct',    sql.Decimal(5,1),  uptimePct)
+        .input('DowntimeHrs',  sql.Decimal(10,2), downtimeHrs)
+        .input('MttrHrs',      sql.Decimal(10,2), mttrHrs)
+        .input('MtbfHrs',      sql.Decimal(10,2), mtbfHrs)
+        .input('PlannedPct',   sql.Decimal(5,1),  plannedPct)
+        .input('UnplannedPct', sql.Decimal(5,1),  unplannedPct)
+        .input('UnplannedCount', sql.Int, unplanned)
+        .input('FailureEvents',  sql.Int, failureEvents)
+        .input('ScheduledHrs',   sql.Decimal(12,2), scheduledHrs)
+        .input('SnapshotAt',     sql.DateTime2, snap)               // ← NEW: one shared snapshot
         .query(`
           INSERT INTO dbo.KpiByAssetCache
             (Timeframe, AssetID, Name, RangeStart, RangeEnd,
              UptimePct, DowntimeHrs, MttrHrs, MtbfHrs, PlannedPct, UnplannedPct,
-             UnplannedCount, FailureEvents, ScheduledHrs)
+             UnplannedCount, FailureEvents, ScheduledHrs, SnapshotAt)
           VALUES
             (@Timeframe,@AssetID,@Name,@RangeStart,@RangeEnd,
              @UptimePct,@DowntimeHrs,@MttrHrs,@MtbfHrs,@PlannedPct,@UnplannedPct,
-             @UnplannedCount,@FailureEvents,@ScheduledHrs)
+             @UnplannedCount,@FailureEvents,@ScheduledHrs,@SnapshotAt)
         `);
       inserted++;
     }
   }
-  return { inserted, assets: 'computed', timeframes: tfCount };
+  return { inserted, assets: 'computed', timeframes: TF.length };
 }
 
