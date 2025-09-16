@@ -471,17 +471,6 @@
     return { start, end };
   }
   
-  // When setting the label for "Last Week"
-  const lw = isoLastWeekRangeUTC();
-  document.getElementById('date-range').textContent =
-    `${lw.start.toLocaleDateString('en-US',{ timeZone:'America/Indiana/Indianapolis' })} — ` +
-    `${lw.end.toLocaleDateString('en-US',{ timeZone:'America/Indiana/Indianapolis' })}`;
-  
-  // For "Last Month"
-  const lm = lastMonthRangeUTC();
-  document.getElementById('date-range').textContent =
-    `${lm.start.toLocaleDateString('en-US',{ timeZone:'America/Indiana/Indianapolis' })} — ` +
-    `${lm.end.toLocaleDateString('en-US',{ timeZone:'America/Indiana/Indianapolis' })}`;
   </script>
 
 </body>
