@@ -874,7 +874,8 @@ app.get('/api/kpis/by-asset', async (req, res) => {
           AssetID, Name, RangeStart, RangeEnd,
           UptimePct, DowntimeHrs, MttrHrs, MtbfHrs,
           PlannedPct, UnplannedPct,
-          UnplannedCount, FailureEvents, ScheduledHrs
+          UnplannedCount, FailureEvents, ScheduledHrs,
+          PlannedCount, DowntimeHoursUnplanned
         FROM dbo.KpiByAssetCache
         WHERE Timeframe=@tf AND SnapshotAt=@snap
         ORDER BY Name, AssetID;
