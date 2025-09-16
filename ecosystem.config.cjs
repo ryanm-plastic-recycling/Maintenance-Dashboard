@@ -19,8 +19,8 @@ module.exports = {
       },
       env_production: {
         NODE_ENV: 'production',
-        LIMBLE_ETL_CMD: 'node -r dotenv/config etl.js',
-        LIMBLE_SYNC_PROC: '',
+        // LIMBLE_ETL_CMD: 'node -r dotenv/config etl.js',
+        LIMBLE_SYNC_PROC: '1', // This was null for a previous issue.
         PORT: 7601,
         API_BASE_URL: "https://api.limblecmms.com:443",
         CLIENT_ID: process.env.CLIENT_ID,
