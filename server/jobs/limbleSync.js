@@ -59,12 +59,19 @@ export async function syncLimbleToSql(pool) {
         mode = 'proc';
         console.log('[limbleSync] mode:', mode);
     
-        const basic = 'Basic ' + Buffer.from(`${process.env.CLIENT_ID}:${process.env.CLIENT_SECRET}`).toString('base64');
+        const basic = 'Basic ' + Buffer
+          .from(`${process.env.CLIENT_ID}:${process.env.CLIENT_SECRET}`)
+          .toString('base64');
+        
+        // Pull only OPEN tasks at your location, newest first by CreatedDate
         const limbleTasksJson = await fetchAllPages(
-          `/tasks?locations=${encodeURIComponent(process.env.LIMBLE_LOCATION_ID)}&orderBy=-lastEdited&status=0`,
+          `/tasks?locations=${encodeURIComponent(process.env.LIMBLE_LOCATION_ID)}&status=0&orderBy=-createdDate`,
           500,
           { Authorization: basic, Accept: 'application/json' }
         );
+        // If you prefer by TaskID instead of createdDate, use:
+        // `/tasks?locations=${encodeURIComponent(process.env.LIMBLE_LOCATION_ID)}&status=0&orderBy=-taskID`
+
 
         const limbleAssetsJson = await fetchAllPages('/assets');
         const limbleFieldsJson = await fetchAllPages('/assets/fields/');
