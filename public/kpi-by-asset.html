@@ -420,9 +420,9 @@
           .toLocaleString('en-US', { timeZone: 'America/Indiana/Indianapolis' });
       }
       const dr = document.getElementById('date-range');
-      if (dr && rows.length) {
-        const rs = new Date(rows[0].RangeStart);
-        const re = new Date(rows[0].RangeEnd);
+      if (dr && data.range) {
+        const rs = new Date(data.range.start);
+        const re = new Date(new Date(data.range.end).getTime() - 24*3600*1000); // exclusive → inclusive
         dr.textContent = `${rs.toLocaleDateString('en-US',{timeZone:'America/Indiana/Indianapolis'})} — ${re.toLocaleDateString('en-US',{timeZone:'America/Indiana/Indianapolis'})}`;
       }
     }
