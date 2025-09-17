@@ -339,38 +339,37 @@
       // (6) totals/averages
       const n  = rows.length;
       const s  = rows.reduce((acc, r) => ({
-        downtime:   acc.downtime   + Number(r.DowntimeHrs    || 0),
-        sched:      acc.sched      + Number(r.ScheduledHrs   || 0), // may be 0 until ETL repopulates
-        unplanned:  acc.unplanned  + Number(r.UnplannedCount || 0),
-        failures:   acc.failures   + Number(r.FailureEvents  || 0),
-        uptimePct:  acc.uptimePct  + Number(r.UptimePct      || 0),
-        plannedPct: acc.plannedPct + Number(r.PlannedPct     || 0),
-        unplanPct:  acc.unplanPct  + Number(r.UnplannedPct   || 0),
-        mttr:       acc.mttr       + Number(r.MttrHrs        || 0),
-        mtbf:       acc.mtbf       + Number(r.MtbfHrs        || 0),
-      }), {downtime:0,sched:0,unplanned:0,failures:0,uptimePct:0,plannedPct:0,unplanPct:0,mttr:0,mtbf:0});
-    
-      // (7) “True Overall” — actual overall, not an average
-      let overallDowntimePct;
-      if (s.sched > 0) {
-        overallDowntimePct = (s.downtime / s.sched) * 100;
-      } else {
-        // temporary fallback until ScheduledHrs is populated everywhere
-        overallDowntimePct = 100 - (s.uptimePct / n);
-      }
-    
-      // (8) bind tiles
+        downtime:     acc.downtime   + Number(r.DowntimeHrs                || 0),
+        sched:        acc.sched      + Number(r.ScheduledHrs               || 0),
+        unplannedCnt: acc.unplannedCnt+Number(r.UnplannedCount             || 0),
+        plannedCnt:   acc.plannedCnt  + Number(r.PlannedCount               || 0),    // NEW
+        failEvents:   acc.failEvents  + Number(r.FailureEvents              || 0),
+        dtUnplan:     acc.dtUnplan    + Number(r.DowntimeHoursUnplanned     || 0),    // NEW
+        // keep these if you still want to show the "Avg of per-asset" table footer
+        uptimePctSum: acc.uptimePctSum+ Number(r.UptimePct                 || 0),
+        mttrSum:      acc.mttrSum     + Number(r.MttrHrs                   || 0),
+        mtbfSum:      acc.mtbfSum     + Number(r.MtbfHrs                   || 0),
+        plannedPctSum:acc.plannedPctSum+Number(r.PlannedPct                || 0),
+        unplanPctSum: acc.unplanPctSum+ Number(r.UnplannedPct              || 0),
+      }), {downtime:0,sched:0,unplannedCnt:0,plannedCnt:0,failEvents:0,dtUnplan:0,
+          uptimePctSum:0,mttrSum:0,mtbfSum:0,plannedPctSum:0,unplanPctSum:0});
+      
+      // (7) True Overall (global)
+      const overallDowntimePct = s.sched > 0 ? (s.downtime / s.sched) * 100
+                                             : (100 - (s.uptimePctSum / n)); // fallback only
+      const totalEvents = s.plannedCnt + s.unplannedCnt;
+      const overallPlannedPct   = totalEvents > 0 ? (s.plannedCnt   / totalEvents) * 100 : 0;
+      const overallUnplannedPct = totalEvents > 0 ? (s.unplannedCnt / totalEvents) * 100 : 0;
+      const overallMttr = s.failEvents > 0 ? (s.dtUnplan / s.failEvents) : 0;
+      const overallMtbf = s.failEvents > 0 ? ((s.sched - s.downtime) / s.failEvents) : 0;
+      
+      // (8) bind tiles (use global, not averages)
       document.querySelector('[data-testid="true-overall-downtime"]').textContent = overallDowntimePct.toFixed(1) + '%';
-      const avgMttr         = (s.mttr / n) || 0;
-      const avgMtbf         = (s.mtbf / n) || 0;
-      const avgPlannedPct   = (s.plannedPct / n) || 0;
-      const avgUnplannedPct = (s.unplanPct  / n) || 0;
-    
-      document.querySelector('[data-testid="true-overall-mttr"]').textContent      = avgMttr.toFixed(2);
-      document.querySelector('[data-testid="true-overall-mtbf"]').textContent      = avgMtbf.toFixed(2);
-      document.querySelector('[data-testid="true-overall-planned"]').textContent   = avgPlannedPct.toFixed(1) + '%';
-      document.querySelector('[data-testid="true-overall-unplanned"]').textContent = avgUnplannedPct.toFixed(1) + '%';
-    
+      document.querySelector('[data-testid="true-overall-mttr"]').textContent      = overallMttr.toFixed(2);
+      document.querySelector('[data-testid="true-overall-mtbf"]').textContent      = overallMtbf.toFixed(2);
+      document.querySelector('[data-testid="true-overall-planned"]').textContent   = overallPlannedPct.toFixed(1) + '%';
+      document.querySelector('[data-testid="true-overall-unplanned"]').textContent = overallUnplannedPct.toFixed(1) + '%';
+
       // (9) paint tiles with thresholds
       const t = {
         // low is good
