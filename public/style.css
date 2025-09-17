@@ -32,6 +32,17 @@
   font-size:11px; line-height:1; cursor:pointer; user-select:none;
   background:#25408F; color:#fff; font-weight:700;
 }
+/* Tooltip info icon inside table headers */
+th .info {
+  background: #fff;      /* white circle */
+  color: #a9e787;        /* your header blue for contrast */
+  border-radius: 50%;
+  font-weight: bold;
+  padding: 0 5px;
+  margin-left: 4px;
+  cursor: pointer;
+  display: inline-block;
+}
 
 .tooltip {
   position:relative; display:inline-block;
