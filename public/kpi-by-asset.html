@@ -272,7 +272,10 @@
           const el = document.getElementById(id);
           if (el) el.classList.remove('good','warn','bad');
         });
-
+        ['avg-open-count','total-open-count'].forEach(id => {
+          const el = document.getElementById(id);
+          if (el) el.textContent = '--';
+        });
         // footer cells
         [
           'total-assets','avg-downtime','avg-unplanned-count','avg-failure-events',
