@@ -185,8 +185,25 @@
       <thead>
         <tr>
           <th>Asset Name</th>
-          <th class="col-downtime" data-testid="col-downtime-hrs">Downtime Hrs</th>
-          <th class="col-int" data-testid="col-open-count">Open Count</th>
+          <th>
+            Downtime Hrs
+            <span class="tooltip">
+              <span class="info" tabindex="0" aria-label="About Downtime Hours">i</span>
+              <span class="tooltip-panel">
+                <b>Downtime Hrs</b> = Sum of downtime (minutes ÷ 60) for completed unplanned/work-request tasks (types 2,6) in the window.
+              </span>
+            </span>
+          </th>
+          
+          <th class="col-int">
+            Open Count
+            <span class="tooltip">
+              <span class="info" tabindex="0" aria-label="About Open Count">i</span>
+              <span class="tooltip-panel">
+                <b>Open Count</b> = Count of open unplanned/work-request tasks (status 0/1) right now (not windowed).
+              </span>
+            </span>
+          </th>
           <th class="col-int" data-testid="col-unplanned-count">Unplanned Count</th>
           <th class="col-int" data-testid="col-failure-events">Failure Events</th>
           <th>Downtime %</th>
