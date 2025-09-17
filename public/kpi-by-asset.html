@@ -88,37 +88,75 @@
       <a href="/admin">Admin</a>
     </div>
     <h2>All Assets — True Overall</h2>
-    <div id="true-overall-row" class="true-overall-row">
-      <div class="kpi-tile" id="tile-downtime">
-        <div class="label">
-          Downtime %
-          <span class="tooltip">
-            <span class="info" tabindex="0" aria-label="About Downtime %">i</span>
-            <span class="tooltip-panel">
-              <b>Downtime %</b> = Total downtime hours ÷ scheduled hours × 100.<br>
-              Scheduled hours come from each asset’s HoursPerWeek scaled to the selected timeframe.
+      <div id="true-overall-row" class="true-overall-row">
+        <div class="kpi-tile" id="tile-downtime">
+          <div class="label">
+            Downtime %
+            <span class="tooltip">
+              <span class="info" tabindex="0" aria-label="About Downtime %">i</span>
+              <span class="tooltip-panel">
+                <b>Downtime %</b> = Total downtime hours ÷ scheduled hours × 100.<br>
+                Scheduled hours come from each asset’s <em>HoursPerWeek</em> scaled to the selected timeframe.
+              </span>
             </span>
-          </span>
+          </div>
+          <div class="value" data-testid="true-overall-downtime">--%</div>
         </div>
-        <div class="value" data-testid="true-overall-downtime">--%</div>
+      
+        <div class="kpi-tile" id="tile-mttr">
+          <div class="label">
+            MTTR (h)
+            <span class="tooltip">
+              <span class="info" tabindex="0" aria-label="About MTTR">i</span>
+              <span class="tooltip-panel">
+                <b>MTTR (Mean Time To Repair)</b> = Unplanned downtime hours ÷ failure events.<br>
+                Failure events are unplanned/work-request tasks with downtime &gt; 0 in the timeframe.
+              </span>
+            </span>
+          </div>
+          <div class="value" data-testid="true-overall-mttr">--</div>
+        </div>
+      
+        <div class="kpi-tile" id="tile-mtbf">
+          <div class="label">
+            MTBF (h)
+            <span class="tooltip">
+              <span class="info" tabindex="0" aria-label="About MTBF">i</span>
+              <span class="tooltip-panel">
+                <b>MTBF (Mean Time Between Failures)</b> = (Scheduled hours − downtime hours) ÷ failure events.<br>
+                Uses the same failure-event definition as MTTR.
+              </span>
+            </span>
+          </div>
+          <div class="value" data-testid="true-overall-mtbf">--</div>
+        </div>
+      
+        <div class="kpi-tile" id="tile-planned">
+          <div class="label">
+            Planned %
+            <span class="tooltip">
+              <span class="info" tabindex="0" aria-label="About Planned %">i</span>
+              <span class="tooltip-panel">
+                <b>Planned %</b> = Planned tasks (types 1,4) ÷ (planned + unplanned) × 100 for the selected timeframe.
+              </span>
+            </span>
+          </div>
+          <div class="value" data-testid="true-overall-planned">--%</div>
+        </div>
+      
+        <div class="kpi-tile" id="tile-unplanned">
+          <div class="label">
+            Unplanned %
+            <span class="tooltip">
+              <span class="info" tabindex="0" aria-label="About Unplanned %">i</span>
+              <span class="tooltip-panel">
+                <b>Unplanned %</b> = Unplanned/work-request tasks (types 2,6) ÷ (planned + unplanned) × 100 for the selected timeframe.
+              </span>
+            </span>
+          </div>
+          <div class="value" data-testid="true-overall-unplanned">--%</div>
+        </div>
       </div>
-      <div class="kpi-tile" id="tile-mttr">
-        <div class="label">MTTR (h)</div>
-        <div class="value" data-testid="true-overall-mttr">--</div>
-      </div>
-      <div class="kpi-tile" id="tile-mtbf">
-        <div class="label">MTBF (h)</div>
-        <div class="value" data-testid="true-overall-mtbf">--</div>
-      </div>
-      <div class="kpi-tile" id="tile-planned">
-        <div class="label">Planned %</div>
-        <div class="value" data-testid="true-overall-planned">--%</div>
-      </div>
-      <div class="kpi-tile" id="tile-unplanned">
-        <div class="label">Unplanned %</div>
-        <div class="value" data-testid="true-overall-unplanned">--%</div>
-      </div>
-    </div>
     <div class="controls">
       <label for="timeframe-select">Timeframe:</label>
       <select id="timeframe-select">
