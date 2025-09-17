@@ -170,9 +170,14 @@ label[for="timeframe-select"] {
 }
 
 /* the small “i” bubble inside headers */
-#kpi-by-asset thead th .tooltip { 
-  display: inline-flex;          /* sit inline with text */
-  align-items: center;
+/* Make KPI-by-asset table tooltips open upwards instead of down */
+#kpi-by-asset thead th .tooltip-panel {
+  bottom: 115%;                 /* anchor above the icon */
+  top: auto;                    /* reset top */
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: normal;
+  max-width: 320px;
 }
 
 #kpi-by-asset thead th .info {
@@ -197,7 +202,17 @@ label[for="timeframe-select"] {
   white-space: normal;           /* allow tooltip text to wrap */
   max-width: 320px;
 }
-
+/* add a little downward arrow */
+#kpi-by-asset thead th .tooltip-panel::after {
+  content: "";
+  position: absolute;
+  top: 100%;                    /* arrow at bottom of tooltip */
+  left: 50%;
+  margin-left: -5px;
+  border-width: 5px;
+  border-style: solid;
+  border-color: #333 transparent transparent transparent; /* dark arrow pointing down */
+}
 /* loading spinner overlay */
 #loading {
   position: fixed;
