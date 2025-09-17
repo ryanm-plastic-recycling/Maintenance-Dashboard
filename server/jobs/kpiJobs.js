@@ -160,7 +160,7 @@ export async function refreshHeaderKpis(pool) {
   }
 
   // factors for downtime units
-  // THIS IS NOT USED ANYMORE
+  // THIS IS NOT USED ANYMORE, to * * *
   const DOWNTIME_UNITS = (process.env.DOWNTIME_UNITS || 'minutes').toLowerCase();
   const DT_FACTOR = DOWNTIME_UNITS === 'seconds' ? 1/3600
                    : DOWNTIME_UNITS === 'hours'   ? 1
@@ -184,7 +184,8 @@ export async function refreshHeaderKpis(pool) {
       end   = now;
       start = new Date(end.getTime() - 30*24*3600*1000);
     }
-
+    // * * * The above is still not believe used with downtime setup
+    
     // build a comma-separated list once
     const ids = assets.length ? assets.map(a => a.assetID) : [];
     const idsCsv = ids.join(',');
@@ -197,18 +198,16 @@ export async function refreshHeaderKpis(pool) {
       .input('f',     sql.Float,     DT_FACTOR)
       .input('ids',   sql.NVarChar,  idsCsv)
       .query(`
-        WITH ids AS (SELECT TRY_CONVERT(int, value) AS AssetID FROM STRING_SPLIT(@ids, ','))
-           ,window AS (
-             SELECT t.AssetID, t.[Type], t.Downtime, t.DateCompleted
-             FROM dbo.LimbleKPITasks t
-             ${ids.length ? 'JOIN ids ON ids.AssetID = t.AssetID' : ''}
-             WHERE (t.DateCompleted >= @start AND t.DateCompleted < @end)
-           )
+        WITH window AS (
+          SELECT [Type], Downtime, DateCompleted
+          FROM dbo.LimbleKPITasks
+          WHERE (DateCompleted >= @start AND DateCompleted < @end)
+        )
         SELECT
-          SUM(CASE WHEN [Type] IN (2,6) THEN t.Downtime / 60.0 ELSE 0 END) AS DowntimeHrs,
-          SUM(CASE WHEN [Type] IN (2,6) THEN 1 ELSE 0 END)                 AS UnplannedCount,
-          SUM(CASE WHEN [Type] IN (1,4) THEN 1 ELSE 0 END)                 AS PlannedCount,
-          SUM(CASE WHEN [Type] IN (2,6) AND (t.Downtime / 60.0) > 0 THEN 1 ELSE 0 END) AS FailureEvents
+          SUM(CASE WHEN [Type] IN (2,6) THEN Downtime / 60.0 ELSE 0 END)                 AS DowntimeHrs,
+          SUM(CASE WHEN [Type] IN (2,6) THEN 1 ELSE 0 END)                                AS UnplannedCount,
+          SUM(CASE WHEN [Type] IN (1,4) THEN 1 ELSE 0 END)                                AS PlannedCount,
+          SUM(CASE WHEN [Type] IN (2,6) AND (Downtime / 60.0) > 0 THEN 1 ELSE 0 END)      AS FailureEvents
         FROM window;
       `);
     
