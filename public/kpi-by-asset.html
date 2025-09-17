@@ -301,7 +301,12 @@
         document.querySelector('[data-testid="true-overall-mtbf"]').textContent     = '--';
         document.querySelector('[data-testid="true-overall-planned"]').textContent  = '--';
         document.querySelector('[data-testid="true-overall-unplanned"]').textContent= '--';
-      
+
+        ['tile-downtime','tile-mttr','tile-mtbf','tile-planned','tile-unplanned'].forEach(id => {
+          const el = document.getElementById(id);
+          if (el) el.classList.remove('good','warn','bad');
+        });
+
         // footer cells
         [
           'total-assets','avg-downtime','avg-unplanned-count','avg-failure-events',
@@ -372,18 +377,15 @@
       document.querySelector('[data-testid="true-overall-planned"]').textContent   = overallPlannedPct.toFixed(1) + '%';
       document.querySelector('[data-testid="true-overall-unplanned"]').textContent = overallUnplannedPct.toFixed(1) + '%';
 
-      // (9) paint tiles with thresholds
+      // (9) paint tiles with thresholds (use the overall* values)
       const t = {
-        // low is good
-        downtimePct: { goodMax: 10.0,  warnMax: 20.0  },
-        mttr:        { goodMax: 4.0,  warnMax: 8.0  },
-        // high is good
+        downtimePct: { goodMax: 10.0,  warnMax: 20.0 },
+        mttr:        { goodMax: 4.0,   warnMax: 8.0  },
         mtbf:        { goodMin: 108.0, warnMin: 72.0 },
-        plannedPct:  { goodMin: 70.0, warnMin: 50.0 },
-        // low is good
-        unplannedPct:{ goodMax: 30.0, warnMax: 50.0 }
+        plannedPct:  { goodMin: 70.0,  warnMin: 50.0 },
+        unplannedPct:{ goodMax: 30.0,  warnMax: 50.0 }
       };
-      
+
       function paintMax(el, v, {goodMax, warnMax}) {
         el.classList.remove('good','warn','bad');
         el.classList.add(v <= goodMax ? 'good' : v <= warnMax ? 'warn' : 'bad');
@@ -392,27 +394,27 @@
         el.classList.remove('good','warn','bad');
         el.classList.add(v >= goodMin ? 'good' : v >= warnMin ? 'warn' : 'bad');
       }
-      
-      paintMax(document.getElementById('tile-downtime'), overallDowntimePct, t.downtimePct);
-      paintMax(document.getElementById('tile-mttr'),     avgMttr,            t.mttr);
-      paintMin(document.getElementById('tile-mtbf'),     avgMtbf,            t.mtbf);
-      paintMin(document.getElementById('tile-planned'),  avgPlannedPct,      t.plannedPct);
-      paintMax(document.getElementById('tile-unplanned'),avgUnplannedPct,    t.unplannedPct);
 
-      // (10) footer totals/averages
+      paintMax(document.getElementById('tile-downtime'),  overallDowntimePct,   t.downtimePct);
+      paintMax(document.getElementById('tile-mttr'),      overallMttr,          t.mttr);
+      paintMin(document.getElementById('tile-mtbf'),      overallMtbf,          t.mtbf);
+      paintMin(document.getElementById('tile-planned'),   overallPlannedPct,    t.plannedPct);
+      paintMax(document.getElementById('tile-unplanned'), overallUnplannedPct,  t.unplannedPct);
+
+      // (10) footer totals/averages (show overall values to match header)
       document.getElementById('total-assets').textContent           = n;
       document.getElementById('avg-downtime').textContent           = (s.downtime / n).toFixed(2);
-      document.getElementById('avg-unplanned-count').textContent    = (s.unplanned / n).toFixed(2);
-      document.getElementById('avg-failure-events').textContent     = (s.failures / n).toFixed(2);
+      document.getElementById('avg-unplanned-count').textContent    = (s.unplannedCnt / n).toFixed(2);
+      document.getElementById('avg-failure-events').textContent     = (s.failEvents / n).toFixed(2);
       document.getElementById('avg-downtime-pct').textContent       = overallDowntimePct.toFixed(1) + '%';
-      document.getElementById('avg-mttr').textContent               = avgMttr.toFixed(2);
-      document.getElementById('avg-mtbf').textContent               = avgMtbf.toFixed(2);
-      document.getElementById('avg-planned').textContent            = avgPlannedPct.toFixed(1) + '%';
-      document.getElementById('avg-unplanned').textContent          = avgUnplannedPct.toFixed(1) + '%';
-    
+      document.getElementById('avg-mttr').textContent               = overallMttr.toFixed(2);
+      document.getElementById('avg-mtbf').textContent               = overallMtbf.toFixed(2);
+      document.getElementById('avg-planned').textContent            = overallPlannedPct.toFixed(1) + '%';
+      document.getElementById('avg-unplanned').textContent          = overallUnplannedPct.toFixed(1) + '%';
+
       document.getElementById('total-downtime').textContent         = s.downtime.toFixed(2);
-      document.getElementById('total-unplanned-count').textContent  = s.unplanned;
-      document.getElementById('total-failure-events').textContent   = s.failures;
+      document.getElementById('total-unplanned-count').textContent  = s.unplannedCnt;
+      document.getElementById('total-failure-events').textContent   = s.failEvents;
     
       // (11) last refresh + date range
       const lr = document.getElementById('last-refresh');

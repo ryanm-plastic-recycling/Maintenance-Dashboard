@@ -428,7 +428,8 @@ export async function refreshByAssetKpis(pool) {
           SUM(CASE WHEN t.Type IN (2,6) THEN t.Downtime * @f ELSE 0 END) AS DowntimeHrs,
           SUM(CASE WHEN t.Type IN (2,6) THEN 1 ELSE 0 END)                AS UnplannedCount,
           SUM(CASE WHEN t.Type IN (1,4) THEN 1 ELSE 0 END)                AS PlannedCount,
-          SUM(CASE WHEN t.Type IN (2,6) AND t.Downtime * @f > 0 THEN 1 ELSE 0 END) AS FailureEvents
+          SUM(CASE WHEN t.Type IN (2,6) AND t.Downtime * @f > 0 THEN 1 ELSE 0 END) AS FailureEvents,
+          SUM(CASE WHEN t.Type IN (2,6) THEN t.Downtime * @f ELSE 0 END)  AS DowntimeHoursUnplanned,
           SUM(CASE WHEN t.Type IN (2,6) AND t.StatusID IN (0,1) THEN 1 ELSE 0 END) AS OpenCount
         FROM dbo.LimbleKPITasks t
         WHERE (t.DateCompleted BETWEEN @start AND @end)
@@ -447,18 +448,20 @@ export async function refreshByAssetKpis(pool) {
     for (const a of targetAssets) {
       const assetID = a.assetID;
       const name = a.name || null;
-      const agg  = aggMap.get(assetID) || { DowntimeHrs: 0, UnplannedCount: 0, PlannedCount: 0, FailureEvents: 0 };
+      const agg  = aggMap.get(assetID) || { DowntimeHrs: 0, UnplannedCount: 0, PlannedCount: 0, FailureEvents: 0, DowntimeHoursUnplanned: 0, OpenCount: 0 };
 
-      const downtimeHrs   = Number(agg.DowntimeHrs || 0);
-      const unplanned     = Number(agg.UnplannedCount || 0);
-      const planned       = Number(agg.PlannedCount || 0);
+      const downtimeHrs = Number(agg.DowntimeHrs || 0);
+      const unplanned   = Number(agg.UnplannedCount || 0);
+      const planned     = Number(agg.PlannedCount || 0);
       const failureEvents = Number(agg.FailureEvents || 0);
-      const totalEv       = planned + unplanned;
+      const downtimeHoursUnplanned = Number(agg.DowntimeHoursUnplanned || 0);
+      const openCount  = Number(agg.OpenCount || 0);
+      const totalEv    = planned + unplanned;
 
       const scheduledHrs  = schedMap.get(assetID) || 0;
       const runHrs        = Math.max(0, scheduledHrs - downtimeHrs);
-      const mttrHrs       = unplanned > 0 ? downtimeHrs / unplanned : 0;
-      const mtbfHrs       = unplanned > 0 ? runHrs       / unplanned : 0;
+      const mttrHrs       = failureEvents > 0 ? (downtimeHoursUnplanned / failureEvents) : 0;
+      const mtbfHrs       = failureEvents > 0 ? (runHrs / failureEvents) : 0;
       const uptimePct     = scheduledHrs > 0 ? Math.max(0, Math.min(100, (1 - downtimeHrs / scheduledHrs) * 100)) : 100;
       const plannedPct    = totalEv > 0 ? (planned   / totalEv) * 100 : 0;
       const unplannedPct  = totalEv > 0 ? (unplanned / totalEv) * 100 : 0;
@@ -479,19 +482,19 @@ export async function refreshByAssetKpis(pool) {
         .input('FailureEvents',  sql.Int, failureEvents)
         .input('ScheduledHrs',   sql.Decimal(12,2), scheduledHrs)
         .input('SnapshotAt',     sql.DateTime2, snap)
-        .input('PlannedCount',            sql.Int,             planned)
-        .input('DowntimeHoursUnplanned',  sql.Decimal(10,2),   downtimeHoursUnplanned)
-        .input('OpenCount', sql.Int, openCount)
+        .input('PlannedCount',           sql.Int,           planned)
+        .input('DowntimeHoursUnplanned', sql.Decimal(10,2), downtimeHoursUnplanned)
+        .input('OpenCount',              sql.Int,           openCount)
         .query(`
           INSERT INTO dbo.KpiByAssetCache
             (Timeframe, AssetID, Name, RangeStart, RangeEnd,
              UptimePct, DowntimeHrs, MttrHrs, MtbfHrs, PlannedPct, UnplannedPct,
              UnplannedCount, FailureEvents, ScheduledHrs, SnapshotAt,
-           PlannedCount, DowntimeHoursUnplanned, OpenCount)
+             PlannedCount, DowntimeHoursUnplanned, OpenCount)
           VALUES
             (@Timeframe,@AssetID,@Name,@RangeStart,@RangeEnd,
              @UptimePct,@DowntimeHrs,@MttrHrs,@MtbfHrs,@PlannedPct,@UnplannedPct,
-             @UnplannedCount,@FailureEvents,@ScheduledHrs,@SnapshotAt,@PlannedCount,@DowntimeHoursUnplanned, @OpenCount)
+             @UnplannedCount,@FailureEvents,@ScheduledHrs,@SnapshotAt,@PlannedCount,@DowntimeHoursUnplanned,@OpenCount)
         `);
       inserted++;
     }
