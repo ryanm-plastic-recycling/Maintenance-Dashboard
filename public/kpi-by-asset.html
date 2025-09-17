@@ -332,7 +332,7 @@
         mtbfSum:      acc.mtbfSum     + Number(r.MtbfHrs                   || 0),
         plannedPctSum:acc.plannedPctSum+Number(r.PlannedPct                || 0),
         unplanPctSum: acc.unplanPctSum+ Number(r.UnplannedPct              || 0),
-      }), {downtime:0,sched:0,unplannedCnt:0,plannedCnt:0,failEvents:0,dtUnplan:0,
+      }), {downtime:0,sched:0,unplannedCnt:0,plannedCnt:0,failEvents:0,dtUnplan:0,openCnt:0,
           uptimePctSum:0,mttrSum:0,mtbfSum:0,plannedPctSum:0,unplanPctSum:0});
       
       // (7) True Overall (global)
