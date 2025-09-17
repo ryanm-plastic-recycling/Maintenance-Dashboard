@@ -139,6 +139,7 @@
         <tr>
           <th>Asset Name</th>
           <th class="col-downtime" data-testid="col-downtime-hrs">Downtime Hrs</th>
+          <th class="col-int" data-testid="col-open-count">Open Count</th>
           <th class="col-int" data-testid="col-unplanned-count">Unplanned Count</th>
           <th class="col-int" data-testid="col-failure-events">Failure Events</th>
           <th>Downtime %</th>
@@ -325,6 +326,7 @@
         tr.innerHTML = `
           <td>${r.Name ?? r.AssetID}</td>
           <td>${(r.DowntimeHrs ?? 0).toFixed(2)}</td>
+          <td>${r.OpenCount ?? 0}</td>
           <td>${r.UnplannedCount ?? 0}</td>
           <td>${r.FailureEvents ?? 0}</td>
           <td>${typeof r.UptimePct === 'number' ? (100 - r.UptimePct).toFixed(1) + '%' : ''}</td>
