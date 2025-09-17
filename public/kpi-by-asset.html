@@ -90,7 +90,16 @@
     <h2>All Assets — True Overall</h2>
     <div id="true-overall-row" class="true-overall-row">
       <div class="kpi-tile" id="tile-downtime">
-        <div class="label">Downtime %</div>
+        <div class="label">
+          Downtime %
+          <span class="tooltip">
+            <span class="info" tabindex="0" aria-label="About Downtime %">i</span>
+            <span class="tooltip-panel">
+              <b>Downtime %</b> = Total downtime hours ÷ scheduled hours × 100.<br>
+              Scheduled hours come from each asset’s HoursPerWeek scaled to the selected timeframe.
+            </span>
+          </span>
+        </div>
         <div class="value" data-testid="true-overall-downtime">--%</div>
       </div>
       <div class="kpi-tile" id="tile-mttr">
