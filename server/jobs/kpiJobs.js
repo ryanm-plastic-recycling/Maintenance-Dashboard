@@ -187,27 +187,30 @@ export async function refreshHeaderKpis(pool) {
     // * * * The above is still not believe used with downtime setup
     
     // build a comma-separated list once
+    // event rollups (completed in window)
     const ids = assets.length ? assets.map(a => a.assetID) : [];
     const idsCsv = ids.join(',');
     
-    // event rollups (completed in window)
-    // 1) aggregate events (filter to your mappings assets)
     const q = await pool.request()
       .input('start', sql.DateTime2, start)
       .input('end',   sql.DateTime2, end)
-      .input('f',     sql.Float,     DT_FACTOR)
       .input('ids',   sql.NVarChar,  idsCsv)
       .query(`
-        WITH window AS (
+        WITH ids AS (
+          SELECT TRY_CONVERT(int, value) AS AssetID
+          FROM STRING_SPLIT(@ids, ',')
+        ),
+        window AS (
           SELECT [Type], Downtime, DateCompleted
           FROM dbo.LimbleKPITasks
-          WHERE (DateCompleted >= @start AND DateCompleted < @end)
+          ${ids.length ? 'WHERE AssetID IN (SELECT AssetID FROM ids)' : ''}
+            ${ids.length ? 'AND' : 'WHERE'} (DateCompleted >= @start AND DateCompleted < @end)
         )
         SELECT
-          SUM(CASE WHEN [Type] IN (2,6) THEN Downtime / 60.0 ELSE 0 END)                 AS DowntimeHrs,
-          SUM(CASE WHEN [Type] IN (2,6) THEN 1 ELSE 0 END)                                AS UnplannedCount,
-          SUM(CASE WHEN [Type] IN (1,4) THEN 1 ELSE 0 END)                                AS PlannedCount,
-          SUM(CASE WHEN [Type] IN (2,6) AND (Downtime / 60.0) > 0 THEN 1 ELSE 0 END)      AS FailureEvents
+          SUM(CASE WHEN [Type] IN (2,6) THEN Downtime / 60.0 ELSE 0 END)            AS DowntimeHrs,      -- minutes → hours
+          SUM(CASE WHEN [Type] IN (2,6) THEN 1 ELSE 0 END)                           AS UnplannedCount,
+          SUM(CASE WHEN [Type] IN (1,4) THEN 1 ELSE 0 END)                           AS PlannedCount,
+          SUM(CASE WHEN [Type] IN (2,6) AND (Downtime / 60.0) > 0 THEN 1 ELSE 0 END) AS FailureEvents
         FROM window;
       `);
     
@@ -425,28 +428,25 @@ export async function refreshByAssetKpis(pool) {
     const rs = await pool.request()
       .input('start', sql.DateTime2, start)
       .input('end',   sql.DateTime2, end)
-      .input('f',     sql.Float,     DT_FACTOR)
       .input('ids',   sql.NVarChar,  idsCsv)
       .query(`
         WITH ids AS (
           SELECT TRY_CONVERT(int, value) AS AssetID
           FROM STRING_SPLIT(@ids, ',')
         ),
-        -- Completed events in the window (for downtime/MTTR/MTBF/planned/unplanned/failure events)
         completed AS (
           SELECT
             t.AssetID,
-            SUM(CASE WHEN t.Type IN (2,6) THEN t.Downtime / 60 ELSE 0 END) AS DowntimeHrs,
-            SUM(CASE WHEN t.Type IN (2,6) THEN 1 ELSE 0 END)               AS UnplannedCount,
-            SUM(CASE WHEN t.Type IN (1,4) THEN 1 ELSE 0 END)               AS PlannedCount,
-            SUM(CASE WHEN t.Type IN (2,6) AND (t.Downtime / 60) > 0 THEN 1 ELSE 0 END) AS FailureEvents,
-            SUM(CASE WHEN t.Type IN (2,6) THEN t.Downtime / 60 ELSE 0 END) AS DowntimeHoursUnplanned
+            SUM(CASE WHEN t.Type IN (2,6) THEN t.Downtime / 60.0 ELSE 0 END)                     AS DowntimeHrs,
+            SUM(CASE WHEN t.Type IN (2,6) THEN 1 ELSE 0 END)                                      AS UnplannedCount,
+            SUM(CASE WHEN t.Type IN (1,4) THEN 1 ELSE 0 END)                                      AS PlannedCount,
+            SUM(CASE WHEN t.Type IN (2,6) AND (t.Downtime / 60.0) > 0 THEN 1 ELSE 0 END)          AS FailureEvents,
+            SUM(CASE WHEN t.Type IN (2,6) THEN t.Downtime / 60.0 ELSE 0 END)                      AS DowntimeHoursUnplanned
           FROM dbo.LimbleKPITasks t
           ${ids.length ? 'JOIN ids ON ids.AssetID = t.AssetID' : ''}
           WHERE t.DateCompleted >= @start AND t.DateCompleted < @end
           GROUP BY t.AssetID
         ),
-        -- Currently OPEN unplanned/work-request tasks (status 0/1), NOT windowed
         open_cte AS (
           SELECT
             t.AssetID,
@@ -465,7 +465,7 @@ export async function refreshByAssetKpis(pool) {
           COALESCE(o.OpenCount,0)        AS OpenCount
         FROM completed c
         FULL OUTER JOIN open_cte o
-          ON o.AssetID = c.AssetID
+          ON o.AssetID = c.AssetID;
       `);
 
     // purge prior rows for this timeframe
