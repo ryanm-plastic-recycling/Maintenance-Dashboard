@@ -169,17 +169,7 @@ label[for="timeframe-select"] {
   gap: 6px;                      /* space between text and bubble */
 }
 
-/* the small “i” bubble inside headers */
-/* Make KPI-by-asset table tooltips open upwards instead of down */
-#kpi-by-asset thead th .tooltip-panel {
-  bottom: 115%;                 /* anchor above the icon */
-  top: auto;                    /* reset top */
-  left: 50%;
-  transform: translateX(-50%);
-  white-space: normal;
-  max-width: 320px;
-}
-
+/* small “i” bubble inside table headers */
 #kpi-by-asset thead th .info {
   width: 16px;
   height: 16px;
@@ -187,32 +177,42 @@ label[for="timeframe-select"] {
   font-size: 11px;
   text-align: center;
   border-radius: 50%;
-  background: #fff;              /* white circle for contrast on blue */
-  color: #25408F;                /* your header blue for the “i” */
-  margin-left: 2px;
-  flex: 0 0 auto;                /* don’t stretch */
+  background: #fff;          /* contrast on blue header */
+  color: #25408F;            /* your header blue */
+  margin-left: 6px;
+  flex: 0 0 auto;
   cursor: pointer;
 }
 
-/* make the tooltip panel center under the icon and not overflow */
+/* TOOLTIP PANEL — open UPWARD for table headers */
 #kpi-by-asset thead th .tooltip-panel {
-  top: 115%;
+  position: absolute;
+  bottom: 125%;              /* <-- anchor ABOVE the icon */
+  top: auto;                 /* reset any previous 'top' */
   left: 50%;
   transform: translateX(-50%);
-  white-space: normal;           /* allow tooltip text to wrap */
+  background: #333;
+  color: #fff;
+  padding: 8px 10px;
+  border-radius: 6px;
+  box-shadow: 0 4px 14px rgba(0,0,0,.2);
+  white-space: normal;       /* allow wrapping */
   max-width: 320px;
+  z-index: 9999;
 }
-/* add a little downward arrow */
+
+/* little arrow pointing DOWN from the tooltip (since it’s above) */
 #kpi-by-asset thead th .tooltip-panel::after {
   content: "";
   position: absolute;
-  top: 100%;                    /* arrow at bottom of tooltip */
+  top: 100%;                 /* bottom edge of the panel */
   left: 50%;
   margin-left: -5px;
   border-width: 5px;
   border-style: solid;
-  border-color: #333 transparent transparent transparent; /* dark arrow pointing down */
+  border-color: #333 transparent transparent transparent;
 }
+
 /* loading spinner overlay */
 #loading {
   position: fixed;
