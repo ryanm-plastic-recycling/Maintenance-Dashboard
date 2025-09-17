@@ -429,6 +429,7 @@ export async function refreshByAssetKpis(pool) {
           SUM(CASE WHEN t.Type IN (2,6) THEN 1 ELSE 0 END)                AS UnplannedCount,
           SUM(CASE WHEN t.Type IN (1,4) THEN 1 ELSE 0 END)                AS PlannedCount,
           SUM(CASE WHEN t.Type IN (2,6) AND t.Downtime * @f > 0 THEN 1 ELSE 0 END) AS FailureEvents
+          SUM(CASE WHEN t.Type IN (2,6) AND t.StatusID IN (0,1) THEN 1 ELSE 0 END) AS OpenCount
         FROM dbo.LimbleKPITasks t
         WHERE (t.DateCompleted BETWEEN @start AND @end)
         GROUP BY t.AssetID
