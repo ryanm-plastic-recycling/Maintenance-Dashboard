@@ -151,64 +151,30 @@
       </thead>
       <tbody id="kpi-asset-body"></tbody>
       <tfoot>
-      <tr class="kpi-summary-row">
-        <td class="kpi-cell">
-          <div class="kpi-title">Total Assets</div>
-          <div id="total-assets" class="kpi-value">--</div>
-        </td>
-        <td class="kpi-cell">
-          <div class="kpi-title">Avg Downtime Hrs</div>
-          <div id="avg-downtime" class="kpi-value">--</div>
-        </td>
-        <td class="kpi-cell">
-          <div class="kpi-title">Avg Unplanned Count</div>
-          <div id="avg-unplanned-count" class="kpi-value">--</div>
-        </td>
-        <td class="kpi-cell">
-          <div class="kpi-title">Avg Failure Events</div>
-          <div id="avg-failure-events" class="kpi-value">--</div>
-        </td>
-        <td class="kpi-cell">
-          <div class="kpi-title">Avg Downtime %</div>
-          <div id="avg-downtime-pct" class="kpi-value">--%</div>
-        </td>
-        <td class="kpi-cell">
-          <div class="kpi-title">Avg MTTR (h)</div>
-          <div id="avg-mttr" class="kpi-value">--</div>
-        </td>
-        <td class="kpi-cell">
-          <div class="kpi-title">Avg MTBF (h)</div>
-          <div id="avg-mtbf" class="kpi-value">--</div>
-        </td>
-        <td class="kpi-cell">
-          <div class="kpi-title">Avg Planned %</div>
-          <div id="avg-planned" class="kpi-value">--%</div>
-        </td>
-        <td class="kpi-cell">
-          <div class="kpi-title">Avg Unplanned %</div>
-          <div id="avg-unplanned" class="kpi-value">--%</div>
-        </td>
-      </tr>
-      <tr class="kpi-total-row">
-        <td class="kpi-cell"></td>
-        <td class="kpi-cell">
-          <div class="kpi-title">Total Downtime Hrs</div>
-          <div id="total-downtime" class="kpi-value">--</div>
-        </td>
-        <td class="kpi-cell">
-          <div class="kpi-title">Total Unplanned Count</div>
-          <div id="total-unplanned-count" class="kpi-value">--</div>
-        </td>
-        <td class="kpi-cell">
-          <div class="kpi-title">Total Failure Events</div>
-          <div id="total-failure-events" class="kpi-value">--</div>
-        </td>
-        <td class="kpi-cell"></td>
-        <td class="kpi-cell"></td>
-        <td class="kpi-cell"></td>
-        <td class="kpi-cell"></td>
-        <td class="kpi-cell"></td>
-      </tr>
+        <tr class="kpi-summary-row">
+          <td class="kpi-cell"><div class="kpi-title">Total Assets</div><div id="total-assets" class="kpi-value">--</div></td>
+          <td class="kpi-cell"><div class="kpi-title">Avg Downtime Hrs</div><div id="avg-downtime" class="kpi-value">--</div></td>
+          <td class="kpi-cell"><div class="kpi-title">Avg Open Count</div><div id="avg-open-count" class="kpi-value">--</div></td>          <!-- NEW -->
+          <td class="kpi-cell"><div class="kpi-title">Avg Unplanned Count</div><div id="avg-unplanned-count" class="kpi-value">--</div></td>
+          <td class="kpi-cell"><div class="kpi-title">Avg Failure Events</div><div id="avg-failure-events" class="kpi-value">--</div></td>
+          <td class="kpi-cell"><div class="kpi-title">Avg Downtime %</div><div id="avg-downtime-pct" class="kpi-value">--%</div></td>
+          <td class="kpi-cell"><div class="kpi-title">Avg MTTR (h)</div><div id="avg-mttr" class="kpi-value">--</div></td>
+          <td class="kpi-cell"><div class="kpi-title">Avg MTBF (h)</div><div id="avg-mtbf" class="kpi-value">--</div></td>
+          <td class="kpi-cell"><div class="kpi-title">Avg Planned %</div><div id="avg-planned" class="kpi-value">--%</div></td>
+          <td class="kpi-cell"><div class="kpi-title">Avg Unplanned %</div><div id="avg-unplanned" class="kpi-value">--%</div></td>
+        </tr>
+        <tr class="kpi-total-row">
+          <td class="kpi-cell"></td>
+          <td class="kpi-cell"><div class="kpi-title">Total Downtime Hrs</div><div id="total-downtime" class="kpi-value">--</div></td>
+          <td class="kpi-cell"><div class="kpi-title">Total Open Count</div><div id="total-open-count" class="kpi-value">--</div></td>       <!-- NEW -->
+          <td class="kpi-cell"><div class="kpi-title">Total Unplanned Count</div><div id="total-unplanned-count" class="kpi-value">--</div></td>
+          <td class="kpi-cell"><div class="kpi-title">Total Failure Events</div><div id="total-failure-events" class="kpi-value">--</div></td>
+          <td class="kpi-cell"></td>
+          <td class="kpi-cell"></td>
+          <td class="kpi-cell"></td>
+          <td class="kpi-cell"></td>
+          <td class="kpi-cell"></td>
+        </tr>
       </tfoot>
       </table>
       </div>
@@ -349,9 +315,10 @@
         downtime:     acc.downtime   + Number(r.DowntimeHrs                || 0),
         sched:        acc.sched      + Number(r.ScheduledHrs               || 0),
         unplannedCnt: acc.unplannedCnt+Number(r.UnplannedCount             || 0),
-        plannedCnt:   acc.plannedCnt  + Number(r.PlannedCount               || 0),    // NEW
+        plannedCnt:   acc.plannedCnt  + Number(r.PlannedCount               || 0),    
         failEvents:   acc.failEvents  + Number(r.FailureEvents              || 0),
-        dtUnplan:     acc.dtUnplan    + Number(r.DowntimeHoursUnplanned     || 0),    // NEW
+        dtUnplan:     acc.dtUnplan    + Number(r.DowntimeHoursUnplanned     || 0),    
+        openCnt:      acc.openCnt     + Number(r.OpenCount                 || 0), 
         // keep these if you still want to show the "Avg of per-asset" table footer
         uptimePctSum: acc.uptimePctSum+ Number(r.UptimePct                 || 0),
         mttrSum:      acc.mttrSum     + Number(r.MttrHrs                   || 0),
@@ -406,6 +373,7 @@
       document.getElementById('avg-downtime').textContent           = (s.downtime / n).toFixed(2);
       document.getElementById('avg-unplanned-count').textContent    = (s.unplannedCnt / n).toFixed(2);
       document.getElementById('avg-failure-events').textContent     = (s.failEvents / n).toFixed(2);
+      document.getElementById('avg-open-count').textContent      = (s.openCnt      / n).toFixed(2);
       document.getElementById('avg-downtime-pct').textContent       = overallDowntimePct.toFixed(1) + '%';
       document.getElementById('avg-mttr').textContent               = overallMttr.toFixed(2);
       document.getElementById('avg-mtbf').textContent               = overallMtbf.toFixed(2);
@@ -415,6 +383,7 @@
       document.getElementById('total-downtime').textContent         = s.downtime.toFixed(2);
       document.getElementById('total-unplanned-count').textContent  = s.unplannedCnt;
       document.getElementById('total-failure-events').textContent   = s.failEvents;
+      document.getElementById('total-open-count').textContent      = s.openCnt;
     
       // (11) last refresh + date range
       const lr = document.getElementById('last-refresh');
