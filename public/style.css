@@ -15,6 +15,50 @@
 }
 .kpi-title { font-size: 1.2rem; color: #666; }
 .kpi-value { font-size: 1.5rem; font-weight: bold; }
+/* === KPI TILE TOOLTIPS (open upwards) === */
+.kpi-tile .tooltip-panel {
+  position: absolute;
+  bottom: 125%;               /* anchor above the icon */
+  top: auto;                  /* reset */
+  left: 50%;
+  transform: translateX(-50%);
+  background: #333;
+  color: #fff;
+  padding: 8px 10px;
+  border-radius: 6px;
+  box-shadow: 0 4px 14px rgba(0,0,0,.2);
+  white-space: normal;
+  max-width: 320px;
+  z-index: 9999;
+}
+
+/* downward-pointing arrow since the panel is above */
+.kpi-tile .tooltip-panel::after {
+  content: "";
+  position: absolute;
+  top: 100%;                  /* arrow sits at bottom of panel */
+  left: 50%;
+  margin-left: -5px;
+  border-width: 5px;
+  border-style: solid;
+  border-color: #333 transparent transparent transparent;
+}
+
+/* style for the small “i” inside KPI tiles */
+.kpi-tile .info {
+  width: 16px;
+  height: 16px;
+  line-height: 16px;
+  font-size: 11px;
+  text-align: center;
+  border-radius: 50%;
+  background: #fff;           /* contrast against dark tile bg */
+  color: #333;                /* neutral dark text */
+  margin-left: 6px;
+  flex: 0 0 auto;
+  cursor: pointer;
+}
+
 .mtbf-title { margin-top: 0.2rem; }
 .header-clock {
   font-size: 1rem; font-weight: 500;
