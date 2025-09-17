@@ -160,6 +160,7 @@ export async function refreshHeaderKpis(pool) {
   }
 
   // factors for downtime units
+  // THIS IS NOT USED ANYMORE
   const DOWNTIME_UNITS = (process.env.DOWNTIME_UNITS || 'minutes').toLowerCase();
   const DT_FACTOR = DOWNTIME_UNITS === 'seconds' ? 1/3600
                    : DOWNTIME_UNITS === 'hours'   ? 1
@@ -204,10 +205,10 @@ export async function refreshHeaderKpis(pool) {
              WHERE (t.DateCompleted >= @start AND t.DateCompleted < @end)
            )
         SELECT
-          SUM(CASE WHEN [Type] IN (2,6) THEN t.Downtime / 3600.0 ELSE 0 END) AS DowntimeHrs,
-          SUM(CASE WHEN [Type] IN (2,6) THEN 1 ELSE 0 END)            AS UnplannedCount,
-          SUM(CASE WHEN [Type] IN (1,4) THEN 1 ELSE 0 END)            AS PlannedCount,
-          SUM(CASE WHEN [Type] IN (2,6) AND (t.Downtime / 3600.0) > 0 THEN 1 ELSE 0 END) AS FailureEvents
+          SUM(CASE WHEN [Type] IN (2,6) THEN t.Downtime / 60.0 ELSE 0 END) AS DowntimeHrs,
+          SUM(CASE WHEN [Type] IN (2,6) THEN 1 ELSE 0 END)                 AS UnplannedCount,
+          SUM(CASE WHEN [Type] IN (1,4) THEN 1 ELSE 0 END)                 AS PlannedCount,
+          SUM(CASE WHEN [Type] IN (2,6) AND (t.Downtime / 60.0) > 0 THEN 1 ELSE 0 END) AS FailureEvents
         FROM window;
       `);
     
@@ -436,11 +437,11 @@ export async function refreshByAssetKpis(pool) {
         completed AS (
           SELECT
             t.AssetID,
-            SUM(CASE WHEN t.Type IN (2,6) THEN t.Downtime / 3600.0 ELSE 0 END) AS DowntimeHrs,
+            SUM(CASE WHEN t.Type IN (2,6) THEN t.Downtime / 60 ELSE 0 END) AS DowntimeHrs,
             SUM(CASE WHEN t.Type IN (2,6) THEN 1 ELSE 0 END)               AS UnplannedCount,
             SUM(CASE WHEN t.Type IN (1,4) THEN 1 ELSE 0 END)               AS PlannedCount,
-            SUM(CASE WHEN t.Type IN (2,6) AND (t.Downtime / 3600.0) > 0 THEN 1 ELSE 0 END) AS FailureEvents,
-            SUM(CASE WHEN t.Type IN (2,6) THEN t.Downtime / 3600.0 ELSE 0 END) AS DowntimeHoursUnplanned
+            SUM(CASE WHEN t.Type IN (2,6) AND (t.Downtime / 60) > 0 THEN 1 ELSE 0 END) AS FailureEvents,
+            SUM(CASE WHEN t.Type IN (2,6) THEN t.Downtime / 60 ELSE 0 END) AS DowntimeHoursUnplanned
           FROM dbo.LimbleKPITasks t
           ${ids.length ? 'JOIN ids ON ids.AssetID = t.AssetID' : ''}
           WHERE t.DateCompleted >= @start AND t.DateCompleted < @end
