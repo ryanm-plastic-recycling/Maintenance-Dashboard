@@ -185,34 +185,100 @@
       <thead>
         <tr>
           <th>Asset Name</th>
+          
           <th>
             Downtime Hrs
             <span class="tooltip">
               <span class="info" tabindex="0" aria-label="About Downtime Hours">i</span>
               <span class="tooltip-panel">
-                <b>Downtime Hrs</b> = Sum of downtime (minutes ÷ 60) for completed unplanned/work-request tasks (types 2,6) in the window.
+                <b>Downtime Hrs</b> = Sum of downtime (seconds ÷ 3600) for completed unplanned/work-request tasks (types 2,6) in the window.
               </span>
             </span>
           </th>
-          
+      
           <th class="col-int">
             Open Count
             <span class="tooltip">
               <span class="info" tabindex="0" aria-label="About Open Count">i</span>
               <span class="tooltip-panel">
-                <b>Open Count</b> = Count of open unplanned/work-request tasks (status 0/1) right now (not windowed).
+                <b>Open Count</b> = Count of currently open unplanned/work-request tasks (status 0 = open, 1 = in progress).
               </span>
             </span>
           </th>
-          <th class="col-int" data-testid="col-unplanned-count">Unplanned Count</th>
-          <th class="col-int" data-testid="col-failure-events">Failure Events</th>
-          <th>Downtime %</th>
-          <th>MTTR</th>
-          <th>MTBF</th>
-          <th>Planned %</th>
-          <th>Unplanned %</th>
+      
+          <th class="col-int" data-testid="col-unplanned-count">
+            Unplanned Count
+            <span class="tooltip">
+              <span class="info" tabindex="0" aria-label="About Unplanned Count">i</span>
+              <span class="tooltip-panel">
+                <b>Unplanned Count</b> = Number of unplanned/work-request tasks (types 2,6) completed in the timeframe.
+              </span>
+            </span>
+          </th>
+      
+          <th class="col-int" data-testid="col-failure-events">
+            Failure Events
+            <span class="tooltip">
+              <span class="info" tabindex="0" aria-label="About Failure Events">i</span>
+              <span class="tooltip-panel">
+                <b>Failure Events</b> = Unplanned/work-request tasks with downtime &gt; 0 in the timeframe.
+              </span>
+            </span>
+          </th>
+      
+          <th>
+            Downtime %
+            <span class="tooltip">
+              <span class="info" tabindex="0" aria-label="About Downtime %">i</span>
+              <span class="tooltip-panel">
+                <b>Downtime %</b> = Total downtime hours ÷ scheduled hours × 100.<br>
+                Scheduled hours come from each asset’s <em>HoursPerWeek</em> scaled to the timeframe.
+              </span>
+            </span>
+          </th>
+      
+          <th>
+            MTTR
+            <span class="tooltip">
+              <span class="info" tabindex="0" aria-label="About MTTR">i</span>
+              <span class="tooltip-panel">
+                <b>MTTR (Mean Time To Repair)</b> = Unplanned downtime hours ÷ failure events.
+              </span>
+            </span>
+          </th>
+      
+          <th>
+            MTBF
+            <span class="tooltip">
+              <span class="info" tabindex="0" aria-label="About MTBF">i</span>
+              <span class="tooltip-panel">
+                <b>MTBF (Mean Time Between Failures)</b> = (Scheduled hours − downtime hours) ÷ failure events.
+              </span>
+            </span>
+          </th>
+      
+          <th>
+            Planned %
+            <span class="tooltip">
+              <span class="info" tabindex="0" aria-label="About Planned %">i</span>
+              <span class="tooltip-panel">
+                <b>Planned %</b> = Planned tasks (types 1,4) ÷ total tasks × 100.
+              </span>
+            </span>
+          </th>
+      
+          <th>
+            Unplanned %
+            <span class="tooltip">
+              <span class="info" tabindex="0" aria-label="About Unplanned %">i</span>
+              <span class="tooltip-panel">
+                <b>Unplanned %</b> = Unplanned/work-request tasks (types 2,6) ÷ total tasks × 100.
+              </span>
+            </span>
+          </th>
         </tr>
       </thead>
+
       <tbody id="kpi-asset-body"></tbody>
       <tfoot>
         <tr class="kpi-summary-row">
