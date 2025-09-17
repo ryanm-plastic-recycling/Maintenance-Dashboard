@@ -154,6 +154,49 @@ label[for="timeframe-select"] {
     border: 1px solid ButtonText;
   }
 }
+/* --- Table header alignment for KPI-by-asset --- */
+#kpi-by-asset thead th {
+  white-space: nowrap;           /* keep label + bubble on one line */
+  padding: 10px 12px;
+  height: 44px;                  /* consistent header height */
+  vertical-align: middle;
+}
+
+/* wrap the label text + bubble as a single inline-flex row */
+#kpi-by-asset thead th .th-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;                      /* space between text and bubble */
+}
+
+/* the small “i” bubble inside headers */
+#kpi-by-asset thead th .tooltip { 
+  display: inline-flex;          /* sit inline with text */
+  align-items: center;
+}
+
+#kpi-by-asset thead th .info {
+  width: 16px;
+  height: 16px;
+  line-height: 16px;
+  font-size: 11px;
+  text-align: center;
+  border-radius: 50%;
+  background: #fff;              /* white circle for contrast on blue */
+  color: #25408F;                /* your header blue for the “i” */
+  margin-left: 2px;
+  flex: 0 0 auto;                /* don’t stretch */
+  cursor: pointer;
+}
+
+/* make the tooltip panel center under the icon and not overflow */
+#kpi-by-asset thead th .tooltip-panel {
+  top: 115%;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: normal;           /* allow tooltip text to wrap */
+  max-width: 320px;
+}
 
 /* loading spinner overlay */
 #loading {
