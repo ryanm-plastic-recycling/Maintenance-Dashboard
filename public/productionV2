@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Production Data</title>
+  <style>
+    :root{
+      --pri-blue:#25408F; --pri-green:#92D050; 
+      --good:#16A34A; --warn:#D97706; --bad:#B91C1C;
+      --bg:#e5e7eb; --card:#f9fafb; --ink:#111827; --muted:#6b7280;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,Segoe UI,Arial,sans-serif}
+
+    /* Header consistent with other pages */
+    .top{position:sticky;top:0;z-index:5;background:var(--pri-blue);padding:10px 16px;display:flex;align-items:center;gap:20px;color:#fff}
+    .top h1{margin:0;font-size:22px;letter-spacing:.4px}
+    .tabs{display:flex;gap:6px;margin-left:auto}
+    .tabs a{background:#1e3a8a;border:1px solid #1e3a8a;color:#fff;text-decoration:none;padding:6px 10px;border-radius:8px;font-weight:600}
+    .tabs a.active{background:var(--pri-green);color:#000;border-color:var(--pri-green)}
+
+    .wrap{padding:16px;max-width:1600px;margin:0 auto}
+    .controls{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin:8px 0 16px}
+    select,button{padding:8px 10px;border-radius:10px;border:1px solid #d1d5db;background:#fff}
+
+    /* KPI tiles */
+    .kpis{display:flex;flex-wrap:wrap;gap:10px}
+    .tile{background:var(--card);padding:12px 14px;border-radius:14px;box-shadow:0 2px 6px rgba(0,0,0,.1);min-width:160px}
+    .tile .lab{font-size:12px;color:var(--muted)}
+    .tile .val{font-size:22px;font-weight:800}
+    .tile.good{background:var(--good);color:#fff}
+    .tile.warn{background:var(--warn);color:#fff}
+    .tile.bad{background:var(--bad);color:#fff}
+
+    .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+    @media (max-width:1200px){.grid{grid-template-columns:repeat(2,1fr)}}
+    @media (max-width:800px){.grid{grid-template-columns:1fr}}
+
+    .card{background:var(--card);border-radius:16px;box-shadow:0 2px 6px rgba(0,0,0,.1);padding:14px;display:grid;grid-template-columns:220px 1fr;gap:12px}
+    .card h3{margin:0 0 4px}
+    .meta{font-size:12px;color:var(--muted)}
+    .badges{display:flex;gap:8px;margin-top:6px}
+    .badge{padding:2px 8px;border-radius:999px;font-weight:700;font-size:12px;color:#fff}
+    .badge.maint{background:#facc15;color:#000}
+    .badge.prod{background:#60a5fa}
+
+    .row{display:flex;gap:10px;flex-wrap:wrap;align-items:stretch}
+    .col{flex:1 1 200px}
+
+    .speedos{display:flex;gap:10px}
+    .speedo{width:120px;height:70px;position:relative}
+    .speedo svg{display:block}
+    .speedo .cap{position:absolute;width:100%;text-align:center;bottom:-2px;font-size:11px;color:var(--muted)}
+
+    .spark{height:40px;width:160px}
+    .spark svg{width:100%;height:100%}
+
+    .heatmap{margin-top:14px}
+    table{width:100%;border-collapse:collapse}
+    th,td{padding:8px;border-bottom:1px solid #e5e7eb;text-align:center}
+    th{background:var(--pri-blue);color:#fff;position:sticky;top:0}
+
+    .legend{display:flex;gap:10px;align-items:center;font-size:12px;color:var(--muted)}
+    .sw{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:4px}
+  </style>
+</head>
+<body>
+  <div class="top">
+    <h1>Production Data</h1>
+    <div class="tabs">
+      <a href="index.html">Work Orders</a>
+      <a href="pm.html">PM</a>
+      <a href="prodstatus.html">Prod Status</a>
+      <a href="kpi-by-asset.html">KPIs by Asset</a>
+      <a class="active" href="#">Production</a>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <div class="controls">
+      <label>Timeframe</label>
+      <select id="timeframe">
+        <option value="lastMonth" selected>Last Month</option>
+        <option value="currentMonth">Current Month</option>
+        <option value="trailing30">Trailing 30 Days</option>
+        <option value="trailing7">Trailing 7 Days</option>
+      </select>
+      <button id="refresh">Refresh</button>
+      <span id="daterange" class="meta"></span>
+    </div>
+
+    <section>
+      <h2>All Lines — Overall</h2>
+      <div id="overall" class="kpis"></div>
+    </section>
+
+    <section style="margin-top:16px">
+      <h2>Lines 1–9</h2>
+      <div id="cards" class="grid"></div>
+    </section>
+
+    <section class="heatmap">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <h2>Weekday Heatmap (OEE)</h2>
+        <div class="legend">
+          <span><span class="sw" style="background:var(--good)"></span>Good</span>
+          <span><span class="sw" style="background:var(--warn)"></span>Warn</span>
+          <span><span class="sw" style="background:var(--bad)"></span>Bad</span>
+        </div>
+      </div>
+      <div id="heat"></div>
+    </section>
+  </div>
+
+<script>
+// placeholder: same JS logic as before will be reused
+</script>
+</body>
+</html>
