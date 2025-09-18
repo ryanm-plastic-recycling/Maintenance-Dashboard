@@ -150,35 +150,68 @@
   </div>
 
 <script>
-(async function () {
-  // --- helpers ---
-  const qs = s => document.querySelector(s);
-  const fmtPct = v => (v == null ? '0%' : (v*100).toFixed(0) + '%');
-  const fmtNum = v => (v == null ? '0' : Number(v).toLocaleString());
-  const isWeekday = d => { const n = d.getDay(); return n !== 0 && n !== 6; };
+// ---------- thresholds & helpers (must come first) ----------
+const THRESH = {
+  capacityAdj: { good: 0.95, warn: 0.85 },
+  oee:         { good: 0.75, warn: 0.60 },
+  availability:{ good: 0.90, warn: 0.80 }
+};
+const grade = (v, {good, warn}) => (v >= good ? 'good' : v >= warn ? 'warn' : 'bad');
 
+function polarToCartesian(cx, cy, r, angDeg) {
+  const a = (angDeg - 90) * Math.PI / 180;
+  return { x: cx + r * Math.cos(a), y: cy + r * Math.sin(a) };
+}
+function arcPath(cx, cy, r, startDeg, endDeg) {
+  const s = polarToCartesian(cx, cy, r, startDeg);
+  const e = polarToCartesian(cx, cy, r, endDeg);
+  const largeArc = Math.abs(endDeg - startDeg) > 180 ? 1 : 0;
+  return `M ${s.x} ${s.y} A ${r} ${r} 0 ${largeArc} 0 ${e.x} ${e.y}`; // CCW sweep=0
+}
+function gaugeSVG(pct, label, cls = '') {
+  const p = Math.max(0, Math.min(1, pct || 0));
+  const start = 180, end = 180 - 180 * p;
+  const R = 48, cx = 60, cy = 60;
+  const track  = arcPath(cx, cy, R, 180, 0);
+  const needle = arcPath(cx, cy, R, start, end);
+  return `
+    <div class="gauge ${cls}">
+      <svg viewBox="0 0 120 80" xmlns="http://www.w3.org/2000/svg" class="speedo">
+        <path d="${track}"  class="track"  fill="none" stroke-width="10"/>
+        <path d="${needle}" class="needle" fill="none" stroke-width="10" stroke-linecap="round"/>
+        <text x="60" y="48" text-anchor="middle" class="pct">${Math.round(p*100)}%</text>
+      </svg>
+      <div class="cap">${label}</div>
+    </div>`;
+}
+const fmtPct = v => (v == null ? '0%' : (v*100).toFixed(0) + '%');
+const fmtNum = v => (v == null ? '0' : Number(v).toLocaleString());
+const isWeekday = d => { const n = d.getDay(); return n !== 0 && n !== 6; };
+
+// ---------- main ----------
+(async function () {
   const today = new Date();
   const to   = today.toISOString().slice(0,10);
-  const fromD = new Date(today); fromD.setDate(fromD.getDate() - 29); // 30-day window
+  const fromD = new Date(today); fromD.setDate(fromD.getDate() - 29); // 30 day window
   const from = fromD.toISOString().slice(0,10);
 
-  // build full date list (weekdays only to match your assumption)
+  // Build weekday date list
   const dates = [];
   for (let d = new Date(fromD); d <= today; d.setDate(d.getDate()+1)) {
     if (isWeekday(d)) dates.push(new Date(d).toISOString().slice(0,10));
   }
 
-  // --- fetch from API ---
+  // Fetch API
   const [summaryRaw, bylineRaw] = await Promise.all([
     fetch(`/api/production/summary?from=${from}&to=${to}`).then(r=>r.json()),
     fetch(`/api/production/by-line?from=${from}&to=${to}`).then(r=>r.json())
   ]);
 
-  // keep extruders only
-  const byline = (bylineRaw || []).filter(r => r.machine && r.machine.startsWith('Extruder'));
+  // Filter Extruders only
+  const byline  = (bylineRaw || []).filter(r => r.machine && r.machine.startsWith('Extruder'));
   const summary = summaryRaw || [];
 
-  // --- fill missing dates with zeros (overall) ---
+  // Fill missing overall dates with zeros
   const summaryByDate = new Map(summary.map(r => [r.src_date, r]));
   const overall = dates.map(d => {
     const r = summaryByDate.get(d);
@@ -191,82 +224,91 @@
     };
   });
 
-  // --- overall tiles (use last day in filled series) ---
+  // Overall tiles
   const last = overall[overall.length-1] || { pounds:0, availability:0, perf_adj:0, oee:0 };
   const totalLbs = overall.reduce((s,x)=>s+(x.pounds||0),0);
-  // For DT totals across extruders in range:
   const dtAgg = byline.reduce((a,r)=>({m:a.m+(r.maint_dt_h||0), p:a.p+(r.prod_dt_h||0)}), {m:0,p:0});
 
-  qs('#ov-oee').textContent = fmtPct(last.oee);
-  qs('#ov-av').textContent  = fmtPct(last.availability);
-  qs('#ov-pr').textContent  = fmtPct(last.perf_adj);      // using adj perf in both tiles per your preference
-  qs('#ov-pa').textContent  = fmtPct(last.perf_adj);
-  qs('#ov-lbs').textContent = fmtNum(totalLbs);
-  qs('#ov-mdt').textContent = (dtAgg.m).toFixed(1);
-  qs('#ov-pdt').textContent = (dtAgg.p).toFixed(1);
+  document.querySelector('#ov-oee').textContent = fmtPct(last.oee);
+  document.querySelector('#ov-av').textContent  = fmtPct(last.availability);
+  document.querySelector('#ov-pr').textContent  = fmtPct(last.perf_adj);
+  document.querySelector('#ov-pa').textContent  = fmtPct(last.perf_adj);
+  document.querySelector('#ov-lbs').textContent = fmtNum(totalLbs);
+  document.querySelector('#ov-mdt').textContent = dtAgg.m.toFixed(1);
+  document.querySelector('#ov-pdt').textContent = dtAgg.p.toFixed(1);
 
-  // --- latest per extruder line (most recent date in window) ---
+  // Grade overall tiles
+  const setTileClass = (tileSel, v, thr) => {
+    const tile = document.querySelector(tileSel);
+    const cls = grade(v || 0, thr);
+    tile.classList.remove('good','warn','bad');
+    tile.classList.add(cls);
+  };
+  setTileClass('#tile-oee', last.oee || 0, THRESH.oee);
+  setTileClass('#tile-av',  last.availability || 0, THRESH.availability);
+  setTileClass('#tile-pr',  last.perf_adj || 0, THRESH.capacityAdj);
+  setTileClass('#tile-pa',  last.perf_adj || 0, THRESH.capacityAdj);
+
+  // Latest record per extruder line
   const latestByLine = {};
   for (const r of byline) {
     if (!latestByLine[r.machine] || r.src_date > latestByLine[r.machine].src_date) {
       latestByLine[r.machine] = r;
     }
   }
+
+  // Line tiles
   const cont = document.getElementById('lineTiles'); cont.innerHTML = '';
   Object.values(latestByLine)
-  .sort((a,b)=>a.machine.localeCompare(b.machine))
-  .forEach(r => {
-    const cap  = r.nameplate_lbs_hr || 0;
-    const lbs  = r.pounds || 0;
-    const dt   = (r.maint_dt_h||0) + (r.prod_dt_h||0);
-    const avail = r.availability ?? 0;
+    .sort((a,b)=>a.machine.localeCompare(b.machine))
+    .forEach(r => {
+      const cap  = r.nameplate_lbs_hr || 0;
+      const lbs  = r.pounds || 0;
+      const dt   = (r.maint_dt_h||0) + (r.prod_dt_h||0);
+      const avail = r.availability ?? 0;
 
-    const perfRaw = cap ? (lbs / (24 * cap)) : 0;
-    const perfAdj = r.perf_adj ?? (cap && (24 - dt) > 0 ? lbs / (cap * (24 - dt)) : 0);
-    const oee     = r.oee ?? (avail * perfAdj);  // quality=1.0 for now
+      const perfRaw = cap ? (lbs / (24 * cap)) : 0;
+      const perfAdj = r.perf_adj ?? (cap && (24 - dt) > 0 ? lbs / (cap * (24 - dt)) : 0);
+      const oee     = r.oee ?? (avail * perfAdj); // quality=1.0
 
-    const tileGrade = grade(oee, THRESH.oee);
-    const rawGrade  = grade(perfRaw, THRESH.capacityAdj);
-    const adjGrade  = grade(perfAdj, THRESH.capacityAdj);
+      const tileGrade = grade(oee, THRESH.oee);
+      const rawGrade  = grade(perfRaw, THRESH.capacityAdj);
+      const adjGrade  = grade(perfAdj, THRESH.capacityAdj);
 
-    const el = document.createElement('div');
-    el.className = `lt-card ${tileGrade}`;
-    el.innerHTML = `
-      <div>
-        <div class="lt-head">
-          <div class="lt-name">${r.machine}</div>
-          <div class="lt-nameplate">Nameplate ${cap?cap.toLocaleString():'--'} lb/hr</div>
+      const el = document.createElement('div');
+      el.className = `lt-card ${tileGrade}`;
+      el.innerHTML = `
+        <div>
+          <div class="lt-head">
+            <div class="lt-name">${r.machine}</div>
+            <div class="lt-nameplate">Nameplate ${cap?cap.toLocaleString():'--'} lb/hr</div>
+          </div>
+          <div class="lt-badges">
+            <span class="badge maint">Maint DT ${(r.maint_dt_h||0).toFixed(1)}h</span>
+            <span class="badge prod">Prod DT ${(r.prod_dt_h||0).toFixed(1)}h</span>
+          </div>
+          <div class="lt-metrics" style="margin-top:6px">
+            <div class="m"><div class="lab">OEE</div><div class="val">${fmtPct(oee)}</div></div>
+            <div class="m"><div class="lab">Availability</div><div class="val">${fmtPct(avail)}</div></div>
+            <div class="m"><div class="lab">Perf Raw</div><div class="val">${fmtPct(perfRaw)}</div></div>
+            <div class="m"><div class="lab">Perf Adj</div><div class="val">${fmtPct(perfAdj)}</div></div>
+            <div class="m"><div class="lab">Pounds</div><div class="val">${fmtNum(lbs)}</div></div>
+            <div class="m"><div class="lab">Capacity</div><div class="val">${cap?cap.toLocaleString():'--'}</div></div>
+          </div>
         </div>
-        <div class="lt-badges">
-          <span class="badge maint">Maint DT ${(r.maint_dt_h||0).toFixed(1)}h</span>
-          <span class="badge prod">Prod DT ${(r.prod_dt_h||0).toFixed(1)}h</span>
-        </div>
-        <div class="lt-metrics" style="margin-top:6px">
-          <div class="m"><div class="lab">OEE</div><div class="val">${(oee*100).toFixed(0)}%</div></div>
-          <div class="m"><div class="lab">Availability</div><div class="val">${(avail*100).toFixed(0)}%</div></div>
-          <div class="m"><div class="lab">Perf Raw</div><div class="val">${(perfRaw*100).toFixed(0)}%</div></div>
-          <div class="m"><div class="lab">Perf Adj</div><div class="val">${(perfAdj*100).toFixed(0)}%</div></div>
-          <div class="m"><div class="lab">Pounds</div><div class="val">${(lbs||0).toLocaleString()}</div></div>
-          <div class="m"><div class="lab">Capacity</div><div class="val">${cap?cap.toLocaleString():'--'}</div></div>
-        </div>
-      </div>
+        <div class="lt-right">
+          ${gaugeSVG(perfRaw, 'Raw 24h', rawGrade)}
+          ${gaugeSVG(perfAdj, 'Adj for DT', adjGrade)}
+        </div>`;
+      cont.appendChild(el);
+    });
 
-      <div class="lt-right">
-        ${gaugeSVG(perfRaw, 'Raw 24h', rawGrade)}
-        ${gaugeSVG(perfAdj, 'Adj for DT', adjGrade)}
-      </div>`;
-    cont.appendChild(el);
-  });
-
-  // --- simple trend (overall lbs vs capacity) with zero-filled dates ---
+  // Trend (overall)
   (function renderTrend(){
     const w=900,h=260,padL=50,padB=30, ch=h-padB-40;
     const sx=i => padL + (i/Math.max(1,overall.length-1))*(w-padL-20);
-    const sy=v => 30 + ch - (v/max)*ch;
+    const byDate = new Map(); for (const d of dates) byDate.set(d, { lbs:0, nameplate:0, adjcap:0 });
 
-    // Build “capacity” lines from byline extruders per day
-    const byDate = new Map();
-    for (const d of dates) byDate.set(d, { lbs:0, nameplate:0, adjcap:0 });
     for (const r of byline) {
       const d = r.src_date; if (!byDate.has(d)) continue;
       const cap = r.nameplate_lbs_hr || 0;
@@ -278,8 +320,9 @@
     }
     const pts = dates.map(d => byDate.get(d));
     const max = Math.max(1, ...pts.map(p => Math.max(p.lbs, p.nameplate, p.adjcap)));
-
+    const sy=v => 30 + ch - (v/max)*ch;
     const toLine = arr => arr.map((p,i)=>`${sx(i)},${sy(p)}`).join(' ');
+
     const lbsPts  = toLine(pts.map(p=>p.lbs));
     const namePts = toLine(pts.map(p=>p.nameplate));
     const adjPts  = toLine(pts.map(p=>p.adjcap));
@@ -299,76 +342,7 @@
     </svg>`;
     document.getElementById('trendChart').innerHTML = svg;
   })();
-
 })();
 </script>
-  
-// thresholds (tune once and reuse)
-const THRESH = {
-  capacityAdj: { good: 0.95, warn: 0.85 },
-  oee:         { good: 0.75, warn: 0.60 },
-  availability:{ good: 0.90, warn: 0.80 }
-};
-
-// grade helper
-const grade = (v, {good, warn}) => (v >= good ? 'good' : v >= warn ? 'warn' : 'bad');
-
-<script>
-/* thresholds already defined in your page; reuse them */
-const grade = (v, {good, warn}) => (v >= good ? 'good' : v >= warn ? 'warn' : 'bad');
-
-/* SVG arc util (draw from 180° down to end angle, CCW) */
-function polarToCartesian(cx, cy, r, angDeg) {
-  const a = (angDeg - 90) * Math.PI / 180;
-  return { x: cx + r * Math.cos(a), y: cy + r * Math.sin(a) };
-}
-function arcPath(cx, cy, r, startDeg, endDeg) {
-  const s = polarToCartesian(cx, cy, r, startDeg);
-  const e = polarToCartesian(cx, cy, r, endDeg);
-  const largeArc = Math.abs(endDeg - startDeg) > 180 ? 1 : 0;
-  /* sweep-flag=0 (counter-clockwise), so we never “flip” the arc off the card */
-  return `M ${s.x} ${s.y} A ${r} ${r} 0 ${largeArc} 0 ${e.x} ${e.y}`;
-}
-
-/* Gauge: pct in [0..1], label below. Two-layer arc: light track + colored needle */
-function gaugeSVG(pct, label, cls = '') {
-  const p = Math.max(0, Math.min(1, pct || 0));
-  const start = 180, end = 180 - 180 * p;   // 180° (left) down to end
-  const R = 48, cx = 60, cy = 60;
-
-  const track = arcPath(cx, cy, R, 180, 0);
-  const needle = arcPath(cx, cy, R, start, end);
-
-  return `
-    <div class="gauge ${cls}">
-      <svg viewBox="0 0 120 80" xmlns="http://www.w3.org/2000/svg" class="speedo">
-        <path d="${track}" class="track" fill="none" stroke-width="10"/>
-        <path d="${needle}" class="needle" fill="none" stroke-width="10" stroke-linecap="round"/>
-        <text x="60" y="48" text-anchor="middle" class="pct">${Math.round(p*100)}%</text>
-      </svg>
-      <div class="cap">${label}</div>
-    </div>`;
-}
-</script>
-// color overall tiles by grade
-const setTileClass = (id, v, thr) => {
-  const tile = document.querySelector(id);
-  const cls = grade(v || 0, thr);
-  tile.classList.remove('good','warn','bad');
-  tile.classList.add(cls);
-};
-setTileClass('#ov-oee', last.oee || 0, THRESH.oee);
-setTileClass('#ov-av',  last.availability || 0, THRESH.availability);
-
-// (optional) performance tiles colored off capacity thresholds:
-setTileClass('#ov-pr',  last.perf_adj || 0, THRESH.capacityAdj);
-setTileClass('#ov-pa',  last.perf_adj || 0, THRESH.capacityAdj);
-
-  const setTileClass = (tileSel, v, thr) => { /* same as above */ };
-setTileClass('#tile-oee', last.oee || 0, THRESH.oee);
-setTileClass('#tile-av',  last.availability || 0, THRESH.availability);
-setTileClass('#tile-pr',  last.perf_adj || 0, THRESH.capacityAdj);
-setTileClass('#tile-pa',  last.perf_adj || 0, THRESH.capacityAdj);
-
 </body>
 </html>
