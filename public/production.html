@@ -74,6 +74,10 @@
     .good.m{background:var(--ok-bg)} .warn.m{background:var(--warn-bg)} .bad.m{background:var(--bad-bg)}
     .lt-right{display:flex;flex-direction:column;gap:6px;align-items:center;justify-content:center}
 
+    .gauge.good .needle { stroke: #10b981; }
+    .gauge.warn .needle { stroke: #f59e0b; }
+    .gauge.bad  .needle { stroke: #ef4444; }
+
     /* simple “speedo” gauge */
     .speedo{width:120px;height:78px}
     .speedo .cap{font-size:11px;color:var(--muted);text-align:center;margin-top:-8px}
@@ -83,7 +87,14 @@
     th,td{padding:8px;border-bottom:1px solid #E1E9F8;text-align:center}
     th{background:var(--pri-blue);color:#fff;font-size:13px;position:sticky;top:0}
     td.line{text-align:left;font-weight:700}
-    .good{background:var(--ok-bg)} .warn{background:var(--warn-bg)} .bad{background:var(--bad-bg)}
+
+    /* Heatmap cell coloring (scoped) */
+    #heat td.good { background: var(--ok-bg); }
+    #heat td.warn { background: var(--warn-bg); }
+    #heat td.bad  { background: var(--bad-bg); }
+    
+    /* Gauges should never inherit a background */
+    .gauge { background: transparent; }
 
     /* CHART section */
     .chart-section{margin-top:16px}
