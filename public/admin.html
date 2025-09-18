@@ -388,6 +388,9 @@
         let adminPass = '';
         document.getElementById('login-btn').onclick = async () => {
             adminPass = document.getElementById('admin-pass').value;
+            // show protected area
+            document.getElementById('secure').style.display = 'block';
+            
             const res = await fetch('/api/config');
             const cfg = await res.json();
             config = cfg;
