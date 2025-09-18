@@ -176,6 +176,20 @@
       </div>
     </section>
   </div>
+<script>
+async function loadThemeAndApply() {
+  try {
+    const t = await fetch('/api/settings/kpi-theme').then(r=>r.json());
+    const c = t?.colors || {};
+    if (c.good?.bg)  document.documentElement.style.setProperty('--good-bg', c.good.bg);
+    if (c.good?.fg)  document.documentElement.style.setProperty('--good-fg', c.good.fg);
+    if (c.warn?.bg)  document.documentElement.style.setProperty('--warn-bg', c.warn.bg);
+    if (c.warn?.fg)  document.documentElement.style.setProperty('--warn-fg', c.warn.fg);
+    if (c.bad?.bg)   document.documentElement.style.setProperty('--bad-bg',  c.bad.bg);
+    if (c.bad?.fg)   document.documentElement.style.setProperty('--bad-fg',  c.bad.fg);
+  } catch { /* keep fallbacks */ }
+}
+</script>
 
 <script>
 // ---------- thresholds & helpers (must come first) ----------
@@ -195,11 +209,11 @@ function arcPath(cx, cy, r, startDeg, endDeg, sweepFlag) {
   const largeArc = Math.abs(endDeg - startDeg) > 180 ? 1 : 0;
   return `M ${s.x} ${s.y} A ${r} ${r} 0 ${largeArc} ${sweepFlag} ${e.x} ${e.y}`;
 }
-function gaugeSVG(pct, label, cls = '') {
+function gaugeSVG(pct, label, cls='') {
   const p = Math.max(0, Math.min(1, pct || 0));
   const R = 48, cx = 60, cy = 60;
-  const track  = arcPath(cx, cy, R, 180, 360, 1);                 // 180° → 360° (CW)
-  const needle = arcPath(cx, cy, R, 180, 180 + 180 * p, 1);       // CW growth
+  const track  = arcPath(cx, cy, R, 180, 360, 1);           // 180 → 360 CW
+  const needle = arcPath(cx, cy, R, 180, 180 + 180*p, 1);   // grow CW
   return `
     <div class="gauge ${cls}">
       <svg viewBox="0 0 120 80" xmlns="http://www.w3.org/2000/svg" class="speedo">
@@ -210,7 +224,7 @@ function gaugeSVG(pct, label, cls = '') {
       <div class="cap">${label}</div>
     </div>`;
 }
-
+  
 const fmtPct = v => (v == null ? '0%' : (v*100).toFixed(0) + '%');
 const fmtNum = v => (v == null ? '0' : Number(v).toLocaleString());
 const isWeekday = d => { const n = d.getDay(); return n !== 0 && n !== 6; };
@@ -221,7 +235,7 @@ const isWeekday = d => { const n = d.getDay(); return n !== 0 && n !== 6; };
   const to   = today.toISOString().slice(0,10);
   const fromD = new Date(today); fromD.setDate(fromD.getDate() - 29); // 30 day window
   const from = fromD.toISOString().slice(0,10);
-
+  await loadThemeAndApply();  
   // Build weekday date list
   const dates = [];
   for (let d = new Date(fromD); d <= today; d.setDate(d.getDate()+1)) {
