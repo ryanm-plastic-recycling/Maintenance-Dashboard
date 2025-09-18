@@ -367,16 +367,15 @@
   },
   "capacities_lbs_hr": {
     "Vistakon 1": 2000,
-    "Line 1": 2500,
-    "Line 2": 2500,
-    "Line 3": 2500,
-    "Line 4": 2500,
-    "Line 5": 2500,
-    "Line 6": 2500,
-    "Line 7": 2500,
-    "Line 8": 2500,
-    "Line 9": 2500,
-    "New Line 1": 8000,
-    "New Line 2": 6000,
+    "Extruder NGR": 2500,
+    "Extruder 1": 2500,
+    "Extruder 2": 2500,
+    "Extruder 3": 2500,
+    "Extruder 4": 2500,
+    "Extruder 5": 2500,
+    "Extruder 6": 2500,
+    "Extruder 7": 2500,
+    "Extruder New Single": 8000,
+    "Extruder New Twin": 6000
   }
 }
