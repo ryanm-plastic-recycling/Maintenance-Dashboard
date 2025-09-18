@@ -377,5 +377,18 @@
     "Extruder 7": 2500,
     "Extruder New Single": 8000,
     "Extruder New Twin": 6000
+  },
+  "capacity_aliases": {
+  "Extruder Line E1": "Extruder 1",
+  "Extruder Line E2": "Extruder 2",
+  "Extruder Line E3": "Extruder 3",
+  "Extruder Line E4": "Extruder 4",
+  "Extruder Line E5": "Extruder 5",
+  "Extruder Line E6": "Extruder 6",
+  "Extruder Line E7": "Extruder 7",
+  "NGR": "Extruder NGR",
+  "New Extrusion Line NL1": "Extruder New Single",
+  "New Extrusion Line NL2": "Extruder New Twin"
   }
+
 }
