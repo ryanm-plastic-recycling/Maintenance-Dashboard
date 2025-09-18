@@ -364,5 +364,19 @@
     "5": "Alarmed & Running",
     "6": "Available",
     "7": "Unavailable"
+  },
+  "capacities_lbs_hr": {
+    "Vistakon 1": 2000,
+    "Line 1": 2500,
+    "Line 2": 2500,
+    "Line 3": 2500,
+    "Line 4": 2500,
+    "Line 5": 2500,
+    "Line 6": 2500,
+    "Line 7": 2500,
+    "Line 8": 2500,
+    "Line 9": 2500,
+    "New Line 1": 8000,
+    "New Line 2": 6000,
   }
 }
