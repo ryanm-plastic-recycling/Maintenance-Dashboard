@@ -529,17 +529,25 @@ const ipv4 = Object.values(nets)
 
 // ─── express setup ────────────────────────────────────────────────────────
 const app = express();
+
+// 1) core middleware first
 app.use(cors());
-app.use('/api', productionRoutes(poolPromise));   
 app.use(express.json());
+
+// 2) API routers (all under /api)
+app.use('/api', productionRoutes(poolPromise));  // <-- new production API
 app.use('/api', adminRoutes(poolPromise));
+app.use('/api', limbleWebhook(poolPromise));
+
 app.fetchAndCache = async () => null;
 const PORT = process.env.PORT || 3000;
-app.use(express.static(path.join(__dirname, 'public')));
-app.use('/api', limbleWebhook(poolPromise));
+
 // Serve the HTML file for the root path
+// 3) static and root
+app.use(express.static(path.join(__dirname, 'public')));
+
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 app.get('/pm', (req, res) => {
