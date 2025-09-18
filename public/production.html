@@ -26,39 +26,35 @@
     .tab{background:#ffffffd9;padding:8px 12px;border-radius:10px;text-decoration:none;color:#0A2A12;font-weight:700}
     .tab.active{background:#fff}
 
-    /* Page */
     .wrap{margin:120px 20px 40px 20px}
     .controls{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin:0 0 16px}
     .meta-range{color:var(--muted);font-size:13px}
 
     /* Overall KPI tiles */
     .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-top:6px}
-    .tile{background:var(--card);padding:14px 14px;border-radius:12px;box-shadow:0 2px 4px rgba(0,0,0,.08);border:1px solid var(--border);text-align:center;min-height:80px}
-    .tile .lab{font-size:12px;color:#000;text-transform:uppercase;letter-spacing:.3px} /* black labels as requested */
+    .tile{background:var(--card);padding:14px;border-radius:12px;box-shadow:0 2px 4px rgba(0,0,0,.08);border:1px solid var(--border);text-align:center;min-height:84px}
+    .tile .lab{font-size:12px;color:#000;text-transform:uppercase;letter-spacing:.3px} /* black labels */
     .tile .val{font-size:22px;font-weight:900;margin-top:6px}
     .tile.good { background: var(--good-bg); color: var(--good-fg); }
     .tile.warn { background: var(--warn-bg); color: var(--warn-fg); }
     .tile.bad  { background: var(--bad-bg);  color: var(--bad-fg);  }
 
-    /* add more breathing room before Heatmap */
-    .section-gap{margin-top:28px}
+    .section-gap{margin-top:28px} /* extra spacing before Heatmap */
 
-    /* Cards */
     .card{background:var(--card);border-radius:12px;border:1px solid var(--border);box-shadow:0 2px 6px rgba(0,0,0,.08);padding:12px}
-
-    /* HEATMAP + LINE TILES stack in order */
-    .grid{display:block}
-
-    .card h3{margin:0 0 8px;font-size:18px;color:var(--pri-blue);display:flex;align-items:center;gap:8px}
+    .card h3{margin:0 0 8px;font-size:18px;color:var(--pri-blue);display:flex;gap:8px;align-items:center}
     .card .sub{font-size:12px;color:var(--muted);font-weight:600}
 
-    /* LINE TILES */
+    /* Stack: Heatmap then Tiles */
+    .grid{display:block}
+
+    /* Line tiles */
     .line-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px}
     .lt-card{background:#fff;border:1px solid var(--border);border-radius:12px;padding:12px;display:grid;grid-template-columns:1fr 140px;gap:10px;border-left-width:6px}
     .lt-card.good { border-left-color: var(--good-fg); }
     .lt-card.warn { border-left-color: var(--warn-fg); }
     .lt-card.bad  { border-left-color: var(--bad-fg); }
-    .lt-card.good, .lt-card.warn, .lt-card.bad { background:#fff; } /* force neutral */
+    .lt-card.good, .lt-card.warn, .lt-card.bad { background:#fff; } /* keep neutral */
 
     .lt-head{display:flex;align-items:baseline;justify-content:space-between}
     .lt-name{font-weight:900}
@@ -85,8 +81,10 @@
     .gauge.warn .needle { stroke: var(--warn-fg); }
     .gauge.bad  .needle { stroke: var(--bad-fg); }
     .gauge .cap{font-size:11px;color:var(--muted);text-align:center;margin-top:-6px}
+    /* subtle colored arc under needle for more “colored speedo” look */
+    .gauge .band { opacity:.25; stroke-width:10; fill:none }
 
-    /* HEATMAP table */
+    /* Heatmap */
     table{width:100%;border-collapse:collapse;margin-top:6px}
     th,td{padding:8px;border-bottom:1px solid #E1E9F8;text-align:center}
     th{background:var(--pri-blue);color:#fff;font-size:13px;position:sticky;top:0}
@@ -175,7 +173,6 @@
 
   <!-- App -->
   <script>
-    // thresholds for grading
     const THRESH = {
       capacityAdj: { good: 0.95, warn: 0.85 },
       oee:         { good: 0.75, warn: 0.60 },
@@ -183,7 +180,7 @@
     };
     const grade = (v, {good, warn}) => (v >= good ? 'good' : v >= warn ? 'warn' : 'bad');
 
-    // gauge utilities (clockwise)
+    /* gauge utilities (clockwise) + colored band */
     function polarToCartesian(cx, cy, r, angDeg) {
       const a = (angDeg - 90) * Math.PI / 180;
       return { x: cx + r * Math.cos(a), y: cy + r * Math.sin(a) };
@@ -197,13 +194,16 @@
     function gaugeSVG(pct, label, cls='') {
       const p = Math.max(0, Math.min(1, pct || 0));
       const R = 48, cx = 60, cy = 60;
-      const track  = arcPath(cx, cy, R, 180, 360, 1);         // 0%→100% CW
+      const track  = arcPath(cx, cy, R, 180, 360, 1);          // 0→100% CW
+      const band   = arcPath(cx, cy, R, 180, 180 + 180*Math.max(p,0.02), 1); // faint colored sweep
       const needle = arcPath(cx, cy, R, 180, 180 + 180*p, 1);
+      const color = (cls==='good') ? 'var(--good-fg)' : (cls==='warn') ? 'var(--warn-fg)' : 'var(--bad-fg)';
       return `
         <div class="gauge ${cls}">
           <svg viewBox="0 0 120 80" xmlns="http://www.w3.org/2000/svg" class="speedo">
             <path d="${track}"  class="track"  fill="none" stroke-width="10"/>
-            <path d="${needle}" class="needle" fill="none" stroke-width="10" stroke-linecap="round"/>
+            <path d="${band}"   class="band"   stroke="${color}"/>
+            <path d="${needle}" class="needle" fill="none" stroke="${color}" stroke-width="10" stroke-linecap="round"/>
             <text x="60" y="48" text-anchor="middle" class="pct">${Math.round(p*100)}%</text>
           </svg>
           <div class="cap">${label}</div>
@@ -217,13 +217,13 @@
     (async function () {
       await loadThemeAndApply();
 
-      // Date window: last 30 calendar days; we display weekdays
+      // Date window: last 30 calendar days, weekday-focused UI
       const today = new Date();
       const to   = today.toISOString().slice(0,10);
       const fromD = new Date(today); fromD.setDate(fromD.getDate() - 29);
       const from = fromD.toISOString().slice(0,10);
 
-      // Weekday list
+      // Weekdays in window
       const dates = [];
       for (let d = new Date(fromD); d <= today; d.setDate(d.getDate()+1)) {
         if (isWeekday(d)) dates.push(new Date(d).toISOString().slice(0,10));
@@ -236,38 +236,43 @@
         fetch(`/api/production/by-line?from=${from}&to=${to}`).then(r=>r.json())
       ]);
 
-      // Filter to Extruders
+      // Just Extruders
       const byline = (bylineRaw || []).filter(r => r.machine && r.machine.startsWith('Extruder'));
 
-      // ---------- Aggregate per line across range ----------
-      // For each line: sum pounds, sum maintDT; get cap; compute runtimeH & prodDT
-      const agg = {}; // machine -> {lbs, maint, cap, days}
+      /* ---------- Aggregate per line across range ----------
+         We PREFER machine_hours from SQL (sum across range).
+         If machine_hours is not returned by the API, we fall back to pounds/cap.
+         MaintDT is taken from API (should come from Limble, not sheet). */
+      const agg = {}; // machine -> accumulators
       for (const r of byline) {
         const m = r.machine;
         const cap = r.nameplate_lbs_hr || 0;
-        if (!agg[m]) agg[m] = { lbs:0, maint:0, cap:cap, days:weekdaysCount };
+        const mh  = r.machine_hours || 0;      // <-- include this in your /by-line SELECT (SUM(machine_hours))
+        const md  = r.maint_dt_h || 0;         // <-- from Limble aggregation in your view
+        if (!agg[m]) agg[m] = { lbs:0, cap:cap, maint:0, mach:0, days:weekdaysCount };
         agg[m].lbs   += (r.pounds || 0);
-        agg[m].maint += (r.maint_dt_h || 0);
-        if (cap > 0) agg[m].cap = cap; // keep latest non-zero
+        agg[m].maint += md;
+        agg[m].mach  += mh;
+        if (cap > 0) agg[m].cap = cap;
       }
 
-      // Compute per-line KPIs & ProdDT (range)
+      // Compute per-line KPIs
       const perLine = Object.keys(agg).sort().map(m => {
         const a = agg[m];
         const plannedH = 24 * a.days;
-        const runtimeH = (a.cap > 0) ? (a.lbs / a.cap) : 0;
-        const prodDT   = Math.max(0, plannedH - a.maint - runtimeH); // YOUR formula
-        const avail    = plannedH > 0 ? runtimeH / plannedH : 0;
+        const runtimeH_pref = a.mach > 0 ? a.mach : (a.cap > 0 ? (a.lbs / a.cap) : 0); // prefer machine_hours
+        const prodDT   = Math.max(0, plannedH - a.maint - runtimeH_pref);
+        const avail    = plannedH > 0 ? (runtimeH_pref / plannedH) : 0;
         const perfRaw  = (a.cap > 0 && plannedH > 0) ? (a.lbs / (a.cap * plannedH)) : 0;
         const adjDen   = Math.max(1e-9, (plannedH - a.maint) * a.cap);
         const perfAdj  = (a.cap > 0) ? (a.lbs / adjDen) : 0;
-        const oee      = avail * perfAdj; // quality = 1.0 for now
-        return { machine:m, cap:a.cap, lbs:a.lbs, maint:a.maint, prod:prodDT, avail, perfRaw, perfAdj, oee };
+        const oee      = avail * perfAdj;
+        return { machine:m, cap:a.cap, lbs:a.lbs, maint:a.maint, mach:a.mach, prod:prodDT, avail, perfRaw, perfAdj, oee };
       });
 
-      // ---------- Overall KPIs from per-line aggregates ----------
+      /* ---------- Overall from per-line ---------- */
       const totalPlannedH = perLine.reduce((s,x)=>s + 24*weekdaysCount, 0);
-      const totalRuntimeH = perLine.reduce((s,x)=>s + (x.cap>0 ? x.lbs/x.cap : 0), 0);
+      const totalRuntimeH = perLine.reduce((s,x)=>s + (x.mach>0 ? x.mach : (x.cap>0 ? x.lbs/x.cap : 0)), 0);
       const totalMaintH   = perLine.reduce((s,x)=>s + x.maint, 0);
       const totalProdH    = perLine.reduce((s,x)=>s + x.prod, 0);
       const totalLbs      = perLine.reduce((s,x)=>s + x.lbs, 0);
@@ -297,10 +302,10 @@
       };
       setTileClass('#tile-oee', ovOEE, THRESH.oee);
       setTileClass('#tile-av',  ovAvail, THRESH.availability);
-      setTileClass('#tile-pr',  ovPerfAdj, THRESH.capacityAdj); // using adj perf for both perf tiles
+      setTileClass('#tile-pr',  ovPerfAdj, THRESH.capacityAdj);
       setTileClass('#tile-pa',  ovPerfAdj, THRESH.capacityAdj);
 
-      // ---------- Render Line Tiles (using range aggregates) ----------
+      /* ---------- Render Line Tiles ---------- */
       const cont = document.getElementById('lineTiles'); cont.innerHTML = '';
       perLine.forEach(r => {
         const tileGrade = grade(r.oee, THRESH.oee);
@@ -325,7 +330,7 @@
               <div class="m"><div class="lab">Perf Raw</div><div class="val">${(r.perfRaw*100).toFixed(0)}%</div></div>
               <div class="m"><div class="lab">Perf Adj</div><div class="val">${(r.perfAdj*100).toFixed(0)}%</div></div>
               <div class="m"><div class="lab">Pounds</div><div class="val">${r.lbs.toLocaleString()}</div></div>
-              <div class="m"><div class="lab">Capacity</div><div class="val">${r.cap?r.cap.toLocaleString():'--'}</div></div>
+              <div class="m"><div class="lab">Run Hrs</div><div class="val">${(r.mach>0?r.mach:(r.cap>0?r.lbs/r.cap:0)).toFixed(1)}</div></div>
             </div>
           </div>
           <div class="lt-right">
@@ -335,7 +340,7 @@
         cont.appendChild(el);
       });
 
-      // ---------- Heatmap (weekday averages) ----------
+      /* ---------- Heatmap (weekday averages) ---------- */
       (function renderHeatmap(){
         const days = ['Mon','Tue','Wed','Thu','Fri'];
         const weekday = d => ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][new Date(d).getDay()];
@@ -365,9 +370,8 @@
         document.getElementById('heat').innerHTML = html;
       })();
 
-      // ---------- Trend (overall extruders) ----------
+      /* ---------- Trend (overall extruders) ---------- */
       (function renderTrend(){
-        // Build per-date totals from byline to show Actual lbs, Nameplate 24h, Adj Capacity
         const byDate = new Map(); for (const d of dates) byDate.set(d, { lbs:0, nameplate:0, adjcap:0 });
         for (const r of byline) {
           const d = r.src_date; if (!byDate.has(d)) continue;
@@ -390,6 +394,10 @@
         const namePts = toLine(pts.map(p=>p.nameplate));
         const adjPts  = toLine(pts.map(p=>p.adjcap));
 
+        const css = getComputedStyle(document.documentElement);
+        const good = css.getPropertyValue('--good-fg').trim() || '#22c55e';
+        const warn = css.getPropertyValue('--warn-fg').trim() || '#f59e0b';
+
         let grid=''; for(let i=0;i<=4;i++){ const y=30+(i/4)*ch;
           grid += `<line x1="${padL}" y1="${y}" x2="${w-20}" y2="${y}" stroke="#D7E0F3" stroke-width="1" opacity="0.7"/>`;
         }
@@ -398,8 +406,8 @@
         const svg = `<svg viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg">
           <rect x="0" y="0" width="100%" height="100%" fill="#F7F9FF"/>
           ${grid}
-          <polyline fill="none" stroke="${getComputedStyle(document.documentElement).getPropertyValue('--good-fg').trim() || '#22c55e'}" stroke-width="3" points="${namePts}"/>
-          <polyline fill="none" stroke="${getComputedStyle(document.documentElement).getPropertyValue('--warn-fg').trim() || '#f59e0b'}" stroke-width="3" points="${adjPts}"/>
+          <polyline fill="none" stroke="${good}" stroke-width="3" points="${namePts}"/>
+          <polyline fill="none" stroke="${warn}" stroke-width="3" points="${adjPts}"/>
           <polyline fill="none" stroke="#2563eb" stroke-width="3" points="${lbsPts}"/>
           ${xlabels}
         </svg>`;
