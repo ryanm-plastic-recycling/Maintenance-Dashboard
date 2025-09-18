@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Production Data</title>
+  <style>
+    :root{
+      --pri-blue:#25408F; --pri-green:#92D050; --bg:#E9EDF5; --card:#FBFCFE; --ink:#0F172A; --muted:#475569;
+      --ok:#11A85B; --warn:#F59E0B; --bad:#D32F2F;
+      --ok-bg:#dcfce7; --warn-bg:#fef9c3; --bad-bg:#fee2e2;
+      --border:#D7E0F3;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,Segoe UI,Arial,sans-serif}
+
+    /* Header */
+    .top-border{position:fixed;top:0;left:0;width:100%;height:96px;background:var(--pri-green);z-index:10;display:flex;align-items:center;padding:0 20px}
+    .top-border .logo{height:72px}
+    .top-title{font-size:28px;font-weight:900;margin-left:20px;color:#0A2A12}
+    .tabs{margin-left:auto;display:flex;gap:8px}
+    .tab{background:#ffffffd9;padding:8px 12px;border-radius:10px;text-decoration:none;color:#0A2A12;font-weight:700}
+    .tab.active{background:#fff}
+
+    /* Page */
+    .wrap{margin:120px 20px 40px 20px}
+    .controls{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin:0 0 16px}
+    .meta-range{color:var(--muted);font-size:13px}
+
+    /* Overall KPI tiles */
+    .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-top:6px}
+    .tile{background:var(--card);padding:10px 12px;border-radius:12px;box-shadow:0 2px 4px rgba(0,0,0,.08);border:1px solid var(--border);text-align:center;min-height:70px}
+    .tile .lab{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.3px}
+    .tile .val{font-size:22px;font-weight:900;margin-top:4px}
+    .tile.good{background:var(--ok-bg)} .tile.warn{background:var(--warn-bg)} .tile.bad{background:var(--bad-bg)}
+
+    /* Two-column layout (line tiles + heatmap) */
+    .grid{display:grid;grid-template-columns:1.2fr .8fr;gap:14px;margin-top:14px}
+    @media (max-width:1100px){ .grid{grid-template-columns:1fr} }
+
+    .card{background:var(--card);border-radius:12px;border:1px solid var(--border);box-shadow:0 2px 6px rgba(0,0,0,.1);padding:12px}
+    .card h3{margin:0 0 8px;font-size:18px;color:var(--pri-blue);display:flex;align-items:center;gap:8px}
+    .card .sub{font-size:12px;color:var(--muted);font-weight:600}
+
+    /* LINE TILES */
+    .line-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:10px}
+    .lt-card{background:#fff;border:1px solid var(--border);border-radius:12px;padding:10px;display:grid;grid-template-columns:1fr 140px;gap:10px}
+    .lt-head{display:flex;align-items:baseline;justify-content:space-between}
+    .lt-name{font-weight:900}
+    .lt-nameplate{font-size:12px;color:var(--muted)}
+    .lt-badges{display:flex;gap:6px;margin-top:6px}
+    .badge{padding:2px 8px;border-radius:999px;font-size:12px;font-weight:800;border:1px solid #0001}
+    .badge.maint{background:#FEE8A6;color:#3B2F0A}
+    .badge.prod {background:#DBE6FF;color:#0D246F}
+    .lt-metrics{display:grid;grid-template-columns:repeat(2,1fr);gap:6px}
+    .m{background:#f7fafc;border:1px solid var(--border);border-radius:10px;padding:8px;text-align:center}
+    .m .lab{font-size:11px;color:var(--muted)}
+    .m .val{font-weight:900}
+    .good.m{background:var(--ok-bg)} .warn.m{background:var(--warn-bg)} .bad.m{background:var(--bad-bg)}
+    .lt-right{display:flex;flex-direction:column;gap:6px;align-items:center;justify-content:center}
+
+    /* simple “speedo” gauge */
+    .speedo{width:120px;height:70px}
+    .speedo .cap{font-size:11px;color:var(--muted);text-align:center;margin-top:-4px}
+
+    /* HEATMAP table */
+    table{width:100%;border-collapse:collapse;margin-top:6px}
+    th,td{padding:8px;border-bottom:1px solid #E1E9F8;text-align:center}
+    th{background:var(--pri-blue);color:#fff;font-size:13px;position:sticky;top:0}
+    td.line{text-align:left;font-weight:700}
+    .good{background:var(--ok-bg)} .warn{background:var(--warn-bg)} .bad{background:var(--bad-bg)}
+
+    /* CHART section */
+    .chart-section{margin-top:16px}
+    .chart-container{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:10px}
+    .chart-container h2{margin:0 0 6px;color:var(--pri-blue);display:flex;gap:8px;align-items:center}
+    .chart-container .sub{font-size:12px;color:var(--muted);font-weight:600}
+    .chart{background:linear-gradient(180deg,#F7F9FF,#EEF3FF);border:1px solid var(--border);border-radius:10px;padding:6px}
+    .chart svg{width:100%;height:260px;display:block}
+  </style>
+</head>
+<body>
+  <div class="top-border">
+    <img src="img/pri-logo.png" alt="PRI Logo" class="logo" />
+    <div class="top-title">Production Data</div>
+    <div class="tabs">
+      <a class="tab" href="index.html">Work Orders</a>
+      <a class="tab" href="pm.html">PM</a>
+      <a class="tab" href="prodstatus.html">Prod Status</a>
+      <a class="tab" href="kpi-by-asset.html">KPIs by Asset</a>
+      <a class="tab active" href="#">Production</a>
+      <a class="tab" href="production.html">Production V1</a>
+      <a class="tab" href="productionv2.html">Production V2</a>
+      <a class="tab" href="productionv3.html">Production V3</a>
+      <a class="tab" href="admin">Admin</a>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <div class="controls">
+      <span class="meta-range">Timeframe: <strong>Last 30 days</strong> (Weekdays only; Shifts A/B/C)</span>
+    </div>
+
+    <!-- OVERALL KPIs -->
+    <section>
+      <h2>Overall KPIs <span class="sub">(Last 30 days)</span></h2>
+      <div class="kpis">
+        <div class="tile good"><div class="lab">OEE</div><div class="val" id="ov-oee">--%</div></div>
+        <div class="tile good"><div class="lab">Availability</div><div class="val" id="ov-av">--%</div></div>
+        <div class="tile"><div class="lab">Performance (Raw 24h)</div><div class="val" id="ov-pr">--%</div></div>
+        <div class="tile"><div class="lab">Performance (Adj for DT)</div><div class="val" id="ov-pa">--%</div></div>
+        <div class="tile"><div class="lab">Total Pounds</div><div class="val" id="ov-lbs">--</div></div>
+        <div class="tile"><div class="lab">Maint DT (h)</div><div class="val" id="ov-mdt">--</div></div>
+        <div class="tile"><div class="lab">Prod DT (h)</div><div class="val" id="ov-pdt">--</div></div>
+      </div>
+    </section>
+
+    <!-- LINE TILES + HEATMAP -->
+    <section class="grid">
+      <div class="card">
+        <h3>Line Tiles <span class="sub">(Lines 1–9 • Last 30 days)</span></h3>
+        <div id="lineTiles" class="line-tiles"></div>
+      </div>
+
+      <div class="card">
+        <h3>Weekday OEE Heatmap <span class="sub">(Last 30 days)</span></h3>
+        <table id="heat"></table>
+      </div>
+    </section>
+
+    <!-- RENDERED CHART -->
+    <section class="chart-section">
+      <div class="chart-container">
+        <h2>Production Trend <span class="sub">(Last 30 days)</span></h2>
+        <div class="chart"><div id="trendChart"></div></div>
+      </div>
+    </section>
+  </div>
+
+<script>
+/*** CONFIG ***/
+const THRESH = { capacityAdj:{good:0.95,warn:0.85}, oee:{good:0.75,warn:0.60}, availability:{good:0.90,warn:0.80}, quality:{good:0.99,warn:0.98} };
+const LINES = [
+  { id:"LINE_1", name:"Line 1", hourlyCapacityLbs: 4200 },
+  { id:"LINE_2", name:"Line 2", hourlyCapacityLbs: 3800 },
+  { id:"LINE_3", name:"Line 3", hourlyCapacityLbs: 4100 },
+  { id:"LINE_4", name:"Line 4", hourlyCapacityLbs: 3600 },
+  { id:"LINE_5", name:"Line 5", hourlyCapacityLbs: 4000 },
+  { id:"LINE_6", name:"Line 6", hourlyCapacityLbs: 4400 },
+  { id:"LINE_7", name:"Line 7", hourlyCapacityLbs: 3950 },
+  { id:"LINE_8", name:"Line 8", hourlyCapacityLbs: 3700 },
+  { id:"LINE_9", name:"Line 9", hourlyCapacityLbs: 4300 }
+];
+const SAMPLE_ROWS = [
+  ["2025-08-23","STOCK 25/2","PL003629","28 (1500)","NEW NON LOGO BOXES","PP","BLK","PEL",""],
+  ["2025-08-23","STOCK 25/2","PL003661","28 (1500)","NEW NON LOGO BOXES","PP","BLK","PEL",""],
+  ["2025-08-24","STOCK 25/2","PL003662","28 (1500)","NEW NON LOGO BOXES","PP","BLK","PEL",""],
+  ["2025-08-24","STOCK 25/2","PL003663","28 (1500)","NEW NON LOGO BOXES","PP","BLK","PEL",""],
+  ["2025-08-25","STOCK 25/2","PL003664","28 (1500)","NEW NON LOGO BOXES","PP","BLK","PEL",""],
+  ["2025-08-27","COPP 20-03","PL003555","28 (1500)","NEW NON LOGO BOXES","PP","BLK","PEL",""],
+  ["2025-09-04","PP SAMPLE","PL003734","3 (1500)","NEW NON LOGO BOXES","PP","BLK","PEL",""],
+  ["2025-09-04","PP SAMPLE","PL003735","3 (1500)","NEW NON LOGO BOXES","PP","BLK","PEL",""],
+  ["2025-09-10","STOCK 25/2","PL003675","28 (1500)","NEW NON LOGO BOXES","PP","BLK","PEL",""]
+];
+
+/*** HELPERS ***/
+function mockMaintHours(dateStr,lineId){const seed=[...dateStr+lineId].reduce((a,c)=>a+c.charCodeAt(0),0);return (seed%7)*0.6}
+function estimateRuntimeHours(lbs,cap){return Math.min(24,lbs/Math.max(1,cap))}
+function parseCountToPounds(t){const m=String(t).match(/(\d+)\s*\(\s*(\d+)\s*\)/);return m?parseInt(m[1])*parseInt(m[2]):0}
+const SHIFTS=["A","B","C"];
+function clsBy(v,{good,warn}){return v>=good?'good':v>=warn?'warn':'bad'}
+function formatPct(x){return isFinite(x)?(x*100).toFixed(0)+"%":"--%"}
+function formatLbs(x){return isFinite(x)?x.toLocaleString()+" lb":"-- lb"}
+function formatLbsHr(x){return isFinite(x)?x.toFixed(0)+" lb/hr":"-- lb/hr"}
+
+/*** SPEEDO SVG ***/
+function speedoSVG(value,label){
+  const pct=Math.max(0,Math.min(1,value));
+  const start=Math.PI, end=Math.PI*(1-pct), R=48, cx=60, cy=60;
+  const sx=cx+R*Math.cos(start), sy=cy+R*Math.sin(start);
+  const ex=cx+R*Math.cos(end),   ey=cy+R*Math.sin(end);
+  const largeArc=pct>0.5?1:0;
+  return `<div class="speedo">
+    <svg viewBox="0 0 120 80" xmlns="http://www.w3.org/2000/svg">
+      <path d="M ${cx-R} ${cy} A ${R} ${R} 0 1 1 ${cx+R} ${cy}" fill="none" stroke="#e5e7eb" stroke-width="10"/>
+      <path d="M ${sx} ${sy} A ${R} ${R} 0 ${largeArc} 1 ${ex} ${ey}" fill="none" stroke="#111827" stroke-width="10" stroke-linecap="round"/>
+      <text x="60" y="48" text-anchor="middle" font-size="18" font-weight="800">${formatPct(pct)}</text>
+    </svg>
+    <div class="cap">${label}</div>
+  </div>`;
+}
+
+/*** MOCK -> DAILY AGGREGATES ***/
+function buildDemoData(){
+  const byKey={};
+  for(const r of SAMPLE_ROWS){
+    const [d,customer,lot,countTxt]=r; const pounds=parseCountToPounds(countTxt);
+    const line=LINES[(lot.charCodeAt(5)+lot.charCodeAt(6))%LINES.length];
+    const shift=SHIFTS[(lot.charCodeAt(7))%3];
+    const key=`${line.id}|${d}`;
+    if(!byKey[key]) byKey[key]={ line, date:d, producedLbs:0, shifts:{} };
+    byKey[key].producedLbs+=pounds;
+    byKey[key].shifts[shift]=(byKey[key].shifts[shift]||0)+pounds;
+  }
+  return Object.values(byKey).map(rec=>{
+    const maint=mockMaintHours(rec.date,rec.line.id);
+    const runtime=estimateRuntimeHours(rec.producedLbs,rec.line.hourlyCapacityLbs);
+    const prodDT=Math.max(0,24-maint-runtime);
+    const totalDT=maint+prodDT;
+    const availability=(24-totalDT)/24;
+    const perfRaw=rec.producedLbs/(rec.line.hourlyCapacityLbs*24);
+    const perfAdj=rec.producedLbs/(rec.line.hourlyCapacityLbs*Math.max(1,24-totalDT));
+    const quality=1.0;
+    const oee=availability*perfAdj*quality;
+    const lbsPerHr=rec.producedLbs/Math.max(1,runtime);
+    return {...rec, maintDT:maint, prodDT, totalDT, availability, perfRaw, perfAdj, quality, oee, runtimeHours:runtime, lbsPerHr};
+  });
+}
+
+/*** TREND CHART (inline SVG) ***/
+function renderTrend(data){
+  // group by date across all lines
+  const byDate={};
+  for(const r of data){
+    const d=r.date;
+    if(!byDate[d]) byDate[d]={lbs:0,nameplate:0,adjcap:0};
+    byDate[d].lbs+=r.producedLbs;
+    byDate[d].nameplate+=r.line.hourlyCapacityLbs*24;
+    byDate[d].adjcap+=r.line.hourlyCapacityLbs*Math.max(0,(24 - r.totalDT));
+  }
+  const days=Object.keys(byDate).sort();
+  const points=days.map(d=>byDate[d]);
+  const max=Math.max(1,...points.map(p=>Math.max(p.lbs,p.nameplate,p.adjcap)));
+
+  const w=900,h=260,padL=50,padB=30, cw=w-padL-20, ch=h-padB-40;
+  const sx=i => padL + (i/Math.max(1,points.length-1))*cw;
+  const sy=v => 30 + ch - (v/max)*ch;
+
+  const toLine = arr => arr.map((p,i)=>`${sx(i)},${sy(p)}`).join(' ');
+  const lbsPts  = toLine(points.map(p=>p.lbs));
+  const namePts = toLine(points.map(p=>p.nameplate));
+  const adjPts  = toLine(points.map(p=>p.adjcap));
+
+  let grid=''; for(let i=0;i<=4;i++){ const y=30 + (i/4)*ch;
+    grid += `<line x1="${padL}" y1="${y}" x2="${w-20}" y2="${y}" stroke="#D7E0F3" stroke-width="1" opacity="0.7"/>`;
+  }
+  const xlabels = days.map((d,i)=>`<text x="${sx(i)}" y="${h-10}" text-anchor="middle" fill="#475569" font-size="12">${d.slice(5)}</text>`).join('');
+
+  const svg = `<svg viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg">
+    <rect x="0" y="0" width="100%" height="100%" fill="#F7F9FF"/>
+    ${grid}
+    <polyline fill="none" stroke="#22c55e" stroke-width="3" points="${namePts}"/>
+    <polyline fill="none" stroke="#f59e0b" stroke-width="3" points="${adjPts}"/>
+    <polyline fill="none" stroke="#2563eb" stroke-width="3" points="${lbsPts}"/>
+    ${xlabels}
+    <g font-size="12" fill="#0f172a" font-weight="700">
+      <rect x="${w-260}" y="8" width="240" height="26" rx="6" fill="#EEF3FF" stroke="#D7E0F3"/>
+      <circle cx="${w-244}" cy="21" r="5" fill="#2563eb"/><text x="${w-232}" y="25">Actual lbs</text>
+      <circle cx="${w-168}" cy="21" r="5" fill="#22c55e"/><text x="${w-156}" y="25">Nameplate 24h</text>
+      <circle cx="${w-86}"  cy="21" r="5" fill="#f59e0b"/><text x="${w-74}"  y="25">Adj Capacity</text>
+    </g>
+  </svg>`;
+  document.getElementById('trendChart').innerHTML = svg;
+}
+
+/*** RENDER ***/
+function render(){
+  const data = buildDemoData();
+
+  // Overall
+  const agg = data.reduce((a,r)=>({lbs:a.lbs+r.producedLbs, m:a.m+r.maintDT, p:a.p+r.prodDT}), {lbs:0,m:0,p:0});
+  const dt = agg.m + agg.p;
+  const avail = (data.length? (24*data.length - dt)/(24*data.length) : 0);
+  const avgCap = LINES.reduce((a,l)=>a+l.hourlyCapacityLbs,0)/LINES.length;
+  const perfRaw = agg.lbs / ((24*data.length)*avgCap);
+  const perfAdj = agg.lbs / (Math.max(1,(24*data.length - dt))*avgCap);
+  const oee = avail * perfAdj * 1.0;
+
+  document.getElementById('ov-oee').textContent = formatPct(oee);
+  document.getElementById('ov-av').textContent  = formatPct(avail);
+  document.getElementById('ov-pr').textContent  = formatPct(perfRaw);
+  document.getElementById('ov-pa').textContent  = formatPct(perfAdj);
+  document.getElementById('ov-lbs').textContent = formatLbs(agg.lbs);
+  document.getElementById('ov-mdt').textContent = agg.m.toFixed(1);
+  document.getElementById('ov-pdt').textContent = agg.p.toFixed(1);
+
+  // Latest per line (one record each for demo)
+  const latest = {}; data.forEach(r=>latest[r.line.id]=r);
+
+  // Line tiles
+  const cont = document.getElementById('lineTiles'); cont.innerHTML='';
+  for(const line of LINES){
+    const r = latest[line.id];
+    const oeeCls  = r? clsBy(r.oee, THRESH.oee) : '';
+    const avCls   = r? clsBy(r.availability, THRESH.availability) : '';
+    const prCls   = r? clsBy(r.perfRaw, THRESH.capacityAdj) : '';
+    const paCls   = r? clsBy(r.perfAdj, THRESH.capacityAdj) : '';
+    const lbsHr   = r? formatLbsHr(r.lbsPerHr) : '--';
+    const pounds  = r? formatLbs(r.producedLbs) : '--';
+
+    const el = document.createElement('div');
+    el.className = 'lt-card';
+    el.innerHTML = `
+      <div>
+        <div class="lt-head">
+          <div class="lt-name">${line.name}</div>
+          <div class="lt-nameplate">Nameplate ${line.hourlyCapacityLbs.toLocaleString()} lb/hr</div>
+        </div>
+        <div class="lt-badges">
+          <span class="badge maint">Maint DT ${r?r.maintDT.toFixed(1):'-'}h</span>
+          <span class="badge prod">Prod DT ${r?r.prodDT.toFixed(1):'-'}h</span>
+        </div>
+        <div class="lt-metrics" style="margin-top:6px">
+          <div class="m ${oeeCls}"><div class="lab">OEE</div><div class="val">${r?formatPct(r.oee):'--%'}</div></div>
+          <div class="m ${avCls}"><div class="lab">Availability</div><div class="val">${r?formatPct(r.availability):'--%'}</div></div>
+          <div class="m ${prCls}"><div class="lab">Perf Raw</div><div class="val">${r?formatPct(r.perfRaw):'--%'}</div></div>
+          <div class="m ${paCls}"><div class="lab">Perf Adj</div><div class="val">${r?formatPct(r.perfAdj):'--%'}</div></div>
+          <div class="m"><div class="lab">Run Rate</div><div class="val">${lbsHr}</div></div>
+          <div class="m"><div class="lab">Pounds</div><div class="val">${pounds}</div></div>
+        </div>
+      </div>
+      <div class="lt-right">
+        ${speedoSVG(r? r.perfRaw : 0, 'Raw 24h')}
+        ${speedoSVG(r? r.perfAdj : 0, 'Adj for DT')}
+      </div>`;
+    cont.appendChild(el);
+  }
+
+  // Heatmap
+  const days=['Mon','Tue','Wed','Thu','Fri'];
+  let html = '<thead><tr><th>Line</th>'+days.map(d=>`<th>${d}</th>`).join('')+'</tr></thead><tbody>';
+  for(const line of LINES){
+    html += `<tr><td class="line">${line.name}</td>`;
+    for(const d of days){
+      const val = latest[line.id]?.oee ?? Math.random();
+      const c = clsBy(val, THRESH.oee);
+      html += `<td class="${c}">${formatPct(val)}</td>`;
+    }
+    html += '</tr>';
+  }
+  html += '</tbody>';
+  document.getElementById('heat').innerHTML = html;
+
+  // Trend chart
+  renderTrend(data);
+}
+
+render();
+</script>
+</body>
+</html>
