@@ -17,6 +17,15 @@ const N = (v) => {
 };
 const D = (v) => {
   if (v === null || v === undefined || v === '') return null;
+
+  // Excel serial date (days since 1899-12-30). Graph often returns numbers like 43173.
+  if (typeof v === 'number' && Number.isFinite(v)) {
+    const base = new Date(Date.UTC(1899, 11, 30)); // 1899-12-30
+    const ms = Math.round(v * 86400000);           // days -> ms
+    return new Date(base.getTime() + ms);
+  }
+
+  // Strings like "3/14/2018" or ISO should still work
   const d = new Date(v);
   return Number.isNaN(d.getTime()) ? null : d;
 };
