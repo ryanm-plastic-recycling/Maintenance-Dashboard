@@ -29,6 +29,10 @@ const getTableRows = async (token) => {
   return (j.value || []).map(r => r.values?.[0] || []);  // each row.values is 2D
 };
 
+const rows  = await getTableRows(token);
+console.log('[prod-excel] rows from Graph:', rows.length);
+if (rows[0]) console.log('[prod-excel] sample first row:', rows[0]);
+
 const upsertStaging = async (pool, rows) => {
   if (!rows.length) return 0;
 
@@ -43,6 +47,7 @@ const upsertStaging = async (pool, rows) => {
   const request = new sql.Request(pool);
   // Use TVP (table-valued parameter) or bulk insert; here is a simple row-by-row pattern for clarity.
   // inside upsertStaging(pool, rows)
+  console.log('[prod-excel] inserting', bodyRows.length, 'rows into staging');
   for (const r of bodyRows) {
     const rec = Object.fromEntries(hdr.map((k,i)=>[k, r[i]]));
   
