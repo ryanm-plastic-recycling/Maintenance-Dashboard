@@ -138,214 +138,165 @@
   </div>
 
 <script>
-/*** CONFIG ***/
-const THRESH = { capacityAdj:{good:0.95,warn:0.85}, oee:{good:0.75,warn:0.60}, availability:{good:0.90,warn:0.80}, quality:{good:0.99,warn:0.98} };
-const LINES = [
-  { id:"LINE_1", name:"Line 1", hourlyCapacityLbs: 4200 },
-  { id:"LINE_2", name:"Line 2", hourlyCapacityLbs: 3800 },
-  { id:"LINE_3", name:"Line 3", hourlyCapacityLbs: 4100 },
-  { id:"LINE_4", name:"Line 4", hourlyCapacityLbs: 3600 },
-  { id:"LINE_5", name:"Line 5", hourlyCapacityLbs: 4000 },
-  { id:"LINE_6", name:"Line 6", hourlyCapacityLbs: 4400 },
-  { id:"LINE_7", name:"Line 7", hourlyCapacityLbs: 3950 },
-  { id:"LINE_8", name:"Line 8", hourlyCapacityLbs: 3700 },
-  { id:"LINE_9", name:"Line 9", hourlyCapacityLbs: 4300 }
-];
-const SAMPLE_ROWS = [
-  ["2025-08-23","STOCK 25/2","PL003629","28 (1500)","NEW NON LOGO BOXES","PP","BLK","PEL",""],
-  ["2025-08-23","STOCK 25/2","PL003661","28 (1500)","NEW NON LOGO BOXES","PP","BLK","PEL",""],
-  ["2025-08-24","STOCK 25/2","PL003662","28 (1500)","NEW NON LOGO BOXES","PP","BLK","PEL",""],
-  ["2025-08-24","STOCK 25/2","PL003663","28 (1500)","NEW NON LOGO BOXES","PP","BLK","PEL",""],
-  ["2025-08-25","STOCK 25/2","PL003664","28 (1500)","NEW NON LOGO BOXES","PP","BLK","PEL",""],
-  ["2025-08-27","COPP 20-03","PL003555","28 (1500)","NEW NON LOGO BOXES","PP","BLK","PEL",""],
-  ["2025-09-04","PP SAMPLE","PL003734","3 (1500)","NEW NON LOGO BOXES","PP","BLK","PEL",""],
-  ["2025-09-04","PP SAMPLE","PL003735","3 (1500)","NEW NON LOGO BOXES","PP","BLK","PEL",""],
-  ["2025-09-10","STOCK 25/2","PL003675","28 (1500)","NEW NON LOGO BOXES","PP","BLK","PEL",""]
-];
+(async function () {
+  // --- helpers ---
+  const qs = s => document.querySelector(s);
+  const fmtPct = v => (v == null ? '0%' : (v*100).toFixed(0) + '%');
+  const fmtNum = v => (v == null ? '0' : Number(v).toLocaleString());
+  const isWeekday = d => { const n = d.getDay(); return n !== 0 && n !== 6; };
 
-/*** HELPERS ***/
-function mockMaintHours(dateStr,lineId){const seed=[...dateStr+lineId].reduce((a,c)=>a+c.charCodeAt(0),0);return (seed%7)*0.6}
-function estimateRuntimeHours(lbs,cap){return Math.min(24,lbs/Math.max(1,cap))}
-function parseCountToPounds(t){const m=String(t).match(/(\d+)\s*\(\s*(\d+)\s*\)/);return m?parseInt(m[1])*parseInt(m[2]):0}
-const SHIFTS=["A","B","C"];
-function clsBy(v,{good,warn}){return v>=good?'good':v>=warn?'warn':'bad'}
-function formatPct(x){return isFinite(x)?(x*100).toFixed(0)+"%":"--%"}
-function formatLbs(x){return isFinite(x)?x.toLocaleString()+" lb":"-- lb"}
-function formatLbsHr(x){return isFinite(x)?x.toFixed(0)+" lb/hr":"-- lb/hr"}
+  const today = new Date();
+  const to   = today.toISOString().slice(0,10);
+  const fromD = new Date(today); fromD.setDate(fromD.getDate() - 29); // 30-day window
+  const from = fromD.toISOString().slice(0,10);
 
-/*** SPEEDO SVG ***/
-function speedoSVG(value,label){
-  const pct=Math.max(0,Math.min(1,value));
-  const start=Math.PI, end=Math.PI*(1-pct), R=48, cx=60, cy=60;
-  const sx=cx+R*Math.cos(start), sy=cy+R*Math.sin(start);
-  const ex=cx+R*Math.cos(end),   ey=cy+R*Math.sin(end);
-  const largeArc=pct>0.5?1:0;
-  return `<div class="speedo">
-    <svg viewBox="0 0 120 80" xmlns="http://www.w3.org/2000/svg">
-      <path d="M ${cx-R} ${cy} A ${R} ${R} 0 1 1 ${cx+R} ${cy}" fill="none" stroke="#e5e7eb" stroke-width="10"/>
-      <path d="M ${sx} ${sy} A ${R} ${R} 0 ${largeArc} 1 ${ex} ${ey}" fill="none" stroke="#111827" stroke-width="10" stroke-linecap="round"/>
-      <text x="60" y="48" text-anchor="middle" font-size="18" font-weight="800">${formatPct(pct)}</text>
-    </svg>
-    <div class="cap">${label}</div>
-  </div>`;
-}
-
-/*** MOCK -> DAILY AGGREGATES ***/
-function buildDemoData(){
-  const byKey={};
-  for(const r of SAMPLE_ROWS){
-    const [d,customer,lot,countTxt]=r; const pounds=parseCountToPounds(countTxt);
-    const line=LINES[(lot.charCodeAt(5)+lot.charCodeAt(6))%LINES.length];
-    const shift=SHIFTS[(lot.charCodeAt(7))%3];
-    const key=`${line.id}|${d}`;
-    if(!byKey[key]) byKey[key]={ line, date:d, producedLbs:0, shifts:{} };
-    byKey[key].producedLbs+=pounds;
-    byKey[key].shifts[shift]=(byKey[key].shifts[shift]||0)+pounds;
+  // build full date list (weekdays only to match your assumption)
+  const dates = [];
+  for (let d = new Date(fromD); d <= today; d.setDate(d.getDate()+1)) {
+    if (isWeekday(d)) dates.push(new Date(d).toISOString().slice(0,10));
   }
-  return Object.values(byKey).map(rec=>{
-    const maint=mockMaintHours(rec.date,rec.line.id);
-    const runtime=estimateRuntimeHours(rec.producedLbs,rec.line.hourlyCapacityLbs);
-    const prodDT=Math.max(0,24-maint-runtime);
-    const totalDT=maint+prodDT;
-    const availability=(24-totalDT)/24;
-    const perfRaw=rec.producedLbs/(rec.line.hourlyCapacityLbs*24);
-    const perfAdj=rec.producedLbs/(rec.line.hourlyCapacityLbs*Math.max(1,24-totalDT));
-    const quality=1.0;
-    const oee=availability*perfAdj*quality;
-    const lbsPerHr=rec.producedLbs/Math.max(1,runtime);
-    return {...rec, maintDT:maint, prodDT, totalDT, availability, perfRaw, perfAdj, quality, oee, runtimeHours:runtime, lbsPerHr};
+
+  // --- fetch from API ---
+  const [summaryRaw, bylineRaw] = await Promise.all([
+    fetch(`/api/production/summary?from=${from}&to=${to}`).then(r=>r.json()),
+    fetch(`/api/production/by-line?from=${from}&to=${to}`).then(r=>r.json())
+  ]);
+
+  // keep extruders only
+  const byline = (bylineRaw || []).filter(r => r.machine && r.machine.startsWith('Extruder'));
+  const summary = summaryRaw || [];
+
+  // --- fill missing dates with zeros (overall) ---
+  const summaryByDate = new Map(summary.map(r => [r.src_date, r]));
+  const overall = dates.map(d => {
+    const r = summaryByDate.get(d);
+    return {
+      src_date: d,
+      pounds: r?.pounds ?? 0,
+      availability: r?.availability ?? 0,
+      perf_adj: r?.perf_adj ?? 0,
+      oee: r?.oee ?? 0
+    };
   });
-}
 
-/*** TREND CHART (inline SVG) ***/
-function renderTrend(data){
-  // group by date across all lines
-  const byDate={};
-  for(const r of data){
-    const d=r.date;
-    if(!byDate[d]) byDate[d]={lbs:0,nameplate:0,adjcap:0};
-    byDate[d].lbs+=r.producedLbs;
-    byDate[d].nameplate+=r.line.hourlyCapacityLbs*24;
-    byDate[d].adjcap+=r.line.hourlyCapacityLbs*Math.max(0,(24 - r.totalDT));
-  }
-  const days=Object.keys(byDate).sort();
-  const points=days.map(d=>byDate[d]);
-  const max=Math.max(1,...points.map(p=>Math.max(p.lbs,p.nameplate,p.adjcap)));
+  // --- overall tiles (use last day in filled series) ---
+  const last = overall[overall.length-1] || { pounds:0, availability:0, perf_adj:0, oee:0 };
+  const totalLbs = overall.reduce((s,x)=>s+(x.pounds||0),0);
+  // For DT totals across extruders in range:
+  const dtAgg = byline.reduce((a,r)=>({m:a.m+(r.maint_dt_h||0), p:a.p+(r.prod_dt_h||0)}), {m:0,p:0});
 
-  const w=900,h=260,padL=50,padB=30, cw=w-padL-20, ch=h-padB-40;
-  const sx=i => padL + (i/Math.max(1,points.length-1))*cw;
-  const sy=v => 30 + ch - (v/max)*ch;
+  qs('#ov-oee').textContent = fmtPct(last.oee);
+  qs('#ov-av').textContent  = fmtPct(last.availability);
+  qs('#ov-pr').textContent  = fmtPct(last.perf_adj);      // using adj perf in both tiles per your preference
+  qs('#ov-pa').textContent  = fmtPct(last.perf_adj);
+  qs('#ov-lbs').textContent = fmtNum(totalLbs);
+  qs('#ov-mdt').textContent = (dtAgg.m).toFixed(1);
+  qs('#ov-pdt').textContent = (dtAgg.p).toFixed(1);
 
-  const toLine = arr => arr.map((p,i)=>`${sx(i)},${sy(p)}`).join(' ');
-  const lbsPts  = toLine(points.map(p=>p.lbs));
-  const namePts = toLine(points.map(p=>p.nameplate));
-  const adjPts  = toLine(points.map(p=>p.adjcap));
-
-  let grid=''; for(let i=0;i<=4;i++){ const y=30 + (i/4)*ch;
-    grid += `<line x1="${padL}" y1="${y}" x2="${w-20}" y2="${y}" stroke="#D7E0F3" stroke-width="1" opacity="0.7"/>`;
-  }
-  const xlabels = days.map((d,i)=>`<text x="${sx(i)}" y="${h-10}" text-anchor="middle" fill="#475569" font-size="12">${d.slice(5)}</text>`).join('');
-
-  const svg = `<svg viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg">
-    <rect x="0" y="0" width="100%" height="100%" fill="#F7F9FF"/>
-    ${grid}
-    <polyline fill="none" stroke="#22c55e" stroke-width="3" points="${namePts}"/>
-    <polyline fill="none" stroke="#f59e0b" stroke-width="3" points="${adjPts}"/>
-    <polyline fill="none" stroke="#2563eb" stroke-width="3" points="${lbsPts}"/>
-    ${xlabels}
-    <g font-size="12" fill="#0f172a" font-weight="700">
-      <rect x="${w-260}" y="8" width="240" height="26" rx="6" fill="#EEF3FF" stroke="#D7E0F3"/>
-      <circle cx="${w-244}" cy="21" r="5" fill="#2563eb"/><text x="${w-232}" y="25">Actual lbs</text>
-      <circle cx="${w-168}" cy="21" r="5" fill="#22c55e"/><text x="${w-156}" y="25">Nameplate 24h</text>
-      <circle cx="${w-86}"  cy="21" r="5" fill="#f59e0b"/><text x="${w-74}"  y="25">Adj Capacity</text>
-    </g>
-  </svg>`;
-  document.getElementById('trendChart').innerHTML = svg;
-}
-
-/*** RENDER ***/
-function render(){
-  const data = buildDemoData();
-
-  // Overall
-  const agg = data.reduce((a,r)=>({lbs:a.lbs+r.producedLbs, m:a.m+r.maintDT, p:a.p+r.prodDT}), {lbs:0,m:0,p:0});
-  const dt = agg.m + agg.p;
-  const avail = (data.length? (24*data.length - dt)/(24*data.length) : 0);
-  const avgCap = LINES.reduce((a,l)=>a+l.hourlyCapacityLbs,0)/LINES.length;
-  const perfRaw = agg.lbs / ((24*data.length)*avgCap);
-  const perfAdj = agg.lbs / (Math.max(1,(24*data.length - dt))*avgCap);
-  const oee = avail * perfAdj * 1.0;
-
-  document.getElementById('ov-oee').textContent = formatPct(oee);
-  document.getElementById('ov-av').textContent  = formatPct(avail);
-  document.getElementById('ov-pr').textContent  = formatPct(perfRaw);
-  document.getElementById('ov-pa').textContent  = formatPct(perfAdj);
-  document.getElementById('ov-lbs').textContent = formatLbs(agg.lbs);
-  document.getElementById('ov-mdt').textContent = agg.m.toFixed(1);
-  document.getElementById('ov-pdt').textContent = agg.p.toFixed(1);
-
-  // Latest per line (one record each for demo)
-  const latest = {}; data.forEach(r=>latest[r.line.id]=r);
-
-  // Line tiles
-  const cont = document.getElementById('lineTiles'); cont.innerHTML='';
-  for(const line of LINES){
-    const r = latest[line.id];
-    const oeeCls  = r? clsBy(r.oee, THRESH.oee) : '';
-    const avCls   = r? clsBy(r.availability, THRESH.availability) : '';
-    const prCls   = r? clsBy(r.perfRaw, THRESH.capacityAdj) : '';
-    const paCls   = r? clsBy(r.perfAdj, THRESH.capacityAdj) : '';
-    const lbsHr   = r? formatLbsHr(r.lbsPerHr) : '--';
-    const pounds  = r? formatLbs(r.producedLbs) : '--';
-
-    const el = document.createElement('div');
-    el.className = 'lt-card';
-    el.innerHTML = `
-      <div>
-        <div class="lt-head">
-          <div class="lt-name">${line.name}</div>
-          <div class="lt-nameplate">Nameplate ${line.hourlyCapacityLbs.toLocaleString()} lb/hr</div>
-        </div>
-        <div class="lt-badges">
-          <span class="badge maint">Maint DT ${r?r.maintDT.toFixed(1):'-'}h</span>
-          <span class="badge prod">Prod DT ${r?r.prodDT.toFixed(1):'-'}h</span>
-        </div>
-        <div class="lt-metrics" style="margin-top:6px">
-          <div class="m ${oeeCls}"><div class="lab">OEE</div><div class="val">${r?formatPct(r.oee):'--%'}</div></div>
-          <div class="m ${avCls}"><div class="lab">Availability</div><div class="val">${r?formatPct(r.availability):'--%'}</div></div>
-          <div class="m ${prCls}"><div class="lab">Perf Raw</div><div class="val">${r?formatPct(r.perfRaw):'--%'}</div></div>
-          <div class="m ${paCls}"><div class="lab">Perf Adj</div><div class="val">${r?formatPct(r.perfAdj):'--%'}</div></div>
-          <div class="m"><div class="lab">Run Rate</div><div class="val">${lbsHr}</div></div>
-          <div class="m"><div class="lab">Pounds</div><div class="val">${pounds}</div></div>
-        </div>
-      </div>
-      <div class="lt-right">
-        ${speedoSVG(r? r.perfRaw : 0, 'Raw 24h')}
-        ${speedoSVG(r? r.perfAdj : 0, 'Adj for DT')}
-      </div>`;
-    cont.appendChild(el);
-  }
-
-  // Heatmap
-  const days=['Mon','Tue','Wed','Thu','Fri'];
-  let html = '<thead><tr><th>Line</th>'+days.map(d=>`<th>${d}</th>`).join('')+'</tr></thead><tbody>';
-  for(const line of LINES){
-    html += `<tr><td class="line">${line.name}</td>`;
-    for(const d of days){
-      const val = latest[line.id]?.oee ?? Math.random();
-      const c = clsBy(val, THRESH.oee);
-      html += `<td class="${c}">${formatPct(val)}</td>`;
+  // --- latest per extruder line (most recent date in window) ---
+  const latestByLine = {};
+  for (const r of byline) {
+    if (!latestByLine[r.machine] || r.src_date > latestByLine[r.machine].src_date) {
+      latestByLine[r.machine] = r;
     }
-    html += '</tr>';
   }
-  html += '</tbody>';
-  document.getElementById('heat').innerHTML = html;
+  const cont = document.getElementById('lineTiles'); cont.innerHTML = '';
+  Object.values(latestByLine)
+    .sort((a,b)=>a.machine.localeCompare(b.machine))
+    .forEach(r => {
+      const cap = r.nameplate_lbs_hr || 0;
+      const pounds = r.pounds || 0;
+      const avail = r.availability ?? 0;
+      // If API already coalesced, r.perf_adj is set; else compute safe 0
+      const perfAdj = r.perf_adj ?? (cap && (24 - ((r.maint_dt_h||0)+(r.prod_dt_h||0))) > 0
+                        ? pounds / (cap * (24 - ((r.maint_dt_h||0)+(r.prod_dt_h||0))))
+                        : 0);
+      const oee = r.oee ?? (avail * perfAdj); // quality=1.0 for now
 
-  // Trend chart
-  renderTrend(data);
-}
+      const el = document.createElement('div');
+      el.className = 'lt-card';
+      el.innerHTML = `
+        <div>
+          <div class="lt-head">
+            <div class="lt-name">${r.machine}</div>
+            <div class="lt-nameplate">Nameplate ${cap?cap.toLocaleString():'--'} lb/hr</div>
+          </div>
+          <div class="lt-badges">
+            <span class="badge maint">Maint DT ${(r.maint_dt_h||0).toFixed(1)}h</span>
+            <span class="badge prod">Prod DT ${(r.prod_dt_h||0).toFixed(1)}h</span>
+          </div>
+          <div class="lt-metrics" style="margin-top:6px">
+            <div class="m"><div class="lab">OEE</div><div class="val">${fmtPct(oee)}</div></div>
+            <div class="m"><div class="lab">Availability</div><div class="val">${fmtPct(avail)}</div></div>
+            <div class="m"><div class="lab">Perf Raw</div><div class="val">${fmtPct(cap ? (pounds/(24*cap)) : 0)}</div></div>
+            <div class="m"><div class="lab">Perf Adj</div><div class="val">${fmtPct(perfAdj)}</div></div>
+            <div class="m"><div class="lab">Pounds</div><div class="val">${fmtNum(pounds)}</div></div>
+            <div class="m"><div class="lab">Capacity</div><div class="val">${cap?cap.toLocaleString():'--'}</div></div>
+          </div>
+        </div>
+        <div class="lt-right">
+          ${(()=>{ // simple speedo for Perf Raw
+            const pct = cap ? Math.max(0, Math.min(1, pounds/(24*cap))) : 0;
+            const start=Math.PI, end=Math.PI*(1-pct), R=48, cx=60, cy=60;
+            const sx=cx+R*Math.cos(start), sy=cy+R*Math.sin(start);
+            const ex=cx+R*Math.cos(end),   ey=cy+R*Math.sin(end);
+            const largeArc=pct>0.5?1:0;
+            return `<div class="speedo">
+              <svg viewBox="0 0 120 80" xmlns="http://www.w3.org/2000/svg">
+                <path d="M ${cx-R} ${cy} A ${R} ${R} 0 1 1 ${cx+R} ${cy}" fill="none" stroke="#e5e7eb" stroke-width="10"/>
+                <path d="M ${sx} ${sy} A ${R} ${R} 0 ${largeArc} 1 ${ex} ${ey}" fill="none" stroke="#111827" stroke-width="10" stroke-linecap="round"/>
+                <text x="60" y="48" text-anchor="middle" font-size="18" font-weight="800">${fmtPct(pct)}</text>
+              </svg>
+              <div class="cap">Raw 24h</div>
+            </div>`;
+          })()}
+        </div>`;
+      cont.appendChild(el);
+    });
 
-render();
+  // --- simple trend (overall lbs vs capacity) with zero-filled dates ---
+  (function renderTrend(){
+    const w=900,h=260,padL=50,padB=30, ch=h-padB-40;
+    const sx=i => padL + (i/Math.max(1,overall.length-1))*(w-padL-20);
+    const sy=v => 30 + ch - (v/max)*ch;
+
+    // Build “capacity” lines from byline extruders per day
+    const byDate = new Map();
+    for (const d of dates) byDate.set(d, { lbs:0, nameplate:0, adjcap:0 });
+    for (const r of byline) {
+      const d = r.src_date; if (!byDate.has(d)) continue;
+      const cap = r.nameplate_lbs_hr || 0;
+      const lbs = r.pounds || 0;
+      const dt  = (r.maint_dt_h||0)+(r.prod_dt_h||0);
+      byDate.get(d).lbs      += lbs;
+      byDate.get(d).nameplate+= cap*24;
+      byDate.get(d).adjcap   += cap*Math.max(0, 24 - dt);
+    }
+    const pts = dates.map(d => byDate.get(d));
+    const max = Math.max(1, ...pts.map(p => Math.max(p.lbs, p.nameplate, p.adjcap)));
+
+    const toLine = arr => arr.map((p,i)=>`${sx(i)},${sy(p)}`).join(' ');
+    const lbsPts  = toLine(pts.map(p=>p.lbs));
+    const namePts = toLine(pts.map(p=>p.nameplate));
+    const adjPts  = toLine(pts.map(p=>p.adjcap));
+
+    let grid=''; for(let i=0;i<=4;i++){ const y=30+(i/4)*ch;
+      grid += `<line x1="${padL}" y1="${y}" x2="${w-20}" y2="${y}" stroke="#D7E0F3" stroke-width="1" opacity="0.7"/>`;
+    }
+    const xlabels = dates.map((d,i)=>`<text x="${sx(i)}" y="${h-10}" text-anchor="middle" fill="#475569" font-size="12">${d.slice(5)}</text>`).join('');
+
+    const svg = `<svg viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg">
+      <rect x="0" y="0" width="100%" height="100%" fill="#F7F9FF"/>
+      ${grid}
+      <polyline fill="none" stroke="#22c55e" stroke-width="3" points="${namePts}"/>
+      <polyline fill="none" stroke="#f59e0b" stroke-width="3" points="${adjPts}"/>
+      <polyline fill="none" stroke="#2563eb" stroke-width="3" points="${lbsPts}"/>
+      ${xlabels}
+    </svg>`;
+    document.getElementById('trendChart').innerHTML = svg;
+  })();
+
+})();
 </script>
 </body>
 </html>
