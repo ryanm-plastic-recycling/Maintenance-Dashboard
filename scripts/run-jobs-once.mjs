@@ -2,6 +2,7 @@ import 'dotenv/config';
 import sql from 'mssql';
 import { refreshHeaderKpis, refreshByAssetKpis, refreshWorkOrders } from '../server/jobs/kpiJobs.js';
 import { ingestProductionExcel } from '../server/jobs/productionExcelJob.js';
+import { enrichNameplateFromMappings } from '../server/jobs/enrichNameplateJob.js';
 
 const cfg = {
   server: process.env.AZURE_SQL_SERVER,
@@ -31,6 +32,12 @@ async function main() {
     const res = await ingestProductionExcel(pool);
     console.log('Production Excel ingested:', res.rows);
   }
+
+  if (arg === '--prod-excel' || arg === '--all') {
+  const res = await ingestProductionExcel(pool);
+  console.log('Production Excel ingested:', res.rows);
+  await enrichNameplateFromMappings(pool);
+}
 
   await pool.close();
   console.log('Done:', arg);
