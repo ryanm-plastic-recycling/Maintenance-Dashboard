@@ -1,5 +1,6 @@
 import sql from 'mssql';
 import { refreshHeaderKpis, refreshByAssetKpis, refreshWorkOrders } from '../server/jobs/kpiJobs.js';
+import { ingestProductionExcel } from '../server/jobs/productionExcelJob.js';
 
 const cfg = {
   server: process.env.AZURE_SQL_SERVER,
@@ -22,3 +23,7 @@ async function main() {
 }
 main().catch(e => { console.error(e); process.exit(1); });
 
+if (arg === '--prod-excel' || arg === '--all') {
+  const res = await ingestProductionExcel(pool);
+  console.log('Production Excel ingested:', res.rows);
+}
