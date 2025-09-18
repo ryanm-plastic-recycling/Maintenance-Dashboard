@@ -991,6 +991,8 @@ app.get('/api/kpis/header', async (req, res) => {
   }
 });
 
+app.get('/api/health', (_req, res) => res.json({ ok: true, ts: new Date().toISOString() }));
+
 if (shouldListen) {
   app.listen(PORT, () => {
     console.log(`Local:  http://localhost:${PORT}/`);
