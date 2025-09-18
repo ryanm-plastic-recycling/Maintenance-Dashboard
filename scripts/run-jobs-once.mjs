@@ -13,11 +13,8 @@ const cfg = {
 };
 
 ['AZURE_SQL_SERVER','AZURE_SQL_DB','AZURE_SQL_USER','AZURE_SQL_PASS'].forEach(k => {
-  if (!process.env[k]) {
-    throw new Error(`Missing env: ${k}. Did you load .env (import 'dotenv/config') and run from the repo root?`);
-  }
+  if (!process.env[k]) throw new Error(`Missing env: ${k}`);
 });
-
 
 async function main() {
   const pool = await new sql.ConnectionPool(cfg).connect();
@@ -28,16 +25,12 @@ async function main() {
   if (arg === '--wo-index'   || arg === '--all') await refreshWorkOrders(pool, 'index');
   if (arg === '--wo-pm'      || arg === '--all') await refreshWorkOrders(pool, 'pm');
   if (arg === '--wo-status'  || arg === '--all') await refreshWorkOrders(pool, 'prodstatus');
+
   if (arg === '--prod-excel' || arg === '--all') {
     const res = await ingestProductionExcel(pool);
     console.log('Production Excel ingested:', res.rows);
+    await enrichNameplateFromMappings(pool);
   }
-
-  if (arg === '--prod-excel' || arg === '--all') {
-  const res = await ingestProductionExcel(pool);
-  console.log('Production Excel ingested:', res.rows);
-  await enrichNameplateFromMappings(pool);
-}
 
   await pool.close();
   console.log('Done:', arg);
