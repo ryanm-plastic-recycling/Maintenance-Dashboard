@@ -13,17 +13,18 @@ const cfg = {
 async function main() {
   const pool = await new sql.ConnectionPool(cfg).connect();
   const arg = process.argv[2] || '--all';
-  if (arg === '--header' || arg === '--all') await refreshHeaderKpis(pool);
-  if (arg === '--by-asset' || arg === '--all') await refreshByAssetKpis(pool);
-  if (arg === '--wo-index' || arg === '--all') await refreshWorkOrders(pool, 'index');
-  if (arg === '--wo-pm' || arg === '--all') await refreshWorkOrders(pool, 'pm');
-  if (arg === '--wo-status' || arg === '--all') await refreshWorkOrders(pool, 'prodstatus');
+
+  if (arg === '--header'     || arg === '--all') await refreshHeaderKpis(pool);
+  if (arg === '--by-asset'   || arg === '--all') await refreshByAssetKpis(pool);
+  if (arg === '--wo-index'   || arg === '--all') await refreshWorkOrders(pool, 'index');
+  if (arg === '--wo-pm'      || arg === '--all') await refreshWorkOrders(pool, 'pm');
+  if (arg === '--wo-status'  || arg === '--all') await refreshWorkOrders(pool, 'prodstatus');
+  if (arg === '--prod-excel' || arg === '--all') {
+    const res = await ingestProductionExcel(pool);
+    console.log('Production Excel ingested:', res.rows);
+  }
+
   await pool.close();
   console.log('Done:', arg);
 }
 main().catch(e => { console.error(e); process.exit(1); });
-
-if (arg === '--prod-excel' || arg === '--all') {
-  const res = await ingestProductionExcel(pool);
-  console.log('Production Excel ingested:', res.rows);
-}
