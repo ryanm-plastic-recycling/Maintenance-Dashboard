@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Production Data</title>
+  <style>
+    :root{
+      --pri-blue:#25408F; --pri-green:#92D050;
+      --bg:#E9EDF5; --card:#FBFCFE; --ink:#0F172A; --muted:#475569;
+      --ok:#11A85B; --warn:#F59E0B; --bad:#D32F2F;
+      --ok-bg:#dcfce7; --warn-bg:#fef9c3; --bad-bg:#fee2e2;
+      --border:#D7E0F3;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,Segoe UI,Arial,sans-serif}
+
+    /* Header */
+    .top-border{position:sticky;top:0;left:0;width:100%;height:84px;background:var(--pri-green);z-index:10;display:flex;align-items:center;padding:0 16px}
+    .top-border .logo{height:62px}
+    .top-title{font-size:24px;font-weight:900;margin-left:16px;color:#0A2A12}
+    .tabs{margin-left:auto;display:flex;gap:8px}
+    .tab{background:#fff;border:1px solid #ffffff;padding:6px 10px;border-radius:10px;text-decoration:none;color:#0A2A12;font-weight:700}
+    .tab.active{outline:2px solid #e5f3cc}
+
+    /* Page container */
+    .wrap{margin:18px auto 40px; padding:0 16px; max-width:1600px}
+
+    /* Controls / timeframe */
+    .controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:0 0 8px}
+    .meta-range{color:var(--muted);font-size:13px}
+
+    /* KPI tiles (denser) */
+    .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-top:6px}
+    .tile{
+      background:var(--card); padding:10px 12px; border-radius:12px;
+      box-shadow:0 2px 4px rgba(0,0,0,.06); border:1px solid var(--border);
+      display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:70px;
+    }
+    .tile .lab{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
+    .tile .val{font-size:22px;font-weight:900;line-height:1;margin-top:4px}
+    .tile.good{background:var(--ok-bg)} .tile.warn{background:var(--warn-bg)} .tile.bad{background:var(--bad-bg)}
+
+    /* Two-column section */
+    .grid{display:grid;grid-template-columns:1.2fr .8fr;gap:14px;margin-top:14px}
+    @media (max-width:1100px){ .grid{grid-template-columns:1fr} }
+
+    .card{
+      background:var(--card); border-radius:12px; border:1px solid var(--border);
+      box-shadow:0 2px 6px rgba(0,0,0,.08); padding:12px;
+    }
+    .card h3{margin:0 0 8px;font-size:18px;color:var(--pri-blue);display:flex;align-items:center;gap:8px}
+    .card h3 .sub{font-size:12px;color:var(--muted);font-weight:600}
+
+    /* Tables */
+    table{width:100%;border-collapse:collapse}
+    th,td{padding:8px;border-bottom:1px solid #E1E9F8;text-align:center}
+    th{
+      background:#25408F;color:#fff;font-size:13px;position:sticky;top:0;z-index:1
+    }
+    td.line{text-align:left;font-weight:700}
+
+    .good{background:var(--ok-bg)}
+    .warn{background:var(--warn-bg)}
+    .bad{ background:var(--bad-bg)}
+
+    /* Trend chart */
+    .chart-section{margin-top:16px}
+    .chart-container{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:10px}
+    .chart-container h2{margin:0 0 6px;color:var(--pri-blue);display:flex;align-items:center;gap:8px}
+    .chart-container h2 .sub{font-size:12px;color:var(--muted);font-weight:600}
+    .chart{background:linear-gradient(180deg,#F7F9FF,#EEF3FF);border:1px solid var(--border);border-radius:10px;padding:6px}
+    .chart svg{width:100%;height:260px;display:block}
+
+    /* Section headings */
+    h2{margin:10px 0 6px}
+  </style>
+</head>
+<body>
+  <div class="top-border">
+    <img src="img/pri-logo.png" alt="PRI Logo" class="logo" />
+    <div class="top-title">Production Data</div>
+    <div class="tabs">
+      <a class="tab" href="index.html">Work Orders</a>
+      <a class="tab" href="pm.html">PM</a>
+      <a class="tab" href="prodstatus.html">Prod Status</a>
+      <a class="tab" href="kpi-by-asset.html">KPIs by Asset</a>
+      <a class="tab active" href="#">Production V3</a>
+      <a class="tab" href="productionv2.html">Production V2</a>
+      <a class="tab" href="production.html">Production V1</a>
+      <a class="tab" href="admin">Admin</a>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <div class="controls">
+      <span class="meta-range">Timeframe: <strong>Last 30 days</strong> (Weekdays only; Shifts A/B/C)</span>
+    </div>
+
+    <section>
+      <h2>Overall KPIs <span class="sub meta-range">(Last 30 days)</span></h2>
+      <div class="kpis">
+        <div class="tile good"><div class="lab">OEE</div><div class="val">92%</div></div>
+        <div class="tile good"><div class="lab">Availability</div><div class="val">95%</div></div>
+        <div class="tile warn"><div class="lab">Performance</div><div class="val">88%</div></div>
+        <div class="tile good"><div class="lab">Quality</div><div class="val">99%</div></div>
+        <div class="tile"><div class="lab">Total Pounds</div><div class="val">1.2M lb</div></div>
+      </div>
+    </section>
+
+    <section class="grid">
+      <!-- Left: Line Performance -->
+      <div class="card">
+        <h3>Line Performance <span class="sub">(Lines 1–9 • Last 30 days)</span></h3>
+        <table>
+          <thead>
+            <tr><th>Line</th><th>OEE</th><th>Avail</th><th>Perf</th><th>Quality</th><th>Pounds</th></tr>
+          </thead>
+          <tbody>
+            <tr><td class="line">Line 1</td><td class="good">91%</td><td class="good">95%</td><td class="warn">88%</td><td class="good">99%</td><td>120k</td></tr>
+            <tr><td class="line">Line 2</td><td class="warn">74%</td><td class="warn">82%</td><td class="bad">58%</td><td class="good">100%</td><td>95k</td></tr>
+            <tr><td class="line">Line 3</td><td class="good">87%</td><td class="good">93%</td><td class="good">90%</td><td class="good">98%</td><td>130k</td></tr>
+            <tr><td class="line">Line 4</td><td class="warn">70%</td><td class="warn">81%</td><td class="warn">76%</td><td class="good">99%</td><td>88k</td></tr>
+            <tr><td class="line">Line 5</td><td class="good">85%</td><td class="good">92%</td><td class="good">89%</td><td class="good">99%</td><td>125k</td></tr>
+            <tr><td class="line">Line 6</td><td class="good">90%</td><td class="good">94%</td><td class="good">91%</td><td class="good">100%</td><td>133k</td></tr>
+            <tr><td class="line">Line 7</td><td class="warn">72%</td><td class="warn">83%</td><td class="warn">80%</td><td class="good">98%</td><td>97k</td></tr>
+            <tr><td class="line">Line 8</td><td class="good">86%</td><td class="good">91%</td><td class="good">90%</td><td class="good">99%</td><td>118k</td></tr>
+            <tr><td class="line">Line 9</td><td class="good">88%</td><td class="good">93%</td><td class="good">90%</td><td class="good">99%</td><td>121k</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Right: Weekday OEE Heatmap -->
+      <div class="card">
+        <h3>Weekday OEE Heatmap <span class="sub">(Last 30 days)</span></h3>
+        <table>
+          <thead>
+            <tr><th>Line</th><th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th></tr>
+          </thead>
+          <tbody>
+            <tr><td class="line">Line 1</td><td class="good">92%</td><td class="good">90%</td><td class="warn">84%</td><td class="good">95%</td><td class="good">96%</td></tr>
+            <tr><td class="line">Line 2</td><td class="warn">76%</td><td class="bad">59%</td><td class="warn">73%</td><td class="good">80%</td><td class="warn">74%</td></tr>
+            <tr><td class="line">Line 3</td><td class="good">88%</td><td class="good">90%</td><td class="good">86%</td><td class="good">89%</td><td class="good">91%</td></tr>
+            <tr><td class="line">Line 4</td><td class="warn">74%</td><td class="warn">77%</td><td class="warn">79%</td><td class="good">82%</td><td class="warn">76%</td></tr>
+            <tr><td class="line">Line 5</td><td class="good">90%</td><td class="good">92%</td><td class="good">89%</td><td class="good">91%</td><td class="good">93%</td></tr>
+            <tr><td class="line">Line 6</td><td class="good">91%</td><td class="good">93%</td><td class="good">90%</td><td class="good">94%</td><td class="good">92%</td></tr>
+            <tr><td class="line">Line 7</td><td class="warn">78%</td><td class="warn">81%</td><td class="warn">80%</td><td class="warn">79%</td><td class="warn">82%</td></tr>
+            <tr><td class="line">Line 8</td><td class="good">86%</td><td class="good">88%</td><td class="good">87%</td><td class="good">89%</td><td class="good">90%</td></tr>
+            <tr><td class="line">Line 9</td><td class="good">88%</td><td class="good">90%</td><td class="good">89%</td><td class="good">91%</td><td class="good">92%</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Rendered chart section -->
+    <section class="chart-section">
+      <div class="chart-container">
+        <h2>Production Trend <span class="sub">(Last 30 days)</span></h2>
+        <div class="chart">
+          <!-- Inline SVG: Actual lbs (blue), Nameplate (green), Adjusted capacity (amber) -->
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 260" preserveAspectRatio="none">
+            <!-- grid -->
+            <g stroke="#D7E0F3" stroke-width="1" opacity="0.7">
+              <line x1="40" y1="40" x2="880" y2="40"/><line x1="40" y1="90" x2="880" y2="90"/>
+              <line x1="40" y1="140" x2="880" y2="140"/><line x1="40" y1="190" x2="880" y2="190"/>
+            </g>
+            <!-- axes -->
+            <g stroke="#A8B6DA" stroke-width="2"><line x1="40" y1="210" x2="880" y2="210"/><line x1="40" y1="30" x2="40" y2="210"/></g>
+            <!-- nameplate (flat) -->
+            <polyline fill="none" stroke="#22c55e" stroke-width="3" points="40,70 880,70"/>
+            <!-- adjusted capacity (flat demo) -->
+            <polyline fill="none" stroke="#f59e0b" stroke-width="3" points="40,110 880,110"/>
+            <!-- actual lbs (wiggly) -->
+            <polyline fill="none" stroke="#2563eb" stroke-width="3"
+                      points="60,180 120,150 180,135 240,115 300,95 360,130 420,118 480,98 540,88 600,112 660,90 720,105 780,92 840,100"/>
+            <!-- points -->
+            <g fill="#2563eb">
+              <circle cx="60" cy="180" r="3"/><circle cx="120" cy="150" r="3"/><circle cx="180" cy="135" r="3"/>
+              <circle cx="240" cy="115" r="3"/><circle cx="300" cy="95" r="3"/><circle cx="360" cy="130" r="3"/>
+              <circle cx="420" cy="118" r="3"/><circle cx="480" cy="98" r="3"/><circle cx="540" cy="88" r="3"/>
+              <circle cx="600" cy="112" r="3"/><circle cx="660" cy="90" r="3"/><circle cx="720" cy="105" r="3"/>
+              <circle cx="780" cy="92" r="3"/><circle cx="840" cy="100" r="3"/>
+            </g>
+            <!-- legend -->
+            <g font-size="12" font-weight="700">
+              <rect x="640" y="38" width="230" height="26" rx="6" fill="#EEF3FF" stroke="#D7E0F3"/>
+              <circle cx="656" cy="51" r="5" fill="#2563eb"/><text x="668" y="55" fill="#0f172a">Actual lbs</text>
+              <circle cx="742" cy="51" r="5" fill="#22c55e"/><text x="754" y="55" fill="#0f172a">Nameplate 24h</text>
+              <circle cx="842" cy="51" r="5" fill="#f59e0b"/><text x="854" y="55" fill="#0f172a">Adj Capacity</text>
+            </g>
+            <!-- y labels -->
+            <g fill="#475569" font-size="12">
+              <text x="44" y="38">High</text>
+              <text x="44" y="88">Target</text>
+              <text x="44" y="138">Mid</text>
+              <text x="44" y="188">Low</text>
+            </g>
+          </svg>
+        </div>
+      </div>
+    </section>
+  </div>
+</body>
+</html>
