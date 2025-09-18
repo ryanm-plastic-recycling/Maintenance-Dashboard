@@ -1,5 +1,7 @@
 import fs from 'fs/promises';
 
+console.log('[enrich-nameplate] MAPPINGS_PATH=', process.env.MAPPINGS_PATH);
+
 export async function enrichNameplateFromMappings(pool) {
   const path = process.env.MAPPINGS_PATH;
   const raw = await fs.readFile(path, 'utf8');
