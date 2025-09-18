@@ -15,6 +15,7 @@ import { start as startScheduler, reload as reloadScheduler } from './server/sch
 import { refreshHeaderKpis, refreshByAssetKpis, refreshWorkOrders } from './server/jobs/kpiJobs.js';
 import { runFullRefresh } from './server/jobs/pipeline.js';
 import { fetchAllPages, syncLimbleToSql, syncLimbleCompletedOnly } from './server/jobs/limbleSync.js';
+import productionRoutes from './server/routes/production.js';
 
 dotenv.config();
 
@@ -529,6 +530,7 @@ const ipv4 = Object.values(nets)
 // ─── express setup ────────────────────────────────────────────────────────
 const app = express();
 app.use(cors());
+app.use('/api', productionRoutes(poolPromise));   
 app.use(express.json());
 app.use('/api', adminRoutes(poolPromise));
 app.fetchAndCache = async () => null;
