@@ -2,6 +2,27 @@
 import sql from 'mssql';
 import fetch from 'node-fetch';
 
+const S = (v, max) => {
+  if (v === null || v === undefined) return null;
+  const s = String(v).replace(/\0/g, '').trim();
+  if (s === '') return null;
+  return max ? s.slice(0, max) : s;
+};
+
+const N = (v) => {
+  if (v === null || v === undefined || v === '') return null;
+  // remove commas/spaces; handle Excel-formatted strings
+  const num = Number(String(v).replace(/[, ]+/g, ''));
+  return Number.isFinite(num) ? num : null;
+};
+
+const D = (v) => {
+  if (v === null || v === undefined || v === '') return null;
+  // If Graph returns an ISO date, Date(...) works. If it’s like "9/16/2025", also works.
+  const d = new Date(v);
+  return isNaN(d) ? null : d;
+};
+
 const graphToken = async () => {
   const body = new URLSearchParams({
     client_id: process.env.GRAPH_CLIENT_ID,
@@ -52,37 +73,38 @@ const upsertStaging = async (pool, rows) => {
     const rec = Object.fromEntries(hdr.map((k,i)=>[k, r[i]]));
   
     const req = new sql.Request(pool);
-    req.input('DATE',               sql.Date,        rec["DATE"] ? new Date(rec["DATE"]) : null);
-    req.input('Machine',            sql.NVarChar(64),  rec["Machine"]);
-    req.input('Shift',              sql.NVarChar(8),   rec["Shift"]);
-    req.input('Source',             sql.NVarChar(64),  rec["Source"]);
-    req.input('SourceRefPO',        sql.NVarChar(128), rec["Source Ref/PO"]);
-    req.input('LotNumber',          sql.NVarChar(128), rec["Lot Number"]);
-    req.input('Note',               sql.NVarChar(sql.MAX), rec["Note"]);
-    req.input('Type',               sql.NVarChar(64),  rec["Type"]);
-    req.input('Color',              sql.NVarChar(64),  rec["Color"]);
-    req.input('Format',             sql.NVarChar(64),  rec["Format"]);
-    req.input('Options',            sql.NVarChar(128), rec["Options"]);
-    req.input('DownTime',           sql.Decimal(9,2),  rec["Down Time"]);
-    req.input('ReasonDT',           sql.NVarChar(512), rec["Reason for Downtime"]);
-    req.input('MachineHours',       sql.Decimal(9,2),  rec["Machine Hours"]);
-    req.input('Standard',           sql.Decimal(12,2), rec["Standard"]);
-    req.input('Pounds',             sql.Decimal(18,2), rec["Pounds"]);
-    req.input('Manhours',           sql.Decimal(9,2),  rec["Manhours"]);
-    req.input('PerMachHr',          sql.Decimal(12,4), rec["# Per Machine Hour"]);
-    req.input('PerManHr2',          sql.Decimal(12,4), rec["# Per Manhour2"]);
-    req.input('CostMaterials',      sql.Decimal(18,2), rec["Cost of Materials"]);
-    req.input('CostProcessing',     sql.Decimal(18,2), rec["Cost of Processing"]);
-    req.input('SalesPrice',         sql.Decimal(18,2), rec["Sales Price"]);
-    req.input('YearNum',            sql.Int,           rec["Year"]);
-    req.input('MonthNum',           sql.Int,           rec["Mo#"]);
-    req.input('MonthName',          sql.NVarChar(16),  rec["Mo"]);
-    req.input('DayNum',             sql.Int,           rec["Day#"]);
-    req.input('DayName',            sql.NVarChar(16),  rec["Day"]);
-    req.input('MNum',               sql.Int,           rec["M#"]);
-    req.input('UptimeCalc',         sql.Decimal(12,4), rec["UptimeCalc"]);
-    req.input('ShiftUptime',        sql.Decimal(12,4), rec["ShiftUptime"]);
-    req.input('GWUptime',           sql.Decimal(12,4), rec["GW Uptime"]);
+    req.input('DATE',         sql.Date,          D(rec["DATE"]));
+    req.input('Machine',      sql.NVarChar(64),  S(rec["Machine"], 64));
+    req.input('Shift',        sql.NVarChar(8),   S(rec["Shift"], 8));          // <- key fix
+    req.input('Source',       sql.NVarChar(64),  S(rec["Source"], 64));
+    req.input('SourceRefPO',  sql.NVarChar(128), S(rec["Source Ref/PO"], 128));
+    req.input('LotNumber',    sql.NVarChar(128), S(rec["Lot Number"], 128));
+    req.input('Note',         sql.NVarChar(sql.MAX), S(rec["Note"]));
+    req.input('Type',         sql.NVarChar(64),  S(rec["Type"], 64));
+    req.input('Color',        sql.NVarChar(64),  S(rec["Color"], 64));
+    req.input('Format',       sql.NVarChar(64),  S(rec["Format"], 64));
+    req.input('Options',      sql.NVarChar(128), S(rec["Options"], 128));
+    
+    req.input('DownTime',     sql.Decimal(9,2),  N(rec["Down Time"]));
+    req.input('ReasonDT',     sql.NVarChar(512), S(rec["Reason for Downtime"], 512));
+    req.input('MachineHours', sql.Decimal(9,2),  N(rec["Machine Hours"]));
+    req.input('Standard',     sql.Decimal(12,2), N(rec["Standard"]));
+    req.input('Pounds',       sql.Decimal(18,2), N(rec["Pounds"]));
+    req.input('Manhours',     sql.Decimal(9,2),  N(rec["Manhours"]));
+    req.input('PerMachHr',    sql.Decimal(12,4), N(rec["# Per Machine Hour"]));
+    req.input('PerManHr2',    sql.Decimal(12,4), N(rec["# Per Manhour2"]));
+    req.input('CostMaterials',sql.Decimal(18,2), N(rec["Cost of Materials"]));
+    req.input('CostProcessing',sql.Decimal(18,2),N(rec["Cost of Processing"]));
+    req.input('SalesPrice',   sql.Decimal(18,2), N(rec["Sales Price"]));
+    req.input('YearNum',      sql.Int,           N(rec["Year"]));
+    req.input('MonthNum',     sql.Int,           N(rec["Mo#"]));
+    req.input('MonthName',    sql.NVarChar(16),  S(rec["Mo"], 16));
+    req.input('DayNum',       sql.Int,           N(rec["Day#"]));
+    req.input('DayName',      sql.NVarChar(16),  S(rec["Day"], 16));
+    req.input('MNum',         sql.Int,           N(rec["M#"]));
+    req.input('UptimeCalc',   sql.Decimal(12,4), N(rec["UptimeCalc"]));
+    req.input('ShiftUptime',  sql.Decimal(12,4), N(rec["ShiftUptime"]));
+    req.input('GWUptime',     sql.Decimal(12,4), N(rec["GW Uptime"]));
   
     await req.query(`
       MERGE dbo.production_staging AS tgt
