@@ -229,3 +229,9 @@ async function runJob(name) {
   const el = document.getElementById('run-status');
   if (el) el.textContent = res.ok ? 'Refreshed all' : 'Refresh all failed';
 };
+
+export function init({ password } = {}) {
+  // attach listeners, fetch schedules, etc.
+  // you can stash password if needed:
+  window.__adminPass = password || '';
+}
