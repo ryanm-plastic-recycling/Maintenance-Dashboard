@@ -34,10 +34,15 @@
     .tile .val{font-size:22px;font-weight:900;margin-top:4px}
     .tile.good{background:var(--ok-bg)} .tile.warn{background:var(--warn-bg)} .tile.bad{background:var(--bad-bg)}
 
-    /* graded line tiles */
-    .lt-card.good  { background: #ecfdf5; border-color: #10b98120; }
-    .lt-card.warn  { background: #fffbeb; border-color: #f59e0b20; }
-    .lt-card.bad   { background: #fef2f2; border-color: #ef444420; }
+    /* neutral card; color only the left accent via border-left */
+    .lt-card { background:#fff; border:1px solid var(--border); border-left-width:6px; }
+    .lt-card.good { border-left-color:#10b981; }   /* green */
+    .lt-card.warn { border-left-color:#f59e0b; }   /* amber */
+    .lt-card.bad  { border-left-color:#ef4444; }   /* red   */
+
+    /* remove these if still present */
+    .lt-card.good, .lt-card.warn, .lt-card.bad { background:#fff; }  /* force neutral */
+
     
     /* gauge colors */
     .gauge .pct { font-size: 18px; font-weight: 800; }
@@ -50,7 +55,7 @@
     .lt-right { gap: 8px; }  /* a bit tighter */
 
     /* Two-column layout (line tiles + heatmap) */
-    .grid{display:grid;grid-template-columns:1.2fr .8fr;gap:14px;margin-top:14px}
+    .grid{display:block}  /* stack in source order */
     @media (max-width:1100px){ .grid{grid-template-columns:1fr} }
 
     .card{background:var(--card);border-radius:12px;border:1px solid var(--border);box-shadow:0 2px 6px rgba(0,0,0,.1);padding:12px}
@@ -138,18 +143,19 @@
       </div>
     </section>
 
-    <!-- LINE TILES + HEATMAP -->
+    <!-- HEATMAP + LINE TILES -->
     <section class="grid">
-      <div class="card">
-        <h3>Line Tiles <span class="sub">(Lines 1–9 • Last 30 days)</span></h3>
-        <div id="lineTiles" class="line-tiles"></div>
-      </div>
+    <div class="card">
+      <h3>Weekday OEE Heatmap <span class="sub">(Last 30 days)</span></h3>
+      <table id="heat"></table>
+    </div>
+  
+    <div class="card" style="margin-top:14px">
+      <h3>Line Tiles <span class="sub">(Lines 1–9 • Last 30 days)</span></h3>
+      <div id="lineTiles" class="line-tiles"></div>
+    </div>
+  </section>
 
-      <div class="card">
-        <h3>Weekday OEE Heatmap <span class="sub">(Last 30 days)</span></h3>
-        <table id="heat"></table>
-      </div>
-    </section>
 
     <!-- RENDERED CHART -->
     <section class="chart-section">
@@ -168,23 +174,21 @@ const THRESH = {
   availability:{ good: 0.90, warn: 0.80 }
 };
 const grade = (v, {good, warn}) => (v >= good ? 'good' : v >= warn ? 'warn' : 'bad');
-
 function polarToCartesian(cx, cy, r, angDeg) {
   const a = (angDeg - 90) * Math.PI / 180;
   return { x: cx + r * Math.cos(a), y: cy + r * Math.sin(a) };
 }
-function arcPath(cx, cy, r, startDeg, endDeg) {
+function arcPath(cx, cy, r, startDeg, endDeg, sweepFlag) {
   const s = polarToCartesian(cx, cy, r, startDeg);
   const e = polarToCartesian(cx, cy, r, endDeg);
   const largeArc = Math.abs(endDeg - startDeg) > 180 ? 1 : 0;
-  return `M ${s.x} ${s.y} A ${r} ${r} 0 ${largeArc} 0 ${e.x} ${e.y}`; // CCW sweep=0
+  return `M ${s.x} ${s.y} A ${r} ${r} 0 ${largeArc} ${sweepFlag} ${e.x} ${e.y}`;
 }
 function gaugeSVG(pct, label, cls = '') {
   const p = Math.max(0, Math.min(1, pct || 0));
-  const start = 180, end = 180 - 180 * p;
   const R = 48, cx = 60, cy = 60;
-  const track  = arcPath(cx, cy, R, 180, 0);
-  const needle = arcPath(cx, cy, R, start, end);
+  const track  = arcPath(cx, cy, R, 180, 360, 1);                 // 180° → 360° (CW)
+  const needle = arcPath(cx, cy, R, 180, 180 + 180 * p, 1);       // CW growth
   return `
     <div class="gauge ${cls}">
       <svg viewBox="0 0 120 80" xmlns="http://www.w3.org/2000/svg" class="speedo">
@@ -195,6 +199,7 @@ function gaugeSVG(pct, label, cls = '') {
       <div class="cap">${label}</div>
     </div>`;
 }
+
 const fmtPct = v => (v == null ? '0%' : (v*100).toFixed(0) + '%');
 const fmtNum = v => (v == null ? '0' : Number(v).toLocaleString());
 const isWeekday = d => { const n = d.getDay(); return n !== 0 && n !== 6; };
@@ -330,7 +335,7 @@ const isWeekday = d => { const n = d.getDay(); return n !== 0 && n !== 6; };
       byDate.get(d).adjcap   += cap*Math.max(0, 24 - dt);
     }
     const pts = dates.map(d => byDate.get(d));
-    const max = Math.max(1, ...pts.map(p => Math.max(p.lbs, p.nameplate, p.adjcap)));
+    const max = Math.max(1, ...pts.map(p => Math.max(p.lbs, p.nameplate, p.adjcap))) || 1;
     const sy=v => 30 + ch - (v/max)*ch;
     const toLine = arr => arr.map((p,i)=>`${sx(i)},${sy(p)}`).join(' ');
 
@@ -353,6 +358,39 @@ const isWeekday = d => { const n = d.getDay(); return n !== 0 && n !== 6; };
     </svg>`;
     document.getElementById('trendChart').innerHTML = svg;
   })();
+})();
+</script>
+<script>
+// Build weekday heatmap data
+(function renderHeatmap(){
+  const days = ['Mon','Tue','Wed','Thu','Fri'];
+  const weekday = d => ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][new Date(d).getDay()];
+  const byLineDay = {}; // { machine: { Mon:{sum:..,n:..}, ... } }
+
+  for (const r of byline) {
+    const wd = weekday(r.src_date);
+    if (wd === 'Sat' || wd === 'Sun') continue;
+    const m = r.machine;
+    byLineDay[m] ??= {Mon:{sum:0,n:0}, Tue:{sum:0,n:0}, Wed:{sum:0,n:0}, Thu:{sum:0,n:0}, Fri:{sum:0,n:0}};
+    const oee = (r.oee ?? ((r.availability ?? 0) * (r.perf_adj ?? 0)));
+    byLineDay[m][wd].sum += oee || 0;
+    byLineDay[m][wd].n   += 1;
+  }
+
+  const machines = Object.keys(byLineDay).sort();
+  let html = '<thead><tr><th>Line</th>'+days.map(d=>`<th>${d}</th>`).join('')+'</tr></thead><tbody>';
+  for (const m of machines) {
+    html += `<tr><td class="line">${m}</td>`;
+    for (const d of days) {
+      const agg = byLineDay[m][d];
+      const v = agg.n ? (agg.sum/agg.n) : 0;
+      const cls = (v >= THRESH.oee.good ? 'good' : v >= THRESH.oee.warn ? 'warn' : 'bad');
+      html += `<td class="${cls}">${Math.round(v*100)}%</td>`;
+    }
+    html += '</tr>';
+  }
+  html += '</tbody>';
+  document.getElementById('heat').innerHTML = html;
 })();
 </script>
 </body>
