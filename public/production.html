@@ -6,11 +6,40 @@
   <title>Production Data</title>
   <style>
     :root{
-      --pri-blue:#25408F; --pri-green:#92D050; --bg:#E9EDF5; --card:#FBFCFE; --ink:#0F172A; --muted:#475569;
-      --ok:#11A85B; --warn:#F59E0B; --bad:#D32F2F;
-      --ok-bg:#dcfce7; --warn-bg:#fef9c3; --bad-bg:#fee2e2;
-      --border:#D7E0F3;
+      --pri-blue:#25408F; --pri-green:#92D050;
+      --bg:#E9EDF5; --card:#FBFCFE; --ink:#0F172A; --muted:#475569; --border:#D7E0F3;
+    
+      /* these will be set from /api/settings/kpi-theme at runtime */
+      --good-bg:#dcfce7;  --good-fg:#065f46;
+      --warn-bg:#fef9c3;  --warn-fg:#7c5e10;
+      --bad-bg:#fee2e2;   --bad-fg:#7f1d1d;
     }
+
+    /* Overall KPI tiles (top) use full color background */
+    .tile.good { background: var(--good-bg); color: var(--good-fg); }
+    .tile.warn { background: var(--warn-bg); color: var(--warn-fg); }
+    .tile.bad  { background: var(--bad-bg);  color: var(--bad-fg);  }
+    
+    /* Line tiles (cards) stay neutral; only a left accent */
+    .lt-card { background:#fff; border:1px solid var(--border); border-left-width:6px; }
+    .lt-card.good { border-left-color: var(--good-fg); }
+    .lt-card.warn { border-left-color: var(--warn-fg); }
+    .lt-card.bad  { border-left-color: var(--bad-fg); }
+    /* force neutral backgrounds (keep this) */
+    .lt-card.good, .lt-card.warn, .lt-card.bad { background:#fff; }
+    
+    /* Small metric tiles inside the line card get a faint tint */
+    .m.good { background: var(--good-bg); }
+    .m.warn { background: var(--warn-bg); }
+    .m.bad  { background: var(--bad-bg);  }
+    
+    /* Gauges: neutral background, colored needle */
+    .gauge { background: transparent; }
+    .gauge .track { stroke: #e5e7eb; }
+    .gauge.good .needle { stroke: var(--good-fg); }
+    .gauge.warn .needle { stroke: var(--warn-fg); }
+    .gauge.bad  .needle { stroke: var(--bad-fg); }
+
     *{box-sizing:border-box}
     body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,Segoe UI,Arial,sans-serif}
 
@@ -32,17 +61,6 @@
     .tile{background:var(--card);padding:10px 12px;border-radius:12px;box-shadow:0 2px 4px rgba(0,0,0,.08);border:1px solid var(--border);text-align:center;min-height:70px}
     .tile .lab{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.3px}
     .tile .val{font-size:22px;font-weight:900;margin-top:4px}
-    .tile.good{background:var(--ok-bg)} .tile.warn{background:var(--warn-bg)} .tile.bad{background:var(--bad-bg)}
-
-    /* neutral card; color only the left accent via border-left */
-    .lt-card { background:#fff; border:1px solid var(--border); border-left-width:6px; }
-    .lt-card.good { border-left-color:#10b981; }   /* green */
-    .lt-card.warn { border-left-color:#f59e0b; }   /* amber */
-    .lt-card.bad  { border-left-color:#ef4444; }   /* red   */
-
-    /* remove these if still present */
-    .lt-card.good, .lt-card.warn, .lt-card.bad { background:#fff; }  /* force neutral */
-
     
     /* gauge colors */
     .gauge .pct { font-size: 18px; font-weight: 800; }
@@ -79,10 +97,6 @@
     .good.m{background:var(--ok-bg)} .warn.m{background:var(--warn-bg)} .bad.m{background:var(--bad-bg)}
     .lt-right{display:flex;flex-direction:column;gap:6px;align-items:center;justify-content:center}
 
-    .gauge.good .needle { stroke: #10b981; }
-    .gauge.warn .needle { stroke: #f59e0b; }
-    .gauge.bad  .needle { stroke: #ef4444; }
-
     /* simple “speedo” gauge */
     .speedo{width:120px;height:78px}
     .speedo .cap{font-size:11px;color:var(--muted);text-align:center;margin-top:-8px}
@@ -98,9 +112,6 @@
     #heat td.warn { background: var(--warn-bg); }
     #heat td.bad  { background: var(--bad-bg); }
     
-    /* Gauges should never inherit a background */
-    .gauge { background: transparent; }
-
     /* CHART section */
     .chart-section{margin-top:16px}
     .chart-container{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:10px}
