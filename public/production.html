@@ -75,8 +75,8 @@
     .lt-right{display:flex;flex-direction:column;gap:6px;align-items:center;justify-content:center}
 
     /* simple “speedo” gauge */
-    .speedo{width:120px;height:70px}
-    .speedo .cap{font-size:11px;color:var(--muted);text-align:center;margin-top:-4px}
+    .speedo{width:120px;height:78px}
+    .speedo .cap{font-size:11px;color:var(--muted);text-align:center;margin-top:-8px}
 
     /* HEATMAP table */
     table{width:100%;border-collapse:collapse;margin-top:6px}
@@ -117,10 +117,10 @@
     <section>
       <h2>Overall KPIs <span class="sub">(Last 30 days)</span></h2>
       <div class="kpis">
-        <div class="tile good"><div class="lab">OEE</div><div class="val" id="ov-oee">--%</div></div>
-        <div class="tile good"><div class="lab">Availability</div><div class="val" id="ov-av">--%</div></div>
-        <div class="tile"><div class="lab">Performance (Raw 24h)</div><div class="val" id="ov-pr">--%</div></div>
-        <div class="tile"><div class="lab">Performance (Adj for DT)</div><div class="val" id="ov-pa">--%</div></div>
+        <div class="tile" id="tile-oee"><div class="lab">OEE</div><div class="val" id="ov-oee">--%</div></div>
+        <div class="tile" id="tile-av"><div class="lab">Availability</div><div class="val" id="ov-av">--%</div></div>
+        <div class="tile" id="tile-pr"><div class="lab">Performance (Raw 24h)</div><div class="val" id="ov-pr">--%</div></div>
+        <div class="tile" id="tile-pa"><div class="lab">Performance (Adj for DT)</div><div class="val" id="ov-pa">--%</div></div>
         <div class="tile"><div class="lab">Total Pounds</div><div class="val" id="ov-lbs">--</div></div>
         <div class="tile"><div class="lab">Maint DT (h)</div><div class="val" id="ov-mdt">--</div></div>
         <div class="tile"><div class="lab">Prod DT (h)</div><div class="val" id="ov-pdt">--</div></div>
@@ -257,50 +257,6 @@
       </div>`;
     cont.appendChild(el);
   });
-  Object.values(latestByLine)
-    .sort((a,b)=>a.machine.localeCompare(b.machine))
-    .forEach(r => {
-      const cap  = r.nameplate_lbs_hr || 0;
-      const lbs  = r.pounds || 0;
-      const dt   = (r.maint_dt_h||0) + (r.prod_dt_h||0);
-      const avail = r.availability ?? 0;
-  
-      const perfRaw = cap ? (lbs / (24 * cap)) : 0;
-      const perfAdj = r.perf_adj ?? (cap && (24 - dt) > 0 ? lbs / (cap * (24 - dt)) : 0);
-      const oee     = r.oee ?? (avail * perfAdj);  // quality=1.0 for now
-  
-      const tileGrade = grade(oee, THRESH.oee);
-      const rawGrade  = grade(perfRaw, THRESH.capacityAdj);
-      const adjGrade  = grade(perfAdj, THRESH.capacityAdj);
-  
-      const el = document.createElement('div');
-      el.className = `lt-card ${tileGrade}`;
-      el.innerHTML = `
-        <div>
-          <div class="lt-head">
-            <div class="lt-name">${r.machine}</div>
-            <div class="lt-nameplate">Nameplate ${cap?cap.toLocaleString():'--'} lb/hr</div>
-          </div>
-          <div class="lt-badges">
-            <span class="badge maint">Maint DT ${(r.maint_dt_h||0).toFixed(1)}h</span>
-            <span class="badge prod">Prod DT ${(r.prod_dt_h||0).toFixed(1)}h</span>
-          </div>
-          <div class="lt-metrics" style="margin-top:6px">
-            <div class="m"><div class="lab">OEE</div><div class="val">${(oee*100).toFixed(0)}%</div></div>
-            <div class="m"><div class="lab">Availability</div><div class="val">${(avail*100).toFixed(0)}%</div></div>
-            <div class="m"><div class="lab">Perf Raw</div><div class="val">${(perfRaw*100).toFixed(0)}%</div></div>
-            <div class="m"><div class="lab">Perf Adj</div><div class="val">${(perfAdj*100).toFixed(0)}%</div></div>
-            <div class="m"><div class="lab">Pounds</div><div class="val">${(lbs||0).toLocaleString()}</div></div>
-            <div class="m"><div class="lab">Capacity</div><div class="val">${cap?cap.toLocaleString():'--'}</div></div>
-          </div>
-        </div>
-  
-        <div class="lt-right">
-          ${gaugeSVG(perfRaw, 'Raw 24h', rawGrade)}
-          ${gaugeSVG(perfAdj, 'Adj for DT', adjGrade)}
-        </div>`;
-      cont.appendChild(el);
-    });
 
   // --- simple trend (overall lbs vs capacity) with zero-filled dates ---
   (function renderTrend(){
@@ -346,6 +302,17 @@
 
 })();
 </script>
+  
+// thresholds (tune once and reuse)
+const THRESH = {
+  capacityAdj: { good: 0.95, warn: 0.85 },
+  oee:         { good: 0.75, warn: 0.60 },
+  availability:{ good: 0.90, warn: 0.80 }
+};
+
+// grade helper
+const grade = (v, {good, warn}) => (v >= good ? 'good' : v >= warn ? 'warn' : 'bad');
+
 <script>
 /* thresholds already defined in your page; reuse them */
 const grade = (v, {good, warn}) => (v >= good ? 'good' : v >= warn ? 'warn' : 'bad');
@@ -383,6 +350,25 @@ function gaugeSVG(pct, label, cls = '') {
     </div>`;
 }
 </script>
+// color overall tiles by grade
+const setTileClass = (id, v, thr) => {
+  const tile = document.querySelector(id);
+  const cls = grade(v || 0, thr);
+  tile.classList.remove('good','warn','bad');
+  tile.classList.add(cls);
+};
+setTileClass('#ov-oee', last.oee || 0, THRESH.oee);
+setTileClass('#ov-av',  last.availability || 0, THRESH.availability);
+
+// (optional) performance tiles colored off capacity thresholds:
+setTileClass('#ov-pr',  last.perf_adj || 0, THRESH.capacityAdj);
+setTileClass('#ov-pa',  last.perf_adj || 0, THRESH.capacityAdj);
+
+  const setTileClass = (tileSel, v, thr) => { /* same as above */ };
+setTileClass('#tile-oee', last.oee || 0, THRESH.oee);
+setTileClass('#tile-av',  last.availability || 0, THRESH.availability);
+setTileClass('#tile-pr',  last.perf_adj || 0, THRESH.capacityAdj);
+setTileClass('#tile-pa',  last.perf_adj || 0, THRESH.capacityAdj);
 
 </body>
 </html>
