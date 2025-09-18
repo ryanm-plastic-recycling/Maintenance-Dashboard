@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import sql from 'mssql';
 import { refreshHeaderKpis, refreshByAssetKpis, refreshWorkOrders } from '../server/jobs/kpiJobs.js';
 import { ingestProductionExcel } from '../server/jobs/productionExcelJob.js';
@@ -7,8 +8,15 @@ const cfg = {
   database: process.env.AZURE_SQL_DB,
   user: process.env.AZURE_SQL_USER,
   password: process.env.AZURE_SQL_PASS,
-  options: { encrypt: true }
+  options: { encrypt: true, trustServerCertificate: false }
 };
+
+['AZURE_SQL_SERVER','AZURE_SQL_DB','AZURE_SQL_USER','AZURE_SQL_PASS'].forEach(k => {
+  if (!process.env[k]) {
+    throw new Error(`Missing env: ${k}. Did you load .env (import 'dotenv/config') and run from the repo root?`);
+  }
+});
+
 
 async function main() {
   const pool = await new sql.ConnectionPool(cfg).connect();
