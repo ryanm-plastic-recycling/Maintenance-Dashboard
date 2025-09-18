@@ -230,13 +230,88 @@
         <label>Password: <input type="password" id="admin-pass"></label>
         <button id="login-btn">Login</button>
     </div>
-    <form id="config-form">
-        <label>Pages (comma separated): <input type="text" id="pages"></label>
-        <label>Rotate Interval ms: <input type="number" id="interval"></label>
-        <label>Columns for index.html: <input type="text" id="cols-index"></label>
-        <label>Columns for pm.html: <input type="text" id="cols-pm"></label>
-        <button type="submit">Save Config</button>
-    </form>
+    <div id="secure" style="display:none">
+        <form id="config-form">
+            <label>Pages (comma separated): <input type="text" id="pages"></label>
+            <label>Rotate Interval ms: <input type="number" id="interval"></label>
+            <label>Columns for index.html: <input type="text" id="cols-index"></label>
+            <label>Columns for pm.html: <input type="text" id="cols-pm"></label>
+            <button type="submit">Save Config</button>
+        </form>
+        <div id="mapping-section" style="display:none;">
+            <label>Update mappings.json: <input type="file" id="mapping-file"></label>
+            <button id="upload-map">Upload Mapping</button>
+        </div>
+        <div class="admin-settings">
+        <section class="card">
+            <h3>Update Schedules</h3>
+            <p>Edit cron expressions; toggle enable. Server reloads schedules on save.</p>
+            <table id="sched-table">
+                <thead><tr><th>Name</th><th>Cron</th><th>Enabled</th></tr></thead>
+                <tbody></tbody>
+            </table>
+            <button id="sched-save">Save Schedules</button>
+            <div id="sched-status" style="margin-top:.5rem;color:#555;"></div>
+        </section>
+        <section class="card">
+          <h3>Run Now</h3>
+          <div class="row-controls" style="display:flex;gap:.5rem;flex-wrap:wrap">
+              <button id="run-header">Run Header KPIs</button>
+              <button id="run-byasset">Run By-Asset KPIs</button>
+              <button id="run-wo-index">Run WO: Index</button>
+              <button id="run-wo-pm">Run WO: PM</button>
+              <button id="run-wo-status">Run WO: Prod Status</button>
+              <button id="run-all">Refresh All</button>
+            
+              <span class="break"></span> <!-- FORCE NEW ROW BELOW THIS -->
+            
+              <button id="refresh-cache">Refresh Cache</button>
+              <button id="run-limble-sync">Run Limble Sync</button>
+              <button id="run-limble-sync-completed">Run Limble Completed Lookback</button>
+              <button id="run-limble-sync-refresh">Run Limble Sync + Refresh</button>
+              <button id="run-etl-assets-fields">Run ETL: Asset Fields</button>
+              <button id="btn-full-refresh">Full Refresh (Limble → SQL → UI)</button>
+            </div>
+          <div id="run-status" style="margin-top:.5rem;color:#555;"></div>
+          <pre id="admin-log" style="height:200px;overflow:auto;background:#111;color:#0f0;padding:8px;"></pre>
+        </section>
+        </div>
+        </div>
+        <div id="theme-section" style="display:none;">
+            <h2>KPI Theme &amp; Thresholds</h2>
+            <div id="theme-toast" class="alert-container"></div>
+            <fieldset>
+                <legend>Colors</legend>
+                <div>
+                    <label>Good BG <input type="text" id="color-good-bg" class="hex-input"></label><span class="input-error"></span>
+                    <label>Good FG <input type="text" id="color-good-fg" class="hex-input"></label><span class="input-error"></span>
+                    <label>Warn BG <input type="text" id="color-warn-bg" class="hex-input"></label><span class="input-error"></span>
+                    <label>Warn FG <input type="text" id="color-warn-fg" class="hex-input"></label><span class="input-error"></span>
+                    <label>Bad BG <input type="text" id="color-bad-bg" class="hex-input"></label><span class="input-error"></span>
+                    <label>Bad FG <input type="text" id="color-bad-fg" class="hex-input"></label><span class="input-error"></span>
+                    <label>Neutral BG <input type="text" id="color-neutral-bg" class="hex-input"></label><span class="input-error"></span>
+                    <label>Neutral FG <input type="text" id="color-neutral-fg" class="hex-input"></label><span class="input-error"></span>
+                </div>
+            </fieldset>
+            <fieldset>
+                <legend>Thresholds</legend>
+                <div>
+                    <label>Downtime % goodMax <input type="number" id="thr-downtimePct-goodMax" class="num-input"></label><span class="input-error"></span>
+                    <label>Downtime % warnMax <input type="number" id="thr-downtimePct-warnMax" class="num-input"></label><span class="input-error"></span>
+                    <label>Planned % goodMin <input type="number" id="thr-plannedPct-goodMin" class="num-input"></label><span class="input-error"></span>
+                    <label>Planned % warnMin <input type="number" id="thr-plannedPct-warnMin" class="num-input"></label><span class="input-error"></span>
+                    <label>Unplanned % goodMax <input type="number" id="thr-unplannedPct-goodMax" class="num-input"></label><span class="input-error"></span>
+                    <label>Unplanned % warnMax <input type="number" id="thr-unplannedPct-warnMax" class="num-input"></label><span class="input-error"></span>
+                    <label>MTTR (h) goodMax <input type="number" id="thr-mttrHours-goodMax" class="num-input"></label><span class="input-error"></span>
+                    <label>MTTR (h) warnMax <input type="number" id="thr-mttrHours-warnMax" class="num-input"></label><span class="input-error"></span>
+                    <label>MTBF (h) goodMin <input type="number" id="thr-mtbfHours-goodMin" class="num-input"></label><span class="input-error"></span>
+                    <label>MTBF (h) warnMin <input type="number" id="thr-mtbfHours-warnMin" class="num-input"></label><span class="input-error"></span>
+                </div>
+            </fieldset>
+            <button id="save-theme" disabled>Save Theme</button>
+            <button id="reset-theme">Reset to Defaults</button>
+        </div>
+        
     <div id="burnin-section">
         <h2>Burn-in Repair Mode</h2>
         <div id="burnin-status">
@@ -250,79 +325,8 @@
         <button id="enter-burnin">Enter Burn-in Now</button>
         <button id="exit-burnin">Exit Burn-in Now</button>
     </div>
-    <div id="mapping-section" style="display:none;">
-        <label>Update mappings.json: <input type="file" id="mapping-file"></label>
-        <button id="upload-map">Upload Mapping</button>
-    </div>
-    <div id="theme-section" style="display:none;">
-        <h2>KPI Theme &amp; Thresholds</h2>
-        <div id="theme-toast" class="alert-container"></div>
-        <fieldset>
-            <legend>Colors</legend>
-            <div>
-                <label>Good BG <input type="text" id="color-good-bg" class="hex-input"></label><span class="input-error"></span>
-                <label>Good FG <input type="text" id="color-good-fg" class="hex-input"></label><span class="input-error"></span>
-                <label>Warn BG <input type="text" id="color-warn-bg" class="hex-input"></label><span class="input-error"></span>
-                <label>Warn FG <input type="text" id="color-warn-fg" class="hex-input"></label><span class="input-error"></span>
-                <label>Bad BG <input type="text" id="color-bad-bg" class="hex-input"></label><span class="input-error"></span>
-                <label>Bad FG <input type="text" id="color-bad-fg" class="hex-input"></label><span class="input-error"></span>
-                <label>Neutral BG <input type="text" id="color-neutral-bg" class="hex-input"></label><span class="input-error"></span>
-                <label>Neutral FG <input type="text" id="color-neutral-fg" class="hex-input"></label><span class="input-error"></span>
-            </div>
-        </fieldset>
-        <fieldset>
-            <legend>Thresholds</legend>
-            <div>
-                <label>Downtime % goodMax <input type="number" id="thr-downtimePct-goodMax" class="num-input"></label><span class="input-error"></span>
-                <label>Downtime % warnMax <input type="number" id="thr-downtimePct-warnMax" class="num-input"></label><span class="input-error"></span>
-                <label>Planned % goodMin <input type="number" id="thr-plannedPct-goodMin" class="num-input"></label><span class="input-error"></span>
-                <label>Planned % warnMin <input type="number" id="thr-plannedPct-warnMin" class="num-input"></label><span class="input-error"></span>
-                <label>Unplanned % goodMax <input type="number" id="thr-unplannedPct-goodMax" class="num-input"></label><span class="input-error"></span>
-                <label>Unplanned % warnMax <input type="number" id="thr-unplannedPct-warnMax" class="num-input"></label><span class="input-error"></span>
-                <label>MTTR (h) goodMax <input type="number" id="thr-mttrHours-goodMax" class="num-input"></label><span class="input-error"></span>
-                <label>MTTR (h) warnMax <input type="number" id="thr-mttrHours-warnMax" class="num-input"></label><span class="input-error"></span>
-                <label>MTBF (h) goodMin <input type="number" id="thr-mtbfHours-goodMin" class="num-input"></label><span class="input-error"></span>
-                <label>MTBF (h) warnMin <input type="number" id="thr-mtbfHours-warnMin" class="num-input"></label><span class="input-error"></span>
-            </div>
-        </fieldset>
-        <button id="save-theme" disabled>Save Theme</button>
-        <button id="reset-theme">Reset to Defaults</button>
-    </div>
-    <div class="admin-settings">
-    <section class="card">
-        <h3>Update Schedules</h3>
-        <p>Edit cron expressions; toggle enable. Server reloads schedules on save.</p>
-        <table id="sched-table">
-            <thead><tr><th>Name</th><th>Cron</th><th>Enabled</th></tr></thead>
-            <tbody></tbody>
-        </table>
-        <button id="sched-save">Save Schedules</button>
-        <div id="sched-status" style="margin-top:.5rem;color:#555;"></div>
-    </section>
-    <section class="card">
-      <h3>Run Now</h3>
-      <div class="row-controls" style="display:flex;gap:.5rem;flex-wrap:wrap">
-          <button id="run-header">Run Header KPIs</button>
-          <button id="run-byasset">Run By-Asset KPIs</button>
-          <button id="run-wo-index">Run WO: Index</button>
-          <button id="run-wo-pm">Run WO: PM</button>
-          <button id="run-wo-status">Run WO: Prod Status</button>
-          <button id="run-all">Refresh All</button>
-        
-          <span class="break"></span> <!-- FORCE NEW ROW BELOW THIS -->
-        
-          <button id="refresh-cache">Refresh Cache</button>
-          <button id="run-limble-sync">Run Limble Sync</button>
-          <button id="run-limble-sync-completed">Run Limble Completed Lookback</button>
-          <button id="run-limble-sync-refresh">Run Limble Sync + Refresh</button>
-          <button id="run-etl-assets-fields">Run ETL: Asset Fields</button>
-          <button id="btn-full-refresh">Full Refresh (Limble → SQL → UI)</button>
-        </div>
-      <div id="run-status" style="margin-top:.5rem;color:#555;"></div>
-      <pre id="admin-log" style="height:200px;overflow:auto;background:#111;color:#0f0;padding:8px;"></pre>
-    </section>
-    </div>
-    </div>
+    
+    
     <script>
         const rotateBtn = document.getElementById('toggle-rotation');
         const burnStart = document.getElementById('burnin-start');
