@@ -390,7 +390,10 @@
             adminPass = document.getElementById('admin-pass').value;
             // show protected area
             document.getElementById('secure').style.display = 'block';
-            
+            await import('/js/admin.js').then(m => {
+              // If admin.js exports an init, call it:
+              if (typeof m.init === 'function') m.init({ password: adminPass });
+            });
             const res = await fetch('/api/config');
             const cfg = await res.json();
             config = cfg;
@@ -546,6 +549,5 @@
   });
 </script>
 <script type="module" src="js/header-kpis.js" defer></script>
-<script type="module" src="/js/admin.js"></script>
 </body>
 </html>
