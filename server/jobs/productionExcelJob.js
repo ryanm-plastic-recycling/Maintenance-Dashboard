@@ -42,42 +42,53 @@ const upsertStaging = async (pool, rows) => {
 
   const request = new sql.Request(pool);
   // Use TVP (table-valued parameter) or bulk insert; here is a simple row-by-row pattern for clarity.
+  // inside upsertStaging(pool, rows)
   for (const r of bodyRows) {
     const rec = Object.fromEntries(hdr.map((k,i)=>[k, r[i]]));
-    await request.batch(`
+  
+    const req = new sql.Request(pool);
+    req.input('DATE',               sql.Date,        rec["DATE"] ? new Date(rec["DATE"]) : null);
+    req.input('Machine',            sql.NVarChar(64),  rec["Machine"]);
+    req.input('Shift',              sql.NVarChar(8),   rec["Shift"]);
+    req.input('Source',             sql.NVarChar(64),  rec["Source"]);
+    req.input('SourceRefPO',        sql.NVarChar(128), rec["Source Ref/PO"]);
+    req.input('LotNumber',          sql.NVarChar(128), rec["Lot Number"]);
+    req.input('Note',               sql.NVarChar(sql.MAX), rec["Note"]);
+    req.input('Type',               sql.NVarChar(64),  rec["Type"]);
+    req.input('Color',              sql.NVarChar(64),  rec["Color"]);
+    req.input('Format',             sql.NVarChar(64),  rec["Format"]);
+    req.input('Options',            sql.NVarChar(128), rec["Options"]);
+    req.input('DownTime',           sql.Decimal(9,2),  rec["Down Time"]);
+    req.input('ReasonDT',           sql.NVarChar(512), rec["Reason for Downtime"]);
+    req.input('MachineHours',       sql.Decimal(9,2),  rec["Machine Hours"]);
+    req.input('Standard',           sql.Decimal(12,2), rec["Standard"]);
+    req.input('Pounds',             sql.Decimal(18,2), rec["Pounds"]);
+    req.input('Manhours',           sql.Decimal(9,2),  rec["Manhours"]);
+    req.input('PerMachHr',          sql.Decimal(12,4), rec["# Per Machine Hour"]);
+    req.input('PerManHr2',          sql.Decimal(12,4), rec["# Per Manhour2"]);
+    req.input('CostMaterials',      sql.Decimal(18,2), rec["Cost of Materials"]);
+    req.input('CostProcessing',     sql.Decimal(18,2), rec["Cost of Processing"]);
+    req.input('SalesPrice',         sql.Decimal(18,2), rec["Sales Price"]);
+    req.input('YearNum',            sql.Int,           rec["Year"]);
+    req.input('MonthNum',           sql.Int,           rec["Mo#"]);
+    req.input('MonthName',          sql.NVarChar(16),  rec["Mo"]);
+    req.input('DayNum',             sql.Int,           rec["Day#"]);
+    req.input('DayName',            sql.NVarChar(16),  rec["Day"]);
+    req.input('MNum',               sql.Int,           rec["M#"]);
+    req.input('UptimeCalc',         sql.Decimal(12,4), rec["UptimeCalc"]);
+    req.input('ShiftUptime',        sql.Decimal(12,4), rec["ShiftUptime"]);
+    req.input('GWUptime',           sql.Decimal(12,4), rec["GW Uptime"]);
+  
+    await req.query(`
       MERGE dbo.production_staging AS tgt
       USING (SELECT
-        CAST(${sql.escape(rec["DATE"])} AS DATE)              AS src_date,
-        ${sql.escape(rec["Machine"])}                         AS machine,
-        ${sql.escape(rec["Shift"])}                           AS shift,
-        ${sql.escape(rec["Source"])}                          AS source,
-        ${sql.escape(rec["Source Ref/PO"])}                   AS source_ref_po,
-        ${sql.escape(rec["Lot Number"])}                      AS lot_number,
-        ${sql.escape(rec["Note"])}                            AS note,
-        ${sql.escape(rec["Type"])}                            AS type,
-        ${sql.escape(rec["Color"])}                           AS color,
-        ${sql.escape(rec["Format"])}                          AS format,
-        ${sql.escape(rec["Options"])}                         AS options,
-        TRY_CONVERT(DECIMAL(9,2), ${sql.escape(rec["Down Time"])})            AS down_time_hours,
-        ${sql.escape(rec["Reason for Downtime"])}             AS reason_downtime,
-        TRY_CONVERT(DECIMAL(9,2), ${sql.escape(rec["Machine Hours"])})        AS machine_hours,
-        TRY_CONVERT(DECIMAL(12,2), ${sql.escape(rec["Standard"])})            AS standard,
-        TRY_CONVERT(DECIMAL(18,2), ${sql.escape(rec["Pounds"])})              AS pounds,
-        TRY_CONVERT(DECIMAL(9,2), ${sql.escape(rec["Manhours"])})             AS manhours,
-        TRY_CONVERT(DECIMAL(12,4), ${sql.escape(rec["# Per Machine Hour"])})  AS per_machine_hour,
-        TRY_CONVERT(DECIMAL(12,4), ${sql.escape(rec["# Per Manhour2"])})      AS per_manhour2,
-        TRY_CONVERT(DECIMAL(18,2), ${sql.escape(rec["Cost of Materials"])})   AS cost_materials,
-        TRY_CONVERT(DECIMAL(18,2), ${sql.escape(rec["Cost of Processing"])})  AS cost_processing,
-        TRY_CONVERT(DECIMAL(18,2), ${sql.escape(rec["Sales Price"])})         AS sales_price,
-        TRY_CONVERT(INT, ${sql.escape(rec["Year"])})          AS year_num,
-        TRY_CONVERT(INT, ${sql.escape(rec["Mo#"])})           AS month_num,
-        ${sql.escape(rec["Mo"])}                               AS month_name,
-        TRY_CONVERT(INT, ${sql.escape(rec["Day#"])})          AS day_num,
-        ${sql.escape(rec["Day"])}                              AS day_name,
-        TRY_CONVERT(INT, ${sql.escape(rec["M#"])})            AS m_num,
-        TRY_CONVERT(DECIMAL(12,4), ${sql.escape(rec["UptimeCalc"])})  AS uptime_calc,
-        TRY_CONVERT(DECIMAL(12,4), ${sql.escape(rec["ShiftUptime"])}) AS shift_uptime,
-        TRY_CONVERT(DECIMAL(12,4), ${sql.escape(rec["GW Uptime"])})   AS gw_uptime
+        @DATE AS src_date, @Machine AS machine, @Shift AS shift, @Source AS source, @SourceRefPO AS source_ref_po,
+        @LotNumber AS lot_number, @Note AS note, @Type AS type, @Color AS color, @Format AS format, @Options AS options,
+        @DownTime AS down_time_hours, @ReasonDT AS reason_downtime, @MachineHours AS machine_hours, @Standard AS standard,
+        @Pounds AS pounds, @Manhours AS manhours, @PerMachHr AS per_machine_hour, @PerManHr2 AS per_manhour2,
+        @CostMaterials AS cost_materials, @CostProcessing AS cost_processing, @SalesPrice AS sales_price,
+        @YearNum AS year_num, @MonthNum AS month_num, @MonthName AS month_name, @DayNum AS day_num, @DayName AS day_name,
+        @MNum AS m_num, @UptimeCalc AS uptime_calc, @ShiftUptime AS shift_uptime, @GWUptime AS gw_uptime
       ) AS src
       ON (tgt.src_date = src.src_date
           AND tgt.machine = src.machine
@@ -85,43 +96,24 @@ const upsertStaging = async (pool, rows) => {
           AND ISNULL(tgt.lot_number,'') = ISNULL(src.lot_number,'')
           AND ISNULL(tgt.source_ref_po,'') = ISNULL(src.source_ref_po,''))
       WHEN MATCHED THEN UPDATE SET
-        source            = src.source,
-        note              = src.note,
-        type              = src.type,
-        color             = src.color,
-        format            = src.format,
-        options           = src.options,
-        down_time_hours   = src.down_time_hours,
-        reason_downtime   = src.reason_downtime,
-        machine_hours     = src.machine_hours,
-        standard          = src.standard,
-        pounds            = src.pounds,
-        manhours          = src.manhours,
-        per_machine_hour  = src.per_machine_hour,
-        per_manhour2      = src.per_manhour2,
-        cost_materials    = src.cost_materials,
-        cost_processing   = src.cost_processing,
-        sales_price       = src.sales_price,
-        year_num          = src.year_num,
-        month_num         = src.month_num,
-        month_name        = src.month_name,
-        day_num           = src.day_num,
-        day_name          = src.day_name,
-        m_num             = src.m_num,
-        uptime_calc       = src.uptime_calc,
-        shift_uptime      = src.shift_uptime,
-        gw_uptime         = src.gw_uptime,
-        loaded_at_utc     = SYSUTCDATETIME()
+        source = src.source, note = src.note, type = src.type, color = src.color, format = src.format, options = src.options,
+        down_time_hours = src.down_time_hours, reason_downtime = src.reason_downtime, machine_hours = src.machine_hours,
+        standard = src.standard, pounds = src.pounds, manhours = src.manhours, per_machine_hour = src.per_machine_hour,
+        per_manhour2 = src.per_manhour2, cost_materials = src.cost_materials, cost_processing = src.cost_processing,
+        sales_price = src.sales_price, year_num = src.year_num, month_num = src.month_num, month_name = src.month_name,
+        day_num = src.day_num, day_name = src.day_name, m_num = src.m_num, uptime_calc = src.uptime_calc,
+        shift_uptime = src.shift_uptime, gw_uptime = src.gw_uptime, loaded_at_utc = SYSUTCDATETIME()
       WHEN NOT MATCHED THEN INSERT (
         src_date, machine, shift, source, source_ref_po, lot_number, note, type, color, format, options,
-        down_time_hours, reason_downtime, machine_hours, standard, pounds, manhours,
-        per_machine_hour, per_manhour2, cost_materials, cost_processing, sales_price, year_num,
-        month_num, month_name, day_num, day_name, m_num, uptime_calc, shift_uptime, gw_uptime
+        down_time_hours, reason_downtime, machine_hours, standard, pounds, manhours, per_machine_hour, per_manhour2,
+        cost_materials, cost_processing, sales_price, year_num, month_num, month_name, day_num, day_name, m_num,
+        uptime_calc, shift_uptime, gw_uptime
       ) VALUES (
-        src.src_date, src.machine, src.shift, src.source, src.source_ref_po, src.lot_number, src.note, src.type, src.color, src.format, src.options,
-        src.down_time_hours, src.reason_downtime, src.machine_hours, src.standard, src.pounds, src.manhours,
-        src.per_machine_hour, src.per_manhour2, src.cost_materials, src.cost_processing, src.sales_price, src.year_num,
-        src.month_num, src.month_name, src.day_num, src.day_name, src.m_num, src.uptime_calc, src.shift_uptime, src.gw_uptime
+        src.src_date, src.machine, src.shift, src.source, src.source_ref_po, src.lot_number, src.note, src.type, src.color,
+        src.format, src.options, src.down_time_hours, src.reason_downtime, src.machine_hours, src.standard, src.pounds,
+        src.manhours, src.per_machine_hour, src.per_manhour2, src.cost_materials, src.cost_processing, src.sales_price,
+        src.year_num, src.month_num, src.month_name, src.day_num, src.day_name, src.m_num, src.uptime_calc,
+        src.shift_uptime, src.gw_uptime
       );
     `);
   }
