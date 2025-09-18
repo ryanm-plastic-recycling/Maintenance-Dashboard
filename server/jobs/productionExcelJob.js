@@ -2,6 +2,7 @@
 
 import sql from 'mssql';
 import fetch from 'node-fetch';
+import { enrichNameplateFromMappings } from '../server/jobs/enrichNameplateJob.js';
 
 // ---------- helpers ----------
 const S = (v, max) => {
@@ -165,4 +166,10 @@ export async function ingestProductionExcel(pool) {
 
   await pool.request().execute('dbo.upsert_production_fact');
   return { rows: n };
+}
+
+if (arg === '--prod-excel' || arg === '--all') {
+  const res = await ingestProductionExcel(pool);
+  console.log('Production Excel ingested:', res.rows);
+  await enrichNameplateFromMappings(pool);
 }
