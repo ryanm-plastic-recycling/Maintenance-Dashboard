@@ -526,7 +526,7 @@
       const sel = document.getElementById('tf');
       async function go(){
         const r = computeRange(sel.value);
-        document.getElementById('tfLabel').textContent = r.label;
+        document.getElementById('tfLabel').textContent = `${r.from} → ${r.to}`;
         await renderForRange(r.from, r.to, r.label);
       }
       sel.addEventListener('change', go);
