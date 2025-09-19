@@ -391,6 +391,10 @@
     "Extruder New Twin": 5000
   },
   "capacity_by_material_lbs_hr": {
+    "Extruder NGR": { 
+      "DEFAULT": 2000, 
+      "CRY": 2250 
+    },
     "Extruder 1": { 
       "DEFAULT": 2100, 
       "CRY": 2250, 
