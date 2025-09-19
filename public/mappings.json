@@ -468,6 +468,10 @@
     "CRYSTAL": "CRY",
     "CRYSTAL PS": "CRY",
     "PP/PS": "PS/PP",
+     "PP TF": "PPTF",
+    "PP-TF": "PPTF",
+    "PS PP": "PS/PP",
+    "PS-PP": "PS/PP",
     "": "DEFAULT",
     "UNKNOWN": "DEFAULT"
   }
