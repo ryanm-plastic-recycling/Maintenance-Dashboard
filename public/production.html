@@ -201,7 +201,7 @@
 
     // gauge utilities (clockwise) + colored band
     function polarToCartesian(cx, cy, r, angDeg) {
-      const a = (angDeg - 90) * Math.PI / 180;
+      const a = (angDeg - 0) * Math.PI / 180;
       return { x: cx + r * Math.cos(a), y: cy + r * Math.sin(a) };
     }
     function arcPath(cx, cy, r, startDeg, endDeg, sweepFlag) {
