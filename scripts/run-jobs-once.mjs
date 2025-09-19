@@ -35,4 +35,9 @@ async function main() {
   await pool.close();
   console.log('Done:', arg);
 }
+await pool.request().query(`
+  UPDATE dbo.UpdateSchedules
+  SET LastRun = SYSUTCDATETIME()
+  WHERE Name = 'prod-excel'
+`);
 main().catch(e => { console.error(e); process.exit(1); });
