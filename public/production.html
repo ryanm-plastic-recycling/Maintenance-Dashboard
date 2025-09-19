@@ -190,9 +190,9 @@
   <!-- App -->
   <script>
     const THRESH = {
-      capacityAdj: { good: 0.95, warn: 0.85 },
-      oee:         { good: 0.75, warn: 0.60 },
-      availability:{ good: 0.90, warn: 0.80 }
+      capacityAdj: { good: 0.85, warn: 0.75 },
+      oee:         { good: 0.60, warn: 0.30 },
+      availability:{ good: 0.80, warn: 0.60 }
     };
     const grade = (v, {good, warn}) => (v >= good ? 'good' : v >= warn ? 'warn' : 'bad');
     const fmtPct = v => (v == null ? '0%' : (v*100).toFixed(0) + '%');
