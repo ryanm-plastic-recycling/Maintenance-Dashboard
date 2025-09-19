@@ -30,14 +30,15 @@ async function main() {
     const res = await ingestProductionExcel(pool);
     console.log('Production Excel ingested:', res.rows);
     await enrichNameplateFromMappings(pool);
+    await pool.request().query(`
+      UPDATE dbo.UpdateSchedules
+      SET LastRun = SYSUTCDATETIME()
+      WHERE Name = 'prod-excel'
+    `);
   }
 
   await pool.close();
   console.log('Done:', arg);
 }
-await pool.request().query(`
-  UPDATE dbo.UpdateSchedules
-  SET LastRun = SYSUTCDATETIME()
-  WHERE Name = 'prod-excel'
-`);
+
 main().catch(e => { console.error(e); process.exit(1); });
