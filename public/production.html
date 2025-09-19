@@ -169,6 +169,32 @@
       </div>
     </section>
   </div>
+<script>
+let MAPPINGS;
+async function loadMappings(){
+  // if you serve mappings.json from /public, this fetch is correct
+  MAPPINGS = await (await fetch('mappings.json', {cache: 'no-store'})).json();
+}
+
+// Resolve per-line capacity with material override, then DEFAULT, then global fallback
+function capacityFor(lineName, material){
+  const { 
+    capacities_lbs_hr: caps = {}, 
+    capacity_by_material_lbs_hr: byMat = {}, 
+    capacity_aliases: alias = {}, 
+    material_aliases: malias = {} 
+  } = MAPPINGS || {};
+
+  const canon = (caps[lineName] !== undefined || byMat[lineName])
+    ? lineName
+    : (alias[lineName] || lineName);
+
+  const k = String(material ?? '').trim().toUpperCase();
+  const m = malias[k] || (k === '' ? 'DEFAULT' : k);
+
+  return byMat[canon]?.[m] ?? byMat[canon]?.DEFAULT ?? caps[canon] ?? 0;
+}
+</script>
 
   <!-- Theme loader -->
   <script>
@@ -284,7 +310,12 @@
       const agg = {};
       for (const r of byline) {
         const m = r.machine;
-        const cap = r.nameplate_lbs_hr || 0;
+        // Prefer server-enriched nameplate, but fall back to client-side resolver.
+        // If you want to ALWAYS use the client resolver, just set cap = capacityFor(...).
+        const cap = (r.nameplate_lbs_hr && r.nameplate_lbs_hr > 0)
+          ? r.nameplate_lbs_hr
+          : capacityFor(r.machine, r.material);
+
         const mh  = r.machine_hours || 0;       // prefer machine_hours from source if present
         const md  = r.maint_dt_h || 0;
         const pd  = r.prod_dt_h  || 0;
@@ -539,7 +570,12 @@
         }
         for (const r of byline) {
           const d = (r.src_date||'').slice(0,10); if (!byDate.has(d)) continue;
-          const cap = r.nameplate_lbs_hr || 0;
+          // Prefer server-enriched nameplate, but fall back to client-side resolver.
+          // If you want to ALWAYS use the client resolver, just set cap = capacityFor(...).
+          const cap = (r.nameplate_lbs_hr && r.nameplate_lbs_hr > 0)
+            ? r.nameplate_lbs_hr
+            : capacityFor(r.machine, r.material);
+
           const lbs = r.pounds || 0;
           const dt  = (r.maint_dt_h||0)+(r.prod_dt_h||0);
           const row = byDate.get(d);
@@ -628,6 +664,9 @@
         document.getElementById('tfLabel').textContent = `${r.from} → ${r.to}`;
         await renderForRange(r.from, r.to, r.label);
       }
+      // NEW: load mappings first
+      await loadMappings();
+      
       sel.addEventListener('change', go);
       await go();
     })();
