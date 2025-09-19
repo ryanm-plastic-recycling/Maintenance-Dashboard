@@ -34,7 +34,7 @@
     /* Overall KPI tiles */
     .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-top:6px}
     .tile{background:var(--card);padding:14px;border-radius:12px;box-shadow:0 2px 4px rgba(0,0,0,.08);border:1px solid var(--border);text-align:center;min-height:84px}
-    .tile .lab{font-size:12px;color:#000;text-transform:uppercase;letter-spacing:.3px} /* black labels */
+    .tile .lab{font-size:12px;color:#000;text-transform:uppercase;letter-spacing:.3px}
     .tile .val{font-size:22px;font-weight:900;margin-top:6px}
     .tile.good { background: var(--good-bg); color: var(--good-fg); }
     .tile.warn { background: var(--warn-bg); color: var(--warn-fg); }
@@ -55,7 +55,7 @@
     .lt-card.good { border-left-color: var(--good-fg); }
     .lt-card.warn { border-left-color: var(--warn-fg); }
     .lt-card.bad  { border-left-color: var(--bad-fg); }
-    .lt-card.good, .lt-card.warn, .lt-card.bad { background:#fff; } /* keep neutral */
+    .lt-card.good, .lt-card.warn, .lt-card.bad { background:#fff; }
 
     .lt-head{display:flex;align-items:baseline;justify-content:space-between}
     .lt-name{font-weight:900}
@@ -246,7 +246,7 @@
 
       await loadThemeAndApply();
 
-      // Weekday list in range
+      // Build day list for the range
       const fromD = new Date(fromISO + 'T00:00:00');
       const toD   = new Date(toISO   + 'T00:00:00');
       const dates = [];
@@ -261,16 +261,16 @@
         fetch(`/api/production/by-line?from=${fromISO}&to=${toISO}`).then(r=>r.json())
       ]);
 
-      // Extruders
+      // Extruders only
       const byline = (bylineRaw || []).filter(r => r.machine && r.machine.startsWith('Extruder'));
 
-      // Aggregate per line across range (prefer machine_hours)
+      // ---------- Aggregate per line across range ----------
       const agg = {};
       for (const r of byline) {
         const m = r.machine;
         const cap = r.nameplate_lbs_hr || 0;
-        const mh  = r.machine_hours || 0;      // expose in /by-line if possible
-        const md  = r.maint_dt_h || 0;         // from Limble in your SQL view
+        const mh  = r.machine_hours || 0;  // prefer this; expose in API if not present yet
+        const md  = r.maint_dt_h || 0;     // ensure API uses Limble downtime, not sheet
         if (!agg[m]) agg[m] = { lbs:0, cap:cap, maint:0, mach:0, days:weekdaysCount };
         agg[m].lbs   += (r.pounds || 0);
         agg[m].maint += md;
@@ -291,7 +291,7 @@
         return { machine:m, cap:a.cap, lbs:a.lbs, maint:a.maint, mach:a.mach, prod:prodDT, avail, perfRaw, perfAdj, oee };
       });
 
-      // Overall from per-line
+      // ---------- Overall from per-line ----------
       const totalPlannedH = perLine.reduce((s,x)=>s + 24*weekdaysCount, 0);
       const totalRuntimeH = perLine.reduce((s,x)=>s + (x.mach>0 ? x.mach : (x.cap>0 ? x.lbs/x.cap : 0)), 0);
       const totalMaintH   = perLine.reduce((s,x)=>s + x.maint, 0);
@@ -360,63 +360,103 @@
         cont.appendChild(el);
       });
 
-      // Heatmap (weekday averages)
+      // Heatmap: dynamic mode
       (function renderHeatmap(){
-        const days = ['Mon','Tue','Wed','Thu','Fri'];
-        const weekday = d => ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][new Date(d).getDay()];
-        const byLineDay = {};
-        for (const r of (byline || [])) {
-          const wd = weekday(r.src_date);
-          if (wd === 'Sat' || wd === 'Sun') continue;
-          const m = r.machine;
-          byLineDay[m] ??= {Mon:{sum:0,n:0}, Tue:{sum:0,n:0}, Wed:{sum:0,n:0}, Thu:{sum:0,n:0}, Fri:{sum:0,n:0}};
-          const oee = (r.oee ?? ((r.availability ?? 0) * (r.perf_adj ?? 0)));
-          byLineDay[m][wd].sum += oee || 0;
-          byLineDay[m][wd].n   += 1;
-        }
-        const machines = Object.keys(byLineDay).sort();
-        let html = '<thead><tr><th>Line</th>'+days.map(d=>`<th>${d}</th>`).join('')+'</tr></thead><tbody>';
-        for (const m of machines) {
-          html += `<tr><td class="line">${m}</td>`;
-          for (const d of days) {
-            const agg = byLineDay[m][d];
-            const v = agg && agg.n ? (agg.sum/agg.n) : 0;
-            const cls = (v >= THRESH.oee.good ? 'good' : v >= THRESH.oee.warn ? 'warn' : 'bad');
-            html += `<td class="${cls}">${Math.round(v*100)}%</td>`;
+        const tDays = (new Date(toISO) - new Date(fromISO)) / 86400000 + 1;
+        const table = document.getElementById('heat');
+        if (tDays <= 20) {
+          // Per-date columns
+          const datesAll = [];
+          for (let d = new Date(fromISO); d <= new Date(toISO); d.setDate(d.getDate()+1)) {
+            if (isWeekday(d)) datesAll.push(formatISO(d));
           }
-          html += '</tr>';
+          const map = new Map(); // machine -> date -> oee
+          for (const r of (byline || [])) {
+            const key = r.machine; const d = r.src_date;
+            if (!datesAll.includes(d)) continue;
+            if (!map.has(key)) map.set(key, new Map());
+            const oee = (r.oee ?? ((r.availability ?? 0) * (r.perf_adj ?? 0))) || 0;
+            const cur = map.get(key).get(d);
+            map.get(key).set(d, cur==null ? oee : (cur+oee)/2); // rudimentary combine
+          }
+          let html = '<thead><tr><th>Line</th>'+datesAll.map(d=>`<th>${d.slice(5)}</th>`).join('')+'</tr></thead><tbody>';
+          for (const m of [...map.keys()].sort()) {
+            html += `<tr><td class="line">${m}</td>`;
+            const row = map.get(m);
+            for (const d of datesAll) {
+              const v = row.get(d) || 0;
+              const cls = (v >= THRESH.oee.good ? 'good' : v >= THRESH.oee.warn ? 'warn' : 'bad');
+              html += `<td class="${cls}">${Math.round(v*100)}%</td>`;
+            }
+            html += '</tr>';
+          }
+          html += '</tbody>';
+          table.innerHTML = html;
+          document.getElementById('hmLabel').textContent = `${label} (per-date)`;
+        } else {
+          // Weekday averages
+          const days = ['Mon','Tue','Wed','Thu','Fri'];
+          const weekday = d => ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][new Date(d).getDay()];
+          const byLineDay = {};
+          for (const r of (byline || [])) {
+            const wd = weekday(r.src_date);
+            if (wd === 'Sat' || wd === 'Sun') continue;
+            const m = r.machine;
+            byLineDay[m] ??= {Mon:{sum:0,n:0}, Tue:{sum:0,n:0}, Wed:{sum:0,n:0}, Thu:{sum:0,n:0}, Fri:{sum:0,n:0}};
+            const oee = (r.oee ?? ((r.availability ?? 0) * (r.perf_adj ?? 0)));
+            byLineDay[m][wd].sum += oee || 0;
+            byLineDay[m][wd].n   += 1;
+          }
+          const machines = Object.keys(byLineDay).sort();
+          let html = '<thead><tr><th>Line</th>'+days.map(d=>`<th>${d}</th>`).join('')+'</tr></thead><tbody>';
+          for (const m of machines) {
+            html += `<tr><td class="line">${m}</td>`;
+            for (const d of days) {
+              const agg = byLineDay[m][d];
+              const v = agg && agg.n ? (agg.sum/agg.n) : 0;
+              const cls = (v >= THRESH.oee.good ? 'good' : v >= THRESH.oee.warn ? 'warn' : 'bad');
+              html += `<td class="${cls}">${Math.round(v*100)}%</td>`;
+            }
+            html += '</tr>';
+          }
+          html += '</tbody>';
+          table.innerHTML = html;
+          document.getElementById('hmLabel').textContent = `${label} (weekday averages)`;
         }
-        html += '</tbody>';
-        document.getElementById('heat').innerHTML = html;
       })();
 
-      // Trend (utilization % to avoid flatlines)
+      // Trend: utilization % with auto-zoom
       (function renderTrend(){
-        // Build per-date totals from byline
-        const byDate = new Map(); for (const d of dates) byDate.set(d, { lbs:0, nameplate:0, adjcap:0 });
+        const byDate = new Map(); // d -> {rawU, adjU}
+        for (let d = new Date(fromISO); d <= new Date(toISO); d.setDate(d.getDate()+1)) {
+          if (isWeekday(d)) byDate.set(formatISO(d), { lbs:0, nameplate:0, adjcap:0 });
+        }
         for (const r of byline) {
           const d = r.src_date; if (!byDate.has(d)) continue;
           const cap = r.nameplate_lbs_hr || 0;
           const lbs = r.pounds || 0;
           const dt  = (r.maint_dt_h||0)+(r.prod_dt_h||0);
-          byDate.get(d).lbs      += lbs;
-          byDate.get(d).nameplate+= cap*24;
-          byDate.get(d).adjcap   += cap*Math.max(0, 24 - dt);
+          const row = byDate.get(d);
+          row.lbs      += lbs;
+          row.nameplate+= cap*24;
+          row.adjcap   += cap*Math.max(0, 24 - dt);
         }
-        // Utilization %
+        const dates = [...byDate.keys()].sort();
         const pts = dates.map(d => {
           const p = byDate.get(d);
-          const rawU = p.nameplate>0 ? (p.lbs/p.nameplate) : 0;
-          const adjU = p.adjcap>0    ? (p.lbs/p.adjcap)    : 0;
-          return { rawU, adjU };
+          return {
+            rawU: p.nameplate>0 ? (p.lbs/p.nameplate) : 0,
+            adjU: p.adjcap>0    ? (p.lbs/p.adjcap)    : 0
+          };
         });
-        const max = Math.max(1, ...pts.map(p => Math.max(p.rawU, p.adjU, 1))); // scale to 100%+
+        let maxU = Math.max(0.1, ...pts.map(p => Math.max(p.rawU, p.adjU)));
+        maxU = Math.min(Math.max(maxU*1.15, 0.3), 1.2); // headroom & clamp
 
         const w=900,h=260,padL=50,padB=30,ch=h-padB-40;
         const sx=i => padL + (i/Math.max(1,pts.length-1))*(w-padL-20);
-        const sy=v => 30 + ch - (Math.min(v,1.2)/max)*ch;  // clamp to 120%
-
+        const sy=v => 30 + ch - (Math.min(v,1.2)/maxU)*ch;
         const toLine = arr => arr.map((p,i)=>`${sx(i)},${sy(p)}`).join(' ');
+
         const rawPts = toLine(pts.map(p=>p.rawU));
         const adjPts = toLine(pts.map(p=>p.adjU));
 
@@ -425,7 +465,9 @@
         const warn = css.getPropertyValue('--warn-fg').trim() || '#f59e0b';
 
         let grid=''; for(let i=0;i<=4;i++){ const y=30+(i/4)*ch;
-          grid += `<line x1="${padL}" y1="${y}" x2="${w-20}" y2="${y}" stroke="#D7E0F3" stroke-width="1" opacity="0.7"/>`;
+          const val = (maxU*i/4)*100;
+          grid += `<line x1="${padL}" y1="${y}" x2="${w-20}" y2="${y}" stroke="#D7E0F3" stroke-width="1" opacity="0.7"/>` +
+                  `<text x="${w-18}" y="${y-4}" fill="#64748b" font-size="11">${val.toFixed(0)}%</text>`;
         }
         const xlabels = dates.map((d,i)=>`<text x="${sx(i)}" y="${h-10}" text-anchor="middle" fill="#475569" font-size="12">${d.slice(5)}</text>`).join('');
 
@@ -439,6 +481,14 @@
         document.getElementById('trendChart').innerHTML = svg;
       })();
     }
+
+    function startOfWeek(d){ const x=new Date(d); const day=(x.getDay()+6)%7; x.setDate(x.getDate()-day); x.setHours(0,0,0,0); return x;}
+    function endOfWeek(d){ const x=startOfWeek(d); x.setDate(x.getDate()+6); return x;}
+    function startOfMonth(d){ return new Date(d.getFullYear(), d.getMonth(), 1); }
+    function endOfMonth(d){ return new Date(d.getFullYear(), d.getMonth()+1, 0); }
+    function startOfQuarter(d){ return new Date(d.getFullYear(), Math.floor(d.getMonth()/3)*3, 1); }
+    function endOfQuarter(d){ const s=startOfQuarter(d); return new Date(s.getFullYear(), s.getMonth()+3, 0); }
+    function formatISO(d){ return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10); }
 
     function computeRange(sel){
       const now = new Date(); now.setHours(0,0,0,0);
@@ -472,7 +522,6 @@
       }
     }
 
-    // kick off + change handler
     (async function init(){
       const sel = document.getElementById('tf');
       async function go(){
@@ -481,7 +530,7 @@
         await renderForRange(r.from, r.to, r.label);
       }
       sel.addEventListener('change', go);
-      await go();  // first paint
+      await go();
     })();
   </script>
 </body>
