@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Production Data</title>
+  <title>PACE – Production Analysis & Capacity Explorer</title>
   <style>
     :root{
       --pri-blue:#25408F; --pri-green:#92D050;
@@ -29,6 +29,7 @@
     .wrap{margin:120px 20px 40px 20px}
     .controls{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin:0 0 16px}
     .meta-range{color:var(--muted);font-size:13px}
+    .select{appearance:none;border:1px solid var(--border);background:#fff;border-radius:10px;padding:8px 12px;font-weight:600}
 
     /* Overall KPI tiles */
     .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-top:6px}
@@ -81,7 +82,6 @@
     .gauge.warn .needle { stroke: var(--warn-fg); }
     .gauge.bad  .needle { stroke: var(--bad-fg); }
     .gauge .cap{font-size:11px;color:var(--muted);text-align:center;margin-top:-6px}
-    /* subtle colored arc under needle for more “colored speedo” look */
     .gauge .band { opacity:.25; stroke-width:10; fill:none }
 
     /* Heatmap */
@@ -103,7 +103,7 @@
 <body>
   <div class="top-border">
     <img src="img/pri-logo.png" alt="PRI Logo" class="logo" />
-    <div class="top-title">Production Data</div>
+    <div class="top-title">PACE – Production Analysis & Capacity Explorer</div>
     <div class="tabs">
       <a class="tab" href="index.html">Work Orders</a>
       <a class="tab" href="pm.html">PM</a>
@@ -116,12 +116,28 @@
 
   <div class="wrap">
     <div class="controls">
-      <span class="meta-range">Timeframe: <strong>Last 30 days</strong> (Weekdays only; Shifts A/B/C)</span>
+      <span class="meta-range">Timeframe:</span>
+      <select id="tf" class="select">
+        <option value="last30" selected>Trailing 30 days</option>
+        <option value="last7">Trailing 7 days</option>
+        <option value="today">Today</option>
+        <option value="yesterday">Yesterday</option>
+        <option value="thisweek">This week (Mon–Sun)</option>
+        <option value="lastweek">Last week (Mon–Sun)</option>
+        <option value="thismonth">This month</option>
+        <option value="lastmonth">Last month</option>
+        <option value="thisq">This quarter</option>
+        <option value="lastq">Last quarter</option>
+        <option value="thisyear">This year</option>
+        <option value="lastyear">Last year</option>
+        <option value="last12m">Trailing 12 months</option>
+      </select>
+      <span id="tfLabel" class="meta-range"></span>
     </div>
 
     <!-- OVERALL KPIs -->
     <section>
-      <h2>Overall KPIs <span class="sub">(Last 30 days)</span></h2>
+      <h2>Overall KPIs <span class="sub" id="rangeLabel"></span></h2>
       <div class="kpis">
         <div class="tile" id="tile-oee"><div class="lab">OEE</div><div class="val" id="ov-oee">--%</div></div>
         <div class="tile" id="tile-av"><div class="lab">Availability</div><div class="val" id="ov-av">--%</div></div>
@@ -136,12 +152,12 @@
     <!-- HEATMAP + LINE TILES -->
     <section class="grid section-gap">
       <div class="card">
-        <h3>Weekday OEE Heatmap <span class="sub">(Last 30 days)</span></h3>
+        <h3>Weekday OEE Heatmap <span class="sub" id="hmLabel"></span></h3>
         <table id="heat"></table>
       </div>
 
       <div class="card" style="margin-top:14px">
-        <h3>Line Tiles <span class="sub">(Extruders • Last 30 days)</span></h3>
+        <h3>Line Tiles <span class="sub" id="ltLabel"></span></h3>
         <div id="lineTiles" class="line-tiles"></div>
       </div>
     </section>
@@ -149,7 +165,7 @@
     <!-- TREND -->
     <section class="chart-section">
       <div class="chart-container">
-        <h2>Production Trend <span class="sub">(Extruders • Last 30 days)</span></h2>
+        <h2>Production Trend <span class="sub" id="trLabel"></span></h2>
         <div class="chart"><div id="trendChart"></div></div>
       </div>
     </section>
@@ -167,7 +183,7 @@
         if (c.warn?.fg)  document.documentElement.style.setProperty('--warn-fg', c.warn.fg);
         if (c.bad?.bg)   document.documentElement.style.setProperty('--bad-bg',  c.bad.bg);
         if (c.bad?.fg)   document.documentElement.style.setProperty('--bad-fg',  c.bad.fg);
-      } catch { /* keep fallbacks */ }
+      } catch {}
     }
   </script>
 
@@ -179,8 +195,11 @@
       availability:{ good: 0.90, warn: 0.80 }
     };
     const grade = (v, {good, warn}) => (v >= good ? 'good' : v >= warn ? 'warn' : 'bad');
+    const fmtPct = v => (v == null ? '0%' : (v*100).toFixed(0) + '%');
+    const fmtNum = v => (v == null ? '0' : Number(v).toLocaleString());
+    const isWeekday = d => { const n = d.getDay(); return n !== 0 && n !== 6; };
 
-    /* gauge utilities (clockwise) + colored band */
+    // gauge utilities (clockwise) + colored band
     function polarToCartesian(cx, cy, r, angDeg) {
       const a = (angDeg - 90) * Math.PI / 180;
       return { x: cx + r * Math.cos(a), y: cy + r * Math.sin(a) };
@@ -210,45 +229,48 @@
         </div>`;
     }
 
-    const fmtPct = v => (v == null ? '0%' : (v*100).toFixed(0) + '%');
-    const fmtNum = v => (v == null ? '0' : Number(v).toLocaleString());
-    const isWeekday = d => { const n = d.getDay(); return n !== 0 && n !== 6; };
+    // timeframe helpers
+    function startOfWeek(d){ const x=new Date(d); const day=(x.getDay()+6)%7; x.setDate(x.getDate()-day); x.setHours(0,0,0,0); return x;}
+    function endOfWeek(d){ const x=startOfWeek(d); x.setDate(x.getDate()+6); return x;}
+    function startOfMonth(d){ return new Date(d.getFullYear(), d.getMonth(), 1); }
+    function endOfMonth(d){ return new Date(d.getFullYear(), d.getMonth()+1, 0); }
+    function startOfQuarter(d){ return new Date(d.getFullYear(), Math.floor(d.getMonth()/3)*3, 1); }
+    function endOfQuarter(d){ const s=startOfQuarter(d); return new Date(s.getFullYear(), s.getMonth()+3, 0); }
+    function formatISO(d){ return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10); }
 
-    (async function () {
+    async function renderForRange(fromISO, toISO, label){
+      document.getElementById('rangeLabel').textContent = `(${label})`;
+      document.getElementById('hmLabel').textContent = label;
+      document.getElementById('ltLabel').textContent = label;
+      document.getElementById('trLabel').textContent = label;
+
       await loadThemeAndApply();
 
-      // Date window: last 30 calendar days, weekday-focused UI
-      const today = new Date();
-      const to   = today.toISOString().slice(0,10);
-      const fromD = new Date(today); fromD.setDate(fromD.getDate() - 29);
-      const from = fromD.toISOString().slice(0,10);
-
-      // Weekdays in window
+      // Weekday list in range
+      const fromD = new Date(fromISO + 'T00:00:00');
+      const toD   = new Date(toISO   + 'T00:00:00');
       const dates = [];
-      for (let d = new Date(fromD); d <= today; d.setDate(d.getDate()+1)) {
-        if (isWeekday(d)) dates.push(new Date(d).toISOString().slice(0,10));
+      for (let d = new Date(fromD); d <= toD; d.setDate(d.getDate()+1)) {
+        if (isWeekday(d)) dates.push(formatISO(d));
       }
       const weekdaysCount = dates.length;
 
       // Fetch
       const [summaryRaw, bylineRaw] = await Promise.all([
-        fetch(`/api/production/summary?from=${from}&to=${to}`).then(r=>r.json()),
-        fetch(`/api/production/by-line?from=${from}&to=${to}`).then(r=>r.json())
+        fetch(`/api/production/summary?from=${fromISO}&to=${toISO}`).then(r=>r.json()),
+        fetch(`/api/production/by-line?from=${fromISO}&to=${toISO}`).then(r=>r.json())
       ]);
 
-      // Just Extruders
+      // Extruders
       const byline = (bylineRaw || []).filter(r => r.machine && r.machine.startsWith('Extruder'));
 
-      /* ---------- Aggregate per line across range ----------
-         We PREFER machine_hours from SQL (sum across range).
-         If machine_hours is not returned by the API, we fall back to pounds/cap.
-         MaintDT is taken from API (should come from Limble, not sheet). */
-      const agg = {}; // machine -> accumulators
+      // Aggregate per line across range (prefer machine_hours)
+      const agg = {};
       for (const r of byline) {
         const m = r.machine;
         const cap = r.nameplate_lbs_hr || 0;
-        const mh  = r.machine_hours || 0;      // <-- include this in your /by-line SELECT (SUM(machine_hours))
-        const md  = r.maint_dt_h || 0;         // <-- from Limble aggregation in your view
+        const mh  = r.machine_hours || 0;      // expose in /by-line if possible
+        const md  = r.maint_dt_h || 0;         // from Limble in your SQL view
         if (!agg[m]) agg[m] = { lbs:0, cap:cap, maint:0, mach:0, days:weekdaysCount };
         agg[m].lbs   += (r.pounds || 0);
         agg[m].maint += md;
@@ -256,13 +278,12 @@
         if (cap > 0) agg[m].cap = cap;
       }
 
-      // Compute per-line KPIs
       const perLine = Object.keys(agg).sort().map(m => {
         const a = agg[m];
         const plannedH = 24 * a.days;
-        const runtimeH_pref = a.mach > 0 ? a.mach : (a.cap > 0 ? (a.lbs / a.cap) : 0); // prefer machine_hours
-        const prodDT   = Math.max(0, plannedH - a.maint - runtimeH_pref);
-        const avail    = plannedH > 0 ? (runtimeH_pref / plannedH) : 0;
+        const runtimeH = a.mach > 0 ? a.mach : (a.cap > 0 ? (a.lbs / a.cap) : 0);
+        const prodDT   = Math.max(0, plannedH - a.maint - runtimeH);
+        const avail    = plannedH > 0 ? (runtimeH / plannedH) : 0;
         const perfRaw  = (a.cap > 0 && plannedH > 0) ? (a.lbs / (a.cap * plannedH)) : 0;
         const adjDen   = Math.max(1e-9, (plannedH - a.maint) * a.cap);
         const perfAdj  = (a.cap > 0) ? (a.lbs / adjDen) : 0;
@@ -270,7 +291,7 @@
         return { machine:m, cap:a.cap, lbs:a.lbs, maint:a.maint, mach:a.mach, prod:prodDT, avail, perfRaw, perfAdj, oee };
       });
 
-      /* ---------- Overall from per-line ---------- */
+      // Overall from per-line
       const totalPlannedH = perLine.reduce((s,x)=>s + 24*weekdaysCount, 0);
       const totalRuntimeH = perLine.reduce((s,x)=>s + (x.mach>0 ? x.mach : (x.cap>0 ? x.lbs/x.cap : 0)), 0);
       const totalMaintH   = perLine.reduce((s,x)=>s + x.maint, 0);
@@ -284,28 +305,27 @@
       const ovPerfAdj = totalAdjCap > 0  ? (totalLbs/totalAdjCap) : 0;
       const ovOEE     = ovAvail * ovPerfAdj;
 
-      // Fill overall tiles
-      document.querySelector('#ov-oee').textContent = (ovOEE*100).toFixed(0) + '%';
-      document.querySelector('#ov-av').textContent  = (ovAvail*100).toFixed(0) + '%';
-      document.querySelector('#ov-pr').textContent  = (ovPerfRaw*100).toFixed(0) + '%';
-      document.querySelector('#ov-pa').textContent  = (ovPerfAdj*100).toFixed(0) + '%';
-      document.querySelector('#ov-lbs').textContent = totalLbs.toLocaleString();
-      document.querySelector('#ov-mdt').textContent = totalMaintH.toFixed(1);
-      document.querySelector('#ov-pdt').textContent = totalProdH.toFixed(1);
+      // Overall tiles
+      document.getElementById('ov-oee').textContent = (ovOEE*100).toFixed(0) + '%';
+      document.getElementById('ov-av').textContent  = (ovAvail*100).toFixed(0) + '%';
+      document.getElementById('ov-pr').textContent  = (ovPerfRaw*100).toFixed(0) + '%';
+      document.getElementById('ov-pa').textContent  = (ovPerfAdj*100).toFixed(0) + '%';
+      document.getElementById('ov-lbs').textContent = totalLbs.toLocaleString();
+      document.getElementById('ov-mdt').textContent = totalMaintH.toFixed(1);
+      document.getElementById('ov-pdt').textContent = totalProdH.toFixed(1);
 
       // Grade overall tiles
       const setTileClass = (tileSel, v, thr) => {
         const tile = document.querySelector(tileSel);
         const cls = grade(v || 0, thr);
-        tile.classList.remove('good','warn','bad');
-        tile.classList.add(cls);
+        tile.classList.remove('good','warn','bad'); tile.classList.add(cls);
       };
       setTileClass('#tile-oee', ovOEE, THRESH.oee);
       setTileClass('#tile-av',  ovAvail, THRESH.availability);
       setTileClass('#tile-pr',  ovPerfAdj, THRESH.capacityAdj);
       setTileClass('#tile-pa',  ovPerfAdj, THRESH.capacityAdj);
 
-      /* ---------- Render Line Tiles ---------- */
+      // Line tiles
       const cont = document.getElementById('lineTiles'); cont.innerHTML = '';
       perLine.forEach(r => {
         const tileGrade = grade(r.oee, THRESH.oee);
@@ -340,7 +360,7 @@
         cont.appendChild(el);
       });
 
-      /* ---------- Heatmap (weekday averages) ---------- */
+      // Heatmap (weekday averages)
       (function renderHeatmap(){
         const days = ['Mon','Tue','Wed','Thu','Fri'];
         const weekday = d => ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][new Date(d).getDay()];
@@ -370,8 +390,9 @@
         document.getElementById('heat').innerHTML = html;
       })();
 
-      /* ---------- Trend (overall extruders) ---------- */
+      // Trend (utilization % to avoid flatlines)
       (function renderTrend(){
+        // Build per-date totals from byline
         const byDate = new Map(); for (const d of dates) byDate.set(d, { lbs:0, nameplate:0, adjcap:0 });
         for (const r of byline) {
           const d = r.src_date; if (!byDate.has(d)) continue;
@@ -382,17 +403,22 @@
           byDate.get(d).nameplate+= cap*24;
           byDate.get(d).adjcap   += cap*Math.max(0, 24 - dt);
         }
-        const pts = dates.map(d => byDate.get(d));
-        const max = Math.max(1, ...pts.map(p => Math.max(p.lbs, p.nameplate, p.adjcap))) || 1;
+        // Utilization %
+        const pts = dates.map(d => {
+          const p = byDate.get(d);
+          const rawU = p.nameplate>0 ? (p.lbs/p.nameplate) : 0;
+          const adjU = p.adjcap>0    ? (p.lbs/p.adjcap)    : 0;
+          return { rawU, adjU };
+        });
+        const max = Math.max(1, ...pts.map(p => Math.max(p.rawU, p.adjU, 1))); // scale to 100%+
 
         const w=900,h=260,padL=50,padB=30,ch=h-padB-40;
         const sx=i => padL + (i/Math.max(1,pts.length-1))*(w-padL-20);
-        const sy=v => 30 + ch - (v/max)*ch;
-        const toLine = arr => arr.map((p,i)=>`${sx(i)},${sy(p)}`).join(' ');
+        const sy=v => 30 + ch - (Math.min(v,1.2)/max)*ch;  // clamp to 120%
 
-        const lbsPts  = toLine(pts.map(p=>p.lbs));
-        const namePts = toLine(pts.map(p=>p.nameplate));
-        const adjPts  = toLine(pts.map(p=>p.adjcap));
+        const toLine = arr => arr.map((p,i)=>`${sx(i)},${sy(p)}`).join(' ');
+        const rawPts = toLine(pts.map(p=>p.rawU));
+        const adjPts = toLine(pts.map(p=>p.adjU));
 
         const css = getComputedStyle(document.documentElement);
         const good = css.getPropertyValue('--good-fg').trim() || '#22c55e';
@@ -406,13 +432,56 @@
         const svg = `<svg viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg">
           <rect x="0" y="0" width="100%" height="100%" fill="#F7F9FF"/>
           ${grid}
-          <polyline fill="none" stroke="${good}" stroke-width="3" points="${namePts}"/>
           <polyline fill="none" stroke="${warn}" stroke-width="3" points="${adjPts}"/>
-          <polyline fill="none" stroke="#2563eb" stroke-width="3" points="${lbsPts}"/>
+          <polyline fill="none" stroke="#2563eb" stroke-width="3" points="${rawPts}"/>
           ${xlabels}
         </svg>`;
         document.getElementById('trendChart').innerHTML = svg;
       })();
+    }
+
+    function computeRange(sel){
+      const now = new Date(); now.setHours(0,0,0,0);
+      const y = new Date(now); y.setDate(y.getDate()-1);
+      const fmt = d => new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10);
+
+      const thisW = {from:startOfWeek(now), to:endOfWeek(now)};
+      const lastW = {from:new Date(startOfWeek(now)), to:new Date(endOfWeek(now))}; lastW.from.setDate(lastW.from.getDate()-7); lastW.to.setDate(lastW.to.getDate()-7);
+      const thisM = {from:startOfMonth(now), to:endOfMonth(now)};
+      const lastM = {from:startOfMonth(new Date(now.getFullYear(), now.getMonth()-1, 1)), to:endOfMonth(new Date(now.getFullYear(), now.getMonth()-1, 1))};
+      const thisQ = {from:startOfQuarter(now), to:endOfQuarter(now)};
+      const lastQ = {from:startOfQuarter(new Date(now.getFullYear(), now.getMonth()-3, 1)), to:endOfQuarter(new Date(now.getFullYear(), now.getMonth()-3, 1))};
+      const thisY = {from:new Date(now.getFullYear(),0,1), to:new Date(now.getFullYear(),11,31)};
+      const lastY = {from:new Date(now.getFullYear()-1,0,1), to:new Date(now.getFullYear()-1,11,31)};
+
+      switch(sel){
+        case 'today':     return {from:fmt(now), to:fmt(now), label:'Today'};
+        case 'yesterday': return {from:fmt(y),   to:fmt(y),   label:'Yesterday'};
+        case 'thisweek':  return {from:fmt(thisW.from), to:fmt(thisW.to), label:'This week (Mon–Sun)'};
+        case 'lastweek':  return {from:fmt(lastW.from), to:fmt(lastW.to), label:'Last week (Mon–Sun)'};
+        case 'thismonth': return {from:fmt(thisM.from), to:fmt(thisM.to), label:'This month'};
+        case 'lastmonth': return {from:fmt(lastM.from), to:fmt(lastM.to), label:'Last month'};
+        case 'thisq':     return {from:fmt(thisQ.from), to:fmt(thisQ.to), label:'This quarter'};
+        case 'lastq':     return {from:fmt(lastQ.from), to:fmt(lastQ.to), label:'Last quarter'};
+        case 'thisyear':  return {from:fmt(thisY.from), to:fmt(thisY.to), label:'This year'};
+        case 'lastyear':  return {from:fmt(lastY.from), to:fmt(lastY.to), label:'Last year'};
+        case 'last7':     { const s=new Date(now); s.setDate(s.getDate()-6); return {from:fmt(s), to:fmt(now), label:'Trailing 7 days'}; }
+        case 'last12m':   { const s=new Date(now); s.setMonth(s.getMonth()-12); return {from:fmt(s), to:fmt(now), label:'Trailing 12 months'}; }
+        case 'last30':
+        default:          { const s=new Date(now); s.setDate(s.getDate()-29); return {from:fmt(s), to:fmt(now), label:'Trailing 30 days'}; }
+      }
+    }
+
+    // kick off + change handler
+    (async function init(){
+      const sel = document.getElementById('tf');
+      async function go(){
+        const r = computeRange(sel.value);
+        document.getElementById('tfLabel').textContent = r.label;
+        await renderForRange(r.from, r.to, r.label);
+      }
+      sel.addEventListener('change', go);
+      await go();  // first paint
     })();
   </script>
 </body>
