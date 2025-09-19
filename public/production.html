@@ -281,14 +281,30 @@
       const perLine = Object.keys(agg).sort().map(m => {
         const a = agg[m];
         const plannedH = 24 * a.days;
+      
+        // prefer machine_hours; fallback to lbs/cap
         const runtimeH = a.mach > 0 ? a.mach : (a.cap > 0 ? (a.lbs / a.cap) : 0);
-        const prodDT   = Math.max(0, plannedH - a.maint - runtimeH);
-        const avail    = plannedH > 0 ? (runtimeH / plannedH) : 0;
-        const perfRaw  = (a.cap > 0 && plannedH > 0) ? (a.lbs / (a.cap * plannedH)) : 0;
-        const adjDen   = Math.max(1e-9, (plannedH - a.maint) * a.cap);
-        const perfAdj  = (a.cap > 0) ? (a.lbs / adjDen) : 0;
-        const oee      = avail * perfAdj;
-        return { machine:m, cap:a.cap, lbs:a.lbs, maint:a.maint, mach:a.mach, prod:prodDT, avail, perfRaw, perfAdj, oee };
+      
+        // clamp negatives
+        const maintH   = Math.max(0, a.maint);
+        const effPlanH = Math.max(0, plannedH);
+        const prodDT   = Math.max(0, effPlanH - maintH - runtimeH);
+      
+        // if maintenance wipes out the whole day, everything else is 0
+        if (maintH >= effPlanH || a.cap <= 0) {
+          return { machine:m, cap:a.cap, lbs:a.lbs, maint:maintH, mach:a.mach,
+                   prod:prodDT, avail:0, perfRaw: (a.cap>0 && effPlanH>0 ? a.lbs/(a.cap*effPlanH) : 0),
+                   perfAdj:0, oee:0 };
+        }
+      
+        const avail   = effPlanH > 0 ? (runtimeH / effPlanH) : 0;
+        const perfRaw = (a.cap > 0 && effPlanH > 0) ? (a.lbs / (a.cap * effPlanH)) : 0;
+        const adjDen  = (effPlanH - maintH) * a.cap;           // guaranteed > 0 here
+        const perfAdj = a.lbs / adjDen;
+        const oee     = avail * perfAdj;
+      
+        return { machine:m, cap:a.cap, lbs:a.lbs, maint:maintH, mach:a.mach,
+                 prod:prodDT, avail, perfRaw, perfAdj, oee };
       });
 
       // ---------- Overall from per-line ----------
