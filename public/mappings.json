@@ -365,6 +365,18 @@
     "6": "Available",
     "7": "Unavailable"
   },
+  "capacity_aliases": {
+  "Extruder Line E1": "Extruder 1",
+  "Extruder Line E2": "Extruder 2",
+  "Extruder Line E3": "Extruder 3",
+  "Extruder Line E4": "Extruder 4",
+  "Extruder Line E5": "Extruder 5",
+  "Extruder Line E6": "Extruder 6",
+  "Extruder Line E7": "Extruder 7",
+  "NGR": "Extruder NGR",
+  "New Extrusion Line NL1": "Extruder New Single",
+  "New Extrusion Line NL2": "Extruder New Twin"
+  },
   "capacities_lbs_hr": {
     "Vistakon 1": 2000,
     "Extruder NGR": 2000,
@@ -378,17 +390,82 @@
     "Extruder New Single": 6000,
     "Extruder New Twin": 5000
   },
-  "capacity_aliases": {
-  "Extruder Line E1": "Extruder 1",
-  "Extruder Line E2": "Extruder 2",
-  "Extruder Line E3": "Extruder 3",
-  "Extruder Line E4": "Extruder 4",
-  "Extruder Line E5": "Extruder 5",
-  "Extruder Line E6": "Extruder 6",
-  "Extruder Line E7": "Extruder 7",
-  "NGR": "Extruder NGR",
-  "New Extrusion Line NL1": "Extruder New Single",
-  "New Extrusion Line NL2": "Extruder New Twin"
+  "capacity_by_material_lbs_hr": {
+    "Extruder 1": { 
+      "DEFAULT": 2100, 
+      "CRY": 2250, 
+      "EPP": 1450, 
+      "EPS": 1250, 
+      "HIPS": 2510, 
+      "PP": 1100, 
+      "PS": 1600, 
+      "PS/PP": 830 
+    },
+    "Extruder 2": { 
+      "DEFAULT": 2100, 
+      "CD": 1725, 
+      "CRY": 2100, 
+      "EPS": 1700, 
+      "HIPS": 2190 
+    },
+    "Extruder 3": { 
+      "DEFAULT": 1970, 
+      "ABS": 1730, 
+      "CRY": 2010, 
+      "HDPE": 2665, 
+      "HIPS": 1995, 
+      "PP": 2185 
+    },
+    "Extruder 4": { 
+      "DEFAULT": 2130, 
+      "ABS": 1890, 
+      "CRY": 1930, 
+      "HDPE": 2530, 
+      "HIPS": 2135, 
+      "PP": 2370 
+    },
+    "Extruder 5": { 
+      "DEFAULT": 2550, 
+      "HDPE": 2040, 
+      "HIPS": 2140, 
+      "PP": 2550, 
+      "PPTF": 2820 
+    },
+    "Extruder 6": { 
+      "DEFAULT": 1100, 
+      "CRY": 1030, 
+      "PP": 1100 
+    },
+    "Extruder 7": { 
+      "DEFAULT": 2350, 
+      "HDPE": 2140, 
+      "PP": 2360 
+    },
+    "Extruder New Single": { 
+      "DEFAULT": 4110, 
+      "PP": 4110, 
+      "PPTF": 4140 
+    },
+    "Extruder New Twin": { 
+      "DEFAULT": 4110, 
+      "PP": 4080, 
+      "PPTF": 4790 
+    }
+  },
+   "material_aliases": {
+    "POLYPROPYLENE": "PP",
+    "PP.": "PP",
+    "POLYSTYRENE": "PS",
+    "GPPS": "PS",
+    "HIPS": "HIPS",
+    "Hips": "HIPS",
+    "ACRYLONITRILE BUTADIENE STYRENE": "ABS",
+    "ABS NAT": "ABS",
+    "CRYSTAL": "CRY",
+    "CRYSTAL PS": "CRY",
+    "PP/PS": "PS/PP",
+    "": "DEFAULT",
+    "UNKNOWN": "DEFAULT"
   }
 
 }
