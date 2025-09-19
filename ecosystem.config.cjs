@@ -35,7 +35,8 @@ module.exports = {
       args: '--prod-excel',
       interpreter: 'node',
       cron_restart: '0 * * * *',  // every hour at minute 0
-      autorestart: false
+      autorestart: false,
+      env_production: { NODE_ENV: 'production' }
     }
   ]
 };
