@@ -24,9 +24,6 @@ export default function adminRoutes(poolPromise) {
   // POST /api/admin/run-prod-excel  { password }
   r.post('/admin/run-prod-excel', async (req, res) => {
     try {
-      if ((req.body?.password || '') !== process.env.ADMIN_PASSWORD) {
-        return res.status(401).json({ error: 'Unauthorized' });
-      }
       const pool = await poolPromise;
       const { ingestProductionExcel } = await import('../jobs/productionExcelJob.js');
       const { enrichNameplateFromMappings } = await import('../jobs/enrichNameplateJob.js');
