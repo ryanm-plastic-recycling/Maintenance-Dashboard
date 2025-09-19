@@ -412,7 +412,11 @@
         } else {
           // Weekday averages
           const days = ['Mon','Tue','Wed','Thu','Fri'];
-          const weekday = d => ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][new Date(d).getDay()];
+          // replace weekday() in production.html as the UTC to EST conversion offsets days by 1
+          const weekday = (s) => {
+            const [y, m, d] = s.split('-').map(Number);
+            return ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][new Date(y, m - 1, d).getDay()];
+          };
           const byLineDay = {};
           for (const r of (byline || [])) {
             const wd = weekday(r.src_date);
