@@ -29,7 +29,15 @@ module.exports = {
         CACHE_TTL_MINUTES: process.env.CACHE_TTL_MINUTES,
         CACHE_CHECK_PERIOD_SECONDS: process.env.CACHE_CHECK_PERIOD_SECONDS,
         STATUS_REFRESH_ENDPOINT: process.env.STATUS_REFRESH_ENDPOINT
-      }
+      },
+      {
+      name: 'pace-prod-excel',
+      script: 'scripts/run-jobs-once.mjs',
+      args: '--prod-excel',
+      interpreter: 'node',
+      cron_restart: '0 * * * *',   // at minute 0 every hour
+      autorestart: false
+    }
     }
   ]
 }
