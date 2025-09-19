@@ -9,12 +9,11 @@
       --pri-blue:#25408F; --pri-green:#92D050;
       --bg:#E9EDF5; --card:#FBFCFE; --ink:#0F172A; --muted:#475569; --border:#D7E0F3;
 
-      /* will be overridden by /api/settings/kpi-theme at runtime */
+      /* overridden by /api/settings/kpi-theme at runtime */
       --good-bg:#dcfce7;  --good-fg:#065f46;
       --warn-bg:#fef9c3;  --warn-fg:#7c5e10;
       --bad-bg:#fee2e2;   --bad-fg:#7f1d1d;
     }
-
     *{box-sizing:border-box}
     body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,Segoe UI,Arial,sans-serif}
 
@@ -40,14 +39,11 @@
     .tile.warn { background: var(--warn-bg); color: var(--warn-fg); }
     .tile.bad  { background: var(--bad-bg);  color: var(--bad-fg);  }
 
-    .section-gap{margin-top:28px} /* extra spacing before Heatmap */
+    .section-gap{margin-top:28px}
 
     .card{background:var(--card);border-radius:12px;border:1px solid var(--border);box-shadow:0 2px 6px rgba(0,0,0,.08);padding:12px}
     .card h3{margin:0 0 8px;font-size:18px;color:var(--pri-blue);display:flex;gap:8px;align-items:center}
     .card .sub{font-size:12px;color:var(--muted);font-weight:600}
-
-    /* Stack: Heatmap then Tiles */
-    .grid{display:block}
 
     /* Line tiles */
     .line-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px}
@@ -55,8 +51,6 @@
     .lt-card.good { border-left-color: var(--good-fg); }
     .lt-card.warn { border-left-color: var(--warn-fg); }
     .lt-card.bad  { border-left-color: var(--bad-fg); }
-    .lt-card.good, .lt-card.warn, .lt-card.bad { background:#fff; }
-
     .lt-head{display:flex;align-items:baseline;justify-content:space-between}
     .lt-name{font-weight:900}
     .lt-nameplate{font-size:12px;color:var(--muted)}
@@ -84,14 +78,14 @@
     .gauge .cap{font-size:11px;color:var(--muted);text-align:center;margin-top:-6px}
     .gauge .band { opacity:.25; stroke-width:10; fill:none }
 
-    /* Heatmap */
+    /* Tables / Heatmaps */
     table{width:100%;border-collapse:collapse;margin-top:6px}
     th,td{padding:8px;border-bottom:1px solid #E1E9F8;text-align:center}
     th{background:var(--pri-blue);color:#fff;font-size:13px;position:sticky;top:0}
     td.line{text-align:left;font-weight:700}
-    #heat td.good { background: var(--good-bg); }
-    #heat td.warn { background: var(--warn-bg); }
-    #heat td.bad  { background: var(--bad-bg); }
+    #heat td.good, #heatFactors td.good { background: var(--good-bg); }
+    #heat td.warn, #heatFactors td.warn { background: var(--warn-bg); }
+    #heat td.bad,  #heatFactors td.bad  { background: var(--bad-bg); }
 
     /* Trend */
     .chart-section{margin-top:16px}
@@ -149,11 +143,16 @@
       </div>
     </section>
 
-    <!-- HEATMAP + LINE TILES -->
-    <section class="grid section-gap">
+    <!-- HEATMAPS + LINE TILES -->
+    <section class="section-gap">
       <div class="card">
         <h3>Weekday OEE Heatmap <span class="sub" id="hmLabel"></span></h3>
         <table id="heat"></table>
+      </div>
+
+      <div class="card" style="margin-top:14px">
+        <h3>OEE Factors Heatmap (Availability / Performance-Adj / Quality) <span class="sub" id="hm2Label"></span></h3>
+        <table id="heatFactors"></table>
       </div>
 
       <div class="card" style="margin-top:14px">
@@ -189,19 +188,43 @@
 
   <!-- App -->
   <script>
+    // ---------- CONFIG / UTILS ----------
     const THRESH = {
       capacityAdj: { good: 0.80, warn: 0.60 },
       oee:         { good: 0.50, warn: 0.25 },
       availability:{ good: 0.80, warn: 0.60 }
     };
-    const grade = (v, {good, warn}) => (v >= good ? 'good' : v >= warn ? 'warn' : 'bad');
-    const fmtPct = v => (v == null ? '0%' : (v*100).toFixed(0) + '%');
-    const fmtNum = v => (v == null ? '0' : Number(v).toLocaleString());
-    const isWeekday = d => { const n = d.getDay(); return n !== 0 && n !== 6; };
+    const grade   = (v, {good, warn}) => (v >= good ? 'good' : v >= warn ? 'warn' : 'bad');
+    const fmtPct  = v => (v == null ? '0%' : (v*100).toFixed(0) + '%');
+    const fmtNum  = v => (v == null ? '0' : Number(v).toLocaleString());
 
-    // gauge utilities (clockwise) + colored band
+    const _WDAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    function weekdayLocal(v) {
+      if (!v) return null;
+      if (v instanceof Date && !isNaN(v)) return _WDAYS[v.getDay()];
+      if (typeof v === 'string') {
+        const iso10 = v.slice(0,10);
+        const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso10);
+        if (m) { const dt = new Date(+m[1], +m[2]-1, +m[3]); return _WDAYS[dt.getDay()]; }
+        const dt2 = new Date(v);
+        if (!isNaN(dt2)) return _WDAYS[dt2.getDay()];
+      }
+      return null;
+    }
+
+    function isWeekday(d){ const n = d.getDay(); return n !== 0 && n !== 6; }
+    function formatISO(d){ return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10); }
+
+    function startOfWeek(d){ const x=new Date(d); const day=(x.getDay()+6)%7; x.setDate(x.getDate()-day); x.setHours(0,0,0,0); return x;}
+    function endOfWeek(d){ const x=startOfWeek(d); x.setDate(x.getDate()+6); return x;}
+    function startOfMonth(d){ return new Date(d.getFullYear(), d.getMonth(), 1); }
+    function endOfMonth(d){ return new Date(d.getFullYear(), d.getMonth()+1, 0); }
+    function startOfQuarter(d){ return new Date(d.getFullYear(), Math.floor(d.getMonth()/3)*3, 1); }
+    function endOfQuarter(d){ const s=startOfQuarter(d); return new Date(s.getFullYear(), s.getMonth()+3, 0); }
+
+    // Gauges
     function polarToCartesian(cx, cy, r, angDeg) {
-      const a = (angDeg - 0) * Math.PI / 180;
+      const a = angDeg * Math.PI / 180;
       return { x: cx + r * Math.cos(a), y: cy + r * Math.sin(a) };
     }
     function arcPath(cx, cy, r, startDeg, endDeg, sweepFlag) {
@@ -213,15 +236,15 @@
     function gaugeSVG(pct, label, cls='') {
       const p = Math.max(0, Math.min(1, pct || 0));
       const R = 48, cx = 60, cy = 60;
-      const track  = arcPath(cx, cy, R, 180, 360, 1);          // 0→100% CW
-      const band   = arcPath(cx, cy, R, 180, 180 + 180*Math.max(p,0.02), 1); // faint colored sweep
+      const track  = arcPath(cx, cy, R, 180, 360, 1);
+      const band   = arcPath(cx, cy, R, 180, 180 + 180*Math.max(p,0.02), 1);
       const needle = arcPath(cx, cy, R, 180, 180 + 180*p, 1);
       const color = (cls==='good') ? 'var(--good-fg)' : (cls==='warn') ? 'var(--warn-fg)' : 'var(--bad-fg)';
       return `
         <div class="gauge ${cls}">
           <svg viewBox="0 0 120 80" xmlns="http://www.w3.org/2000/svg" class="speedo">
             <path d="${track}"  class="track"  fill="none" stroke-width="10"/>
-            <path d="${band}"   class="band"   stroke="${color}"/>
+            <path d="${band}"   class="band"   stroke="${color}" />
             <path d="${needle}" class="needle" fill="none" stroke="${color}" stroke-width="10" stroke-linecap="round"/>
             <text x="60" y="48" text-anchor="middle" class="pct">${Math.round(p*100)}%</text>
           </svg>
@@ -229,24 +252,17 @@
         </div>`;
     }
 
-    // timeframe helpers
-    function startOfWeek(d){ const x=new Date(d); const day=(x.getDay()+6)%7; x.setDate(x.getDate()-day); x.setHours(0,0,0,0); return x;}
-    function endOfWeek(d){ const x=startOfWeek(d); x.setDate(x.getDate()+6); return x;}
-    function startOfMonth(d){ return new Date(d.getFullYear(), d.getMonth(), 1); }
-    function endOfMonth(d){ return new Date(d.getFullYear(), d.getMonth()+1, 0); }
-    function startOfQuarter(d){ return new Date(d.getFullYear(), Math.floor(d.getMonth()/3)*3, 1); }
-    function endOfQuarter(d){ const s=startOfQuarter(d); return new Date(s.getFullYear(), s.getMonth()+3, 0); }
-    function formatISO(d){ return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10); }
-
+    // ---------- CORE RENDER ----------
     async function renderForRange(fromISO, toISO, label){
       document.getElementById('rangeLabel').textContent = `(${label})`;
-      document.getElementById('hmLabel').textContent = label;
-      document.getElementById('ltLabel').textContent = label;
-      document.getElementById('trLabel').textContent = label;
+      document.getElementById('hmLabel').textContent    = label;
+      document.getElementById('hm2Label').textContent   = label;
+      document.getElementById('ltLabel').textContent    = label;
+      document.getElementById('trLabel').textContent    = label;
 
       await loadThemeAndApply();
 
-      // Build day list for the range
+      // Build weekday list for planned hours calc
       const fromD = new Date(fromISO + 'T00:00:00');
       const toD   = new Date(toISO   + 'T00:00:00');
       const dates = [];
@@ -257,8 +273,8 @@
 
       // Fetch
       const [summaryRaw, bylineRaw] = await Promise.all([
-        fetch(`/api/production/summary?from=${fromISO}&to=${toISO}`).then(r=>r.json()),
-        fetch(`/api/production/by-line?from=${fromISO}&to=${toISO}`).then(r=>r.json())
+        fetch(`/api/production/summary?from=${fromISO}&to=${toISO}`).then(r=>r.json()).catch(()=>null),
+        fetch(`/api/production/by-line?from=${fromISO}&to=${toISO}`).then(r=>r.json()).catch(()=>[])
       ]);
 
       // Extruders only
@@ -269,46 +285,56 @@
       for (const r of byline) {
         const m = r.machine;
         const cap = r.nameplate_lbs_hr || 0;
-        const mh  = r.machine_hours || 0;  // prefer this; expose in API if not present yet
-        const md  = r.maint_dt_h || 0;     // ensure API uses Limble downtime, not sheet
-        if (!agg[m]) agg[m] = { lbs:0, cap:cap, maint:0, mach:0, days:weekdaysCount };
+        const mh  = r.machine_hours || 0;       // prefer machine_hours from source if present
+        const md  = r.maint_dt_h || 0;
+        const pd  = r.prod_dt_h  || 0;
+
+        if (!agg[m]) agg[m] = { lbs:0, cap:cap, maint:0, prod:0, mach:0, days:weekdaysCount };
         agg[m].lbs   += (r.pounds || 0);
-        agg[m].maint += md;
-        agg[m].mach  += mh;
+        agg[m].maint += Math.max(0, md);
+        agg[m].prod  += Math.max(0, pd);
+        agg[m].mach  += Math.max(0, mh);
         if (cap > 0) agg[m].cap = cap;
       }
 
       const perLine = Object.keys(agg).sort().map(m => {
         const a = agg[m];
         const plannedH = 24 * a.days;
-      
-        // prefer machine_hours; fallback to lbs/cap
         const runtimeH = a.mach > 0 ? a.mach : (a.cap > 0 ? (a.lbs / a.cap) : 0);
-      
-        // clamp negatives
         const maintH   = Math.max(0, a.maint);
+        const prodH    = Math.max(0, a.prod);
         const effPlanH = Math.max(0, plannedH);
-        const prodDT   = Math.max(0, effPlanH - maintH - runtimeH);
-      
-        // if maintenance wipes out the whole day, everything else is 0
-        if (maintH >= effPlanH || a.cap <= 0) {
-          return { machine:m, cap:a.cap, lbs:a.lbs, maint:maintH, mach:a.mach,
-                   prod:prodDT, avail:0, perfRaw: (a.cap>0 && effPlanH>0 ? a.lbs/(a.cap*effPlanH) : 0),
-                   perfAdj:0, oee:0 };
-        }
-      
-        const avail   = effPlanH > 0 ? (runtimeH / effPlanH) : 0;
-        const perfRaw = (a.cap > 0 && effPlanH > 0) ? (a.lbs / (a.cap * effPlanH)) : 0;
-        const adjDen  = (effPlanH - maintH) * a.cap;           // guaranteed > 0 here
-        const perfAdj = a.lbs / adjDen;
-        const oee     = avail * perfAdj;
-      
-        return { machine:m, cap:a.cap, lbs:a.lbs, maint:maintH, mach:a.mach,
-                 prod:prodDT, avail, perfRaw, perfAdj, oee };
+        const availDen = effPlanH;
+
+        // Availability = runtime / planned
+        const availability = availDen > 0 ? (runtimeH / availDen) : 0;
+
+        // Performance Adj = lbs / ((planned - maint) * cap)
+        const adjDen = Math.max(0, (effPlanH - maintH)) * a.cap;
+        const perfAdj = adjDen > 0 ? (a.lbs / adjDen) : 0;
+
+        // Performance Raw = lbs / (planned * cap)
+        const rawDen = effPlanH * a.cap;
+        const perfRaw = rawDen > 0 ? (a.lbs / rawDen) : 0;
+
+        // OEE (server may provide r.oee; we compute anyway)
+        const oee = availability * perfAdj;
+
+        // Quality (inferred) = OEE / (Availability * PerformanceAdj), guard divide-by-zero
+        const qual = (availability > 0 && perfAdj > 0) ? Math.max(0, Math.min(1, oee / (availability * perfAdj))) : 1;
+
+        // Production downtime (what’s left after runtime + maint)
+        const prodDT = Math.max(0, effPlanH - maintH - runtimeH);
+
+        return {
+          machine:m, cap:a.cap, lbs:a.lbs,
+          maint:maintH, prod:prodDT, mach:a.mach,
+          avail:availability, perfRaw, perfAdj, qual, oee
+        };
       });
 
-      // ---------- Overall from per-line ----------
-      const totalPlannedH = perLine.reduce((s,x)=>s + 24*weekdaysCount, 0);
+      // ---------- Overall tiles ----------
+      const totalPlannedH = perLine.length * 24 * weekdaysCount;
       const totalRuntimeH = perLine.reduce((s,x)=>s + (x.mach>0 ? x.mach : (x.cap>0 ? x.lbs/x.cap : 0)), 0);
       const totalMaintH   = perLine.reduce((s,x)=>s + x.maint, 0);
       const totalProdH    = perLine.reduce((s,x)=>s + x.prod, 0);
@@ -321,7 +347,6 @@
       const ovPerfAdj = totalAdjCap > 0  ? (totalLbs/totalAdjCap) : 0;
       const ovOEE     = ovAvail * ovPerfAdj;
 
-      // Overall tiles
       document.getElementById('ov-oee').textContent = (ovOEE*100).toFixed(0) + '%';
       document.getElementById('ov-av').textContent  = (ovAvail*100).toFixed(0) + '%';
       document.getElementById('ov-pr').textContent  = (ovPerfRaw*100).toFixed(0) + '%';
@@ -330,7 +355,6 @@
       document.getElementById('ov-mdt').textContent = totalMaintH.toFixed(1);
       document.getElementById('ov-pdt').textContent = totalProdH.toFixed(1);
 
-      // Grade overall tiles
       const setTileClass = (tileSel, v, thr) => {
         const tile = document.querySelector(tileSel);
         const cls = grade(v || 0, thr);
@@ -338,10 +362,10 @@
       };
       setTileClass('#tile-oee', ovOEE, THRESH.oee);
       setTileClass('#tile-av',  ovAvail, THRESH.availability);
-      setTileClass('#tile-pr',  ovPerfAdj, THRESH.capacityAdj);
+      setTileClass('#tile-pr',  ovPerfAdj, THRESH.capacityAdj); // show adj as “performance”
       setTileClass('#tile-pa',  ovPerfAdj, THRESH.capacityAdj);
 
-      // Line tiles
+      // ---------- Line tiles ----------
       const cont = document.getElementById('lineTiles'); cont.innerHTML = '';
       perLine.forEach(r => {
         const tileGrade = grade(r.oee, THRESH.oee);
@@ -365,8 +389,8 @@
               <div class="m"><div class="lab">Availability</div><div class="val">${(r.avail*100).toFixed(0)}%</div></div>
               <div class="m"><div class="lab">Perf Raw</div><div class="val">${(r.perfRaw*100).toFixed(0)}%</div></div>
               <div class="m"><div class="lab">Perf Adj</div><div class="val">${(r.perfAdj*100).toFixed(0)}%</div></div>
+              <div class="m"><div class="lab">Quality*</div><div class="val">${(r.qual*100).toFixed(0)}%</div></div>
               <div class="m"><div class="lab">Pounds</div><div class="val">${r.lbs.toLocaleString()}</div></div>
-              <div class="m"><div class="lab">Run Hrs</div><div class="val">${(r.mach>0?r.mach:(r.cap>0?r.lbs/r.cap:0)).toFixed(1)}</div></div>
             </div>
           </div>
           <div class="lt-right">
@@ -376,24 +400,26 @@
         cont.appendChild(el);
       });
 
-      // Heatmap: dynamic mode
-      (function renderHeatmap(){
-        const tDays = (new Date(toISO) - new Date(fromISO)) / 86400000 + 1;
+      // ---------- Heatmap 1: OEE ----------
+      (function renderHeatmapOEE(){
         const table = document.getElementById('heat');
+        // If short range (<=20 days), render per-date columns; else weekday averages
+        const tDays = (new Date(toISO) - new Date(fromISO)) / 86400000 + 1;
         if (tDays <= 20) {
-          // Per-date columns
           const datesAll = [];
           for (let d = new Date(fromISO); d <= new Date(toISO); d.setDate(d.getDate()+1)) {
             if (isWeekday(d)) datesAll.push(formatISO(d));
           }
           const map = new Map(); // machine -> date -> oee
           for (const r of (byline || [])) {
-            const key = r.machine; const d = r.src_date;
+            const key = r.machine; const d = (r.src_date||'').slice(0,10);
             if (!datesAll.includes(d)) continue;
             if (!map.has(key)) map.set(key, new Map());
-            const oee = (r.oee ?? ((r.availability ?? 0) * (r.perf_adj ?? 0))) || 0;
+            const availability = r.availability ?? 0;
+            const perfAdj      = r.perf_adj ?? 0;
+            const oee          = (r.oee ?? (availability * perfAdj)) || 0;
             const cur = map.get(key).get(d);
-            map.get(key).set(d, cur==null ? oee : (cur+oee)/2); // rudimentary combine
+            map.get(key).set(d, cur==null ? oee : (cur+oee)/2);
           }
           let html = '<thead><tr><th>Line</th>'+datesAll.map(d=>`<th>${d.slice(5)}</th>`).join('')+'</tr></thead><tbody>';
           for (const m of [...map.keys()].sort()) {
@@ -401,7 +427,7 @@
             const row = map.get(m);
             for (const d of datesAll) {
               const v = row.get(d) || 0;
-              const cls = (v >= THRESH.oee.good ? 'good' : v >= THRESH.oee.warn ? 'warn' : 'bad');
+              const cls = grade(v, THRESH.oee);
               html += `<td class="${cls}">${Math.round(v*100)}%</td>`;
             }
             html += '</tr>';
@@ -410,18 +436,17 @@
           table.innerHTML = html;
           document.getElementById('hmLabel').textContent = `${label} (per-date)`;
         } else {
-          // Weekday averages
           const days = ['Mon','Tue','Wed','Thu','Fri'];
-          // replace weekday() in production.html as the UTC to EST conversion offsets days by 1
-          const weekday = d => ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][new Date(d).getDay()];
           const byLineDay = {};
           for (const r of (byline || [])) {
-            const wd = weekday(r.src_date);
-            if (wd === 'Sat' || wd === 'Sun') continue;
+            const wd = weekdayLocal(r.src_date);
+            if (!wd || wd==='Sat' || wd==='Sun') continue;
             const m = r.machine;
             byLineDay[m] ??= {Mon:{sum:0,n:0}, Tue:{sum:0,n:0}, Wed:{sum:0,n:0}, Thu:{sum:0,n:0}, Fri:{sum:0,n:0}};
-            const oee = (r.oee ?? ((r.availability ?? 0) * (r.perf_adj ?? 0)));
-            byLineDay[m][wd].sum += oee || 0;
+            const availability = r.availability ?? 0;
+            const perfAdj      = r.perf_adj ?? 0;
+            const oee          = (r.oee ?? (availability * perfAdj)) || 0;
+            byLineDay[m][wd].sum += oee;
             byLineDay[m][wd].n   += 1;
           }
           const machines = Object.keys(byLineDay).sort();
@@ -429,9 +454,9 @@
           for (const m of machines) {
             html += `<tr><td class="line">${m}</td>`;
             for (const d of days) {
-              const agg = byLineDay[m][d];
-              const v = agg && agg.n ? (agg.sum/agg.n) : 0;
-              const cls = (v >= THRESH.oee.good ? 'good' : v >= THRESH.oee.warn ? 'warn' : 'bad');
+              const agg = byLineDay[m][d] || {sum:0,n:0};
+              const v = agg.n ? (agg.sum/agg.n) : 0;
+              const cls = grade(v, THRESH.oee);
               html += `<td class="${cls}">${Math.round(v*100)}%</td>`;
             }
             html += '</tr>';
@@ -442,14 +467,67 @@
         }
       })();
 
-      // Trend: utilization % with auto-zoom
+      // ---------- Heatmap 2: Factors (Availability / Performance-Adj / Quality) ----------
+      (function renderHeatmapFactors(){
+        const days = ['Mon','Tue','Wed','Thu','Fri'];
+        const table = document.getElementById('heatFactors');
+
+        // Aggregate by line x weekday for each factor
+        const aggBy = {}; // { [machine]: { [weekday]: { av:{sum,n}, pa:{sum,n}, q:{sum,n} } } }
+        for (const r of (byline || [])) {
+          const wd = weekdayLocal(r.src_date);
+          if (!wd || wd==='Sat' || wd==='Sun') continue;
+
+          const m = r.machine;
+          const availability = (r.availability ?? 0);
+          const perfAdj      = (r.perf_adj ?? 0);
+          const oee          = (r.oee ?? (availability * perfAdj)) || 0;
+          const qual         = (availability > 0 && perfAdj > 0) ? Math.max(0, Math.min(1, oee / (availability * perfAdj))) : 1;
+
+          aggBy[m] ??= {};
+          aggBy[m][wd] ??= { av:{sum:0,n:0}, pa:{sum:0,n:0}, q:{sum:0,n:0} };
+          aggBy[m][wd].av.sum += availability; aggBy[m][wd].av.n += 1;
+          aggBy[m][wd].pa.sum += perfAdj;      aggBy[m][wd].pa.n += 1;
+          aggBy[m][wd].q.sum  += qual;         aggBy[m][wd].q.n  += 1;
+        }
+
+        // Build a 3-row block per machine (Availability, Performance-Adj, Quality)
+        const machines = Object.keys(aggBy).sort();
+        let html = '<thead><tr><th>Line / Factor</th>'+days.map(d=>`<th>${d}</th>`).join('')+'</tr></thead><tbody>';
+
+        for (const m of machines) {
+          const row = aggBy[m];
+
+          const mkRow = (label, key, thresh) => {
+            let tr = `<tr><td class="line">${m} – ${label}</td>`;
+            for (const d of days) {
+              const cell = row[d]?.[key];
+              const v = cell && cell.n ? (cell.sum/cell.n) : 0;
+              const cls = grade(v, thresh);
+              tr += `<td class="${cls}">${Math.round(v*100)}%</td>`;
+            }
+            tr += '</tr>';
+            return tr;
+          };
+
+          html += mkRow('Availability',  'av', THRESH.availability);
+          html += mkRow('Performance-Adj','pa', THRESH.capacityAdj);
+          // Use same thresholds for Quality as OEE — tweak later if you want a stricter bar
+          html += mkRow('Quality*',      'q',  THRESH.oee);
+        }
+        html += '</tbody>';
+        table.innerHTML = html;
+        document.getElementById('hm2Label').textContent = `${label} (weekday averages)`;
+      })();
+
+      // ---------- Trend ----------
       (function renderTrend(){
-        const byDate = new Map(); // d -> {rawU, adjU}
+        const byDate = new Map(); // d -> { lbs, nameplate, adjcap }
         for (let d = new Date(fromISO); d <= new Date(toISO); d.setDate(d.getDate()+1)) {
           if (isWeekday(d)) byDate.set(formatISO(d), { lbs:0, nameplate:0, adjcap:0 });
         }
         for (const r of byline) {
-          const d = r.src_date; if (!byDate.has(d)) continue;
+          const d = (r.src_date||'').slice(0,10); if (!byDate.has(d)) continue;
           const cap = r.nameplate_lbs_hr || 0;
           const lbs = r.pounds || 0;
           const dt  = (r.maint_dt_h||0)+(r.prod_dt_h||0);
@@ -467,7 +545,7 @@
           };
         });
         let maxU = Math.max(0.1, ...pts.map(p => Math.max(p.rawU, p.adjU)));
-        maxU = Math.min(Math.max(maxU*1.15, 0.3), 1.2); // headroom & clamp
+        maxU = Math.min(Math.max(maxU*1.15, 0.3), 1.2);
 
         const w=900,h=260,padL=50,padB=30,ch=h-padB-40;
         const sx=i => padL + (i/Math.max(1,pts.length-1))*(w-padL-20);
@@ -499,14 +577,7 @@
       })();
     }
 
-    function startOfWeek(d){ const x=new Date(d); const day=(x.getDay()+6)%7; x.setDate(x.getDate()-day); x.setHours(0,0,0,0); return x;}
-    function endOfWeek(d){ const x=startOfWeek(d); x.setDate(x.getDate()+6); return x;}
-    function startOfMonth(d){ return new Date(d.getFullYear(), d.getMonth(), 1); }
-    function endOfMonth(d){ return new Date(d.getFullYear(), d.getMonth()+1, 0); }
-    function startOfQuarter(d){ return new Date(d.getFullYear(), Math.floor(d.getMonth()/3)*3, 1); }
-    function endOfQuarter(d){ const s=startOfQuarter(d); return new Date(s.getFullYear(), s.getMonth()+3, 0); }
-    function formatISO(d){ return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10); }
-
+    // ---------- RANGE PICKER ----------
     function computeRange(sel){
       const now = new Date(); now.setHours(0,0,0,0);
       const y = new Date(now); y.setDate(y.getDate()-1);
