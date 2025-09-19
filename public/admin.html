@@ -272,7 +272,7 @@
               <button id="run-limble-sync-refresh">Run Limble Sync + Refresh</button>
               <button id="run-etl-assets-fields">Run ETL: Asset Fields</button>
               <button id="btn-full-refresh">Full Refresh (Limble → SQL → UI)</button>
-              <button id="pace-prod-excel">Run PACE Prod Excel Update</button>
+              <button id="btnProdExcel">Run Production PACE Ingest</button>
             </div>
           <div id="run-status" style="margin-top:.5rem;color:#555;"></div>
           <pre id="admin-log" style="height:200px;overflow:auto;background:#111;color:#0f0;padding:8px;"></pre>
@@ -552,5 +552,18 @@
   });
 </script>
 <script type="module" src="js/header-kpis.js" defer></script>
+<script>
+document.getElementById('btnProdExcel').onclick = async () => {
+  const password = prompt('Admin password?');
+  if (!password) return;
+  const r = await fetch('/api/admin/run-prod-excel', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({password})
+  });
+  const j = await r.json();
+  alert(r.ok ? `Ingested: ${j.ingested}, Enriched: ${j.enriched}` : (j.error || 'Error'));
+};
+</script>
 </body>
 </html>
