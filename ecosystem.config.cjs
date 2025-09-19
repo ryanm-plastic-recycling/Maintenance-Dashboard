@@ -7,7 +7,6 @@ module.exports = {
       watch: false,
       env: {
         NODE_ENV: 'development',
-        // if you’re overriding via --update-env, you can omit these defaults
         PORT: 7601,
         API_BASE_URL: "https://api.limblecmms.com:443",
         CLIENT_ID: process.env.CLIENT_ID,
@@ -19,8 +18,7 @@ module.exports = {
       },
       env_production: {
         NODE_ENV: 'production',
-        // LIMBLE_ETL_CMD: 'node -r dotenv/config etl.js',
-        LIMBLE_SYNC_PROC: '1', // This was null for a previous issue.
+        LIMBLE_SYNC_PROC: '1',
         PORT: 7601,
         API_BASE_URL: "https://api.limblecmms.com:443",
         CLIENT_ID: process.env.CLIENT_ID,
@@ -29,15 +27,15 @@ module.exports = {
         CACHE_TTL_MINUTES: process.env.CACHE_TTL_MINUTES,
         CACHE_CHECK_PERIOD_SECONDS: process.env.CACHE_CHECK_PERIOD_SECONDS,
         STATUS_REFRESH_ENDPOINT: process.env.STATUS_REFRESH_ENDPOINT
-      },
-      {
+      }
+    },
+    {
       name: 'pace-prod-excel',
       script: 'scripts/run-jobs-once.mjs',
       args: '--prod-excel',
       interpreter: 'node',
-      cron_restart: '0 * * * *',   // at minute 0 every hour
+      cron_restart: '0 * * * *',  // every hour at minute 0
       autorestart: false
     }
-    }
   ]
-}
+};
