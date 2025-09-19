@@ -554,8 +554,8 @@
 <script type="module" src="js/header-kpis.js" defer></script>
 <script>
 document.getElementById('btnProdExcel').onclick = async () => {
-  const password = prompt('Admin password?');
-  if (!password) return;
+  // const password = prompt('Admin password?');
+  // if (!password) return;
   const r = await fetch('/api/admin/run-prod-excel', {
     method: 'POST',
     headers: {'Content-Type':'application/json'},
