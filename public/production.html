@@ -58,7 +58,7 @@
     .badge.prod {background:#DBE6FF;color:#0D246F}
     .lt-metrics{display:grid;grid-template-columns:repeat(2,1fr);gap:6px}
     .m{background:#f7fafc;border:1px solid var(--border);border-radius:10px;padding:8px;text-align:center}
-    .m .lab{font-size:11px;color:#var(--muted)}
+    .m .lab{font-size:11px;color:var(--muted)}
     .m .val{font-weight:900}
     .m.good { background: var(--good-bg); }
     .m.warn { background: var(--warn-bg); }
@@ -656,35 +656,32 @@ function capacityFor(lineName, material){
   })();
 
   // Small helpers reused above
-  function gaugeSVG(pct, label, cls='', valid=true) {
+  function gaugeSVG(pct, label, cls = '', valid = true) {
     const has = valid && Number.isFinite(pct);
     const p = has ? Math.max(0, Math.min(1, pct || 0)) : 0;
+
     const R = 48, cx = 60, cy = 60;
     const track  = arcPath(cx, cy, R, 180, 360, 1);
-    const band   = has ? arcPath(cx, cy, R, 180, 180 + 180*Math.max(p,0.02), 1) : '';
-    const needle = has ? arcPath(cx, cy, R, 180, 180 + 180*p, 1) : '';
-    const color = (cls==='good') ? 'var(--good-fg)' : (cls==='warn') ? 'var(--warn-fg)' : 'var(--bad-fg)';
-    const pctLabel = has ? Math.round(p*100)+'%' : MISSING;
+    const band   = has ? arcPath(cx, cy, R, 180, 180 + 180 * Math.max(p, 0.02), 1) : '';
+    const needle = has ? arcPath(cx, cy, R, 180, 180 + 180 * p, 1) : '';
+    const color = (cls === 'good') ? 'var(--good-fg)' : (cls === 'warn') ? 'var(--warn-fg)' : 'var(--bad-fg)';
+    const pctLabel = has ? (Math.round(p * 100) + '%') : MISSING;
+
+    const bandPath   = band   ? `<path d="${band}" class="band" stroke="${color}" />` : '';
+    const needlePath = needle ? `<path d="${needle}" class="needle" fill="none" stroke="${color}" stroke-width="10" stroke-linecap="round"/>` : '';
+
     return `
       <div class="gauge ${cls}">
         <svg viewBox="0 0 120 80" xmlns="http://www.w3.org/2000/svg" class="speedo">
-          <path d="${track}"  class="track"  fill="none" stroke-width="10"/>
-          ${band?`<path d="${band}"   class="band"   stroke="${color}" />`:''}
-          ${needle?`<path d="${needle}" class="needle" fill="none" stroke="${color}" stroke-width="10" stroke-linecap="round"/>`:''}
+          <path d="${track}" class="track" fill="none" stroke-width="10"/>
+          ${bandPath}
+          ${needlePath}
           <text x="60" y="48" text-anchor="middle" class="pct">${pctLabel}</text>
         </svg>
         <div class="cap">${label}</div>
       </div>`;
-  }">
-        <svg viewBox="0 0 120 80" xmlns="http://www.w3.org/2000/svg" class="speedo">
-          <path d="${track}"  class="track"  fill="none" stroke-width="10"/>
-          <path d="${band}"   class="band"   stroke="${color}" />
-          <path d="${needle}" class="needle" fill="none" stroke="${color}" stroke-width="10" stroke-linecap="round"/>
-          <text x="60" y="48" text-anchor="middle" class="pct">${Math.round(p*100)}%</text>
-        </svg>
-        <div class="cap">${label}</div>
-      </div>`;
   }
+
   function polarToCartesian(cx, cy, r, angDeg) {
     const a = angDeg * Math.PI / 180;
     return { x: cx + r * Math.cos(a), y: cy + r * Math.sin(a) };
