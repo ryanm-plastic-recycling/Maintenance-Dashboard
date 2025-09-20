@@ -172,9 +172,14 @@
 <script>
 let MAPPINGS;
 async function loadMappings(){
-  // if you serve mappings.json from /public, this fetch is correct
-  MAPPINGS = await (await fetch('mappings.json', {cache: 'no-store'})).json();
+  try {
+    MAPPINGS = await (await fetch(`mappings.json?ts=${Date.now()}`, {cache:'no-store'})).json();
+  } catch {
+    console.warn('mappings.json not found; using empty defaults');
+    MAPPINGS = { capacities_lbs_hr:{}, capacity_by_material_lbs_hr:{}, capacity_aliases:{}, material_aliases:{} };
+  }
 }
+
 
 // Resolve per-line capacity with material override, then DEFAULT, then global fallback
 function capacityFor(lineName, material){
@@ -409,7 +414,8 @@ function capacityFor(lineName, material){
           <div>
             <div class="lt-head">
               <div class="lt-name">${r.machine}</div>
-              <div class="lt-nameplate">Nameplate ${r.cap?r.cap.toLocaleString():'--'} lb/hr</div>
+              const mat = r.material ?? 'DEFAULT';
+              <div class="lt-nameplate">Nameplate ${r.cap?.toLocaleString()} lb/hr <span style="color:#64748b">(mat: ${mat})</span></div>
             </div>
             <div class="lt-badges">
               <span class="badge maint">Maint DT ${r.maint.toFixed(1)}h</span>
