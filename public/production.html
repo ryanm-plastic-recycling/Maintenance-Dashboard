@@ -58,13 +58,11 @@
     .badge.prod {background:#DBE6FF;color:#0D246F}
     .lt-metrics{display:grid;grid-template-columns:repeat(2,1fr);gap:6px}
     .m{background:#f7fafc;border:1px solid var(--border);border-radius:10px;padding:8px;text-align:center}
-    .m .lab{font-size:11px;color:#var(--muted)}
+    .m .lab{font-size:11px;color:var(--muted)}
     .m .val{font-weight:900}
     .m.good { background: var(--good-bg); }
     .m.warn { background: var(--warn-bg); }
     .m.bad  { background: var(--bad-bg);  }
-    .m.empty { background:#f1f5f9; color:#94a3b8; border-color:#e2e8f0; }
-    .lt-card.empty { border-left-color:#cbd5e1; }
 
     .speedo{width:120px;height:78px}
     .gauge .track { stroke: #e5e7eb; }
@@ -79,7 +77,7 @@
     #heat td.good, #heatFactors td.good { background: var(--good-bg); }
     #heat td.warn, #heatFactors td.warn { background: var(--warn-bg); }
     #heat td.bad,  #heatFactors td.bad  { background: var(--bad-bg); }
-    #heat td.empty, #heatFactors td.empty { background:#f1f5f9 !important; color:#94a3b8 !important; }
+    #heat td.empty, #heatFactors td.empty { background:#f1f5f9; color:#94a3b8; }
 
     .chart-section{margin-top:16px}
     .chart-container{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:10px}
@@ -371,7 +369,7 @@ function capacityFor(lineName, material){
     } else {
       document.getElementById('ltEmpty').style.display = 'none';
       perLine.forEach(r => {
-        const tileGrade = (r.oeeV && Number.isFinite(r.oee)) ? grade(r.oee, THRESH.oee) : 'empty';
+        const tileGrade = (r.oeeV && Number.isFinite(r.oee)) ? grade(r.oee, THRESH.oee) : '';
         const rawGrade  = grade(r.perfRaw, THRESH.capacityAdj);
         const adjGrade  = grade(r.perfAdj, THRESH.capacityAdj);
         const el = document.createElement('div');
@@ -387,10 +385,10 @@ function capacityFor(lineName, material){
               <span class="badge prod">Prod DT ${r.prod.toFixed(1)}h</span>
             </div>
             <div class="lt-metrics" style="margin-top:6px">
-              <div class="${(r.oeeV && Number.isFinite(r.oee)) ? 'm' : 'm empty'}"><div class="lab">OEE</div><div class="val">${fmtPct(r.oee, r.oeeV)}</div></div>
-              <div class="${(r.availV && Number.isFinite(r.avail)) ? 'm' : 'm empty'}"><div class="lab">Availability</div><div class="val">${fmtPct(r.avail, r.availV)}</div></div>
-              <div class="${(r.prV && Number.isFinite(r.perfRaw)) ? 'm' : 'm empty'}"><div class="lab">Perf Raw</div><div class="val">${fmtPct(r.perfRaw, r.prV)}</div></div>
-              <div class="${(r.paV && Number.isFinite(r.perfAdj)) ? 'm' : 'm empty'}"><div class="lab">Perf Adj</div><div class="val">${fmtPct(r.perfAdj, r.paV)}</div></div>
+              <div class="m"><div class="lab">OEE</div><div class="val">${fmtPct(r.oee, r.oeeV)}</div></div>
+              <div class="m"><div class="lab">Availability</div><div class="val">${fmtPct(r.avail, r.availV)}</div></div>
+              <div class="m"><div class="lab">Perf Raw</div><div class="val">${fmtPct(r.perfRaw, r.prV)}</div></div>
+              <div class="m"><div class="lab">Perf Adj</div><div class="val">${fmtPct(r.perfAdj, r.paV)}</div></div>
               <div class="m"><div class="lab">Quality*</div><div class="val">${Math.round(r.qual*100)}%</div></div>
               <div class="m"><div class="lab">Pounds</div><div class="val">${r.lbs.toLocaleString()}</div></div>
             </div>
@@ -468,7 +466,7 @@ function capacityFor(lineName, material){
           html += `<tr><td class="line">${m}</td>`;
           for (const d of days) {
             const agg = byLineDay[m][d];
-            const valid = agg && agg.n > 0 && Number.isFinite(agg.sum / agg.n);
+            const valid = agg && agg.n > 0;
             const v = valid ? (agg.sum / agg.n) : NaN;
             const cls = valid ? grade(v, THRESH.oee) : 'empty';
             html += `<td class="${cls}">${fmtPct(v, valid)}</td>`;
@@ -581,8 +579,8 @@ function capacityFor(lineName, material){
       const good = css.getPropertyValue('--good-fg').trim() || '#22c55e';
       const warn = css.getPropertyValue('--warn-fg').trim() || '#f59e0b';
 
-      let grid=''; for(let i=0;i<=4;i++){ const y=30 + ch - (i/4)*ch;
-        const val = (maxU*(i/4))*100;
+      let grid=''; for(let i=0;i<=4;i++){ const y=30+(i/4)*ch;
+        const val = (maxU*i/4)*100;
         grid += `<line x1="${padL}" y1="${y}" x2="${w-20}" y2="${y}" stroke="#D7E0F3" stroke-width="1" opacity="0.7"/>` +
                 `<text x="${w-18}" y="${y-4}" fill="#64748b" font-size="11">${val.toFixed(0)}%</text>`;
       }
@@ -659,35 +657,32 @@ function capacityFor(lineName, material){
   })();
 
   // Small helpers reused above
-  function gaugeSVG(pct, label, cls='', valid=true) {
+  function gaugeSVG(pct, label, cls = '', valid = true) {
     const has = valid && Number.isFinite(pct);
     const p = has ? Math.max(0, Math.min(1, pct || 0)) : 0;
+
     const R = 48, cx = 60, cy = 60;
     const track  = arcPath(cx, cy, R, 180, 360, 1);
-    const band   = has ? arcPath(cx, cy, R, 180, 180 + 180*Math.max(p,0.02), 1) : '';
-    const needle = has ? arcPath(cx, cy, R, 180, 180 + 180*p, 1) : '';
-    const color = (cls==='good') ? 'var(--good-fg)' : (cls==='warn') ? 'var(--warn-fg)' : 'var(--bad-fg)';
-    const pctLabel = has ? Math.round(p*100)+'%' : MISSING;
+    const band   = has ? arcPath(cx, cy, R, 180, 180 + 180 * Math.max(p, 0.02), 1) : '';
+    const needle = has ? arcPath(cx, cy, R, 180, 180 + 180 * p, 1) : '';
+    const color = (cls === 'good') ? 'var(--good-fg)' : (cls === 'warn') ? 'var(--warn-fg)' : 'var(--bad-fg)';
+    const pctLabel = has ? (Math.round(p * 100) + '%') : MISSING;
+
+    const bandPath   = band   ? `<path d="${band}" class="band" stroke="${color}" />` : '';
+    const needlePath = needle ? `<path d="${needle}" class="needle" fill="none" stroke="${color}" stroke-width="10" stroke-linecap="round"/>` : '';
+
     return `
       <div class="gauge ${cls}">
         <svg viewBox="0 0 120 80" xmlns="http://www.w3.org/2000/svg" class="speedo">
-          <path d="${track}"  class="track"  fill="none" stroke-width="10"/>
-          ${band?`<path d="${band}"   class="band"   stroke="${color}" />`:''}
-          ${needle?`<path d="${needle}" class="needle" fill="none" stroke="${color}" stroke-width="10" stroke-linecap="round"/>`:''}
+          <path d="${track}" class="track" fill="none" stroke-width="10"/>
+          ${bandPath}
+          ${needlePath}
           <text x="60" y="48" text-anchor="middle" class="pct">${pctLabel}</text>
         </svg>
         <div class="cap">${label}</div>
       </div>`;
-  }">
-        <svg viewBox="0 0 120 80" xmlns="http://www.w3.org/2000/svg" class="speedo">
-          <path d="${track}"  class="track"  fill="none" stroke-width="10"/>
-          <path d="${band}"   class="band"   stroke="${color}" />
-          <path d="${needle}" class="needle" fill="none" stroke="${color}" stroke-width="10" stroke-linecap="round"/>
-          <text x="60" y="48" text-anchor="middle" class="pct">${Math.round(p*100)}%</text>
-        </svg>
-        <div class="cap">${label}</div>
-      </div>`;
   }
+
   function polarToCartesian(cx, cy, r, angDeg) {
     const a = angDeg * Math.PI / 180;
     return { x: cx + r * Math.cos(a), y: cy + r * Math.sin(a) };
