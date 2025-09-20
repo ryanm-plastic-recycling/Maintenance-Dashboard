@@ -369,7 +369,7 @@ function capacityFor(lineName, material){
     } else {
       document.getElementById('ltEmpty').style.display = 'none';
       perLine.forEach(r => {
-        const tileGrade = grade(r.oee, THRESH.oee);
+        const tileGrade = (r.oeeV && Number.isFinite(r.oee)) ? grade(r.oee, THRESH.oee) : '';
         const rawGrade  = grade(r.perfRaw, THRESH.capacityAdj);
         const adjGrade  = grade(r.perfAdj, THRESH.capacityAdj);
         const el = document.createElement('div');
@@ -465,10 +465,11 @@ function capacityFor(lineName, material){
         for (const m of machines) {
           html += `<tr><td class="line">${m}</td>`;
           for (const d of days) {
-            const agg = byLineDay[m][d] || {sum:0,n:0};
-            const v = agg.n ? (agg.sum/agg.n) : 0;
-            const cls = grade(v, THRESH.oee);
-            html += `<td class="${cls}">${Math.round(v*100)}%</td>`;
+            const agg = byLineDay[m][d];
+            const valid = agg && agg.n > 0;
+            const v = valid ? (agg.sum / agg.n) : NaN;
+            const cls = valid ? grade(v, THRESH.oee) : 'empty';
+            html += `<td class="${cls}">${fmtPct(v, valid)}</td>`;
           }
           html += '</tr>';
         }
