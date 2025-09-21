@@ -49,6 +49,7 @@
     .lt-card.good { border-left-color: var(--good-fg); }
     .lt-card.warn { border-left-color: var(--warn-fg); }
     .lt-card.bad  { border-left-color: var(--bad-fg); }
+    .lt-card.empty { border-left-color:#cbd5e1; }
     .lt-head{display:flex;align-items:baseline;justify-content:space-between}
     .lt-name{font-weight:900}
     .lt-nameplate{font-size:12px;color:var(--muted)}
@@ -64,7 +65,6 @@
     .m.warn { background: var(--warn-bg); }
     .m.bad  { background: var(--bad-bg);  }
     .m.empty { background:#f1f5f9; color:#94a3b8; border-color:#e2e8f0; }
-    .lt-card.empty { border-left-color:#cbd5e1; }
 
     .speedo{width:120px;height:78px}
     .gauge .track { stroke: #e5e7eb; }
@@ -79,7 +79,7 @@
     #heat td.good, #heatFactors td.good { background: var(--good-bg); }
     #heat td.warn, #heatFactors td.warn { background: var(--warn-bg); }
     #heat td.bad,  #heatFactors td.bad  { background: var(--bad-bg); }
-    ##heat td.empty, #heatFactors td.empty { background:#f1f5f9 !important; color:#94a3b8 !important; }
+    #heat td.empty, #heatFactors td.empty { background:#f1f5f9 !important; color:#94a3b8 !important; }
 
     .chart-section{margin-top:16px}
     .chart-container{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:10px}
@@ -229,7 +229,7 @@ function capacityFor(lineName, material){
     oee:         { good: 0.50, warn: 0.25 },
     availability:{ good: 0.80, warn: 0.60 }
   };
-  const QUALITY_DEFAULT = 0.70; // << global quality factor (70%)
+  const QUALITY_DEFAULT = 0.70; // 70%
   const grade  = (v, {good, warn}) => (v >= good ? 'good' : v >= warn ? 'warn' : 'bad');
   const MISSING = '---';
   const fmtPct = (v, valid=true) => (valid && Number.isFinite(v)) ? (Math.round(v*100) + '%') : MISSING;
@@ -238,12 +238,12 @@ function capacityFor(lineName, material){
   const _WDAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
   const isWeekday = d => (d.getDay() !== 0 && d.getDay() !== 6);
   const formatISO = d => new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10);
-  // Fixed to avoid UTC shift (was causing Friday to show as Thursday, zeroing Fri buckets)
+  // Avoid UTC shift (Fri → Thu)
   const weekdayLocal = v => {
     if (!v) return null;
     const s = (typeof v === 'string') ? v.slice(0,10) : v.toISOString().slice(0,10);
     const [Y,M,D] = s.split('-').map(Number);
-    const dt = new Date(Y, M-1, D); // construct as local date
+    const dt = new Date(Y, M-1, D); // local date
     return isNaN(dt) ? null : _WDAYS[dt.getDay()];
   };
 
@@ -281,7 +281,7 @@ function capacityFor(lineName, material){
 
     const byline = (bylineRaw || []).filter(r => r.machine && r.machine.startsWith('Extruder'));
 
-    // Aggregate with day-varying capacities accounted for
+    // Aggregate
     const agg = {};
     for (const r of byline) {
       const m   = r.machine;
@@ -318,14 +318,16 @@ function capacityFor(lineName, material){
       const oeeV    = availV && paV;
       const oee     = oeeV ? (availability * perfAdj * qual) : NaN;
       const capAvg  = (a.rawDen24 > 0 && a.days>0) ? (a.rawDen24 / (24*a.days)) : NaN;
-      // dominant material by pounds in period
+      // dominant material by pounds
       let domMat = '';
       let domMatLbs = -1;
       for (const [k,v] of Object.entries(a.mats)) { if (v > domMatLbs) { domMatLbs = v; domMat = k; } }
-      return { machine:m, capAvg, lbs:a.lbs, maint:a.maint, prod:a.prod, mach:a.mach, avail:availability, perfRaw, perfAdj, qual, oee, domMat, availV:availV, prV:prV, paV:paV, oeeV:oeeV };
+      return { machine:m, capAvg, lbs:a.lbs, maint:a.maint, prod:a.prod, mach:a.mach,
+               avail:availability, perfRaw, perfAdj, qual, oee, domMat,
+               availV:availV, prV:prV, paV:paV, oeeV:oeeV };
     });
 
-    // Overall tiles (use summed denominators, not simple averages)
+    // Overall tiles
     const totalPlannedH = (24 * weekdaysCount) * perLine.length;
     const totals = Object.values(agg).reduce((s,a)=>({
       lbs:s.lbs+a.lbs, maint:s.maint+a.maint, prod:s.prod+a.prod, mach:s.mach+a.mach,
@@ -351,17 +353,17 @@ function capacityFor(lineName, material){
     document.getElementById('ov-pdt').textContent = fmtFixed(totals.prod, 1, Number.isFinite(totals.prod));
     document.getElementById('ov-qual').textContent= Math.round(QUALITY_DEFAULT*100) + '%';
 
-    const setTileClass = (sel, v, thr, valid=true) => { 
-      const el = document.querySelector(sel); 
-      el.classList.remove('good','warn','bad'); 
-      if (valid && Number.isFinite(v)) { 
-        const cls = grade(v||0, thr); 
-        el.classList.add(cls); 
-      } 
+    const setTileClass = (sel, v, thr, valid=true) => {
+      const el = document.querySelector(sel);
+      el.classList.remove('good','warn','bad');
+      if (valid && Number.isFinite(v)) {
+        const cls = grade(v||0, thr);
+        el.classList.add(cls);
+      }
     };
     setTileClass('#tile-oee', ovOEE, THRESH.oee, ovOeeV);
     setTileClass('#tile-av',  ovAvail, THRESH.availability, ovAvailV);
-    setTileClass('#tile-pr',  ovPerfAdj, THRESH.capacityAdj, ovPerfAdjV);
+    setTileClass('#tile-pr',  ovPerfRaw, THRESH.capacityAdj, ovPerfRawV);
     setTileClass('#tile-pa',  ovPerfAdj, THRESH.capacityAdj, ovPerfAdjV);
 
     // Line Tiles
@@ -372,19 +374,19 @@ function capacityFor(lineName, material){
       document.getElementById('ltEmpty').style.display = 'none';
       perLine.forEach(r => {
         const tileGrade = (r.oeeV && Number.isFinite(r.oee)) ? grade(r.oee, THRESH.oee) : 'empty';
-        const rawGrade  = grade(r.perfRaw, THRESH.capacityAdj);
-        const adjGrade  = grade(r.perfAdj, THRESH.capacityAdj);
+        const rawGrade  = (r.prV && Number.isFinite(r.perfRaw)) ? grade(r.perfRaw, THRESH.capacityAdj) : '';
+        const adjGrade  = (r.paV && Number.isFinite(r.perfAdj)) ? grade(r.perfAdj, THRESH.capacityAdj) : '';
         const el = document.createElement('div');
         el.className = `lt-card ${tileGrade}`;
         el.innerHTML = `
           <div>
             <div class="lt-head">
               <div class="lt-name">${r.machine}</div>
-              <div class="lt-nameplate">Nameplate ${r.capAvg ? Math.round(r.capAvg).toLocaleString() : '--'} lb/hr${r.domMat?` (${r.domMat})`:''}</div>
+              <div class="lt-nameplate">Nameplate ${Number.isFinite(r.capAvg) ? Math.round(r.capAvg).toLocaleString() : '--'} lb/hr${r.domMat?` (${r.domMat})`:''}</div>
             </div>
             <div class="lt-badges">
-              <span class="badge maint">Maint DT ${r.maint.toFixed(1)}h</span>
-              <span class="badge prod">Prod DT ${r.prod.toFixed(1)}h</span>
+              <span class="badge maint">Maint DT ${fmtFixed(r.maint,1,Number.isFinite(r.maint))}h</span>
+              <span class="badge prod">Prod DT ${fmtFixed(r.prod,1,Number.isFinite(r.prod))}h</span>
             </div>
             <div class="lt-metrics" style="margin-top:6px">
               <div class="${(r.oeeV && Number.isFinite(r.oee)) ? 'm' : 'm empty'}"><div class="lab">OEE</div><div class="val">${fmtPct(r.oee, r.oeeV)}</div></div>
@@ -392,7 +394,7 @@ function capacityFor(lineName, material){
               <div class="${(r.prV && Number.isFinite(r.perfRaw)) ? 'm' : 'm empty'}"><div class="lab">Perf Raw</div><div class="val">${fmtPct(r.perfRaw, r.prV)}</div></div>
               <div class="${(r.paV && Number.isFinite(r.perfAdj)) ? 'm' : 'm empty'}"><div class="lab">Perf Adj</div><div class="val">${fmtPct(r.perfAdj, r.paV)}</div></div>
               <div class="m"><div class="lab">Quality*</div><div class="val">${Math.round(r.qual*100)}%</div></div>
-              <div class="m"><div class="lab">Pounds</div><div class="val">${r.lbs.toLocaleString()}</div></div>
+              <div class="m"><div class="lab">Pounds</div><div class="val">${fmtInt(r.lbs,true)}</div></div>
             </div>
           </div>
           <div class="lt-right">
@@ -425,9 +427,9 @@ function capacityFor(lineName, material){
           const perfAdj      = (cap>0 ? (lbs/(cap*Math.max(0,24-md))) : 0);
           const oee          = availability * perfAdj * QUALITY_DEFAULT;
           if (Number.isFinite(oee)) {
-          const cur = map.get(key).get(d);
-          map.get(key).set(d, cur==null ? oee : (cur+oee)/2);
-        }
+            const cur = map.get(key).get(d);
+            map.get(key).set(d, cur==null ? oee : (cur+oee)/2);
+          }
         }
         let html = '<thead><tr><th>Line</th>'+datesAll.map(d=>`<th>${d.slice(5)}</th>`).join('')+'</tr></thead><tbody>';
         for (const m of [...map.keys()].sort()) {
@@ -459,8 +461,7 @@ function capacityFor(lineName, material){
           const availability = (24>0 ? (mh/24) : 0);
           const perfAdj      = (cap>0 ? (lbs/(cap*Math.max(0,24-md))) : 0);
           const oee          = availability * perfAdj * QUALITY_DEFAULT;
-          byLineDay[m][wd].sum += oee;
-          byLineDay[m][wd].n   += 1;
+          if (Number.isFinite(oee)) { byLineDay[m][wd].sum += oee; byLineDay[m][wd].n += 1; }
         }
         const machines = Object.keys(byLineDay).sort();
         let html = '<thead><tr><th>Line</th>'+days.map(d=>`<th>${d}</th>`).join('')+'</tr></thead><tbody>';
@@ -526,7 +527,6 @@ function capacityFor(lineName, material){
         for (const d of days) {
           tbody += tdFor(row, d, 'av', THRESH.availability);
           tbody += tdFor(row, d, 'pa', THRESH.capacityAdj);
-          // keep quality neutral coloring (use oee thresholds)
           tbody += tdFor(row, d, 'q',  THRESH.oee);
         }
         tbody += '</tr>';
@@ -535,7 +535,7 @@ function capacityFor(lineName, material){
       table.innerHTML = thead + tbody;
     })();
 
-    // Trend (adds nameplate goal line)
+    // Trend
     (function renderTrend(){
       const chart = document.getElementById('trendChart');
       if (!byline.length){ chart.innerHTML=''; document.getElementById('trendEmpty').style.display=''; return; }
@@ -578,7 +578,6 @@ function capacityFor(lineName, material){
       const capPts = toLine(pts.map(p=>p.capU));
 
       const css = getComputedStyle(document.documentElement);
-      const good = css.getPropertyValue('--good-fg').trim() || '#22c55e';
       const warn = css.getPropertyValue('--warn-fg').trim() || '#f59e0b';
 
       let grid=''; for(let i=0;i<=4;i++){ const y=30 + ch - (i/4)*ch;
@@ -668,22 +667,15 @@ function capacityFor(lineName, material){
     const needle = has ? arcPath(cx, cy, R, 180, 180 + 180*p, 1) : '';
     const color = (cls==='good') ? 'var(--good-fg)' : (cls==='warn') ? 'var(--warn-fg)' : 'var(--bad-fg)';
     const pctLabel = has ? Math.round(p*100)+'%' : MISSING;
+    const bandPath   = band   ? `<path d="${band}"   class="band"   stroke="${color}" />` : '';
+    const needlePath = needle ? `<path d="${needle}" class="needle" fill="none" stroke="${color}" stroke-width="10" stroke-linecap="round"/>` : '';
     return `
       <div class="gauge ${cls}">
         <svg viewBox="0 0 120 80" xmlns="http://www.w3.org/2000/svg" class="speedo">
           <path d="${track}"  class="track"  fill="none" stroke-width="10"/>
-          ${band?`<path d="${band}"   class="band"   stroke="${color}" />`:''}
-          ${needle?`<path d="${needle}" class="needle" fill="none" stroke="${color}" stroke-width="10" stroke-linecap="round"/>`:''}
+          ${bandPath}
+          ${needlePath}
           <text x="60" y="48" text-anchor="middle" class="pct">${pctLabel}</text>
-        </svg>
-        <div class="cap">${label}</div>
-      </div>`;
-    }">
-        <svg viewBox="0 0 120 80" xmlns="http://www.w3.org/2000/svg" class="speedo">
-          <path d="${track}"  class="track"  fill="none" stroke-width="10"/>
-          <path d="${band}"   class="band"   stroke="${color}" />
-          <path d="${needle}" class="needle" fill="none" stroke="${color}" stroke-width="10" stroke-linecap="round"/>
-          <text x="60" y="48" text-anchor="middle" class="pct">${Math.round(p*100)}%</text>
         </svg>
         <div class="cap">${label}</div>
       </div>`;
