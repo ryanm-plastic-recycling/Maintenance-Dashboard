@@ -327,81 +327,74 @@ function capacityFor(lineName, material){
 
     // Aggregate
     const agg = {};
-      for (const r of byline) {
-        const m   = r.machine;
-        const cap = (r.nameplate_lbs_hr && r.nameplate_lbs_hr > 0) ? r.nameplate_lbs_hr : capacityFor(r.machine, r.material);
-        const lbs = r.pounds || 0;
-        const md  = Math.max(0, r.maint_dt_h    || 0);
-      
-        const mhRaw = Math.max(0, r.machine_hours || 0);
-        const runH  = mhRaw > 0 ? mhRaw : (cap>0 ? lbs/cap : 0);
-      
-        // true prod DT if present; otherwise fallback = planned - maint - runtime
-        const pd    = Math.max(0, r.prod_dt_h != null ? r.prod_dt_h : Math.max(0, 24 - md - runH));
-      
-        const matKeyRaw = String(r.material || '').trim().toUpperCase();
-        const matKey = (MAPPINGS?.material_aliases?.[matKeyRaw]) || (matKeyRaw === '' ? 'DEFAULT' : matKeyRaw);
-      
-        if (!agg[m]) agg[m] = {
-          lbs:0, maint:0, prod:0, mach:0, rawDen24:0, adjDen:0,
-          runCapDen:0,         // NEW: capacity * runtime hours
-          moM:0, moP:0,        // from earlier: missed opp in lbs by DT type
-          mats:{}, days:weekdaysCount
-        };
-        const a = agg[m];
-      
-        a.lbs     += lbs;
-        a.maint   += md;
-        a.prod    += pd;
-        a.mach    += runH;
-      
-        // denominators for performance calcs
-        a.rawDen24+= (cap>0 ? cap*24 : 0);
-        a.adjDen  += (cap>0 ? cap*Math.max(0, 24 - md) : 0);
-      
-        // NEW: runtime-weighted capacity (used for under-performance gap)
-        a.runCapDen += (cap>0 ? cap * runH : 0);
-      
-        // already added previously for missed opp tiles
-        a.moM     += (cap>0 ? cap * md : 0);
-        a.moP     += (cap>0 ? cap * pd : 0);
-      
-        a.mats[matKey] = (a.mats[matKey] || 0) + lbs;
-      }
-
+    for (const r of byline) {
+      const m   = r.machine;
+      const cap = (r.nameplate_lbs_hr && r.nameplate_lbs_hr > 0) ? r.nameplate_lbs_hr : capacityFor(r.machine, r.material);
+      const lbs = r.pounds || 0;
+      const md  = Math.max(0, r.maint_dt_h || 0);
+    
+      const mhRaw = Math.max(0, r.machine_hours || 0);
+      const runH  = mhRaw > 0 ? mhRaw : (cap>0 ? lbs/cap : 0);
+      const pd    = Math.max(0, r.prod_dt_h != null ? r.prod_dt_h : Math.max(0, 24 - md - runH));
+    
+      const dKey = (r.src_date || '').slice(0,10); // YYYY-MM-DD
+    
+      if (!agg[m]) agg[m] = {
+        lbs:0, maint:0, prod:0, mach:0,
+        rawDen24:0, adjDen:0, runCapDen:0,
+        moM:0, moP:0, mats:{},
+        daysSet: new Set()
+      };
+    
+      const a = agg[m];
+      a.daysSet.add(dKey);                       
+      a.lbs     += lbs;
+      a.maint   += md;
+      a.prod    += pd;
+      a.mach    += runH;
+      a.rawDen24+= (cap>0 ? cap*24 : 0);
+      a.adjDen  += (cap>0 ? cap*Math.max(0, 24 - md) : 0);
+      a.runCapDen += (cap>0 ? cap*runH : 0);
+      a.moM     += (cap>0 ? cap*md : 0);
+      a.moP     += (cap>0 ? cap*pd : 0);
+    }
 
     const perLine = Object.keys(agg).sort().map(m => {
       const a = agg[m];
-      const plannedH = 24 * a.days;
-      const availV = plannedH > 0;
-      const availability = availV ? (a.mach / plannedH) : NaN;
-      const prV = a.rawDen24 > 0;
-      const perfRaw = prV ? (a.lbs / a.rawDen24) : NaN;
-      const paV = a.adjDen   > 0;
-      const perfAdj = paV ? (a.lbs / a.adjDen) : NaN;
+      const days = a.daysSet.size;                      // <-- distinct days for this line
+      const plannedH = 24 * days;
+    
+      const availability = plannedH > 0 ? (a.mach / plannedH) : NaN;
+      const perfRaw = a.rawDen24 > 0 ? (a.lbs / a.rawDen24) : NaN;
+      const perfAdj = a.adjDen   > 0 ? (a.lbs / a.adjDen)   : NaN;
       const qual    = QUALITY_DEFAULT;
-      const oeeV    = availV && paV;
-      const oee     = oeeV ? (availability * perfAdj * qual) : NaN;
-      const capAvg  = (a.rawDen24 > 0 && a.days>0) ? (a.rawDen24 / (24*a.days)) : NaN;
-      // dominant material by pounds
-      let domMat = '';
-      let domMatLbs = -1;
-      for (const [k,v] of Object.entries(a.mats)) { if (v > domMatLbs) { domMatLbs = v; domMat = k; } }
-      // prefer true prod DT; else compute from planned - maint - runtime
-      const prodH = (a.prod > 0) ? a.prod : Math.max(0, plannedH - a.maint - (a.mach > 0 ? a.mach : (capAvg>0 ? a.lbs/capAvg : 0)));
-      return { machine:m, capAvg, lbs:a.lbs, maint:a.maint, prod:prodH, mach:a.mach,
-               moM:a.moM, moP:a.moP,
-               avail:availability, perfRaw, perfAdj, qual, oee, domMat,
-               availV:availV, prV:prV, paV:paV, oeeV:oeeV };
-
+      const oee     = (Number.isFinite(availability) && Number.isFinite(perfAdj)) ? (availability * perfAdj * qual) : NaN;
+      const capAvg  = (a.rawDen24 > 0 && days>0) ? (a.rawDen24 / (24*days)) : NaN;
+    
+      return {
+        machine:m, capAvg,
+        lbs:a.lbs, maint:a.maint, prod:a.prod, mach:a.mach,
+        moM:a.moM, moP:a.moP, runCapDen:a.runCapDen,
+        avail:availability, perfRaw, perfAdj, qual, oee,
+        days, plannedH,
+        availV: plannedH>0, prV: a.rawDen24>0, paV: a.adjDen>0, oeeV: plannedH>0 && a.adjDen>0
+      };
     });
+    
+    // Totals built from per-line (now on consistent bases)
+    const totalPlannedH = perLine.reduce((s,r)=> s + (r.plannedH||0), 0);
+    const totals = perLine.reduce((s,r)=>({
+      lbs: s.lbs + r.lbs,
+      maint: s.maint + r.maint,
+      prod: s.prod + r.prod,
+      mach: s.mach + r.mach,
+      rawDen24: s.rawDen24 + (agg[r.machine]?.rawDen24||0),
+      adjDen:   s.adjDen   + (agg[r.machine]?.adjDen||0),
+      runCapDen:s.runCapDen+ (agg[r.machine]?.runCapDen||0),
+      moM:      s.moM      + (agg[r.machine]?.moM||0),
+      moP:      s.moP      + (agg[r.machine]?.moP||0)
+    }), {lbs:0,maint:0,prod:0,mach:0,rawDen24:0,adjDen:0,runCapDen:0,moM:0,moP:0});
 
-    // Overall tiles
-    const totalPlannedH = (24 * weekdaysCount) * perLine.length;
-    const totals = Object.values(agg).reduce((s,a)=>({
-      lbs:s.lbs+a.lbs, maint:s.maint+a.maint, prod:s.prod+a.prod, mach:s.mach+a.mach,
-      rawDen24:s.rawDen24+a.rawDen24, adjDen:s.adjDen+a.adjDen
-    }), {lbs:0,maint:0,prod:0,mach:0,rawDen24:0,adjDen:0});
 
     const ovAvail   = totalPlannedH > 0 ? (totals.mach/totalPlannedH) : 0;
     const ovPerfRaw = totals.rawDen24 > 0 ? (totals.lbs/totals.rawDen24) : 0;
