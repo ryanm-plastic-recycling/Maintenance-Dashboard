@@ -152,6 +152,7 @@
         <div class="tile big" id="tile-oee">
           <div class="lab">OEE</div>
           <div class="val" id="ov-oee">--%</div>
+          <div class="tiny" id="ov-oee-eq"></div>
         </div>
     
         <div class="op">=</div>
@@ -387,7 +388,7 @@ function capacityFor(lineName, material){
     const perLine = Object.keys(agg).sort().map(m => {
       const a = agg[m];
       const days = a.daysSet.size;                      // <-- distinct days for this line
-      const plannedH = 24 * days;
+      const plannedH = r.plannedH || 0;
     
       const availability = plannedH > 0 ? (a.mach / plannedH) : NaN;
       const perfRaw = a.rawDen24 > 0 ? (a.lbs / a.rawDen24) : NaN;
@@ -537,17 +538,6 @@ function capacityFor(lineName, material){
         cont.appendChild(el);
       });
     }
-
-    // Optional: color the under-gap tile (lower is better)
-    (function paintUnder(){
-      const el = document.querySelector('#tile-under');
-      el.classList.remove('good','warn','bad');
-      // Heuristic thresholds: <= 5% of total run capacity = good, <= 15% warn, else bad
-      const denom = totalsRunCap > 0 ? totalsRunCap : NaN;
-      if (!Number.isFinite(denom)) return;
-      const ratio = ovUnderGap / denom;
-      el.classList.add(ratio <= 0.05 ? 'good' : ratio <= 0.15 ? 'warn' : 'bad');
-    })();
     
     (function renderMissedTable(){
       const table = document.getElementById('missedTbl');
@@ -571,7 +561,6 @@ function capacityFor(lineName, material){
       let sumMaint=0, sumProd=0, sumMoM=0, sumMoP=0, sumPlanned=0;
     
       perLine.forEach(r => {
-        const plannedH = 24 * weekdaysCount;
         const mPct = plannedH > 0 ? (r.maint / plannedH) : NaN;
         const pPct = plannedH > 0 ? (r.prod  / plannedH) : NaN;
         const moM  = r.moM || 0;
