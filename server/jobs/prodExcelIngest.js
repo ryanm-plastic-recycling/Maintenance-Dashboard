@@ -164,15 +164,40 @@ export async function runProdExcelIngest({ pool, dry=false } = {}){
 
   if (body.length) logWithIndexes(body[0]); // will print [0]..[n] with values
 
-  const mapped = [];
-  for (let i=0;i<body.length;i++){
+    const mapped = [];
+  let skippedEmpty = 0;
+  let skippedBadDate = 0;
+
+  for (let i = 0; i < body.length; i++) {
     try {
       const rec = mapRow(body[i]);
-      if (rec) mapped.push(rec);          // << skip empty rows (null)
-    } catch(e){
-      e.stage="mapRow"; e.rowIndex=i; e.rowSample=body[i]; throw e;
+      if (rec) {
+        mapped.push(rec);
+      } else {
+        skippedEmpty++;
+      }
+    } catch (e) {
+      // Only the “no valid date” case should be skipped; everything else should still fail loud
+      if (String(e.message || '').startsWith('Bad date parts')) {
+        skippedBadDate++;
+        if (skippedBadDate <= 3) {
+          console.warn('[prod-excel] skipped row (bad date): index', i);
+          logWithIndexes(body[i]); // print the offending row (first 3 only to avoid log spam)
+        }
+        continue; // skip this row, keep going
+      }
+      e.stage = 'mapRow'; e.rowIndex = i; e.rowSample = body[i];
+      throw e;
     }
   }
+
+  if (dry) return {
+    parsed: mapped.length,
+    skippedEmpty,
+    skippedBadDate,
+    sample: mapped.slice(0,5)
+  };
+
 
   if (dry) return { parsed: mapped.length, sample: mapped.slice(0,5) };
 
