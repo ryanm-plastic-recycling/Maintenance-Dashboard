@@ -25,15 +25,29 @@ export default function adminRoutes(poolPromise) {
   r.post('/admin/run-prod-excel', async (req, res) => {
     try {
       const pool = await poolPromise;
-      const { ingestProductionExcel } = await import('../jobs/productionExcelJob.js');
+      const { runProdExcelIngest } = await import('../jobs/prodExcelIngest.js');
       const { enrichNameplateFromMappings } = await import('../jobs/enrichNameplateJob.js');
-
-      const res1 = await ingestProductionExcel(pool);
-      const res2 = await enrichNameplateFromMappings(pool);
+      
+      const dry = String(req.query.dry || '').toLowerCase() === '1';
+      const res1 = await runProdExcelIngest({ pool, dry });
       await pool.request().query(`UPDATE dbo.UpdateSchedules SET LastRun = SYSUTCDATETIME() WHERE Name='prod-excel'`);
-      res.json({ ok: true, ingested: res1.rows, enriched: res2.updated });
+      // You can still enrich nameplates after a *real* run; skip on dry.
+      let enriched = null;
+      if (!dry) {
+        const res2 = await enrichNameplateFromMappings(pool);
+        enriched = res2.updated;
+      }
+      res.json({ ok: true, dry, ...res1, enriched });
     } catch (e) {
-      res.status(500).json({ error: String(e.message || e) });
+      console.error('[prod-excel] failed:', e?.stack || e);
+      if (e && typeof e === 'object') {
+        console.error('[prod-excel] context:', {
+          stage: e.stage,
+          rowIndex: e.rowIndex,
+          rowSample: e.rowSample,
+        });
+      }
+      res.status(500).json({ ok: false, error: String(e.message || e) });
     }
   });
 
