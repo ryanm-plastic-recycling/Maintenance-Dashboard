@@ -31,16 +31,19 @@ const D = (v) => {
   return Number.isNaN(d.getTime()) ? null : d;
 };
 // NEW: fetch-only export so other modules can reuse it safely.
+// Example: reuse your existing Graph code
+async function fetchFromGraphExcel() {
+  // put your real Graph code here and return a 2D array of rows
+  // e.g., const rows = await graphClient.api(...).get();
+  //       return rows.values;  // or however your code structures it
+}
+
 export async function fetchProductionExcelRows() {
-  // ⬇️ Use your current Graph code; just return the 2D array of rows.
-  // Example skeleton:
-  const rows = await /* your existing Graph fetch logic */;
+  const rows = await fetchFromGraphExcel();   // <-- real call, not a comment
   console.log('[prod-excel] Graph rows:', rows?.length ?? 0);
-  console.log('[prod-excel] row[0]:', rows[0]);
-  console.log('[prod-excel] row[1]:', rows[1]);
-  console.log('[prod-excel] row[2]:', rows[2]);
   return rows;
 }
+
 // ---------- graph auth + fetch ----------
 async function graphToken() {
   const body = new URLSearchParams({
