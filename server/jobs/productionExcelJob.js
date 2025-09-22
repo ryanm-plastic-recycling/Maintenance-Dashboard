@@ -39,11 +39,12 @@ async function fetchFromGraphExcel() {
 }
 
 export async function fetchProductionExcelRows() {
-  const rows = await fetchFromGraphExcel();   // <-- real call, not a comment
+  const token = await graphToken();
+  const rows  = await getTableRows(token);
   console.log('[prod-excel] Graph rows:', rows?.length ?? 0);
-  return rows;
+  if (rows?.length) console.log('[prod-excel] row[0]:', rows[0]);
+  return rows || [];
 }
-
 // ---------- graph auth + fetch ----------
 async function graphToken() {
   const body = new URLSearchParams({
