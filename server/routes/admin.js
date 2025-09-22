@@ -27,25 +27,23 @@ export default function adminRoutes(poolPromise) {
       const pool = await poolPromise;
       const { runProdExcelIngest } = await import('../jobs/prodExcelIngest.js');
       const { enrichNameplateFromMappings } = await import('../jobs/enrichNameplateJob.js');
-      
+  
       const dry = String(req.query.dry || '').toLowerCase() === '1';
       const res1 = await runProdExcelIngest({ pool, dry });
+  
       await pool.request().query(`UPDATE dbo.UpdateSchedules SET LastRun = SYSUTCDATETIME() WHERE Name='prod-excel'`);
-      // You can still enrich nameplates after a *real* run; skip on dry.
+  
       let enriched = null;
       if (!dry) {
         const res2 = await enrichNameplateFromMappings(pool);
         enriched = res2.updated;
       }
+  
       res.json({ ok: true, dry, ...res1, enriched });
     } catch (e) {
       console.error('[prod-excel] failed:', e?.stack || e);
       if (e && typeof e === 'object') {
-        console.error('[prod-excel] context:', {
-          stage: e.stage,
-          rowIndex: e.rowIndex,
-          rowSample: e.rowSample,
-        });
+        console.error('[prod-excel] context:', { stage: e.stage, rowIndex: e.rowIndex, rowSample: e.rowSample });
       }
       res.status(500).json({ ok: false, error: String(e.message || e) });
     }
