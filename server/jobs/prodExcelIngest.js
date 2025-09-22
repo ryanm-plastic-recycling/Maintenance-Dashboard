@@ -85,3 +85,13 @@ export async function runProdExcelIngest({ pool, dry=false }={}){
   await upsertProductionFacts(pool, mapped);
   return { parsed: mapped.length, inserted: mapped.length };
 }
+
+function logWithIndexes(row) {
+  if (!Array.isArray(row)) return;
+  const pairs = row.map((v,i) => `[${i}] ${JSON.stringify(v)}`);
+  console.log('[prod-excel] indexed row:', pairs.join(' | '));
+}
+
+// inside runProdExcelIngest, right after you pick `body`:
+if (body.length) logWithIndexes(body[0]);
+
