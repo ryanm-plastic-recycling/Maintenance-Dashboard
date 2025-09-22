@@ -37,11 +37,11 @@
     .tile.good { background: var(--good-bg); color: var(--good-fg); }
     .tile.warn { background: var(--warn-bg); color: var(--warn-fg); }
     .tile.bad  { background: var(--bad-bg);  color: var(--bad-fg);  }
-    .kpis-rowA .tile.big .val { font-size: 28px; }
+
+    /* Bigger first row + operator tiles */
     .kpis-rowA .tile.big { min-height: 104px; }
+    .kpis-rowA .tile.big .val { font-size: 28px; }
     .tiny { font-size: 11px; color: var(--muted); margin-top: 6px; font-weight: 700; }
-    .kpis-rowA .tile.big { min-height: 104px; }
-    .kpis-rowA .tile.big .val { font-size: 28px; }
     .op{
       background:#ffffffd9;border:1px solid var(--border);
       border-radius:12px;display:flex;align-items:center;justify-content:center;
@@ -146,7 +146,7 @@
 
     <section>
       <h2>Overall KPIs <span class="sub" id="rangeLabel"></span></h2>
-    
+
       <!-- Row A: OEE = AVAIL × PERF(Adj) × QUAL -->
       <div class="kpis kpis-rowA">
         <div class="tile big" id="tile-oee">
@@ -154,29 +154,29 @@
           <div class="val" id="ov-oee">--%</div>
           <div class="tiny" id="ov-oee-eq"></div>
         </div>
-    
+
         <div class="op">=</div>
-    
+
         <div class="tile big" id="tile-av">
           <div class="lab">Availability</div>
           <div class="val" id="ov-av">--%</div>
         </div>
-    
+
         <div class="op">×</div>
-    
+
         <div class="tile big" id="tile-pa">
           <div class="lab">Performance (Adj)</div>
           <div class="val" id="ov-pa">--%</div>
         </div>
-    
+
         <div class="op">×</div>
-    
+
         <div class="tile big" id="tile-qual">
           <div class="lab">Quality*</div>
           <div class="val" id="ov-qual">70%</div>
         </div>
       </div>
-    
+
       <!-- Row B: throughput chain -->
       <div class="kpis kpis-rowB">
         <div class="tile">
@@ -200,8 +200,8 @@
           <div class="val" id="ov-under">--</div>
         </div>
       </div>
-    
-      <!-- Row C: DT & missed-op (keep these if you already added them) -->
+
+      <!-- Row C: DT & missed-op -->
       <div class="kpis kpis-rowC">
         <div class="tile"><div class="lab">Maint DT (h)</div><div class="val" id="ov-mdt">--</div></div>
         <div class="tile" id="tile-mdt-pct"><div class="lab">Maint DT (%)</div><div class="val" id="ov-mdt-pct">--%</div></div>
@@ -231,6 +231,7 @@
         <div id="ltEmpty" class="empty" style="display:none">No data for selected range.</div>
       </div>
     </section>
+
     <div class="card" style="margin-top:14px">
       <h3>Missed Opportunity by Line <span class="sub" id="moLabel"></span></h3>
       <table id="missedTbl"></table>
@@ -297,7 +298,7 @@ function capacityFor(lineName, material){
     capacityAdj: { good: 0.80, warn: 0.60 },
     oee:         { good: 0.50, warn: 0.25 },
     availability:{ good: 0.80, warn: 0.60 },
-    quality:     { good: 0.98, warn: 0.70 }
+    quality:     { good: 0.98, warn: 0.70 } // tune to your standard
   };
   const QUALITY_DEFAULT = 0.70; // 70%
   const grade  = (v, {good, warn}) => (v >= good ? 'good' : v >= warn ? 'warn' : 'bad');
@@ -330,6 +331,7 @@ function capacityFor(lineName, material){
   }
 
   async function renderForRange(fromISO, toISO, label){
+    // labels
     document.getElementById('rangeLabel').textContent = `(${label})`;
     document.getElementById('hmLabel').textContent    = label;
     document.getElementById('hm2Label').textContent   = label;
@@ -338,11 +340,11 @@ function capacityFor(lineName, material){
 
     await loadThemeAndApply();
 
+    // we still build a weekday list for the heatmaps
     const fromD = new Date(fromISO + 'T00:00:00');
     const toD   = new Date(toISO   + 'T00:00:00');
     const dates = [];
     for (let d = new Date(fromD); d <= toD; d.setDate(d.getDate()+1)) if (isWeekday(d)) dates.push(formatISO(d));
-    const weekdaysCount = dates.length;
 
     const [summaryRaw, bylineRaw] = await Promise.all([
       fetch(`/api/production/summary?from=${fromISO}&to=${toISO}`).then(r=>r.json()).catch(()=>null),
@@ -351,22 +353,18 @@ function capacityFor(lineName, material){
 
     const byline = (bylineRaw || []).filter(r => r.machine && r.machine.startsWith('Extruder'));
 
-    // Aggregate
+    // Aggregate per line (record-level capacities so math is correct)
     const agg = {};
-    for (const r of byline) {
-      const m   = r.machine;
-      const cap = (r.nameplate_lbs_hr && r.nameplate_lbs_hr > 0) ? r.nameplate_lbs_hr : capacityFor(r.machine, r.material);
-      const lbs = r.pounds || 0;
-      const md  = Math.max(0, r.maint_dt_h || 0);
-    
-      const mhRaw = Math.max(0, r.machine_hours || 0);
+    for (const row of byline) {
+      const m   = row.machine;
+      const cap = (row.nameplate_lbs_hr && row.nameplate_lbs_hr > 0) ? row.nameplate_lbs_hr : capacityFor(row.machine, row.material);
+      const lbs = row.pounds || 0;
+      const md  = Math.max(0, row.maint_dt_h || 0);
+
+      const mhRaw = Math.max(0, row.machine_hours || 0);
       const runH  = mhRaw > 0 ? mhRaw : (cap>0 ? lbs/cap : 0);
-      const pd    = Math.max(0, r.prod_dt_h != null ? r.prod_dt_h : Math.max(0, 24 - md - runH));
-    
-      const dKey = (r.src_date || '').slice(0,10); // YYYY-MM-DD
-      const matKeyRaw = String(r.material || '').trim().toUpperCase();
-      const matKey = (MAPPINGS?.material_aliases?.[matKeyRaw]) || (matKeyRaw === '' ? 'DEFAULT' : matKeyRaw);
-      a.mats[matKey] = (a.mats[matKey] || 0) + lbs;
+      const pd    = Math.max(0, row.prod_dt_h != null ? row.prod_dt_h : Math.max(0, 24 - md - runH));
+      const dKey  = (row.src_date || '').slice(0,10); // YYYY-MM-DD
 
       if (!agg[m]) agg[m] = {
         lbs:0, maint:0, prod:0, mach:0,
@@ -374,145 +372,130 @@ function capacityFor(lineName, material){
         moM:0, moP:0, mats:{},
         daysSet: new Set()
       };
-    
-      const a = agg[m];
-      a.daysSet.add(dKey);                       
-      a.lbs     += lbs;
-      a.maint   += md;
-      a.prod    += pd;
-      a.mach    += runH;
-      a.rawDen24+= (cap>0 ? cap*24 : 0);
-      a.adjDen  += (cap>0 ? cap*Math.max(0, 24 - md) : 0);
-      a.runCapDen += (cap>0 ? cap*runH : 0);
-      a.moM     += (cap>0 ? cap*md : 0);
-      a.moP     += (cap>0 ? cap*pd : 0);
+
+      const A = agg[m];
+      A.daysSet.add(dKey);
+      A.lbs      += lbs;
+      A.maint    += md;
+      A.prod     += pd;
+      A.mach     += runH;
+      A.rawDen24 += (cap>0 ? cap*24 : 0);
+      A.adjDen   += (cap>0 ? cap*Math.max(0, 24 - md) : 0);
+      A.runCapDen+= (cap>0 ? cap*runH : 0);
+      A.moM      += (cap>0 ? cap*md : 0);
+      A.moP      += (cap>0 ? cap*pd : 0);
+
+      // dominant material helper
+      const matKeyRaw = String(row.material || '').trim().toUpperCase();
+      const matKey = (MAPPINGS?.material_aliases?.[matKeyRaw]) || (matKeyRaw === '' ? 'DEFAULT' : matKeyRaw);
+      A.mats[matKey] = (A.mats[matKey] || 0) + lbs;
     }
 
-    // ---- per-line rollup (safe) ----
-    const perLine = Object.keys(agg).sort().map(m => {
-      const a    = agg[m];
-      const days = a.daysSet.size;
+    // Per line derived metrics
+    const perLine = Object.keys(agg).sort().map(machine => {
+      const A = agg[machine];
+      const days = A.daysSet.size || 0;
       const plannedH = 24 * days;
-    
-      // dominant material (optional for subtitle)
+
+      // dominant material
       let domMat = '';
-      if (a.mats && Object.keys(a.mats).length) {
-        let best = -1;
-        for (const [k,v] of Object.entries(a.mats)) {
-          if (v > best) { best = v; domMat = k; }
-        }
+      if (A.mats && Object.keys(A.mats).length) {
+        let best=-1;
+        for (const [k,v] of Object.entries(A.mats)) if (v>best){ best=v; domMat=k; }
       }
-    
-      const availability = plannedH > 0 ? (a.mach / plannedH) : NaN;
-      const perfRaw      = a.rawDen24 > 0 ? (a.lbs / a.rawDen24) : NaN;
-      const perfAdj      = a.adjDen   > 0 ? (a.lbs / a.adjDen)   : NaN;
+
+      const availability = plannedH > 0 ? (A.mach / plannedH) : NaN;
+      const perfRaw      = A.rawDen24 > 0 ? (A.lbs / A.rawDen24) : NaN;
+      const perfAdj      = A.adjDen   > 0 ? (A.lbs / A.adjDen)   : NaN;
       const qual         = QUALITY_DEFAULT;
-      const oee          = (Number.isFinite(availability) && Number.isFinite(perfAdj))
-                             ? (availability * perfAdj * qual) : NaN;
-      const capAvg       = (a.rawDen24 > 0 && days>0) ? (a.rawDen24 / (24*days)) : NaN;
-    
+      const oee          = (Number.isFinite(availability) && Number.isFinite(perfAdj)) ? (availability * perfAdj * qual) : NaN;
+      const capAvg       = (A.rawDen24 > 0 && days>0) ? (A.rawDen24 / (24*days)) : NaN;
+
       return {
-        machine: m, domMat,
-        lbs: a.lbs, maint: a.maint, prod: a.prod, mach: a.mach,
-        rawDen24: a.rawDen24, adjDen: a.adjDen, runCapDen: a.runCapDen,
-        moM: a.moM, moP: a.moP,
+        machine, domMat,
+        lbs:A.lbs, maint:A.maint, prod:A.prod, mach:A.mach,
+        rawDen24:A.rawDen24, adjDen:A.adjDen, runCapDen:A.runCapDen,
+        moM:A.moM, moP:A.moP,
         days, plannedH, capAvg,
-        avail: availability, perfRaw, perfAdj, qual, oee,
-        availV: plannedH>0, prV: a.rawDen24>0, paV: a.adjDen>0, oeeV: plannedH>0 && a.adjDen>0
+        avail:availability, perfRaw, perfAdj, qual, oee,
+        availV: plannedH>0, prV: A.rawDen24>0, paV: A.adjDen>0, oeeV: plannedH>0 && A.adjDen>0
       };
     });
-    
-    // ---- totals built from per-line (no stray variables) ----
-    const totalPlannedH = perLine.reduce((s, row) => s + (row.plannedH || 0), 0);
-    const totals = perLine.reduce((s, row) => ({
-      lbs:       s.lbs       + row.lbs,
-      maint:     s.maint     + row.maint,
-      prod:      s.prod      + row.prod,
-      mach:      s.mach      + row.mach,
-      rawDen24:  s.rawDen24  + row.rawDen24,
-      adjDen:    s.adjDen    + row.adjDen,
-      runCapDen: s.runCapDen + row.runCapDen,
-      moM:       s.moM       + row.moM,
-      moP:       s.moP       + row.moP
-    }), { lbs:0, maint:0, prod:0, mach:0, rawDen24:0, adjDen:0, runCapDen:0, moM:0, moP:0 });
 
+    // Totals (no TDZ nonsense)
+    const totals = Object.values(agg).reduce((s, A) => {
+      s.lbs += A.lbs; s.maint += A.maint; s.prod += A.prod; s.mach += A.mach;
+      s.rawDen24 += A.rawDen24; s.adjDen += A.adjDen; s.runCapDen += A.runCapDen;
+      s.moM += A.moM; s.moP += A.moP;
+      s.plannedH += 24 * (A.daysSet.size || 0);
+      return s;
+    }, {lbs:0,maint:0,prod:0,mach:0,rawDen24:0,adjDen:0,runCapDen:0,moM:0,moP:0,plannedH:0});
+
+    const totalPlannedH = totals.plannedH;
+
+    // Overall tiles
     const ovAvail   = totalPlannedH > 0 ? (totals.mach/totalPlannedH) : 0;
     const ovPerfRaw = totals.rawDen24 > 0 ? (totals.lbs/totals.rawDen24) : 0;
     const ovPerfAdj = totals.adjDen   > 0 ? (totals.lbs/totals.adjDen)   : 0;
     const ovOEE     = ovAvail * ovPerfAdj * QUALITY_DEFAULT;
 
-    const ovAvailV = totalPlannedH > 0;
-    const ovPerfRawV = totals.rawDen24 > 0;
-    const ovPerfAdjV = totals.adjDen > 0;
-    const ovOeeV     = ovAvailV && ovPerfAdjV;
-    
-    // DT% are relative to total planned hours across all lines
     const ovMdtPct = totalPlannedH > 0 ? (totals.maint / totalPlannedH) : 0;
     const ovPdtPct = totalPlannedH > 0 ? (totals.prod  / totalPlannedH) : 0;
-    
-    // Missed opportunity totals (sum of per-line contributions)
-    const ovMoMaint = Object.values(agg).reduce((s,a)=>s + (a.moM||0), 0);
-    const ovMoProd  = Object.values(agg).reduce((s,a)=>s + (a.moP||0), 0);
 
-    // Tally totals for runtime-weighted capacity
-    const totalsRunCap = Object.values(agg).reduce((s,a)=> s + (a.runCapDen||0), 0);
-    
-    // Under-performance gap (lbs): capacity * runtime - actual (only positive)
-    const ovUnderGap = Math.max(0, totalsRunCap - (totals.lbs || 0));
-    
-    document.getElementById('ov-oee').textContent = fmtPct(ovOEE, ovOeeV);
-    document.getElementById('ov-av').textContent  = fmtPct(ovAvail, ovAvailV);
-    document.getElementById('ov-pr').textContent  = fmtPct(ovPerfRaw, ovPerfRawV);
-    document.getElementById('ov-pa').textContent  = fmtPct(ovPerfAdj, ovPerfAdjV);
-    document.getElementById('ov-lbs').textContent = fmtInt(totals.lbs, true);
-    document.getElementById('ov-mdt').textContent = fmtFixed(totals.maint, 1, Number.isFinite(totals.maint));
-    document.getElementById('ov-pdt').textContent = fmtFixed(totals.prod, 1, Number.isFinite(totals.prod));
+    const ovUnderGap = Math.max(0, totals.runCapDen - totals.lbs);
+
+    // Bind numbers
+    document.getElementById('ov-oee').textContent = fmtPct(ovOEE, totalPlannedH>0 && totals.adjDen>0);
+    document.getElementById('ov-av').textContent  = fmtPct(ovAvail, totalPlannedH>0);
+    document.getElementById('ov-pr').textContent  = fmtPct(ovPerfRaw, totals.rawDen24>0);
+    document.getElementById('ov-pa').textContent  = fmtPct(ovPerfAdj, totals.adjDen>0);
     document.getElementById('ov-qual').textContent= Math.round(QUALITY_DEFAULT*100) + '%';
-    document.getElementById('ov-mdt-pct').textContent = fmtPct(ovMdtPct, true);
-    document.getElementById('ov-pdt-pct').textContent = fmtPct(ovPdtPct, true);
-    document.getElementById('ov-mo-mdt').textContent  = fmtInt(ovMoMaint, true);
-    document.getElementById('ov-mo-pdt').textContent  = fmtInt(ovMoProd,  true);
-    document.getElementById('ov-under').textContent = fmtInt(ovUnderGap, true);
     document.getElementById('ov-oee-eq').textContent =
-  `OEE = ${fmtPct(ovAvail, totalPlannedH>0)} × ${fmtPct(ovPerfAdj, totals.adjDen>0)} × ${Math.round(QUALITY_DEFAULT*100)}%`;
+      `OEE = ${fmtPct(ovAvail, totalPlannedH>0)} × ${fmtPct(ovPerfAdj, totals.adjDen>0)} × ${Math.round(QUALITY_DEFAULT*100)}%`;
+
     document.getElementById('ov-runh').textContent = fmtFixed(totals.mach, 1, Number.isFinite(totals.mach));
     document.getElementById('ov-cap').textContent  = fmtInt(totals.rawDen24, true);
-    document.getElementById('ov-under').textContent = fmtInt(ovUnderGap, true);
-    
-    // Color the "Under" tile (lower is better)
-    (function paintUnder(){
-      const el = document.querySelector('#tile-under');
-      el.classList.remove('good','warn','bad');
-      const denom = totalsRunCap > 0 ? totalsRunCap : NaN;
-      if (!Number.isFinite(denom)) return;
-      const ratio = ovUnderGap / denom;
-      el.classList.add(ratio <= 0.05 ? 'good' : ratio <= 0.15 ? 'warn' : 'bad');
-    })();
-    
+    document.getElementById('ov-lbs').textContent  = fmtInt(totals.lbs, true);
+    document.getElementById('ov-under').textContent= fmtInt(ovUnderGap, true);
+
+    document.getElementById('ov-mdt').textContent      = fmtFixed(totals.maint, 1, true);
+    document.getElementById('ov-pdt').textContent      = fmtFixed(totals.prod,  1, true);
+    document.getElementById('ov-mdt-pct').textContent  = fmtPct(ovMdtPct, true);
+    document.getElementById('ov-pdt-pct').textContent  = fmtPct(ovPdtPct, true);
+    document.getElementById('ov-mo-mdt').textContent   = fmtInt(totals.moM, true);
+    document.getElementById('ov-mo-pdt').textContent   = fmtInt(totals.moP, true);
+
+    // Coloring
     const setTileClass = (sel, v, thr, valid=true) => {
       const el = document.querySelector(sel);
       el.classList.remove('good','warn','bad');
-      if (valid && Number.isFinite(v)) {
-        const cls = grade(v||0, thr);
-        el.classList.add(cls);
-      }
+      if (valid && Number.isFinite(v)) el.classList.add( grade(v||0, thr) );
     };
-    // color DT% tiles: low is good
+    setTileClass('#tile-oee',  ovOEE,     THRESH.oee,          totalPlannedH>0 && totals.adjDen>0);
+    setTileClass('#tile-av',   ovAvail,   THRESH.availability, totalPlannedH>0);
+    setTileClass('#tile-pr',   ovPerfRaw, THRESH.capacityAdj,  totals.rawDen24>0);
+    setTileClass('#tile-pa',   ovPerfAdj, THRESH.capacityAdj,  totals.adjDen>0);
+    setTileClass('#tile-qual', QUALITY_DEFAULT, THRESH.quality, true);
+
+    // DT% tiles – low is good
     const paintLow = (sel, v) => {
       const el = document.querySelector(sel);
       el.classList.remove('good','warn','bad');
       if (!Number.isFinite(v)) return;
-      // 10% good, 20% warn — aligns with your Asset KPI thresholds
       el.classList.add(v <= 0.10 ? 'good' : v <= 0.20 ? 'warn' : 'bad');
     };
     paintLow('#tile-mdt-pct', ovMdtPct);
     paintLow('#tile-pdt-pct', ovPdtPct);
-    
-    setTileClass('#tile-oee', ovOEE, THRESH.oee, ovOeeV);
-    setTileClass('#tile-av',  ovAvail, THRESH.availability, ovAvailV);
-    setTileClass('#tile-pr',  ovPerfRaw, THRESH.capacityAdj, ovPerfRawV);
-    setTileClass('#tile-pa',  ovPerfAdj, THRESH.capacityAdj, ovPerfAdjV);
-    setTileClass('#tile-qual', QUALITY_DEFAULT, THRESH.quality, true);
+
+    // Under-perf color – low is good relative to run capacity
+    (function paintUnder(){
+      const el = document.querySelector('#tile-under');
+      el.classList.remove('good','warn','bad');
+      const denom = totals.runCapDen > 0 ? totals.runCapDen : NaN;
+      if (!Number.isFinite(denom)) return;
+      const ratio = ovUnderGap / denom;
+      el.classList.add(ratio <= 0.05 ? 'good' : ratio <= 0.15 ? 'warn' : 'bad');
+    })();
 
     // Line Tiles
     const cont = document.getElementById('lineTiles'); cont.innerHTML = '';
@@ -533,8 +516,8 @@ function capacityFor(lineName, material){
               <div class="lt-nameplate">Nameplate ${Number.isFinite(r.capAvg) ? Math.round(r.capAvg).toLocaleString() : '--'} lb/hr${r.domMat?` (${r.domMat})`:''}</div>
             </div>
             <div class="lt-badges">
-              <span class="badge maint">Maint DT ${fmtFixed(r.maint,1,Number.isFinite(r.maint))}h</span>
-              <span class="badge prod">Prod DT ${fmtFixed(r.prod,1,Number.isFinite(r.prod))}h</span>
+              <span class="badge maint">Maint DT ${fmtFixed(r.maint,1,true)}h</span>
+              <span class="badge prod">Prod DT ${fmtFixed(r.prod,1,true)}h</span>
             </div>
             <div class="lt-metrics" style="margin-top:6px">
               <div class="${(r.oeeV && Number.isFinite(r.oee)) ? 'm' : 'm empty'}"><div class="lab">OEE</div><div class="val">${fmtPct(r.oee, r.oeeV)}</div></div>
@@ -552,13 +535,14 @@ function capacityFor(lineName, material){
         cont.appendChild(el);
       });
     }
-    
+
+    // Missed Opportunity by Line
     (function renderMissedTable(){
       const table = document.getElementById('missedTbl');
       if (!perLine.length){ showEmpty('missedTbl','missedEmpty',true); table.innerHTML=''; return; }
       showEmpty('missedTbl','missedEmpty',false);
       document.getElementById('moLabel').textContent = label;
-    
+
       const hdr = `
         <thead>
           <tr>
@@ -570,23 +554,24 @@ function capacityFor(lineName, material){
             <th>Total Missed (lb)</th>
           </tr>
         </thead>`;
-    
+
       let body = '<tbody>';
       let sumMaint=0, sumProd=0, sumMoM=0, sumMoP=0, sumPlanned=0;
-    
+
       perLine.forEach(r => {
+        const plannedH = r.plannedH || 0; // per-line plan (distinct days)
         const mPct = plannedH > 0 ? (r.maint / plannedH) : NaN;
         const pPct = plannedH > 0 ? (r.prod  / plannedH) : NaN;
         const moM  = r.moM || 0;
         const moP  = r.moP || 0;
         const tot  = moM + moP;
-    
+
         sumMaint   += r.maint || 0;
         sumProd    += r.prod  || 0;
         sumMoM     += moM;
         sumMoP     += moP;
         sumPlanned += plannedH;
-    
+
         body += `
           <tr>
             <td class="line">${r.machine}</td>
@@ -597,10 +582,10 @@ function capacityFor(lineName, material){
             <td>${fmtInt(tot,true)}</td>
           </tr>`;
       });
-    
+
       const totalPctM = sumPlanned>0 ? (sumMaint/sumPlanned) : NaN;
       const totalPctP = sumPlanned>0 ? (sumProd /sumPlanned) : NaN;
-    
+
       body += `
         <tr style="font-weight:900">
           <td class="line">TOTAL</td>
@@ -611,7 +596,7 @@ function capacityFor(lineName, material){
           <td>${fmtInt(sumMoM + sumMoP,true)}</td>
         </tr>
       </tbody>`;
-    
+
       table.innerHTML = hdr + body;
     })();
 
