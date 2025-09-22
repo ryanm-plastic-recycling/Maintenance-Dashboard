@@ -366,16 +366,23 @@
     "7": "Unavailable"
   },
   "capacity_aliases": {
-  "Extruder Line E1": "Extruder 1",
-  "Extruder Line E2": "Extruder 2",
-  "Extruder Line E3": "Extruder 3",
-  "Extruder Line E4": "Extruder 4",
-  "Extruder Line E5": "Extruder 5",
-  "Extruder Line E6": "Extruder 6",
-  "Extruder Line E7": "Extruder 7",
-  "NGR": "Extruder NGR",
-  "New Extrusion Line NL1": "Extruder New Single",
-  "New Extrusion Line NL2": "Extruder New Twin"
+    "Extruder Line E1": "Extruder 1",
+    "Extruder Line E2": "Extruder 2",
+    "Extruder Line E3": "Extruder 3",
+    "Extruder Line E4": "Extruder 4",
+    "Extruder Line E5": "Extruder 5",
+    "Extruder Line E6": "Extruder 6",
+    "Extruder Line E7": "Extruder 7",
+    "NGR": "Extruder NGR",
+    "New Extrusion Line NL1": "Extruder New Single",
+    "New Extrusion Line NL2": "Extruder New Twin",
+    "E1": "Extruder 1",
+    "E2": "Extruder 2",
+    "E3": "Extruder 3",
+    "E4": "Extruder 4",
+    "E5": "Extruder 5",
+    "E6": "Extruder 6",
+    "E7": "Extruder 7"
   },
   "capacities_lbs_hr": {
     "Vistakon 1": 2000,
