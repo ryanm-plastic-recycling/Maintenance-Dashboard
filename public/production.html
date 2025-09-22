@@ -40,6 +40,13 @@
     .kpis-rowA .tile.big .val { font-size: 28px; }
     .kpis-rowA .tile.big { min-height: 104px; }
     .tiny { font-size: 11px; color: var(--muted); margin-top: 6px; font-weight: 700; }
+    .kpis-rowA .tile.big { min-height: 104px; }
+    .kpis-rowA .tile.big .val { font-size: 28px; }
+    .op{
+      background:#ffffffd9;border:1px solid var(--border);
+      border-radius:12px;display:flex;align-items:center;justify-content:center;
+      font-weight:900;font-size:22px;min-height:104px
+    }
 
     .section-gap{margin-top:28px}
 
@@ -139,53 +146,70 @@
 
     <section>
       <h2>Overall KPIs <span class="sub" id="rangeLabel"></span></h2>
-        <!-- Row A: equation tiles, bigger -->
-        <div class="kpis kpis-rowA">
-          <div class="tile big" id="tile-oee">
-            <div class="lab">OEE</div>
-            <div class="val" id="ov-oee">--%</div>
-            <div class="tiny" id="ov-oee-eq">OEE = AVAIL × PERF(Adj) × QUAL</div>
-          </div>
-          <div class="tile big" id="tile-av">
-            <div class="lab">Availability</div>
-            <div class="val" id="ov-av">--%</div>
-          </div>
-          <div class="tile big" id="tile-pa">
-            <div class="lab">Performance (Adj)</div>
-            <div class="val" id="ov-pa">--%</div>
-          </div>
-          <div class="tile big">
-            <div class="lab">Quality*</div>
-            <div class="val" id="ov-qual">70%</div>
-          </div>
+    
+      <!-- Row A: OEE = AVAIL × PERF(Adj) × QUAL -->
+      <div class="kpis kpis-rowA">
+        <div class="tile big" id="tile-oee">
+          <div class="lab">OEE</div>
+          <div class="val" id="ov-oee">--%</div>
         </div>
-      
-        <!-- Row B: raw perf, total lbs, under-performance gap -->
-        <div class="kpis kpis-rowB">
-          <div class="tile" id="tile-pr">
-            <div class="lab">Performance (Raw 24h)</div>
-            <div class="val" id="ov-pr">--%</div>
-          </div>
-          <div class="tile">
-            <div class="lab">Total Pounds</div>
-            <div class="val" id="ov-lbs">--</div>
-          </div>
-          <div class="tile" id="tile-under">
-            <div class="lab">Under-Performance Gap (lb)</div>
-            <div class="val" id="ov-under">--</div>
-          </div>
+    
+        <div class="op">=</div>
+    
+        <div class="tile big" id="tile-av">
+          <div class="lab">Availability</div>
+          <div class="val" id="ov-av">--%</div>
         </div>
-      
-        <!-- Row C: DT + Missed opportunity (from earlier step) -->
-        <div class="kpis kpis-rowC">
-          <div class="tile"><div class="lab">Maint DT (h)</div><div class="val" id="ov-mdt">--</div></div>
-          <div class="tile" id="tile-mdt-pct"><div class="lab">Maint DT (%)</div><div class="val" id="ov-mdt-pct">--%</div></div>
-          <div class="tile"><div class="lab">Prod DT (h)</div><div class="val" id="ov-pdt">--</div></div>
-          <div class="tile" id="tile-pdt-pct"><div class="lab">Prod DT (%)</div><div class="val" id="ov-pdt-pct">--%</div></div>
-          <div class="tile"><div class="lab">Missed Opp (Maint, lb)</div><div class="val" id="ov-mo-mdt">--</div></div>
-          <div class="tile"><div class="lab">Missed Opp (Prod, lb)</div><div class="val" id="ov-mo-pdt">--</div></div>
+    
+        <div class="op">×</div>
+    
+        <div class="tile big" id="tile-pa">
+          <div class="lab">Performance (Adj)</div>
+          <div class="val" id="ov-pa">--%</div>
         </div>
-      </section>
+    
+        <div class="op">×</div>
+    
+        <div class="tile big" id="tile-qual">
+          <div class="lab">Quality*</div>
+          <div class="val" id="ov-qual">70%</div>
+        </div>
+      </div>
+    
+      <!-- Row B: throughput chain -->
+      <div class="kpis kpis-rowB">
+        <div class="tile">
+          <div class="lab">Run Hours</div>
+          <div class="val" id="ov-runh">--</div>
+        </div>
+        <div class="tile" id="tile-pr">
+          <div class="lab">Performance (Raw 24h)</div>
+          <div class="val" id="ov-pr">--%</div>
+        </div>
+        <div class="tile">
+          <div class="lab">Capacity Potential (lb)</div>
+          <div class="val" id="ov-cap">--</div>
+        </div>
+        <div class="tile">
+          <div class="lab">Total Pounds</div>
+          <div class="val" id="ov-lbs">--</div>
+        </div>
+        <div class="tile" id="tile-under">
+          <div class="lab">Under-Perf Gap (lb)</div>
+          <div class="val" id="ov-under">--</div>
+        </div>
+      </div>
+    
+      <!-- Row C: DT & missed-op (keep these if you already added them) -->
+      <div class="kpis kpis-rowC">
+        <div class="tile"><div class="lab">Maint DT (h)</div><div class="val" id="ov-mdt">--</div></div>
+        <div class="tile" id="tile-mdt-pct"><div class="lab">Maint DT (%)</div><div class="val" id="ov-mdt-pct">--%</div></div>
+        <div class="tile"><div class="lab">Prod DT (h)</div><div class="val" id="ov-pdt">--</div></div>
+        <div class="tile" id="tile-pdt-pct"><div class="lab">Prod DT (%)</div><div class="val" id="ov-pdt-pct">--%</div></div>
+        <div class="tile"><div class="lab">Missed Opp (Maint, lb)</div><div class="val" id="ov-mo-mdt">--</div></div>
+        <div class="tile"><div class="lab">Missed Opp (Prod, lb)</div><div class="val" id="ov-mo-pdt">--</div></div>
+      </div>
+    </section>
 
     <section class="section-gap">
       <div class="card">
@@ -271,7 +295,8 @@ function capacityFor(lineName, material){
   const THRESH = {
     capacityAdj: { good: 0.80, warn: 0.60 },
     oee:         { good: 0.50, warn: 0.25 },
-    availability:{ good: 0.80, warn: 0.60 }
+    availability:{ good: 0.80, warn: 0.60 },
+    quality:     { good: 0.98, warn: 0.70 }
   };
   const QUALITY_DEFAULT = 0.70; // 70%
   const grade  = (v, {good, warn}) => (v >= good ? 'good' : v >= warn ? 'warn' : 'bad');
@@ -435,7 +460,24 @@ function capacityFor(lineName, material){
     document.getElementById('ov-under').textContent = fmtInt(ovUnderGap, true);
     document.getElementById('ov-oee-eq').textContent =
   `OEE = ${fmtPct(ovAvail, totalPlannedH>0)} × ${fmtPct(ovPerfAdj, totals.adjDen>0)} × ${Math.round(QUALITY_DEFAULT*100)}%`;
+    document.getElementById('ov-runh').textContent = fmtFixed(totals.mach, 1, Number.isFinite(totals.mach));
+    document.getElementById('ov-cap').textContent  = fmtInt(totals.rawDen24, true);
 
+    // Under-performance gap (lbs) = cap*runtime - actual (only positive)
+    const totalsRunCap = Object.values(agg).reduce((s,a)=> s + (a.runCapDen||0), 0);
+    const ovUnderGap = Math.max(0, totalsRunCap - (totals.lbs || 0));
+    document.getElementById('ov-under').textContent = fmtInt(ovUnderGap, true);
+    
+    // Color the "Under" tile (lower is better)
+    (function paintUnder(){
+      const el = document.querySelector('#tile-under');
+      el.classList.remove('good','warn','bad');
+      const denom = totalsRunCap > 0 ? totalsRunCap : NaN;
+      if (!Number.isFinite(denom)) return;
+      const ratio = ovUnderGap / denom;
+      el.classList.add(ratio <= 0.05 ? 'good' : ratio <= 0.15 ? 'warn' : 'bad');
+    })();
+    
     const setTileClass = (sel, v, thr, valid=true) => {
       const el = document.querySelector(sel);
       el.classList.remove('good','warn','bad');
@@ -459,6 +501,7 @@ function capacityFor(lineName, material){
     setTileClass('#tile-av',  ovAvail, THRESH.availability, ovAvailV);
     setTileClass('#tile-pr',  ovPerfRaw, THRESH.capacityAdj, ovPerfRawV);
     setTileClass('#tile-pa',  ovPerfAdj, THRESH.capacityAdj, ovPerfAdjV);
+    setTileClass('#tile-qual', QUALITY_DEFAULT, THRESH.quality, true);
 
     // Line Tiles
     const cont = document.getElementById('lineTiles'); cont.innerHTML = '';
