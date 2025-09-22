@@ -309,7 +309,6 @@ function capacityFor(lineName, material){
   const _WDAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
   const isWeekday = d => (d.getDay() !== 0 && d.getDay() !== 6);
   const formatISO = d => new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10);
-  // Avoid UTC shift (Fri → Thu)
   const weekdayLocal = v => {
     if (!v) return null;
     const s = (typeof v === 'string') ? v.slice(0,10) : v.toISOString().slice(0,10);
@@ -340,7 +339,7 @@ function capacityFor(lineName, material){
 
     await loadThemeAndApply();
 
-    // we still build a weekday list for the heatmaps
+    // weekday list still used in heatmaps
     const fromD = new Date(fromISO + 'T00:00:00');
     const toD   = new Date(toISO   + 'T00:00:00');
     const dates = [];
@@ -353,25 +352,23 @@ function capacityFor(lineName, material){
 
     const byline = (bylineRaw || []).filter(r => r.machine && r.machine.startsWith('Extruder'));
 
-    // Aggregate per line (record-level capacities so math is correct)
-    // 1) Consolidate to one record per (machine, date)
-    // 1) Consolidate to one record per (machine, date)
+    // -------- Machine-day consolidation --------
     const dayMap = new Map(); // key: `${machine}__${YYYY-MM-DD}` -> day obj
-    
+
     for (const row of byline) {
       const machine = row.machine;
       const day = (row.src_date || '').slice(0,10);
       if (!machine || !day) continue;
-    
+
       const capRow = (row.nameplate_lbs_hr && row.nameplate_lbs_hr > 0)
         ? row.nameplate_lbs_hr
         : capacityFor(row.machine, row.material);
-    
+
       const lbs  = row.pounds || 0;
       const md   = Math.max(0, row.maint_dt_h    || 0);
       const mhR  = Math.max(0, row.machine_hours || 0);
-      const runH = mhR > 0 ? mhR : (capRow>0 ? lbs/capRow : 0);
-    
+      const runH = mhR > 0 ? mhR : (capRow>0 ? lbs/capRow : 0); // runtime can be estimated
+
       const key = `${machine}__${day}`;
       if (!dayMap.has(key)) {
         dayMap.set(key, {
@@ -386,44 +383,52 @@ function capacityFor(lineName, material){
         });
       }
       const d = dayMap.get(key);
-    
+
       d.lbs += lbs;
-    
-      // hours from multiple rows can duplicate — use max per bucket
+
+      // DT buckets may repeat across rows: take the max seen that day
       d.maint_h = Math.max(d.maint_h, md);
       d.run_h   = Math.max(d.run_h,   runH);
-    
+
       if (capRow > 0) {
         d.sumCapRun   += capRow * runH;
         d.sumRunH     += runH;
         d.cap_candidates.push(capRow);
       }
-    
+
       const matKey = String(row.material || '').trim().toUpperCase() || 'DEFAULT';
       d.mats[matKey] = (d.mats[matKey] || 0) + lbs;
     }
-    
-    // choose a single capacity per day: runtime-weighted if we have runtime
+
+    // choose a single capacity per day (runtime-weighted if we have runtime)
     for (const d of dayMap.values()) {
       let capDay = 0;
       if (d.sumRunH > 0) {
         capDay = d.sumCapRun / d.sumRunH;
       } else if (d.cap_candidates.length) {
-        // no runtime? use median of seen caps to avoid extreme overstatement
+        // no runtime? median avoids overstating
         const arr = d.cap_candidates.slice().sort((a,b)=>a-b);
         capDay = arr[Math.floor(arr.length/2)];
       }
       d.cap = capDay;
-    
-      // Compute prod_h as the remainder. Clamp to 24h budget.
+
+      // prodDT from remainder; clamp within 24h budget
       const maint = d.maint_h;
       const run   = d.run_h;
       let prod    = Math.max(0, 24 - maint - run);
       const over  = Math.max(0, (maint + run + prod) - 24);
       d.prod_h    = Math.max(0, prod - over);
+
+      // day-level KPIs
+      d.avail    = (24 > 0) ? (run / 24) : 0; // = 1 - (maint+prod)/24
+      const rawDen = capDay * 24;
+      const adjDen = capDay * Math.max(0, 24 - maint);
+      d.perfRaw  = rawDen > 0 ? (d.lbs / rawDen) : NaN;
+      d.perfAdj  = adjDen > 0 ? (d.lbs / adjDen) : NaN;
+      d.underLb  = Math.max(0, capDay * run - d.lbs);
     }
-    
-    // 2) Aggregate per machine from machine-day records
+
+    // -------- Aggregate per machine from machine-days --------
     const agg = {};
     for (const d of dayMap.values()) {
       const m = d.machine;
@@ -431,7 +436,11 @@ function capacityFor(lineName, material){
         agg[m] = {
           lbs:0, maint:0, prod:0, mach:0,
           rawDen24:0, adjDen:0, runCapDen:0,
-          moM:0, moP:0, mats:{}, daysSet:new Set()
+          moM:0, moP:0, under:0,
+          sumAvail:0, nAvail:0,
+          sumPR:0, nPR:0,
+          sumPA:0, nPA:0,
+          mats:{}, daysSet:new Set()
         };
       }
       const A = agg[m];
@@ -444,58 +453,67 @@ function capacityFor(lineName, material){
       A.runCapDen+= d.cap * d.run_h;
       A.moM      += d.cap * d.maint_h;
       A.moP      += d.cap * d.prod_h;
+      A.under    += d.underLb;
+      A.sumAvail += (Number.isFinite(d.avail) ? d.avail : 0); A.nAvail += 1;
+      if (Number.isFinite(d.perfRaw)) { A.sumPR += d.perfRaw; A.nPR += 1; }
+      if (Number.isFinite(d.perfAdj)) { A.sumPA += d.perfAdj; A.nPA += 1; }
       A.daysSet.add(d.day);
-    
-      // keep a rough material signal for subtitle
+
+      // material signal for subtitle
       let dom='', best=-1; for (const [k,v] of Object.entries(d.mats)) if (v>best){ best=v; dom=k; }
       if (dom) A.mats[dom] = (A.mats[dom] || 0) + d.lbs;
     }
-    // Per line derived metrics
+
+    // Per line derived metrics (day-average for Avail/Perf)
     const perLine = Object.keys(agg).sort().map(machine => {
       const A = agg[machine];
       const days = A.daysSet.size || 0;
       const plannedH = 24 * days;
 
-      // dominant material
+      // dominant material (for label)
       let domMat = '';
       if (A.mats && Object.keys(A.mats).length) {
         let best=-1;
         for (const [k,v] of Object.entries(A.mats)) if (v>best){ best=v; domMat=k; }
       }
 
-      const availability = plannedH > 0 ? (A.mach / plannedH) : NaN;
-      const perfRaw      = A.rawDen24 > 0 ? (A.lbs / A.rawDen24) : NaN;
-      const perfAdj      = A.adjDen   > 0 ? (A.lbs / A.adjDen)   : NaN;
+      const availability = A.nAvail>0 ? (A.sumAvail / A.nAvail) : NaN; // day-avg
+      const perfRaw      = A.nPR>0    ? (A.sumPR / A.nPR)      : NaN;  // day-avg
+      const perfAdj      = A.nPA>0    ? (A.sumPA / A.nPA)      : NaN;  // day-avg
       const qual         = QUALITY_DEFAULT;
       const oee          = (Number.isFinite(availability) && Number.isFinite(perfAdj)) ? (availability * perfAdj * qual) : NaN;
       const capAvg       = (A.rawDen24 > 0 && days>0) ? (A.rawDen24 / (24*days)) : NaN;
+      const underLb      = Math.max(0, A.runCapDen - A.lbs);
 
       return {
         machine, domMat,
         lbs:A.lbs, maint:A.maint, prod:A.prod, mach:A.mach,
-        rawDen24:A.rawDen24, adjDen:A.adjDen, runCapDen:A.runCapDen,
+        rawDen24:A.rawDen24, adjDen:A.adjDen, runCapDen:A.runCapDen, underLb,
         moM:A.moM, moP:A.moP,
         days, plannedH, capAvg,
         avail:availability, perfRaw, perfAdj, qual, oee,
-        availV: plannedH>0, prV: A.rawDen24>0, paV: A.adjDen>0, oeeV: plannedH>0 && A.adjDen>0
+        availV: A.nAvail>0, prV: A.nPR>0, paV: A.nPA>0, oeeV: A.nAvail>0 && A.nPA>0
       };
     });
 
-    // Totals (no TDZ nonsense)
+    // Totals (also day-averages)
     const totals = Object.values(agg).reduce((s, A) => {
       s.lbs += A.lbs; s.maint += A.maint; s.prod += A.prod; s.mach += A.mach;
       s.rawDen24 += A.rawDen24; s.adjDen += A.adjDen; s.runCapDen += A.runCapDen;
-      s.moM += A.moM; s.moP += A.moP;
+      s.moM += A.moM; s.moP += A.moP; s.under += Math.max(0, A.runCapDen - A.lbs);
+      s.sumAvail += A.sumAvail; s.nAvail += A.nAvail;
+      s.sumPR += A.sumPR; s.nPR += A.nPR;
+      s.sumPA += A.sumPA; s.nPA += A.nPA;
       s.plannedH += 24 * (A.daysSet.size || 0);
       return s;
-    }, {lbs:0,maint:0,prod:0,mach:0,rawDen24:0,adjDen:0,runCapDen:0,moM:0,moP:0,plannedH:0});
+    }, {lbs:0,maint:0,prod:0,mach:0,rawDen24:0,adjDen:0,runCapDen:0,moM:0,moP:0,under:0,sumAvail:0,nAvail:0,sumPR:0,nPR:0,sumPA:0,nPA:0,plannedH:0});
 
     const totalPlannedH = totals.plannedH;
 
-    // Overall tiles
-    const ovAvail   = totalPlannedH > 0 ? (totals.mach/totalPlannedH) : 0;
-    const ovPerfRaw = totals.rawDen24 > 0 ? (totals.lbs/totals.rawDen24) : 0;
-    const ovPerfAdj = totals.adjDen   > 0 ? (totals.lbs/totals.adjDen)   : 0;
+    // Overall day-averaged KPIs
+    const ovAvail   = totals.nAvail>0 ? (totals.sumAvail / totals.nAvail) : 0;
+    const ovPerfRaw = totals.nPR>0    ? (totals.sumPR    / totals.nPR)    : 0;
+    const ovPerfAdj = totals.nPA>0    ? (totals.sumPA    / totals.nPA)    : 0;
     const ovOEE     = ovAvail * ovPerfAdj * QUALITY_DEFAULT;
 
     const ovMdtPct = totalPlannedH > 0 ? (totals.maint / totalPlannedH) : 0;
@@ -504,13 +522,13 @@ function capacityFor(lineName, material){
     const ovUnderGap = Math.max(0, totals.runCapDen - totals.lbs);
 
     // Bind numbers
-    document.getElementById('ov-oee').textContent = fmtPct(ovOEE, totalPlannedH>0 && totals.adjDen>0);
-    document.getElementById('ov-av').textContent  = fmtPct(ovAvail, totalPlannedH>0);
-    document.getElementById('ov-pr').textContent  = fmtPct(ovPerfRaw, totals.rawDen24>0);
-    document.getElementById('ov-pa').textContent  = fmtPct(ovPerfAdj, totals.adjDen>0);
+    document.getElementById('ov-oee').textContent = fmtPct(ovOEE, totals.nAvail>0 && totals.nPA>0);
+    document.getElementById('ov-av').textContent  = fmtPct(ovAvail, totals.nAvail>0);
+    document.getElementById('ov-pr').textContent  = fmtPct(ovPerfRaw, totals.nPR>0);
+    document.getElementById('ov-pa').textContent  = fmtPct(ovPerfAdj, totals.nPA>0);
     document.getElementById('ov-qual').textContent= Math.round(QUALITY_DEFAULT*100) + '%';
     document.getElementById('ov-oee-eq').textContent =
-      `OEE = ${fmtPct(ovAvail, totalPlannedH>0)} × ${fmtPct(ovPerfAdj, totals.adjDen>0)} × ${Math.round(QUALITY_DEFAULT*100)}%`;
+      `OEE = ${fmtPct(ovAvail, totals.nAvail>0)} × ${fmtPct(ovPerfAdj, totals.nPA>0)} × ${Math.round(QUALITY_DEFAULT*100)}%`;
 
     document.getElementById('ov-runh').textContent = fmtFixed(totals.mach, 1, Number.isFinite(totals.mach));
     document.getElementById('ov-cap').textContent  = fmtInt(totals.rawDen24, true);
@@ -530,10 +548,10 @@ function capacityFor(lineName, material){
       el.classList.remove('good','warn','bad');
       if (valid && Number.isFinite(v)) el.classList.add( grade(v||0, thr) );
     };
-    setTileClass('#tile-oee',  ovOEE,     THRESH.oee,          totalPlannedH>0 && totals.adjDen>0);
-    setTileClass('#tile-av',   ovAvail,   THRESH.availability, totalPlannedH>0);
-    setTileClass('#tile-pr',   ovPerfRaw, THRESH.capacityAdj,  totals.rawDen24>0);
-    setTileClass('#tile-pa',   ovPerfAdj, THRESH.capacityAdj,  totals.adjDen>0);
+    setTileClass('#tile-oee',  ovOEE,     THRESH.oee,          totals.nAvail>0 && totals.nPA>0);
+    setTileClass('#tile-av',   ovAvail,   THRESH.availability, totals.nAvail>0);
+    setTileClass('#tile-pr',   ovPerfRaw, THRESH.capacityAdj,  totals.nPR>0);
+    setTileClass('#tile-pa',   ovPerfAdj, THRESH.capacityAdj,  totals.nPA>0);
     setTileClass('#tile-qual', QUALITY_DEFAULT, THRESH.quality, true);
 
     // DT% tiles – low is good
@@ -556,7 +574,7 @@ function capacityFor(lineName, material){
       el.classList.add(ratio <= 0.05 ? 'good' : ratio <= 0.15 ? 'warn' : 'bad');
     })();
 
-    // Line Tiles
+    // -------- Line Tiles --------
     const cont = document.getElementById('lineTiles'); cont.innerHTML = '';
     if (perLine.length === 0) {
       document.getElementById('ltEmpty').style.display = '';
@@ -595,7 +613,7 @@ function capacityFor(lineName, material){
       });
     }
 
-    // Missed Opportunity by Line
+    // -------- Missed Opportunity by Line (with RunH, Capacity, Under-perf) --------
     (function renderMissedTable(){
       const table = document.getElementById('missedTbl');
       if (!perLine.length){ showEmpty('missedTbl','missedEmpty',true); table.innerHTML=''; return; }
@@ -606,8 +624,11 @@ function capacityFor(lineName, material){
         <thead>
           <tr>
             <th>Line</th>
+            <th>Run H</th>
             <th>Maint DT (h)</th><th>Maint DT (%)</th>
             <th>Prod DT (h)</th><th>Prod DT (%)</th>
+            <th>Capacity Pot. (lb)</th>
+            <th>Under-Perf (lb)</th>
             <th>Missed Opp (Maint, lb)</th>
             <th>Missed Opp (Prod, lb)</th>
             <th>Total Missed (lb)</th>
@@ -615,18 +636,22 @@ function capacityFor(lineName, material){
         </thead>`;
 
       let body = '<tbody>';
-      let sumMaint=0, sumProd=0, sumMoM=0, sumMoP=0, sumPlanned=0;
+      let sumRun=0, sumMaint=0, sumProd=0, sumCap=0, sumUnder=0, sumMoM=0, sumMoP=0, sumPlanned=0;
 
       perLine.forEach(r => {
-        const plannedH = r.plannedH || 0; // per-line plan (distinct days)
+        const plannedH = r.plannedH || 0;
         const mPct = plannedH > 0 ? (r.maint / plannedH) : NaN;
         const pPct = plannedH > 0 ? (r.prod  / plannedH) : NaN;
         const moM  = r.moM || 0;
         const moP  = r.moP || 0;
+        const under= Math.max(0, r.runCapDen - r.lbs);
         const tot  = moM + moP;
 
+        sumRun     += r.mach || 0;
         sumMaint   += r.maint || 0;
         sumProd    += r.prod  || 0;
+        sumCap     += r.rawDen24 || 0;
+        sumUnder   += under;
         sumMoM     += moM;
         sumMoP     += moP;
         sumPlanned += plannedH;
@@ -634,8 +659,11 @@ function capacityFor(lineName, material){
         body += `
           <tr>
             <td class="line">${r.machine}</td>
+            <td>${fmtFixed(r.mach,1,true)}</td>
             <td>${fmtFixed(r.maint,1,true)}</td><td>${fmtPct(mPct, Number.isFinite(mPct))}</td>
             <td>${fmtFixed(r.prod, 1,true)}</td><td>${fmtPct(pPct, Number.isFinite(pPct))}</td>
+            <td>${fmtInt(r.rawDen24,true)}</td>
+            <td>${fmtInt(under,true)}</td>
             <td>${fmtInt(moM,true)}</td>
             <td>${fmtInt(moP,true)}</td>
             <td>${fmtInt(tot,true)}</td>
@@ -648,8 +676,11 @@ function capacityFor(lineName, material){
       body += `
         <tr style="font-weight:900">
           <td class="line">TOTAL</td>
+          <td>${fmtFixed(sumRun,1,true)}</td>
           <td>${fmtFixed(sumMaint,1,true)}</td><td>${fmtPct(totalPctM, Number.isFinite(totalPctM))}</td>
           <td>${fmtFixed(sumProd, 1,true)}</td><td>${fmtPct(totalPctP, Number.isFinite(totalPctP))}</td>
+          <td>${fmtInt(sumCap,true)}</td>
+          <td>${fmtInt(sumUnder,true)}</td>
           <td>${fmtInt(sumMoM,true)}</td>
           <td>${fmtInt(sumMoP,true)}</td>
           <td>${fmtInt(sumMoM + sumMoP,true)}</td>
@@ -659,32 +690,29 @@ function capacityFor(lineName, material){
       table.innerHTML = hdr + body;
     })();
 
-    // Heatmap OEE
+    // -------- OEE Heatmaps (leave as-is; day-level average logic above feeds the numbers) --------
     (function renderHeatmapOEE(){
       const table = document.getElementById('heat');
       if (!byline.length){ showEmpty('heat','heatEmpty',true); table.innerHTML=''; return; }
       showEmpty('heat','heatEmpty',false);
       const tDays = (new Date(toISO) - new Date(fromISO)) / 86400000 + 1;
+
+      // Build a machine->date OEE map from our consolidated dayMap (no duplication)
+      const datesAll = [];
+      for (let d = new Date(fromISO+'T00:00:00'); d <= new Date(toISO+'T00:00:00'); d.setDate(d.getDate()+1))
+        if (isWeekday(d)) datesAll.push(formatISO(d));
+
+      const map = new Map(); // machine -> Map(date -> oee)
+      for (const d of dayMap.values()) {
+        if (!datesAll.includes(d.day)) continue;
+        const perfAdj = d.perfAdj;
+        const avail   = d.avail;
+        const oee     = (Number.isFinite(perfAdj) && Number.isFinite(avail)) ? (perfAdj * avail * QUALITY_DEFAULT) : NaN;
+        if (!map.has(d.machine)) map.set(d.machine, new Map());
+        if (Number.isFinite(oee)) map.get(d.machine).set(d.day, oee);
+      }
+
       if (tDays <= 20) {
-        const datesAll = [];
-        for (let d = new Date(fromISO+'T00:00:00'); d <= new Date(toISO+'T00:00:00'); d.setDate(d.getDate()+1)) if (isWeekday(d)) datesAll.push(formatISO(d));
-        const map = new Map();
-        for (const r of byline) {
-          const key = r.machine; const d = (r.src_date||'').slice(0,10);
-          if (!datesAll.includes(d)) continue;
-          if (!map.has(key)) map.set(key, new Map());
-          const cap = (r.nameplate_lbs_hr && r.nameplate_lbs_hr > 0) ? r.nameplate_lbs_hr : capacityFor(r.machine, r.material);
-          const lbs = r.pounds || 0;
-          const md  = Math.max(0, r.maint_dt_h || 0);
-          const mh  = Math.max(0, r.machine_hours || (cap>0? lbs/cap : 0));
-          const availability = (24>0 ? (mh/24) : 0);
-          const perfAdj      = (cap>0 ? (lbs/(cap*Math.max(0,24-md))) : 0);
-          const oee          = availability * perfAdj * QUALITY_DEFAULT;
-          if (Number.isFinite(oee)) {
-            const cur = map.get(key).get(d);
-            map.get(key).set(d, cur==null ? oee : (cur+oee)/2);
-          }
-        }
         let html = '<thead><tr><th>Line</th>'+datesAll.map(d=>`<th>${d.slice(5)}</th>`).join('')+'</tr></thead><tbody>';
         for (const m of [...map.keys()].sort()) {
           html += `<tr><td class="line">${m}</td>`;
@@ -703,18 +731,12 @@ function capacityFor(lineName, material){
       } else {
         const days = ['Mon','Tue','Wed','Thu','Fri'];
         const byLineDay = {};
-        for (const r of byline) {
-          const wd = weekdayLocal(r.src_date);
+        for (const d of dayMap.values()) {
+          const wd = weekdayLocal(d.day);
           if (!wd || wd==='Sat' || wd==='Sun') continue;
-          const m = r.machine;
+          const m = d.machine;
+          const oee = (Number.isFinite(d.perfAdj) && Number.isFinite(d.avail)) ? (d.perfAdj * d.avail * QUALITY_DEFAULT) : NaN;
           byLineDay[m] ??= {Mon:{sum:0,n:0}, Tue:{sum:0,n:0}, Wed:{sum:0,n:0}, Thu:{sum:0,n:0}, Fri:{sum:0,n:0}};
-          const cap = (r.nameplate_lbs_hr && r.nameplate_lbs_hr > 0) ? r.nameplate_lbs_hr : capacityFor(r.machine, r.material);
-          const lbs = r.pounds || 0;
-          const md  = Math.max(0, r.maint_dt_h || 0);
-          const mh  = Math.max(0, r.machine_hours || (cap>0? lbs/cap : 0));
-          const availability = (24>0 ? (mh/24) : 0);
-          const perfAdj      = (cap>0 ? (lbs/(cap*Math.max(0,24-md))) : 0);
-          const oee          = availability * perfAdj * QUALITY_DEFAULT;
           if (Number.isFinite(oee)) { byLineDay[m][wd].sum += oee; byLineDay[m][wd].n += 1; }
         }
         const machines = Object.keys(byLineDay).sort();
