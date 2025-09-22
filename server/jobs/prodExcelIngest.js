@@ -218,6 +218,12 @@ async function upsertProductionFacts(pool, records){
   const req = pool.request();
   req.input('Rows', tvp);
   await req.execute('dbo.upsert_production_staging_tvp');
+// Blank data cleanup.
+  await pool.request().query(`
+  DELETE FROM dbo.production_staging
+  WHERE machine IS NULL OR LTRIM(RTRIM(machine)) = ''
+`);
+await pool.request().execute('dbo.upsert_production_fact');
   
   // 1.5) SAFETY CLEAN: drop any staging rows with blank/NULL machine
   await pool.request().query(`
