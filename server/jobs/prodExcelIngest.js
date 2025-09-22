@@ -22,6 +22,12 @@ function logWithIndexes(row){
   const pairs = row.map((v,i)=>`[${i}] ${JSON.stringify(v)}`);
   console.log("[prod-excel] indexed row:", pairs.join(" | "));
 }
+function normMachine(v) {
+  const s = v == null ? '' : String(v).trim();
+  if (!s) return null;
+  // hard trim to staging width
+  return s.length > 64 ? s.slice(0, 64) : s;
+}
 
 // TODO: update these indexes after you run a dry-run with the index log
 const COL = {
@@ -92,19 +98,31 @@ export function mapRow(row){
   const machine_hours = clampTo24(safeNum(row[COL.machine_hours]));
   const maint_dt_h    = clampTo24(safeNum(row[COL.maint_dt_h]));
   const pounds        = Math.max(0, safeNum(row[COL.pounds]));
+    const machineName = normMachine(row[COL.machine]);
+  if (!machineName) {
+    const err = new Error('NO_MACHINE');
+    err.code = 'NO_MACHINE';
+    err.rowSample = row;
+    throw err;              // handled as a skip in the loop
+  }
 
-  return {
-    fact_source: "prod-excel",
-    src_date,
-    machine: safeStr(row[COL.machine]),
-    shift_n: safeNum(row[COL.shift_n], null),
-    material: null,
-    pounds,
-    machine_hours,
-    maint_downtime_h: maint_dt_h,
-    prod_downtime_h: 0,
-    nameplate_lbs_hr: null,
-  };
+    const machine_hours = clampTo24(safeNum(row[COL.machine_hours]));
+    const maint_dt_h    = clampTo24(safeNum(row[COL.maint_dt_h]));
+    const pounds        = Math.max(0, safeNum(row[COL.pounds]));
+  
+    return {
+      fact_source: "prod-excel",
+      src_date,
+      machine: machineName,   // << use normalized, non-empty
+      shift_n: safeNum(row[COL.shift_n], null),
+      material: null,
+      pounds,
+      machine_hours,
+      maint_downtime_h: maint_dt_h,
+      prod_downtime_h: 0,
+      nameplate_lbs_hr: null,
+    };
+
 }
 
 function toDb(rec){
@@ -214,9 +232,10 @@ export async function runProdExcelIngest({ pool, dry=false } = {}){
 
   if (body.length) logWithIndexes(body[0]); // will print [0]..[n] with values
 
-    const mapped = [];
+      const mapped = [];
   let skippedEmpty = 0;
   let skippedBadDate = 0;
+  let skippedNoMachine = 0;
 
   for (let i = 0; i < body.length; i++) {
     try {
@@ -227,29 +246,38 @@ export async function runProdExcelIngest({ pool, dry=false } = {}){
         skippedEmpty++;
       }
     } catch (e) {
-      // Only the “no valid date” case should be skipped; everything else should still fail loud
-      if (String(e.message || '').startsWith('Bad date parts')) {
+      const msg = String(e.message || '');
+      if (msg.startsWith('Bad date parts')) {
         skippedBadDate++;
         if (skippedBadDate <= 3) {
-          console.warn('[prod-excel] skipped row (bad date): index', i);
-          logWithIndexes(body[i]); // print the offending row (first 3 only to avoid log spam)
+          console.warn('[prod-excel] skipped row (bad date) idx', i);
+          logWithIndexes(body[i]);
         }
-        continue; // skip this row, keep going
+        continue;
+      }
+      if (e.code === 'NO_MACHINE') {
+        skippedNoMachine++;
+        if (skippedNoMachine <= 3) {
+          console.warn('[prod-excel] skipped row (no machine) idx', i);
+          logWithIndexes(body[i]);
+        }
+        continue;
       }
       e.stage = 'mapRow'; e.rowIndex = i; e.rowSample = body[i];
       throw e;
     }
   }
 
-  if (dry) return {
-    parsed: mapped.length,
-    skippedEmpty,
-    skippedBadDate,
-    sample: mapped.slice(0,5)
-  };
+  if (dry) {
+    return {
+      parsed: mapped.length,
+      skippedEmpty,
+      skippedBadDate,
+      skippedNoMachine,
+      sample: mapped.slice(0,5)
+    };
+  }
 
-
-  if (dry) return { parsed: mapped.length, sample: mapped.slice(0,5) };
 
   try { await upsertProductionFacts(pool, mapped); }
   catch(e){ e.stage="sqlUpsert"; throw e; }
