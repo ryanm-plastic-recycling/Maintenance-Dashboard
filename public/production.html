@@ -136,17 +136,28 @@
 
     <section>
       <h2>Overall KPIs <span class="sub" id="rangeLabel"></span></h2>
-      <div class="kpis">
+    
+      <!-- Row 1: OEE & factors, then Quality*, then Total Pounds last -->
+      <div class="kpis kpis-row1">
         <div class="tile" id="tile-oee"><div class="lab">OEE</div><div class="val" id="ov-oee">--%</div></div>
         <div class="tile" id="tile-av"><div class="lab">Availability</div><div class="val" id="ov-av">--%</div></div>
         <div class="tile" id="tile-pr"><div class="lab">Performance (Raw 24h)</div><div class="val" id="ov-pr">--%</div></div>
         <div class="tile" id="tile-pa"><div class="lab">Performance (Adj for DT)</div><div class="val" id="ov-pa">--%</div></div>
-        <div class="tile"><div class="lab">Total Pounds</div><div class="val" id="ov-lbs">--</div></div>
-        <div class="tile"><div class="lab">Maint DT (h)</div><div class="val" id="ov-mdt">--</div></div>
-        <div class="tile"><div class="lab">Prod DT (h)</div><div class="val" id="ov-pdt">--</div></div>
         <div class="tile"><div class="lab">Quality*</div><div class="val" id="ov-qual">70%</div></div>
+        <div class="tile"><div class="lab">Total Pounds</div><div class="val" id="ov-lbs">--</div></div>
+      </div>
+    
+      <!-- Row 2: DT h/% + Missed Opportunity in pounds -->
+      <div class="kpis kpis-row2">
+        <div class="tile"><div class="lab">Maint DT (h)</div><div class="val" id="ov-mdt">--</div></div>
+        <div class="tile" id="tile-mdt-pct"><div class="lab">Maint DT (%)</div><div class="val" id="ov-mdt-pct">--%</div></div>
+        <div class="tile"><div class="lab">Prod DT (h)</div><div class="val" id="ov-pdt">--</div></div>
+        <div class="tile" id="tile-pdt-pct"><div class="lab">Prod DT (%)</div><div class="val" id="ov-pdt-pct">--%</div></div>
+        <div class="tile"><div class="lab">Missed Opp (Maint, lb)</div><div class="val" id="ov-mo-mdt">--</div></div>
+        <div class="tile"><div class="lab">Missed Opp (Prod, lb)</div><div class="val" id="ov-mo-pdt">--</div></div>
       </div>
     </section>
+
 
     <section class="section-gap">
       <div class="card">
@@ -167,6 +178,11 @@
         <div id="ltEmpty" class="empty" style="display:none">No data for selected range.</div>
       </div>
     </section>
+    <div class="card" style="margin-top:14px">
+      <h3>Missed Opportunity by Line <span class="sub" id="moLabel"></span></h3>
+      <table id="missedTbl"></table>
+      <div id="missedEmpty" class="empty" style="display:none">No data for selected range.</div>
+    </div>
 
     <section class="chart-section">
       <div class="chart-container">
@@ -283,27 +299,30 @@ function capacityFor(lineName, material){
 
     // Aggregate
     const agg = {};
-    for (const r of byline) {
-      const m   = r.machine;
-      const cap = (r.nameplate_lbs_hr && r.nameplate_lbs_hr > 0) ? r.nameplate_lbs_hr : capacityFor(r.machine, r.material);
-      const lbs = r.pounds || 0;
-      const md  = Math.max(0, r.maint_dt_h    || 0);
-      const pd  = Math.max(0, r.prod_dt_h     || 0);
-      const mh  = Math.max(0, r.machine_hours || 0);
-      const runH= mh > 0 ? mh : (cap>0 ? lbs/cap : 0);
-      const matKeyRaw = String(r.material || '').trim().toUpperCase();
-      const matKey = (MAPPINGS?.material_aliases?.[matKeyRaw]) || (matKeyRaw === '' ? 'DEFAULT' : matKeyRaw);
-
-      if (!agg[m]) agg[m] = { lbs:0, maint:0, prod:0, mach:0, rawDen24:0, adjDen:0, mats:{}, days:weekdaysCount };
-      const a = agg[m];
-      a.lbs     += lbs;
-      a.maint   += md;
-      a.prod    += pd;
-      a.mach    += runH;
-      a.rawDen24+= (cap>0 ? cap*24 : 0);
-      a.adjDen  += (cap>0 ? cap*Math.max(0, 24 - md) : 0);
-      a.mats[matKey] = (a.mats[matKey] || 0) + lbs;
-    }
+      for (const r of byline) {
+        const m   = r.machine;
+        const cap = (r.nameplate_lbs_hr && r.nameplate_lbs_hr > 0) ? r.nameplate_lbs_hr : capacityFor(r.machine, r.material);
+        const lbs = r.pounds || 0;
+        const md  = Math.max(0, r.maint_dt_h    || 0);
+        // fallback prod_dt_h if API doesn't send it: 24 - maint - runtime
+        const mhRaw = Math.max(0, r.machine_hours || 0);
+        const runH  = mhRaw > 0 ? mhRaw : (cap>0 ? lbs/cap : 0);
+        const pd    = Math.max(0, r.prod_dt_h != null ? r.prod_dt_h : Math.max(0, 24 - md - runH));
+        const matKeyRaw = String(r.material || '').trim().toUpperCase();
+        const matKey = (MAPPINGS?.material_aliases?.[matKeyRaw]) || (matKeyRaw === '' ? 'DEFAULT' : matKeyRaw);
+      
+        if (!agg[m]) agg[m] = { lbs:0, maint:0, prod:0, mach:0, rawDen24:0, adjDen:0, moM:0, moP:0, mats:{}, days:weekdaysCount };
+        const a = agg[m];
+        a.lbs     += lbs;
+        a.maint   += md;
+        a.prod    += pd;                         // true Prod DT when available
+        a.mach    += runH;
+        a.rawDen24+= (cap>0 ? cap*24 : 0);
+        a.adjDen  += (cap>0 ? cap*Math.max(0, 24 - md) : 0);
+        a.moM     += (cap>0 ? cap * md : 0);     // missed opp (maint) pounds
+        a.moP     += (cap>0 ? cap * pd : 0);     // missed opp (prod)  pounds
+        a.mats[matKey] = (a.mats[matKey] || 0) + lbs;
+      }
 
     const perLine = Object.keys(agg).sort().map(m => {
       const a = agg[m];
@@ -322,9 +341,14 @@ function capacityFor(lineName, material){
       let domMat = '';
       let domMatLbs = -1;
       for (const [k,v] of Object.entries(a.mats)) { if (v > domMatLbs) { domMatLbs = v; domMat = k; } }
-      return { machine:m, capAvg, lbs:a.lbs, maint:a.maint, prod:a.prod, mach:a.mach,
+      // prefer true prod DT; else compute from planned - maint - runtime
+      const plannedH = 24 * a.days;
+      const prodH = (a.prod > 0) ? a.prod : Math.max(0, plannedH - a.maint - (a.mach > 0 ? a.mach : (capAvg>0 ? a.lbs/capAvg : 0)));
+      return { machine:m, capAvg, lbs:a.lbs, maint:a.maint, prod:prodH, mach:a.mach,
+               moM:a.moM, moP:a.moP,
                avail:availability, perfRaw, perfAdj, qual, oee, domMat,
                availV:availV, prV:prV, paV:paV, oeeV:oeeV };
+
     });
 
     // Overall tiles
@@ -343,7 +367,15 @@ function capacityFor(lineName, material){
     const ovPerfRawV = totals.rawDen24 > 0;
     const ovPerfAdjV = totals.adjDen > 0;
     const ovOeeV     = ovAvailV && ovPerfAdjV;
-
+    
+    // DT% are relative to total planned hours across all lines
+    const ovMdtPct = totalPlannedH > 0 ? (totals.maint / totalPlannedH) : 0;
+    const ovPdtPct = totalPlannedH > 0 ? (totals.prod  / totalPlannedH) : 0;
+    
+    // Missed opportunity totals (sum of per-line contributions)
+    const ovMoMaint = Object.values(agg).reduce((s,a)=>s + (a.moM||0), 0);
+    const ovMoProd  = Object.values(agg).reduce((s,a)=>s + (a.moP||0), 0);
+    
     document.getElementById('ov-oee').textContent = fmtPct(ovOEE, ovOeeV);
     document.getElementById('ov-av').textContent  = fmtPct(ovAvail, ovAvailV);
     document.getElementById('ov-pr').textContent  = fmtPct(ovPerfRaw, ovPerfRawV);
@@ -352,6 +384,10 @@ function capacityFor(lineName, material){
     document.getElementById('ov-mdt').textContent = fmtFixed(totals.maint, 1, Number.isFinite(totals.maint));
     document.getElementById('ov-pdt').textContent = fmtFixed(totals.prod, 1, Number.isFinite(totals.prod));
     document.getElementById('ov-qual').textContent= Math.round(QUALITY_DEFAULT*100) + '%';
+    document.getElementById('ov-mdt-pct').textContent = fmtPct(ovMdtPct, true);
+    document.getElementById('ov-pdt-pct').textContent = fmtPct(ovPdtPct, true);
+    document.getElementById('ov-mo-mdt').textContent  = fmtInt(ovMoMaint, true);
+    document.getElementById('ov-mo-pdt').textContent  = fmtInt(ovMoProd,  true);
 
     const setTileClass = (sel, v, thr, valid=true) => {
       const el = document.querySelector(sel);
@@ -361,6 +397,17 @@ function capacityFor(lineName, material){
         el.classList.add(cls);
       }
     };
+    // color DT% tiles: low is good
+    const paintLow = (sel, v) => {
+      const el = document.querySelector(sel);
+      el.classList.remove('good','warn','bad');
+      if (!Number.isFinite(v)) return;
+      // 10% good, 20% warn — aligns with your Asset KPI thresholds
+      el.classList.add(v <= 0.10 ? 'good' : v <= 0.20 ? 'warn' : 'bad');
+    };
+    paintLow('#tile-mdt-pct', ovMdtPct);
+    paintLow('#tile-pdt-pct', ovPdtPct);
+    
     setTileClass('#tile-oee', ovOEE, THRESH.oee, ovOeeV);
     setTileClass('#tile-av',  ovAvail, THRESH.availability, ovAvailV);
     setTileClass('#tile-pr',  ovPerfRaw, THRESH.capacityAdj, ovPerfRawV);
@@ -404,6 +451,69 @@ function capacityFor(lineName, material){
         cont.appendChild(el);
       });
     }
+
+    (function renderMissedTable(){
+      const table = document.getElementById('missedTbl');
+      if (!perLine.length){ showEmpty('missedTbl','missedEmpty',true); table.innerHTML=''; return; }
+      showEmpty('missedTbl','missedEmpty',false);
+      document.getElementById('moLabel').textContent = label;
+    
+      const hdr = `
+        <thead>
+          <tr>
+            <th>Line</th>
+            <th>Maint DT (h)</th><th>Maint DT (%)</th>
+            <th>Prod DT (h)</th><th>Prod DT (%)</th>
+            <th>Missed Opp (Maint, lb)</th>
+            <th>Missed Opp (Prod, lb)</th>
+            <th>Total Missed (lb)</th>
+          </tr>
+        </thead>`;
+    
+      let body = '<tbody>';
+      let sumMaint=0, sumProd=0, sumMoM=0, sumMoP=0, sumPlanned=0;
+    
+      perLine.forEach(r => {
+        const plannedH = 24 * weekdaysCount;
+        const mPct = plannedH > 0 ? (r.maint / plannedH) : NaN;
+        const pPct = plannedH > 0 ? (r.prod  / plannedH) : NaN;
+        const moM  = r.moM || 0;
+        const moP  = r.moP || 0;
+        const tot  = moM + moP;
+    
+        sumMaint   += r.maint || 0;
+        sumProd    += r.prod  || 0;
+        sumMoM     += moM;
+        sumMoP     += moP;
+        sumPlanned += plannedH;
+    
+        body += `
+          <tr>
+            <td class="line">${r.machine}</td>
+            <td>${fmtFixed(r.maint,1,true)}</td><td>${fmtPct(mPct, Number.isFinite(mPct))}</td>
+            <td>${fmtFixed(r.prod, 1,true)}</td><td>${fmtPct(pPct, Number.isFinite(pPct))}</td>
+            <td>${fmtInt(moM,true)}</td>
+            <td>${fmtInt(moP,true)}</td>
+            <td>${fmtInt(tot,true)}</td>
+          </tr>`;
+      });
+    
+      const totalPctM = sumPlanned>0 ? (sumMaint/sumPlanned) : NaN;
+      const totalPctP = sumPlanned>0 ? (sumProd /sumPlanned) : NaN;
+    
+      body += `
+        <tr style="font-weight:900">
+          <td class="line">TOTAL</td>
+          <td>${fmtFixed(sumMaint,1,true)}</td><td>${fmtPct(totalPctM, Number.isFinite(totalPctM))}</td>
+          <td>${fmtFixed(sumProd, 1,true)}</td><td>${fmtPct(totalPctP, Number.isFinite(totalPctP))}</td>
+          <td>${fmtInt(sumMoM,true)}</td>
+          <td>${fmtInt(sumMoP,true)}</td>
+          <td>${fmtInt(sumMoM + sumMoP,true)}</td>
+        </tr>
+      </tbody>`;
+    
+      table.innerHTML = hdr + body;
+    })();
 
     // Heatmap OEE
     (function renderHeatmapOEE(){
