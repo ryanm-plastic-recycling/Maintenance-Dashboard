@@ -133,6 +133,14 @@ function deriveDayMetrics(row) {
 
 function aggregateByDate(rows) {
   const map = new Map();
+  // Build the fleet set once. Prefer mappings; fall back to machines present in rows.
+  const fleet = new Set();
+  // from mappings
+  Object.keys(capacityByLine || {}).forEach(k => fleet.add(canonLine(k)));
+  Object.keys(capacityByMaterial || {}).forEach(k => fleet.add(canonLine(k)));
+  // fallback to rows if mappings are sparse
+  if (fleet.size === 0) rows.forEach(r => fleet.add(canonLine(r.machine)));
+  const FLEET_COUNT = fleet.size || 1;
   for (const row of rows) {
     if (!isWeekdayISO(row.src_date)) continue;
     const key = row.src_date;
@@ -149,8 +157,8 @@ function aggregateByDate(rows) {
         underPerf: 0,
         missedMaint: 0,
         missedProd: 0,
-        plannedHours: 0,
-        machineDays: 0,
+        plannedHours: 0,   // we'll fill after the loop
+        machineDays: 0,    // informational only
       });
     }
     const agg = map.get(key);
@@ -164,10 +172,12 @@ function aggregateByDate(rows) {
     agg.underPerf   += metrics.under;
     agg.missedMaint += metrics.missMaint;
     agg.missedProd  += metrics.missProd;
-    agg.plannedHours += 24;
     agg.machineDays += 1;
   }
-
+  // Now assign planned hours per date using the full fleet denominator.
+  for (const [, agg] of map) {
+    agg.plannedHours = 24 * FLEET_COUNT;
+  }
   return [...map.entries()]
     .sort((a, b) => a[0].localeCompare(b[0]))
     .map(([src_date, agg]) => {
