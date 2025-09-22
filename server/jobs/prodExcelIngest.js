@@ -25,24 +25,23 @@ function logWithIndexes(row){
 
 // TODO: update these indexes after you run a dry-run with the index log
 const COL = {
-  dateSerial:    0,   // Excel serial date (preferred)
+  dateSerial:    0,   // Excel serial DATE
   machine:       1,
   shift_n:       2,
-  // maint (down time) is column 11
   maint_dt_h:    11,  // "Down Time"
   machine_hours: 13,  // "Machine Hours"
   pounds:        15,  // "Pounds"
-  year:          22,  // fallback date parts
+  year:          22,  // fallback y/m/d
   monthNum:      23,
   monthTxt:      24,
   day:           25,
 };
 
+
 function excelSerialToISO(n) {
-  // Excel serial date: days since 1899-12-30
   const dnum = Number(n);
   if (!Number.isFinite(dnum) || dnum <= 0) return null;
-  const base = Date.UTC(1899, 11, 30);
+  const base = Date.UTC(1899, 11, 30);        // 1899-12-30
   const ms = Math.round(dnum * 86400000);
   const dt = new Date(base + ms);
   if (Number.isNaN(dt.getTime())) return null;
@@ -52,25 +51,46 @@ function excelSerialToISO(n) {
   return `${Y}-${M}-${D}`;
 }
 
+function isTrulyEmptyRow(row) {
+  if (!Array.isArray(row)) return true;
+  // Treat as empty if no machine, no pounds, no machine hours, and no date indicators
+  const textish = (v) => (v == null ? "" : String(v).trim());
+  const numish  = (v) => Number.isFinite(Number(v)) ? Number(v) : NaN;
+
+  const hasMachine = !!textish(row[COL.machine]);
+  const hasPounds  = Number.isFinite(numish(row[COL.pounds])) && numish(row[COL.pounds]) > 0;
+  const hasMH      = Number.isFinite(numish(row[COL.machine_hours])) && numish(row[COL.machine_hours]) > 0;
+
+  const hasSerial  = Number.isFinite(numish(row[COL.dateSerial])) && numish(row[COL.dateSerial]) > 0;
+  const hasYMD     = Number.isFinite(numish(row[COL.year])) && Number.isFinite(numish(row[COL.day])) &&
+                     (Number.isFinite(numish(row[COL.monthNum])) || (row[COL.monthTxt] && String(row[COL.monthTxt]).trim()));
+
+  return !(hasMachine || hasPounds || hasMH || hasSerial || hasYMD);
+}
+
 export function mapRow(row){
-  // 1) Prefer serial date (col 0)
+  // Skip fully blank rows
+  if (isTrulyEmptyRow(row)) return null;
+
+  // Prefer serial date (col 0)
   let src_date = excelSerialToISO(row[COL.dateSerial]);
 
-  // 2) Fallback to Year/Mo#/Mo/Day#
+  // Fallback to Year/Mo#/Mo/Day#
   if (!src_date) {
-    let m = safeNum(row[COL.monthNum]); if (!m) m = monthToInt(row[COL.monthTxt]);
+    let m = safeNum(row[COL.monthNum]);
+    if (!m) m = monthToInt(row[COL.monthTxt]);
     const y = safeNum(row[COL.year]);
     const d = safeNum(row[COL.day]);
     if (!(y && m && d)) {
       const err = new Error(`Bad date parts y/m/d = ${y||0}/${m||0}/${d||0}`);
       err.rowSample = row;
-      throw err;
+      throw err; // non-empty row with no valid date → real data issue, not a blank line
     }
     src_date = `${String(y).padStart(4,"0")}-${String(m).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
   }
 
   const machine_hours = clampTo24(safeNum(row[COL.machine_hours]));
-  const maint_dt_h    = clampTo24(safeNum(row[COL.maint_dt_h]));   // shift-level; daily Limble overrides in views
+  const maint_dt_h    = clampTo24(safeNum(row[COL.maint_dt_h]));
   const pounds        = Math.max(0, safeNum(row[COL.pounds]));
 
   return {
@@ -142,13 +162,16 @@ export async function runProdExcelIngest({ pool, dry=false } = {}){
   const all = await fetchProductionExcelRows();
   const body = (all && all.length) ? (looksLikeHeader(all[0]) ? all.slice(1) : all) : [];
 
-  // Log a single indexed row for mapping verification
-  if (body.length) logWithIndexes(body[0]);
+  if (body.length) logWithIndexes(body[0]); // will print [0]..[n] with values
 
   const mapped = [];
   for (let i=0;i<body.length;i++){
-    try { mapped.push(mapRow(body[i])); }
-    catch(e){ e.stage="mapRow"; e.rowIndex=i; e.rowSample=body[i]; throw e; }
+    try {
+      const rec = mapRow(body[i]);
+      if (rec) mapped.push(rec);          // << skip empty rows (null)
+    } catch(e){
+      e.stage="mapRow"; e.rowIndex=i; e.rowSample=body[i]; throw e;
+    }
   }
 
   if (dry) return { parsed: mapped.length, sample: mapped.slice(0,5) };
@@ -158,3 +181,4 @@ export async function runProdExcelIngest({ pool, dry=false } = {}){
 
   return { parsed: mapped.length, inserted: mapped.length };
 }
+
