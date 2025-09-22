@@ -1,11 +1,6 @@
 // server/jobs/prodExcelIngest.js
 import sql from "mssql";
-
-// TEMP shim to decouple from Graph while debugging.
-// Replace with:  import { fetchProductionExcelRows } from "./productionExcelJob.js";
-async function fetchProductionExcelRows() {
-  return []; // return [] for now; once stable, wire to Graph and remove this stub
-}
+import { fetchProductionExcelRows } from './productionExcelJob.js';
 
 // ---- helpers ----
 function safeNum(v, d = 0) { const n = Number(v); return Number.isFinite(n) ? n : d; }
