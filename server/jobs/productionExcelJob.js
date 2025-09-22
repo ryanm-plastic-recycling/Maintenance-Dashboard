@@ -36,6 +36,9 @@ export async function fetchProductionExcelRows() {
   // Example skeleton:
   const rows = await /* your existing Graph fetch logic */;
   console.log('[prod-excel] Graph rows:', rows?.length ?? 0);
+  console.log('[prod-excel] row[0]:', rows[0]);
+  console.log('[prod-excel] row[1]:', rows[1]);
+  console.log('[prod-excel] row[2]:', rows[2]);
   return rows;
 }
 // ---------- graph auth + fetch ----------
