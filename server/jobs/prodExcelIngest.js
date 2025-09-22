@@ -90,39 +90,37 @@ export function mapRow(row){
     if (!(y && m && d)) {
       const err = new Error(`Bad date parts y/m/d = ${y||0}/${m||0}/${d||0}`);
       err.rowSample = row;
-      throw err; // non-empty row with no valid date → real data issue, not a blank line
+      throw err; // non-empty row with no valid date → skip upstream
     }
     src_date = `${String(y).padStart(4,"0")}-${String(m).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
   }
 
-  const machine_hours = clampTo24(safeNum(row[COL.machine_hours]));
-  const maint_dt_h    = clampTo24(safeNum(row[COL.maint_dt_h]));
-  const pounds        = Math.max(0, safeNum(row[COL.pounds]));
-    const machineName = normMachine(row[COL.machine]);
+  // Require a valid machine
+  const machineName = normMachine(row[COL.machine]);
   if (!machineName) {
     const err = new Error('NO_MACHINE');
     err.code = 'NO_MACHINE';
     err.rowSample = row;
-    throw err;              // handled as a skip in the loop
+    throw err; // handled as a skip in the loop
   }
 
-    const machine_hours = clampTo24(safeNum(row[COL.machine_hours]));
-    const maint_dt_h    = clampTo24(safeNum(row[COL.maint_dt_h]));
-    const pounds        = Math.max(0, safeNum(row[COL.pounds]));
-  
-    return {
-      fact_source: "prod-excel",
-      src_date,
-      machine: machineName,   // << use normalized, non-empty
-      shift_n: safeNum(row[COL.shift_n], null),
-      material: null,
-      pounds,
-      machine_hours,
-      maint_downtime_h: maint_dt_h,
-      prod_downtime_h: 0,
-      nameplate_lbs_hr: null,
-    };
+  // Parse once (no duplicates)
+  const machine_hours = clampTo24(safeNum(row[COL.machine_hours]));
+  const maint_dt_h    = clampTo24(safeNum(row[COL.maint_dt_h]));
+  const pounds        = Math.max(0, safeNum(row[COL.pounds]));
 
+  return {
+    fact_source: "prod-excel",
+    src_date,
+    machine: machineName,
+    shift_n: safeNum(row[COL.shift_n], null),
+    material: null,
+    pounds,
+    machine_hours,
+    maint_downtime_h: maint_dt_h,
+    prod_downtime_h: 0,
+    nameplate_lbs_hr: null,
+  };
 }
 
 function toDb(rec){
