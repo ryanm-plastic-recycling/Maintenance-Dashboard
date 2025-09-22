@@ -354,41 +354,109 @@ function capacityFor(lineName, material){
     const byline = (bylineRaw || []).filter(r => r.machine && r.machine.startsWith('Extruder'));
 
     // Aggregate per line (record-level capacities so math is correct)
-    const agg = {};
+    // 1) Consolidate to one record per (machine, date)
+    const dayMap = new Map(); // key: `${machine}__${YYYY-MM-DD}` -> day obj
+    
     for (const row of byline) {
-      const m   = row.machine;
-      const cap = (row.nameplate_lbs_hr && row.nameplate_lbs_hr > 0) ? row.nameplate_lbs_hr : capacityFor(row.machine, row.material);
-      const lbs = row.pounds || 0;
-      const md  = Math.max(0, row.maint_dt_h || 0);
-
-      const mhRaw = Math.max(0, row.machine_hours || 0);
-      const runH  = mhRaw > 0 ? mhRaw : (cap>0 ? lbs/cap : 0);
-      const pd    = Math.max(0, row.prod_dt_h != null ? row.prod_dt_h : Math.max(0, 24 - md - runH));
-      const dKey  = (row.src_date || '').slice(0,10); // YYYY-MM-DD
-
-      if (!agg[m]) agg[m] = {
-        lbs:0, maint:0, prod:0, mach:0,
-        rawDen24:0, adjDen:0, runCapDen:0,
-        moM:0, moP:0, mats:{},
-        daysSet: new Set()
-      };
-
+      const machine = row.machine;
+      const day = (row.src_date || '').slice(0,10);
+      if (!machine || !day) continue;
+    
+      // capacity per row (by material or nameplate)
+      const capRow = (row.nameplate_lbs_hr && row.nameplate_lbs_hr > 0)
+        ? row.nameplate_lbs_hr
+        : capacityFor(row.machine, row.material);
+    
+      const lbs  = row.pounds || 0;
+      const md   = Math.max(0, row.maint_dt_h    || 0);
+      const mhR  = Math.max(0, row.machine_hours || 0);
+      const runH = mhR > 0 ? mhR : (capRow>0 ? lbs/capRow : 0);
+      const pdr  = (row.prod_dt_h != null) ? Math.max(0, row.prod_dt_h) : null;
+    
+      const key = `${machine}__${day}`;
+      if (!dayMap.has(key)) {
+        dayMap.set(key, {
+          machine, day,
+          lbs:0,
+          maint_h:0,
+          run_h:0,
+          prod_h:null,      // compute later if null
+          cap_candidates: [], // keep options; we’ll pick one
+          mats:{},           // material lbs for dominant material
+        });
+      }
+      const d = dayMap.get(key);
+    
+      // accumulate pounds
+      d.lbs += lbs;
+    
+      // hours: many rows repeat the same number — use max() to avoid duplicate adds
+      d.maint_h = Math.max(d.maint_h, md);
+      d.run_h   = Math.max(d.run_h,   runH);
+      if (pdr != null) d.prod_h = Math.max(d.prod_h ?? 0, pdr);
+    
+      // keep capacity candidates & material lbs
+      if (capRow>0) d.cap_candidates.push(capRow);
+      const matKey = String(row.material || '').trim().toUpperCase() || 'DEFAULT';
+      d.mats[matKey] = (d.mats[matKey] || 0) + lbs;
+    }
+    
+    // choose a single capacity per day (by dominant material if possible)
+    function pickCapForDay(d){
+      // dominant material by pounds
+      let dom='', best=-1;
+      for (const [k,v] of Object.entries(d.mats)) if (v>best){ best=v; dom=k; }
+      const capByDom = capacityFor(d.machine, dom);
+      if (capByDom>0) return capByDom;
+      // else fallback to max seen that day
+      return d.cap_candidates.length ? Math.max(...d.cap_candidates) : 0;
+    }
+    
+    // finalize each day and enforce the 24h budget
+    for (const d of dayMap.values()) {
+      const capDay = pickCapForDay(d);
+      d.cap = capDay;
+    
+      // if prod_h is missing or totals overflow, recompute as remainder
+      const maint = d.maint_h;
+      const run   = d.run_h;
+      const prod  = (d.prod_h == null) ? Math.max(0, 24 - maint - run) : d.prod_h;
+    
+      // clamp: never exceed 24 hours
+      const over = Math.max(0, (maint + run + prod) - 24);
+      const prodAdj = Math.max(0, prod - over);
+    
+      d.maint_h = maint;
+      d.run_h   = run;
+      d.prod_h  = prodAdj;
+    }
+    
+    // 2) Aggregate per machine from machine-day records
+    const agg = {};
+    for (const d of dayMap.values()) {
+      const m = d.machine;
+      if (!agg[m]) {
+        agg[m] = {
+          lbs:0, maint:0, prod:0, mach:0,
+          rawDen24:0, adjDen:0, runCapDen:0,
+          moM:0, moP:0, mats:{}, daysSet:new Set()
+        };
+      }
       const A = agg[m];
-      A.daysSet.add(dKey);
-      A.lbs      += lbs;
-      A.maint    += md;
-      A.prod     += pd;
-      A.mach     += runH;
-      A.rawDen24 += (cap>0 ? cap*24 : 0);
-      A.adjDen   += (cap>0 ? cap*Math.max(0, 24 - md) : 0);
-      A.runCapDen+= (cap>0 ? cap*runH : 0);
-      A.moM      += (cap>0 ? cap*md : 0);
-      A.moP      += (cap>0 ? cap*pd : 0);
-
-      // dominant material helper
-      const matKeyRaw = String(row.material || '').trim().toUpperCase();
-      const matKey = (MAPPINGS?.material_aliases?.[matKeyRaw]) || (matKeyRaw === '' ? 'DEFAULT' : matKeyRaw);
-      A.mats[matKey] = (A.mats[matKey] || 0) + lbs;
+      A.lbs      += d.lbs;
+      A.maint    += d.maint_h;
+      A.prod     += d.prod_h;
+      A.mach     += d.run_h;
+      A.rawDen24 += d.cap * 24;
+      A.adjDen   += d.cap * Math.max(0, 24 - d.maint_h);
+      A.runCapDen+= d.cap * d.run_h;
+      A.moM      += d.cap * d.maint_h;
+      A.moP      += d.cap * d.prod_h;
+      A.daysSet.add(d.day);
+    
+      // keep a rough material signal (dominant of the day contributes to machine’s map)
+      let dom='', best=-1; for (const [k,v] of Object.entries(d.mats)) if (v>best){ best=v; dom=k; }
+      if (dom) A.mats[dom] = (A.mats[dom] || 0) + d.lbs;
     }
 
     // Per line derived metrics
