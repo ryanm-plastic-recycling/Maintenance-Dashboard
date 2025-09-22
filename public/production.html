@@ -342,7 +342,6 @@ function capacityFor(lineName, material){
       let domMatLbs = -1;
       for (const [k,v] of Object.entries(a.mats)) { if (v > domMatLbs) { domMatLbs = v; domMat = k; } }
       // prefer true prod DT; else compute from planned - maint - runtime
-      const plannedH = 24 * a.days;
       const prodH = (a.prod > 0) ? a.prod : Math.max(0, plannedH - a.maint - (a.mach > 0 ? a.mach : (capAvg>0 ? a.lbs/capAvg : 0)));
       return { machine:m, capAvg, lbs:a.lbs, maint:a.maint, prod:prodH, mach:a.mach,
                moM:a.moM, moP:a.moP,
