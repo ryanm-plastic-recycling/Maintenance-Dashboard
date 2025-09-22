@@ -30,7 +30,14 @@ const D = (v) => {
   const d = new Date(v);
   return Number.isNaN(d.getTime()) ? null : d;
 };
-
+// NEW: fetch-only export so other modules can reuse it safely.
+export async function fetchProductionExcelRows() {
+  // ⬇️ Use your current Graph code; just return the 2D array of rows.
+  // Example skeleton:
+  const rows = await /* your existing Graph fetch logic */;
+  console.log('[prod-excel] Graph rows:', rows?.length ?? 0);
+  return rows;
+}
 // ---------- graph auth + fetch ----------
 async function graphToken() {
   const body = new URLSearchParams({
