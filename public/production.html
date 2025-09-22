@@ -436,22 +436,6 @@ function capacityFor(lineName, material){
       moP:       s.moP       + row.moP
     }), { lbs:0, maint:0, prod:0, mach:0, rawDen24:0, adjDen:0, runCapDen:0, moM:0, moP:0 });
 
-    
-    // Totals built from per-line (now on consistent bases)
-    const totalPlannedH = perLine.reduce((s,r)=> s + (r.plannedH||0), 0);
-    const totals = perLine.reduce((s,r)=>({
-      lbs: s.lbs + r.lbs,
-      maint: s.maint + r.maint,
-      prod: s.prod + r.prod,
-      mach: s.mach + r.mach,
-      rawDen24: s.rawDen24 + (agg[r.machine]?.rawDen24||0),
-      adjDen:   s.adjDen   + (agg[r.machine]?.adjDen||0),
-      runCapDen:s.runCapDen+ (agg[r.machine]?.runCapDen||0),
-      moM:      s.moM      + (agg[r.machine]?.moM||0),
-      moP:      s.moP      + (agg[r.machine]?.moP||0)
-    }), {lbs:0,maint:0,prod:0,mach:0,rawDen24:0,adjDen:0,runCapDen:0,moM:0,moP:0});
-
-
     const ovAvail   = totalPlannedH > 0 ? (totals.mach/totalPlannedH) : 0;
     const ovPerfRaw = totals.rawDen24 > 0 ? (totals.lbs/totals.rawDen24) : 0;
     const ovPerfAdj = totals.adjDen   > 0 ? (totals.lbs/totals.adjDen)   : 0;
