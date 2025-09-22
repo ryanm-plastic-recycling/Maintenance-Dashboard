@@ -122,40 +122,90 @@ function toDb(rec){
 }
 
 async function upsertProductionFacts(pool, records){
-  const table = new sql.Table("#prod_stage"); table.create = true;
-  table.columns.add("src_date", sql.Date, { nullable:false });
-  table.columns.add("machine", sql.NVarChar(64), { nullable:false });
-  table.columns.add("shift_n", sql.Int, { nullable:true });
-  table.columns.add("pounds", sql.Decimal(18,3), { nullable:false });
-  table.columns.add("machine_hours", sql.Decimal(18,3), { nullable:false });
-  table.columns.add("maint_downtime_h", sql.Decimal(18,3), { nullable:false });
-  table.columns.add("prod_downtime_h", sql.Decimal(18,3), { nullable:false });
-  table.columns.add("nameplate_lbs_hr", sql.Decimal(18,3), { nullable:true });
-  table.columns.add("material", sql.NVarChar(64), { nullable:true });
+  if (!records?.length) return;
+
+  // Build TVP that matches dbo.upsert_production_staging_tvp
+  const tvp = new sql.Table('ProductionStagingTvp'); // name of the TVP type
+  tvp.columns.add('src_date',          sql.Date);
+  tvp.columns.add('machine',           sql.NVarChar(64));
+  tvp.columns.add('shift',             sql.NVarChar(8));
+  tvp.columns.add('source',            sql.NVarChar(64));
+  tvp.columns.add('source_ref_po',     sql.NVarChar(128));
+  tvp.columns.add('lot_number',        sql.NVarChar(128));
+  tvp.columns.add('note',              sql.NVarChar(sql.MAX));
+  tvp.columns.add('type',              sql.NVarChar(64));
+  tvp.columns.add('color',             sql.NVarChar(64));
+  tvp.columns.add('format',            sql.NVarChar(64));
+  tvp.columns.add('options',           sql.NVarChar(128));
+  tvp.columns.add('down_time_hours',   sql.Decimal(9,2));
+  tvp.columns.add('reason_downtime',   sql.NVarChar(512));
+  tvp.columns.add('machine_hours',     sql.Decimal(9,2));
+  tvp.columns.add('standard',          sql.Decimal(12,2));
+  tvp.columns.add('pounds',            sql.Decimal(18,2));
+  tvp.columns.add('manhours',          sql.Decimal(9,2));
+  tvp.columns.add('per_machine_hour',  sql.Decimal(12,4));
+  tvp.columns.add('per_manhour2',      sql.Decimal(12,4));
+  tvp.columns.add('cost_materials',    sql.Decimal(18,2));
+  tvp.columns.add('cost_processing',   sql.Decimal(18,2));
+  tvp.columns.add('sales_price',       sql.Decimal(18,2));
+  tvp.columns.add('year_num',          sql.Int);
+  tvp.columns.add('month_num',         sql.Int);
+  tvp.columns.add('month_name',        sql.NVarChar(16));
+  tvp.columns.add('day_num',           sql.Int);
+  tvp.columns.add('day_name',          sql.NVarChar(16));
+  tvp.columns.add('m_num',             sql.Int);
+  tvp.columns.add('uptime_calc',       sql.Decimal(12,4));
+  tvp.columns.add('shift_uptime',      sql.Decimal(12,4));
+  tvp.columns.add('gw_uptime',         sql.Decimal(12,4));
+  // the proc will compute normalized columns (row_hash, *_n, etc.)
+
+  function shiftLabel(n){
+    const s = Number.isFinite(n) ? Number(n) : null;
+    return s == null ? null : String(s); // your staging has both shift (text) and shift_n (computed later)
+  }
 
   for (const r of records){
-    const v = toDb(r);
-    table.rows.add(
-      v.src_date, v.machine, v.shift_n, v.pounds, v.machine_hours,
-      v.maint_downtime_h, v.prod_downtime_h, v.nameplate_lbs_hr, v.material
+    // map our minimal rec → full TVP row; most extra fields NULL
+    tvp.rows.add(
+      r.src_date,                         // src_date
+      r.machine || null,                  // machine
+      shiftLabel(r.shift_n),              // shift (text)
+      null,                               // source
+      null,                               // source_ref_po
+      null,                               // lot_number
+      null,                               // note
+      null,                               // type
+      null,                               // color
+      null,                               // format
+      null,                               // options
+      r.maint_downtime_h ?? 0,            // down_time_hours (shift-maint from sheet)
+      null,                               // reason_downtime
+      r.machine_hours ?? 0,               // machine_hours
+      null,                               // standard
+      r.pounds ?? 0,                      // pounds
+      null,                               // manhours
+      null,                               // per_machine_hour
+      null,                               // per_manhour2
+      null,                               // cost_materials
+      null,                               // cost_processing
+      null,                               // sales_price
+      Number(r.src_date?.slice(0,4)) || null,            // year_num
+      Number(r.src_date?.slice(5,7)) || null,            // month_num
+      null,                                             // month_name
+      Number(r.src_date?.slice(8,10)) || null,          // day_num
+      null,                                             // day_name
+      null,                                             // m_num
+      null, null, null                                  // uptime_calc, shift_uptime, gw_uptime
     );
   }
 
-  await pool.request().bulk(table);
+  // 1) Upsert into staging via your proc
+  const req = pool.request();
+  req.input('Rows', tvp);
+  await req.execute('dbo.upsert_production_staging_tvp');
 
-  const mergeSql =
-`MERGE dbo.production_fact AS tgt
-USING #prod_stage AS src
-  ON tgt.machine = src.machine
- AND CAST(tgt.src_date AS date) = src.src_date
- AND ISNULL(tgt.shift_n,-1) = ISNULL(src.shift_n,-1)
-WHEN MATCHED THEN UPDATE SET
-  tgt.pounds=src.pounds, tgt.machine_hours=src.machine_hours, tgt.maint_downtime_h=src.maint_downtime_h,
-  tgt.prod_downtime_h=src.prod_downtime_h, tgt.nameplate_lbs_hr=src.nameplate_lbs_hr, tgt.material=src.material
-WHEN NOT MATCHED THEN INSERT
-  (src_date, machine, shift_n, pounds, machine_hours, maint_downtime_h, prod_downtime_h, nameplate_lbs_hr, material)
-  VALUES (src.src_date, src.machine, src.shift_n, src.pounds, src.machine_hours, src.maint_downtime_h, src.prod_downtime_h, src.nameplate_lbs_hr, src.material);`;
-  await pool.request().query(mergeSql);
+  // 2) Roll staging → production_fact (your existing proc)
+  await pool.request().execute('dbo.upsert_production_fact');
 }
 
 export async function runProdExcelIngest({ pool, dry=false } = {}){
