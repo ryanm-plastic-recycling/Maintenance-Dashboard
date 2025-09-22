@@ -364,7 +364,10 @@ function capacityFor(lineName, material){
       const pd    = Math.max(0, r.prod_dt_h != null ? r.prod_dt_h : Math.max(0, 24 - md - runH));
     
       const dKey = (r.src_date || '').slice(0,10); // YYYY-MM-DD
-    
+      const matKeyRaw = String(r.material || '').trim().toUpperCase();
+      const matKey = (MAPPINGS?.material_aliases?.[matKeyRaw]) || (matKeyRaw === '' ? 'DEFAULT' : matKeyRaw);
+      a.mats[matKey] = (a.mats[matKey] || 0) + lbs;
+
       if (!agg[m]) agg[m] = {
         lbs:0, maint:0, prod:0, mach:0,
         rawDen24:0, adjDen:0, runCapDen:0,
@@ -385,27 +388,54 @@ function capacityFor(lineName, material){
       a.moP     += (cap>0 ? cap*pd : 0);
     }
 
+    // ---- per-line rollup (safe) ----
     const perLine = Object.keys(agg).sort().map(m => {
-      const a = agg[m];
-      const days = a.daysSet.size;                      // <-- distinct days for this line
-      const plannedH = r.plannedH || 0;
+      const a    = agg[m];
+      const days = a.daysSet.size;
+      const plannedH = 24 * days;
+    
+      // dominant material (optional for subtitle)
+      let domMat = '';
+      if (a.mats && Object.keys(a.mats).length) {
+        let best = -1;
+        for (const [k,v] of Object.entries(a.mats)) {
+          if (v > best) { best = v; domMat = k; }
+        }
+      }
     
       const availability = plannedH > 0 ? (a.mach / plannedH) : NaN;
-      const perfRaw = a.rawDen24 > 0 ? (a.lbs / a.rawDen24) : NaN;
-      const perfAdj = a.adjDen   > 0 ? (a.lbs / a.adjDen)   : NaN;
-      const qual    = QUALITY_DEFAULT;
-      const oee     = (Number.isFinite(availability) && Number.isFinite(perfAdj)) ? (availability * perfAdj * qual) : NaN;
-      const capAvg  = (a.rawDen24 > 0 && days>0) ? (a.rawDen24 / (24*days)) : NaN;
+      const perfRaw      = a.rawDen24 > 0 ? (a.lbs / a.rawDen24) : NaN;
+      const perfAdj      = a.adjDen   > 0 ? (a.lbs / a.adjDen)   : NaN;
+      const qual         = QUALITY_DEFAULT;
+      const oee          = (Number.isFinite(availability) && Number.isFinite(perfAdj))
+                             ? (availability * perfAdj * qual) : NaN;
+      const capAvg       = (a.rawDen24 > 0 && days>0) ? (a.rawDen24 / (24*days)) : NaN;
     
       return {
-        machine:m, capAvg,
-        lbs:a.lbs, maint:a.maint, prod:a.prod, mach:a.mach,
-        moM:a.moM, moP:a.moP, runCapDen:a.runCapDen,
-        avail:availability, perfRaw, perfAdj, qual, oee,
-        days, plannedH,
+        machine: m, domMat,
+        lbs: a.lbs, maint: a.maint, prod: a.prod, mach: a.mach,
+        rawDen24: a.rawDen24, adjDen: a.adjDen, runCapDen: a.runCapDen,
+        moM: a.moM, moP: a.moP,
+        days, plannedH, capAvg,
+        avail: availability, perfRaw, perfAdj, qual, oee,
         availV: plannedH>0, prV: a.rawDen24>0, paV: a.adjDen>0, oeeV: plannedH>0 && a.adjDen>0
       };
     });
+    
+    // ---- totals built from per-line (no stray variables) ----
+    const totalPlannedH = perLine.reduce((s, row) => s + (row.plannedH || 0), 0);
+    const totals = perLine.reduce((s, row) => ({
+      lbs:       s.lbs       + row.lbs,
+      maint:     s.maint     + row.maint,
+      prod:      s.prod      + row.prod,
+      mach:      s.mach      + row.mach,
+      rawDen24:  s.rawDen24  + row.rawDen24,
+      adjDen:    s.adjDen    + row.adjDen,
+      runCapDen: s.runCapDen + row.runCapDen,
+      moM:       s.moM       + row.moM,
+      moP:       s.moP       + row.moP
+    }), { lbs:0, maint:0, prod:0, mach:0, rawDen24:0, adjDen:0, runCapDen:0, moM:0, moP:0 });
+
     
     // Totals built from per-line (now on consistent bases)
     const totalPlannedH = perLine.reduce((s,r)=> s + (r.plannedH||0), 0);
