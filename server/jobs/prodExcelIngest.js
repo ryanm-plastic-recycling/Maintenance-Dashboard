@@ -214,11 +214,19 @@ async function upsertProductionFacts(pool, records){
       null, null, null                                  // uptime_calc, shift_uptime, gw_uptime
     );
   }
-
   // 1) Upsert into staging via your proc
   const req = pool.request();
   req.input('Rows', tvp);
   await req.execute('dbo.upsert_production_staging_tvp');
+  
+  // 1.5) SAFETY CLEAN: drop any staging rows with blank/NULL machine
+  await pool.request().query(`
+    DELETE FROM dbo.production_staging
+    WHERE machine IS NULL OR LTRIM(RTRIM(machine)) = ''
+  `);
+  
+  // 2) Roll staging → production_fact (your existing proc)
+  await pool.request().execute('dbo.upsert_production_fact');
 
   // 2) Roll staging → production_fact (your existing proc)
   await pool.request().execute('dbo.upsert_production_fact');
