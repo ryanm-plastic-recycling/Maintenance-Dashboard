@@ -462,10 +462,6 @@ function capacityFor(lineName, material){
   `OEE = ${fmtPct(ovAvail, totalPlannedH>0)} × ${fmtPct(ovPerfAdj, totals.adjDen>0)} × ${Math.round(QUALITY_DEFAULT*100)}%`;
     document.getElementById('ov-runh').textContent = fmtFixed(totals.mach, 1, Number.isFinite(totals.mach));
     document.getElementById('ov-cap').textContent  = fmtInt(totals.rawDen24, true);
-
-    // Under-performance gap (lbs) = cap*runtime - actual (only positive)
-    const totalsRunCap = Object.values(agg).reduce((s,a)=> s + (a.runCapDen||0), 0);
-    const ovUnderGap = Math.max(0, totalsRunCap - (totals.lbs || 0));
     document.getElementById('ov-under').textContent = fmtInt(ovUnderGap, true);
     
     // Color the "Under" tile (lower is better)
