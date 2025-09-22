@@ -37,6 +37,9 @@
     .tile.good { background: var(--good-bg); color: var(--good-fg); }
     .tile.warn { background: var(--warn-bg); color: var(--warn-fg); }
     .tile.bad  { background: var(--bad-bg);  color: var(--bad-fg);  }
+    .kpis-rowA .tile.big .val { font-size: 28px; }
+    .kpis-rowA .tile.big { min-height: 104px; }
+    .tiny { font-size: 11px; color: var(--muted); margin-top: 6px; font-weight: 700; }
 
     .section-gap{margin-top:28px}
 
@@ -136,28 +139,53 @@
 
     <section>
       <h2>Overall KPIs <span class="sub" id="rangeLabel"></span></h2>
-    
-      <!-- Row 1: OEE & factors, then Quality*, then Total Pounds last -->
-      <div class="kpis kpis-row1">
-        <div class="tile" id="tile-oee"><div class="lab">OEE</div><div class="val" id="ov-oee">--%</div></div>
-        <div class="tile" id="tile-av"><div class="lab">Availability</div><div class="val" id="ov-av">--%</div></div>
-        <div class="tile" id="tile-pr"><div class="lab">Performance (Raw 24h)</div><div class="val" id="ov-pr">--%</div></div>
-        <div class="tile" id="tile-pa"><div class="lab">Performance (Adj for DT)</div><div class="val" id="ov-pa">--%</div></div>
-        <div class="tile"><div class="lab">Quality*</div><div class="val" id="ov-qual">70%</div></div>
-        <div class="tile"><div class="lab">Total Pounds</div><div class="val" id="ov-lbs">--</div></div>
-      </div>
-    
-      <!-- Row 2: DT h/% + Missed Opportunity in pounds -->
-      <div class="kpis kpis-row2">
-        <div class="tile"><div class="lab">Maint DT (h)</div><div class="val" id="ov-mdt">--</div></div>
-        <div class="tile" id="tile-mdt-pct"><div class="lab">Maint DT (%)</div><div class="val" id="ov-mdt-pct">--%</div></div>
-        <div class="tile"><div class="lab">Prod DT (h)</div><div class="val" id="ov-pdt">--</div></div>
-        <div class="tile" id="tile-pdt-pct"><div class="lab">Prod DT (%)</div><div class="val" id="ov-pdt-pct">--%</div></div>
-        <div class="tile"><div class="lab">Missed Opp (Maint, lb)</div><div class="val" id="ov-mo-mdt">--</div></div>
-        <div class="tile"><div class="lab">Missed Opp (Prod, lb)</div><div class="val" id="ov-mo-pdt">--</div></div>
-      </div>
-    </section>
-
+        <!-- Row A: equation tiles, bigger -->
+        <div class="kpis kpis-rowA">
+          <div class="tile big" id="tile-oee">
+            <div class="lab">OEE</div>
+            <div class="val" id="ov-oee">--%</div>
+            <div class="tiny" id="ov-oee-eq">OEE = AVAIL × PERF(Adj) × QUAL</div>
+          </div>
+          <div class="tile big" id="tile-av">
+            <div class="lab">Availability</div>
+            <div class="val" id="ov-av">--%</div>
+          </div>
+          <div class="tile big" id="tile-pa">
+            <div class="lab">Performance (Adj)</div>
+            <div class="val" id="ov-pa">--%</div>
+          </div>
+          <div class="tile big">
+            <div class="lab">Quality*</div>
+            <div class="val" id="ov-qual">70%</div>
+          </div>
+        </div>
+      
+        <!-- Row B: raw perf, total lbs, under-performance gap -->
+        <div class="kpis kpis-rowB">
+          <div class="tile" id="tile-pr">
+            <div class="lab">Performance (Raw 24h)</div>
+            <div class="val" id="ov-pr">--%</div>
+          </div>
+          <div class="tile">
+            <div class="lab">Total Pounds</div>
+            <div class="val" id="ov-lbs">--</div>
+          </div>
+          <div class="tile" id="tile-under">
+            <div class="lab">Under-Perf Gap (lb)</div>
+            <div class="val" id="ov-under">--</div>
+          </div>
+        </div>
+      
+        <!-- Row C: DT + Missed opportunity (from earlier step) -->
+        <div class="kpis kpis-rowC">
+          <div class="tile"><div class="lab">Maint DT (h)</div><div class="val" id="ov-mdt">--</div></div>
+          <div class="tile" id="tile-mdt-pct"><div class="lab">Maint DT (%)</div><div class="val" id="ov-mdt-pct">--%</div></div>
+          <div class="tile"><div class="lab">Prod DT (h)</div><div class="val" id="ov-pdt">--</div></div>
+          <div class="tile" id="tile-pdt-pct"><div class="lab">Prod DT (%)</div><div class="val" id="ov-pdt-pct">--%</div></div>
+          <div class="tile"><div class="lab">Missed Opp (Maint, lb)</div><div class="val" id="ov-mo-mdt">--</div></div>
+          <div class="tile"><div class="lab">Missed Opp (Prod, lb)</div><div class="val" id="ov-mo-pdt">--</div></div>
+        </div>
+      </section>
 
     <section class="section-gap">
       <div class="card">
@@ -304,25 +332,43 @@ function capacityFor(lineName, material){
         const cap = (r.nameplate_lbs_hr && r.nameplate_lbs_hr > 0) ? r.nameplate_lbs_hr : capacityFor(r.machine, r.material);
         const lbs = r.pounds || 0;
         const md  = Math.max(0, r.maint_dt_h    || 0);
-        // fallback prod_dt_h if API doesn't send it: 24 - maint - runtime
+      
         const mhRaw = Math.max(0, r.machine_hours || 0);
         const runH  = mhRaw > 0 ? mhRaw : (cap>0 ? lbs/cap : 0);
+      
+        // true prod DT if present; otherwise fallback = planned - maint - runtime
         const pd    = Math.max(0, r.prod_dt_h != null ? r.prod_dt_h : Math.max(0, 24 - md - runH));
+      
         const matKeyRaw = String(r.material || '').trim().toUpperCase();
         const matKey = (MAPPINGS?.material_aliases?.[matKeyRaw]) || (matKeyRaw === '' ? 'DEFAULT' : matKeyRaw);
       
-        if (!agg[m]) agg[m] = { lbs:0, maint:0, prod:0, mach:0, rawDen24:0, adjDen:0, moM:0, moP:0, mats:{}, days:weekdaysCount };
+        if (!agg[m]) agg[m] = {
+          lbs:0, maint:0, prod:0, mach:0, rawDen24:0, adjDen:0,
+          runCapDen:0,         // NEW: capacity * runtime hours
+          moM:0, moP:0,        // from earlier: missed opp in lbs by DT type
+          mats:{}, days:weekdaysCount
+        };
         const a = agg[m];
+      
         a.lbs     += lbs;
         a.maint   += md;
-        a.prod    += pd;                         // true Prod DT when available
+        a.prod    += pd;
         a.mach    += runH;
+      
+        // denominators for performance calcs
         a.rawDen24+= (cap>0 ? cap*24 : 0);
         a.adjDen  += (cap>0 ? cap*Math.max(0, 24 - md) : 0);
-        a.moM     += (cap>0 ? cap * md : 0);     // missed opp (maint) pounds
-        a.moP     += (cap>0 ? cap * pd : 0);     // missed opp (prod)  pounds
+      
+        // NEW: runtime-weighted capacity (used for under-performance gap)
+        a.runCapDen += (cap>0 ? cap * runH : 0);
+      
+        // already added previously for missed opp tiles
+        a.moM     += (cap>0 ? cap * md : 0);
+        a.moP     += (cap>0 ? cap * pd : 0);
+      
         a.mats[matKey] = (a.mats[matKey] || 0) + lbs;
       }
+
 
     const perLine = Object.keys(agg).sort().map(m => {
       const a = agg[m];
@@ -374,6 +420,12 @@ function capacityFor(lineName, material){
     // Missed opportunity totals (sum of per-line contributions)
     const ovMoMaint = Object.values(agg).reduce((s,a)=>s + (a.moM||0), 0);
     const ovMoProd  = Object.values(agg).reduce((s,a)=>s + (a.moP||0), 0);
+
+    // Tally totals for runtime-weighted capacity
+    const totalsRunCap = Object.values(agg).reduce((s,a)=> s + (a.runCapDen||0), 0);
+    
+    // Under-performance gap (lbs): capacity * runtime - actual (only positive)
+    const ovUnderGap = Math.max(0, totalsRunCap - (totals.lbs || 0));
     
     document.getElementById('ov-oee').textContent = fmtPct(ovOEE, ovOeeV);
     document.getElementById('ov-av').textContent  = fmtPct(ovAvail, ovAvailV);
@@ -387,6 +439,9 @@ function capacityFor(lineName, material){
     document.getElementById('ov-pdt-pct').textContent = fmtPct(ovPdtPct, true);
     document.getElementById('ov-mo-mdt').textContent  = fmtInt(ovMoMaint, true);
     document.getElementById('ov-mo-pdt').textContent  = fmtInt(ovMoProd,  true);
+    document.getElementById('ov-under').textContent = fmtInt(ovUnderGap, true);
+    document.getElementById('ov-oee-eq').textContent =
+  `OEE = ${fmtPct(ovAvail, totalPlannedH>0)} × ${fmtPct(ovPerfAdj, totals.adjDen>0)} × ${Math.round(QUALITY_DEFAULT*100)}%`;
 
     const setTileClass = (sel, v, thr, valid=true) => {
       const el = document.querySelector(sel);
@@ -451,6 +506,17 @@ function capacityFor(lineName, material){
       });
     }
 
+    // Optional: color the under-gap tile (lower is better)
+    (function paintUnder(){
+      const el = document.querySelector('#tile-under');
+      el.classList.remove('good','warn','bad');
+      // Heuristic thresholds: <= 5% of total run capacity = good, <= 15% warn, else bad
+      const denom = totalsRunCap > 0 ? totalsRunCap : NaN;
+      if (!Number.isFinite(denom)) return;
+      const ratio = ovUnderGap / denom;
+      el.classList.add(ratio <= 0.05 ? 'good' : ratio <= 0.15 ? 'warn' : 'bad');
+    })();
+    
     (function renderMissedTable(){
       const table = document.getElementById('missedTbl');
       if (!perLine.length){ showEmpty('missedTbl','missedEmpty',true); table.innerHTML=''; return; }
