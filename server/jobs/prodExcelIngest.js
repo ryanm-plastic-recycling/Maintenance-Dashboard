@@ -25,26 +25,52 @@ function logWithIndexes(row){
 
 // TODO: update these indexes after you run a dry-run with the index log
 const COL = {
-  id: 0,
-  machine: 1,
-  shift_n: 2,
-  machine_hours: 14,
-  maint_dt_h: 15,
-  pounds: 17,
-  year: 22,
-  monthNum: 23,
-  monthTxt: 24,
-  day: 25,
+  dateSerial:    0,   // Excel serial date (preferred)
+  machine:       1,
+  shift_n:       2,
+  // maint (down time) is column 11
+  maint_dt_h:    11,  // "Down Time"
+  machine_hours: 13,  // "Machine Hours"
+  pounds:        15,  // "Pounds"
+  year:          22,  // fallback date parts
+  monthNum:      23,
+  monthTxt:      24,
+  day:           25,
 };
 
+function excelSerialToISO(n) {
+  // Excel serial date: days since 1899-12-30
+  const dnum = Number(n);
+  if (!Number.isFinite(dnum) || dnum <= 0) return null;
+  const base = Date.UTC(1899, 11, 30);
+  const ms = Math.round(dnum * 86400000);
+  const dt = new Date(base + ms);
+  if (Number.isNaN(dt.getTime())) return null;
+  const Y = dt.getUTCFullYear();
+  const M = String(dt.getUTCMonth() + 1).padStart(2, "0");
+  const D = String(dt.getUTCDate()).padStart(2, "0");
+  return `${Y}-${M}-${D}`;
+}
+
 export function mapRow(row){
-  let m = safeNum(row[COL.monthNum]); if (!m) m = monthToInt(row[COL.monthTxt]);
-  const y = safeNum(row[COL.year]); const d = safeNum(row[COL.day]);
-  if (!(y && m && d)) { const err = new Error(`Bad date parts y/m/d = ${y}/${m}/${d}`); err.rowSample = row; throw err; }
-  const src_date = `${String(y).padStart(4,"0")}-${String(m).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+  // 1) Prefer serial date (col 0)
+  let src_date = excelSerialToISO(row[COL.dateSerial]);
+
+  // 2) Fallback to Year/Mo#/Mo/Day#
+  if (!src_date) {
+    let m = safeNum(row[COL.monthNum]); if (!m) m = monthToInt(row[COL.monthTxt]);
+    const y = safeNum(row[COL.year]);
+    const d = safeNum(row[COL.day]);
+    if (!(y && m && d)) {
+      const err = new Error(`Bad date parts y/m/d = ${y||0}/${m||0}/${d||0}`);
+      err.rowSample = row;
+      throw err;
+    }
+    src_date = `${String(y).padStart(4,"0")}-${String(m).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+  }
 
   const machine_hours = clampTo24(safeNum(row[COL.machine_hours]));
-  const maint_dt_h    = clampTo24(safeNum(row[COL.maint_dt_h]));
+  const maint_dt_h    = clampTo24(safeNum(row[COL.maint_dt_h]));   // shift-level; daily Limble overrides in views
   const pounds        = Math.max(0, safeNum(row[COL.pounds]));
 
   return {
@@ -55,7 +81,7 @@ export function mapRow(row){
     material: null,
     pounds,
     machine_hours,
-    maint_downtime_h: maint_dt_h,   // raw; Limble daily overrides in views
+    maint_downtime_h: maint_dt_h,
     prod_downtime_h: 0,
     nameplate_lbs_hr: null,
   };
