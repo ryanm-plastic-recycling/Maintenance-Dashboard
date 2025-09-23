@@ -89,26 +89,32 @@ function deriveDayMetrics(row) {
   let machineHoursRaw = Number(row.machine_hours);
   if (!Number.isFinite(machineHoursRaw) || machineHoursRaw < 0) machineHoursRaw = 0;
   machineHoursRaw = clamp(machineHoursRaw, 0, 24);
-  const line = row.machine || '';
-  const mat = row.material || '';
+   const line = row.machine || '';
+  const mat  = row.material || '';
+
+  // 1) Start from machine_hours (what production reported)
+  let runH = machineHoursRaw;
+
+  // 2) Capacity (explicit → mappings)
   const explicitCap = Number(row.nameplate_lbs_hr) || 0;
   let cap = explicitCap > 0 ? explicitCap : capacityFor(line, mat);
 
-  // If we still don't have a cap but the line ran, infer it from the day: cap ≈ pounds / runtime
-  if ((cap <= 0 || !Number.isFinite(cap)) && runH > 0) {
-    cap = pounds / runH; // conservative inference for the day
-  }
-  
-  let runH = machineHoursRaw;
-  if (runH <= 0 && pounds > 0 && cap > 0) {
+  // 3) If runtime missing but we have pounds+cap, backfill runtime
+  if ((runH <= 0 || !Number.isFinite(runH)) && pounds > 0 && cap > 0) {
     runH = clamp(pounds / cap, 0, 24);
   }
 
-    // Prefer machine_hours. Cap maintenance to 24 and limit runtime to the remainder.
-  maint = clamp(maint, 0, 24);
-  runH  = clamp(runH,  0, 24 - maint);
+  // 4) If capacity still unknown but the line ran, infer cap from the day
+  if ((cap <= 0 || !Number.isFinite(cap)) && runH > 0) {
+    cap = pounds > 0 ? (pounds / runH) : 0;
+  }
 
-  // Production DT is whatever's left of the 24h budget.
+  // 5) Resolve 24h collisions by trusting machine_hours:
+  //    keep runtime, and cap maintenance to the remainder.
+  runH  = clamp(runH,  0, 24);
+  maint = clamp(maint, 0, Math.max(0, 24 - runH));
+
+  // 6) Remaining time budget is production DT
   const prod = clamp(24 - maint - runH, 0, 24);
 
   const rawCap = cap > 0 ? cap * 24 : 0;
