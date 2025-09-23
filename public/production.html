@@ -584,8 +584,8 @@ function capacityFor(lineName, material){
     document.getElementById('ov-cap').textContent  = fmtInt(totalCapPot, true);
     document.getElementById('ov-lbs').textContent  = fmtInt(totals.lbs, true);
     document.getElementById('ov-under').textContent= fmtInt(ovUnderGap, true);
-    //document.getElementById('ov-mdt').textContent      = fmtFixed(totals.maint, 1, true);
-    //document.getElementById('ov-pdt').textContent      = fmtFixed(totals.prod,  1, true);
+    document.getElementById('ov-mdt').textContent      = fmtFixed(totals.maint, 1, true);
+    document.getElementById('ov-pdt').textContent      = fmtFixed(totals.prod,  1, true);
     document.getElementById('ov-mo-mdt').textContent   = fmtInt(ovMoM, true);
     document.getElementById('ov-mo-pdt').textContent   = fmtInt(ovMoP, true);
     document.getElementById('ov-mdt-pct').textContent  = fmtPct(ovMdtPct, true);
