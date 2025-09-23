@@ -92,8 +92,13 @@ function deriveDayMetrics(row) {
   const line = row.machine || '';
   const mat = row.material || '';
   const explicitCap = Number(row.nameplate_lbs_hr) || 0;
-  const cap = explicitCap > 0 ? explicitCap : capacityFor(line, mat);
+  let cap = explicitCap > 0 ? explicitCap : capacityFor(line, mat);
 
+  // If we still don't have a cap but the line ran, infer it from the day: cap ≈ pounds / runtime
+  if ((cap <= 0 || !Number.isFinite(cap)) && runH > 0) {
+    cap = pounds / runH; // conservative inference for the day
+  }
+  
   let runH = machineHoursRaw;
   if (runH <= 0 && pounds > 0 && cap > 0) {
     runH = clamp(pounds / cap, 0, 24);
@@ -132,32 +137,28 @@ function deriveDayMetrics(row) {
 
 function aggregateByDate(rows) {
   const map = new Map();
-  // Build the fleet set once. Prefer mappings; fall back to machines present in rows.
-  const fleet = new Set();
-  // from mappings
-  Object.keys(capacityByLine || {}).forEach(k => fleet.add(canonLine(k)));
-  Object.keys(capacityByMaterial || {}).forEach(k => fleet.add(canonLine(k)));
-  // fallback to rows if mappings are sparse
-  if (fleet.size === 0) rows.forEach(r => fleet.add(canonLine(r.machine)));
-  const FLEET_COUNT = fleet.size || 1;
+
+  // Build fleet as the UNION of machines seen in data and those in mappings.
+  const fromRows = new Set();
+  rows.forEach(r => { if (r.machine) fromRows.add(canonLine(r.machine)); });
+
+  const fromMap = new Set();
+  Object.keys(capacityByLine || {}).forEach(k => fromMap.add(canonLine(k)));
+  Object.keys(capacityByMaterial || {}).forEach(k => fromMap.add(canonLine(k)));
+
+  const union = new Set([...fromRows, ...fromMap]);
+  const FLEET_COUNT = Math.max(union.size, 1);
+
   for (const row of rows) {
     if (!isWeekdayISO(row.src_date)) continue;
     const key = row.src_date;
     const metrics = deriveDayMetrics(row);
     if (!map.has(key)) {
       map.set(key, {
-        pounds: 0,
-        runHours: 0,
-        maintHours: 0,
-        prodHours: 0,
-        rawCapacity: 0,
-        adjCapacity: 0,
-        runCapacity: 0,
-        underPerf: 0,
-        missedMaint: 0,
-        missedProd: 0,
-        plannedHours: 0,   // we'll fill after the loop
-        machineDays: 0,    // informational only
+        pounds: 0, runHours: 0, maintHours: 0, prodHours: 0,
+        rawCapacity: 0, adjCapacity: 0, runCapacity: 0,
+        underPerf: 0, missedMaint: 0, missedProd: 0,
+        plannedHours: 0, machineDays: 0
       });
     }
     const agg = map.get(key);
@@ -173,20 +174,20 @@ function aggregateByDate(rows) {
     agg.missedProd  += metrics.missProd;
     agg.machineDays += 1;
   }
-  // Now assign planned hours per date using the full fleet denominator.
+
+  // Use full-fleet planned hours for every weekday in the range
   for (const [, agg] of map) {
     agg.plannedHours = 24 * FLEET_COUNT;
   }
+
   return [...map.entries()]
-    .sort((a, b) => a[0].localeCompare(b[0]))
+    .sort((a,b)=>a[0].localeCompare(b[0]))
     .map(([src_date, agg]) => {
       const availability = agg.plannedHours > 0 ? agg.runHours / agg.plannedHours : 0;
-      const perfRaw      = agg.rawCapacity > 0 ? agg.pounds / agg.rawCapacity : 0;
-      const perfAdj      = agg.adjCapacity > 0 ? agg.pounds / agg.adjCapacity : 0;
+      const perfRaw      = agg.rawCapacity  > 0 ? agg.pounds  / agg.rawCapacity  : 0;
+      const perfAdj      = agg.adjCapacity  > 0 ? agg.pounds  / agg.adjCapacity  : 0;
       const quality      = QUALITY_DEFAULT;
       const oee          = availability * perfAdj * quality;
-      const totalMissed  = agg.underPerf + agg.missedMaint + agg.missedProd;
-
       return {
         src_date,
         pounds: agg.pounds,
@@ -194,17 +195,13 @@ function aggregateByDate(rows) {
         maint_hours: agg.maintHours,
         prod_hours: agg.prodHours,
         capacity_potential_raw24_lbs: agg.rawCapacity,
-        capacity_available_adj_lbs: agg.adjCapacity,
-        run_capacity_lbs: agg.runCapacity,
-        under_perf_lbs: agg.underPerf,
-        missed_maint_lbs: agg.missedMaint,
-        missed_prod_lbs: agg.missedProd,
-        total_missed_lbs: totalMissed,
-        availability,
-        perf_raw: perfRaw,
-        perf_adj: perfAdj,
-        quality,
-        oee,
+        capacity_available_adj_lbs:   agg.adjCapacity,
+        run_capacity_lbs:             agg.runCapacity,
+        under_perf_lbs:               agg.underPerf,
+        missed_maint_lbs:             agg.missedMaint,
+        missed_prod_lbs:              agg.missedProd,
+        total_missed_lbs:             agg.underPerf + agg.missedMaint + agg.missedProd,
+        availability, perf_raw: perfRaw, perf_adj: perfAdj, quality, oee,
       };
     });
 }
