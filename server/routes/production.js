@@ -99,10 +99,10 @@ function deriveDayMetrics(row) {
   const explicitCap = Number(row.nameplate_lbs_hr) || 0;
   let cap = explicitCap > 0 ? explicitCap : capacityFor(line, mat);
 
-  // 3) If runtime missing but we have pounds+cap, backfill runtime
-  if ((runH <= 0 || !Number.isFinite(runH)) && pounds > 0 && cap > 0) {
-    runH = clamp(pounds / cap, 0, 24);
-  }
+  // 3) If runtime missing but we have pounds+cap, backfill runtime - - -Only use this as needed later!
+  //if ((runH <= 0 || !Number.isFinite(runH)) && pounds > 0 && cap > 0) {
+  //  runH = clamp(pounds / cap, 0, 24);
+  //}
 
   // 4) If capacity still unknown but the line ran, infer cap from the day
   if ((cap <= 0 || !Number.isFinite(cap)) && runH > 0) {
