@@ -99,14 +99,13 @@ function deriveDayMetrics(row) {
     runH = clamp(pounds / cap, 0, 24);
   }
 
-  const totalHM = maint + runH;
-  if (totalHM > 24 && totalHM > 0) {
-    const scale = 24 / totalHM;
-    maint = clamp(maint * scale, 0, 24);
-    runH = clamp(runH * scale, 0, 24);
-  }
+    // Prefer machine_hours. Cap maintenance to 24 and limit runtime to the remainder.
+  maint = clamp(maint, 0, 24);
+  runH  = clamp(runH,  0, 24 - maint);
 
+  // Production DT is whatever's left of the 24h budget.
   const prod = clamp(24 - maint - runH, 0, 24);
+
   const rawCap = cap > 0 ? cap * 24 : 0;
   const adjCap = cap > 0 ? cap * Math.max(0, 24 - maint) : 0;
   const runCap = cap > 0 ? cap * runH : 0;
