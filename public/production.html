@@ -368,7 +368,9 @@ function capacityFor(lineName, material){
       const lbs  = row.pounds || 0;
       const md   = Math.max(0, row.maint_dt_h    || 0);
       const mhR  = Math.max(0, row.machine_hours || 0);
-      const runH = mhR > 0 ? mhR : (capRow>0 ? lbs/capRow : 0); // runtime can be estimated
+      // TRUST production MH only; do not backfill runtime from pounds on the front end
+      const runH = mhR;
+
 
       const key = `${machine}__${day}`;
       if (!dayMap.has(key)) {
@@ -496,7 +498,7 @@ function capacityFor(lineName, material){
         avail: availability, perfRaw, perfAdj, qual, oee,
         availV: A.nAvail>0, prV: A.nPR>0, paV: A.nPA>0, oeeV: A.nAvail>0 && A.nPA>0
       };
-
+  });
 
     // Totals (also day-averages)
     const totals = Object.values(agg).reduce((s, A) => {
@@ -506,7 +508,7 @@ function capacityFor(lineName, material){
       s.sumAvail += A.sumAvail; s.nAvail += A.nAvail;
       s.sumPR += A.sumPR; s.nPR += A.nPR;
       s.sumPA += A.sumPA; s.nPA += A.nPA;
-      s.plannedH += 24 * (A.daysSet.size || 0);
+      s.plannedH += 24 * weekdayCount;  // one 24h block per line per weekday
       return s;
     }, {lbs:0,maint:0,prod:0,mach:0,rawDen24:0,adjDen:0,runCapDen:0,moM:0,moP:0,under:0,sumAvail:0,nAvail:0,sumPR:0,nPR:0,sumPA:0,nPA:0,plannedH:0});
 
@@ -657,7 +659,7 @@ function capacityFor(lineName, material){
         sumPounds += r.lbs || 0;
         sumUnder   += under;
         sumMoM     += moM;
-        sumMoP     += r.moP || 0;
+        sumMoP     += moP;
         sumPlanned += plannedH;
 
         body += `
@@ -670,7 +672,7 @@ function capacityFor(lineName, material){
             <td>${fmtInt(r.lbs,true)}</td>
             <td>${fmtInt(under,true)}</td>
             <td>${fmtInt(moM,true)}</td>
-            <td>${fmtInt(r.moP,true)}</td>
+            <td>${fmtInt(moP,true)}</td>
             <td>${fmtInt(tot,true)}</td>
           </tr>`;
       });
