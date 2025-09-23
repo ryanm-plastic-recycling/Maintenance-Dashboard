@@ -291,7 +291,7 @@ async function loadLineDayRows(pool, from, to) {
       material: r.material ?? null,
       nameplate_lbs_hr: r.nameplate_lbs_hr,
     }))
-    .filter(r => isWeekdayISO(r.src_date))
+    //.filter(r => isWeekdayISO(r.src_date))
     .sort((a, b) => {
       const cmp = String(a.src_date || '').localeCompare(String(b.src_date || ''));
       return cmp !== 0 ? cmp : String(a.machine || '').localeCompare(String(b.machine || ''));
