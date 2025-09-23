@@ -471,7 +471,9 @@ function capacityFor(lineName, material){
     const perLine = Object.keys(agg).sort().map(machine => {
     const A = agg[machine];
     const days = A.daysSet.size || 0;
-  
+    // Full-period capacity potential (includes idle weekdays)
+    const capPot = (Number.isFinite(capAvg) ? capAvg : 0) * 24 * weekdayCount;
+
     // Dominant material for label
     let domMat = '';
     if (A.mats && Object.keys(A.mats).length) {
@@ -511,7 +513,8 @@ function capacityFor(lineName, material){
       maint: A.maint,
       prod: prodH,
       mach: A.mach,
-      rawDen24: A.rawDen24,
+      rawDen24: A.rawDen24,  // keep raw (for diagnostics if needed)
+      capPot,                // use this for UI "Capacity Potential (lb)"
       adjDen: A.adjDen,
       runCapDen: A.runCapDen,
       underLb,
@@ -555,7 +558,7 @@ function capacityFor(lineName, material){
 
     const ovMdtPct = totalPlannedH > 0 ? (totals.maint / totalPlannedH) : 0;
     const ovPdtPct = totalPlannedH > 0 ? (totals.prod  / totalPlannedH) : 0;
-
+    const totalCapPot = perLine.reduce((s, r) => s + (r.capPot || 0), 0);
     const ovUnderGap = Math.max(0, totals.runCapDen - totals.lbs);
 
     // Bind numbers
@@ -568,7 +571,7 @@ function capacityFor(lineName, material){
       `OEE = ${fmtPct(ovAvail, totals.nAvail>0)} × ${fmtPct(ovPerfAdj, totals.nPA>0)} × ${Math.round(QUALITY_DEFAULT*100)}%`;
 
     document.getElementById('ov-runh').textContent = fmtFixed(totals.mach, 1, Number.isFinite(totals.mach));
-    document.getElementById('ov-cap').textContent  = fmtInt(totals.rawDen24, true);
+    document.getElementById('ov-cap').textContent  = fmtInt(totalCapPot, true);
     document.getElementById('ov-lbs').textContent  = fmtInt(totals.lbs, true);
     document.getElementById('ov-under').textContent= fmtInt(ovUnderGap, true);
 
@@ -688,7 +691,7 @@ function capacityFor(lineName, material){
         sumRun     += r.mach || 0;
         sumMaint   += r.maint || 0;
         sumProd    += r.prod  || 0;
-        sumCap     += r.rawDen24 || 0;
+        sumCap     += r.capPot   || 0;
         sumPounds += r.lbs || 0;
         sumUnder   += under;
         sumMoM     += moM;
@@ -701,7 +704,7 @@ function capacityFor(lineName, material){
             <td>${fmtFixed(r.mach,1,true)}</td>
             <td>${fmtFixed(r.maint,1,true)}</td><td>${fmtPct(mPct, Number.isFinite(mPct))}</td>
             <td>${fmtFixed(r.prod, 1,true)}</td><td>${fmtPct(pPct, Number.isFinite(pPct))}</td>
-            <td>${fmtInt(r.rawDen24,true)}</td>
+            <td>${fmtInt(r.capPot,true)}</td>
             <td>${fmtInt(r.lbs,true)}</td>
             <td>${fmtInt(under,true)}</td>
             <td>${fmtInt(moM,true)}</td>
