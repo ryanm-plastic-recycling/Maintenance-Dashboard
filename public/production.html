@@ -344,6 +344,7 @@ function capacityFor(lineName, material){
     const toD   = new Date(toISO   + 'T00:00:00');
     const dates = [];
     for (let d = new Date(fromD); d <= toD; d.setDate(d.getDate()+1)) if (isWeekday(d)) dates.push(formatISO(d));
+    const weekdayCount = dates.length; // total planned weekdays in range
 
     const [summaryRaw, bylineRaw] = await Promise.all([
       fetch(`/api/production/summary?from=${fromISO}&to=${toISO}`).then(r=>r.json()).catch(()=>null),
@@ -468,33 +469,34 @@ function capacityFor(lineName, material){
     const perLine = Object.keys(agg).sort().map(machine => {
       const A = agg[machine];
       const days = A.daysSet.size || 0;
-      const plannedH = 24 * days;
-
-      // dominant material (for label)
-      let domMat = '';
-      if (A.mats && Object.keys(A.mats).length) {
-        let best=-1;
-        for (const [k,v] of Object.entries(A.mats)) if (v>best){ best=v; domMat=k; }
-      }
-
-      const availability = A.nAvail>0 ? (A.sumAvail / A.nAvail) : NaN; // day-avg
-      const perfRaw      = A.nPR>0    ? (A.sumPR / A.nPR)      : NaN;  // day-avg
-      const perfAdj      = A.nPA>0    ? (A.sumPA / A.nPA)      : NaN;  // day-avg
-      const qual         = QUALITY_DEFAULT;
-      const oee          = (Number.isFinite(availability) && Number.isFinite(perfAdj)) ? (availability * perfAdj * qual) : NaN;
-      const capAvg       = (A.rawDen24 > 0 && days>0) ? (A.rawDen24 / (24*days)) : NaN;
-      const underLb      = Math.max(0, A.runCapDen - A.lbs);
-
+      // Treat every weekday in the range as planned time.
+      const plannedH = 24 * weekdayCount;
+      
+      // Idle weekdays (no production row for this line)
+      const idleDays = Math.max(0, weekdayCount - days);
+      
+      // Production DT: add 24h for each idle weekday
+      const prodH = A.prod + 24 * idleDays;
+      
+      // Approximate prod missed-opp for idle days using the avg capacity for the period.
+      // (Good monthly approximation; if capAvg is NaN, idle contributes 0.)
+      const moP_idle = (Number.isFinite(capAvg) ? capAvg : 0) * 24 * idleDays;
+      const moP = (A.moP || 0) + moP_idle;
+      
+      // Under-performance stays the same: cap*run − pounds (idle days have run=0).
+      const underLb  = Math.max(0, A.runCapDen - A.lbs);
+      
       return {
         machine, domMat,
-        lbs:A.lbs, maint:A.maint, prod:A.prod, mach:A.mach,
-        rawDen24:A.rawDen24, adjDen:A.adjDen, runCapDen:A.runCapDen, underLb,
-        moM:A.moM, moP:A.moP,
+        lbs: A.lbs, maint: A.maint, prod: prodH, mach: A.mach,
+        rawDen24: A.rawDen24, adjDen: A.adjDen, runCapDen: A.runCapDen, underLb,
+        moM: A.moM, moP,
         days, plannedH, capAvg,
-        avail:availability, perfRaw, perfAdj, qual, oee,
+        // keep your availability/perf/oee day-avg fields as-is
+        avail: availability, perfRaw, perfAdj, qual, oee,
         availV: A.nAvail>0, prV: A.nPR>0, paV: A.nPA>0, oeeV: A.nAvail>0 && A.nPA>0
       };
-    });
+
 
     // Totals (also day-averages)
     const totals = Object.values(agg).reduce((s, A) => {
@@ -655,7 +657,7 @@ function capacityFor(lineName, material){
         sumPounds += r.lbs || 0;
         sumUnder   += under;
         sumMoM     += moM;
-        sumMoP     += moP;
+        sumMoP     += r.moP || 0;
         sumPlanned += plannedH;
 
         body += `
@@ -668,7 +670,7 @@ function capacityFor(lineName, material){
             <td>${fmtInt(r.lbs,true)}</td>
             <td>${fmtInt(under,true)}</td>
             <td>${fmtInt(moM,true)}</td>
-            <td>${fmtInt(moP,true)}</td>
+            <td>${fmtInt(r.moP,true)}</td>
             <td>${fmtInt(tot,true)}</td>
           </tr>`;
       });
