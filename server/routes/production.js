@@ -156,7 +156,7 @@ function aggregateByDate(rows) {
   const FLEET_COUNT = Math.max(union.size, 1);
 
   for (const row of rows) {
-    if (!isWeekdayISO(row.src_date)) continue;
+    // if (!isWeekdayISO(row.src_date)) continue;    // WEEKDAY ONLY FILTER, REMOVE IF YOU WANT TO ONLY INCLUDE WEEKDDAYS!!!!!!!!!!!!!!!!!!!!!!!!!!!
     const key = row.src_date;
     const metrics = deriveDayMetrics(row);
     if (!map.has(key)) {
@@ -291,7 +291,7 @@ async function loadLineDayRows(pool, from, to) {
       material: r.material ?? null,
       nameplate_lbs_hr: r.nameplate_lbs_hr,
     }))
-    //.filter(r => isWeekdayISO(r.src_date))
+    //.filter(r => isWeekdayISO(r.src_date))    // WEEKDAY ONLY FILTER, REMOVE IF YOU WANT TO ONLY INCLUDE WEEKDDAYS!!!!!!!!!!!!!!!!!!!!!!!!!!!
     .sort((a, b) => {
       const cmp = String(a.src_date || '').localeCompare(String(b.src_date || ''));
       return cmp !== 0 ? cmp : String(a.machine || '').localeCompare(String(b.machine || ''));
