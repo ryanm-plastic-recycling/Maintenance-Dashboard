@@ -565,6 +565,9 @@ function capacityFor(lineName, material){
 
     const ovMdtPct = totalPlannedH > 0 ? (totals.maint / totalPlannedH) : 0;
     const ovPdtPct = totalPlannedH > 0 ? (totals.prod  / totalPlannedH) : 0;
+    // Overall missed-op from perLine (uses adjusted moP with idle-days)
+    const ovMoM = perLine.reduce((s, r) => s + (r.moM || 0), 0);
+    const ovMoP = perLine.reduce((s, r) => s + (r.moP || 0), 0);
 
     const ovUnderGap = Math.max(0, totals.runCapDen - totals.lbs);
 
@@ -581,9 +584,10 @@ function capacityFor(lineName, material){
     document.getElementById('ov-cap').textContent  = fmtInt(totalCapPot, true);
     document.getElementById('ov-lbs').textContent  = fmtInt(totals.lbs, true);
     document.getElementById('ov-under').textContent= fmtInt(ovUnderGap, true);
-
-    document.getElementById('ov-mdt').textContent      = fmtFixed(totals.maint, 1, true);
-    document.getElementById('ov-pdt').textContent      = fmtFixed(totals.prod,  1, true);
+    //document.getElementById('ov-mdt').textContent      = fmtFixed(totals.maint, 1, true);
+    //document.getElementById('ov-pdt').textContent      = fmtFixed(totals.prod,  1, true);
+    document.getElementById('ov-mdt').textContent   = fmtInt(ovMoM, true);
+    document.getElementById('ov-pdt').textContent   = fmtInt(ovMoP, true);
     document.getElementById('ov-mdt-pct').textContent  = fmtPct(ovMdtPct, true);
     document.getElementById('ov-pdt-pct').textContent  = fmtPct(ovPdtPct, true);
 
