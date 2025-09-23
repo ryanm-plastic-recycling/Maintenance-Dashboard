@@ -218,6 +218,8 @@
         <div class="tile" id="tile-pdt-pct"><div class="lab">Prod DT (%)</div><div class="val" id="ov-pdt-pct">--%</div></div>
         <div class="tile"><div class="lab">Missed Opp (Maint, lb)</div><div class="val" id="ov-mo-mdt">--</div></div>
         <div class="tile"><div class="lab">Missed Opp (Prod, lb)</div><div class="val" id="ov-mo-pdt">--</div></div>
+        <div class="tile" id="tile-mo-mdt-pct"><div class="lab">Missed Opp (Maint, %)</div><div class="val" id="ov-mo-mdt-pct">--%</div></div>
+        <div class="tile" id="tile-mo-pdt-pct"><div class="lab">Missed Opp (Prod, %)</div><div class="val" id="ov-mo-pdt-pct">--%</div></div>
       </div>
     </section>
 
@@ -568,6 +570,9 @@ function capacityFor(lineName, material){
     // Overall missed-op from perLine (uses adjusted moP with idle-days)
     const ovMoM = perLine.reduce((s, r) => s + (r.moM || 0), 0);
     const ovMoP = perLine.reduce((s, r) => s + (r.moP || 0), 0);
+    // Missed opportunity percentages relative to total capacity potential
+    const ovMoM_pct = (totalCapPot > 0) ? (ovMoM / totalCapPot) : NaN;
+    const ovMoP_pct = (totalCapPot > 0) ? (ovMoP / totalCapPot) : NaN;
 
     const ovUnderGap = Math.max(0, totals.runCapDen - totals.lbs);
 
@@ -588,6 +593,8 @@ function capacityFor(lineName, material){
     document.getElementById('ov-pdt').textContent      = fmtFixed(totals.prod,  1, true);
     document.getElementById('ov-mo-mdt').textContent   = fmtInt(ovMoM, true);
     document.getElementById('ov-mo-pdt').textContent   = fmtInt(ovMoP, true);
+    document.getElementById('ov-mo-mdt-pct').textContent = fmtPct(ovMoM_pct, Number.isFinite(ovMoM_pct));
+    document.getElementById('ov-mo-pdt-pct').textContent = fmtPct(ovMoP_pct, Number.isFinite(ovMoP_pct));
     document.getElementById('ov-mdt-pct').textContent  = fmtPct(ovMdtPct, true);
     document.getElementById('ov-pdt-pct').textContent  = fmtPct(ovPdtPct, true);
 
@@ -611,6 +618,8 @@ function capacityFor(lineName, material){
     };
     paintLow('#tile-mdt-pct', ovMdtPct);
     paintLow('#tile-pdt-pct', ovPdtPct);
+    paintLow('#tile-mo-mdt-pct', ovMoM_pct);
+    paintLow('#tile-mo-pdt-pct', ovMoP_pct);
 
     (function paintUnder(){
       const el = document.querySelector('#tile-under');
