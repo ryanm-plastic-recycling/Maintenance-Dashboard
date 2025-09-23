@@ -469,36 +469,69 @@ function capacityFor(lineName, material){
 
     // Per line derived metrics (day-average for Avail/Perf)
     const perLine = Object.keys(agg).sort().map(machine => {
-      const A = agg[machine];
-      const days = A.daysSet.size || 0;
-      // Treat every weekday in the range as planned time.
-      const plannedH = 24 * weekdayCount;
-      
-      // Idle weekdays (no production row for this line)
-      const idleDays = Math.max(0, weekdayCount - days);
-      
-      // Production DT: add 24h for each idle weekday
-      const prodH = A.prod + 24 * idleDays;
-      
-      // Approximate prod missed-opp for idle days using the avg capacity for the period.
-      // (Good monthly approximation; if capAvg is NaN, idle contributes 0.)
-      const moP_idle = (Number.isFinite(capAvg) ? capAvg : 0) * 24 * idleDays;
-      const moP = (A.moP || 0) + moP_idle;
-      
-      // Under-performance stays the same: cap*run − pounds (idle days have run=0).
-      const underLb  = Math.max(0, A.runCapDen - A.lbs);
-      
-      return {
-        machine, domMat,
-        lbs: A.lbs, maint: A.maint, prod: prodH, mach: A.mach,
-        rawDen24: A.rawDen24, adjDen: A.adjDen, runCapDen: A.runCapDen, underLb,
-        moM: A.moM, moP,
-        days, plannedH, capAvg,
-        // keep your availability/perf/oee day-avg fields as-is
-        avail: availability, perfRaw, perfAdj, qual, oee,
-        availV: A.nAvail>0, prV: A.nPR>0, paV: A.nPA>0, oeeV: A.nAvail>0 && A.nPA>0
-      };
+    const A = agg[machine];
+    const days = A.daysSet.size || 0;
+  
+    // Dominant material for label
+    let domMat = '';
+    if (A.mats && Object.keys(A.mats).length) {
+      let best = -1;
+      for (const [k, v] of Object.entries(A.mats)) if (v > best) { best = v; domMat = k; }
+    }
+  
+    // Day-averaged factors (same as before)
+    const availability = A.nAvail > 0 ? (A.sumAvail / A.nAvail) : NaN;
+    const perfRaw      = A.nPR    > 0 ? (A.sumPR   / A.nPR)    : NaN;
+    const perfAdj      = A.nPA    > 0 ? (A.sumPA   / A.nPA)    : NaN;
+    const qual         = QUALITY_DEFAULT;
+    const oee          = (Number.isFinite(availability) && Number.isFinite(perfAdj)) ? (availability * perfAdj * qual) : NaN;
+  
+    // Avg capacity over the days it ran (used to estimate idle missed-op)
+    const capAvg = (A.rawDen24 > 0 && days > 0) ? (A.rawDen24 / (24 * days)) : NaN;
+  
+    // Use calendar weekdays for planned hours
+    const plannedH = 24 * weekdayCount;
+  
+    // Idle weekdays (no production row)
+    const idleDays = Math.max(0, weekdayCount - days);
+  
+    // Production DT includes 24h for each idle weekday
+    const prodH = A.prod + 24 * idleDays;
+  
+    // Missed Opp (Prod) gets idle-day capacity as well (approx with capAvg)
+    const moP_idle = (Number.isFinite(capAvg) ? capAvg : 0) * 24 * idleDays;
+    const moP      = (A.moP || 0) + moP_idle;
+  
+    // Under-Perf = cap*run - pounds (idle days contribute 0 run and 0 lbs)
+    const underLb  = Math.max(0, A.runCapDen - A.lbs);
+  
+    return {
+      machine, domMat,
+      lbs: A.lbs,
+      maint: A.maint,
+      prod: prodH,
+      mach: A.mach,
+      rawDen24: A.rawDen24,
+      adjDen: A.adjDen,
+      runCapDen: A.runCapDen,
+      underLb,
+      moM: A.moM,
+      moP,
+      days,
+      plannedH,
+      capAvg,
+      avail: availability,
+      perfRaw,
+      perfAdj,
+      qual,
+      oee,
+      availV: A.nAvail > 0,
+      prV:    A.nPR    > 0,
+      paV:    A.nPA    > 0,
+      oeeV:   A.nAvail > 0 && A.nPA > 0
+    };
   });
+
 
     // Totals (also day-averages)
     const totals = Object.values(agg).reduce((s, A) => {
