@@ -393,7 +393,6 @@ export default function productionRoutes(poolPromise) {
     }
   });
 
-
   r.get('/production/validate', async (req, res, next) => {
     try {
       const pool = await poolPromise;
