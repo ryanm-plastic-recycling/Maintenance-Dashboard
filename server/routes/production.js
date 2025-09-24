@@ -36,6 +36,9 @@ const capacityByLine = mappings.capacities_lbs_hr;
 const capacityByMaterial = mappings.capacity_by_material_lbs_hr;
 const materialAlias = mappings.material_aliases;
 
+/ --- tiny 60s cache for summary responses ---
+const summaryCache = new Map();
+
 const ISO_WEEKDAY = new Set([1, 2, 3, 4, 5]); // Monday = 1 .. Sunday = 7
 
 function canonLine(machine) {
@@ -311,7 +314,6 @@ async function loadLineDayRows(pool, from, to, opts = {}) {
     });
 }
 
-
 export default function productionRoutes(poolPromise) {
   const r = express.Router();
 
@@ -322,29 +324,29 @@ export default function productionRoutes(poolPromise) {
 
     const from = req.query.from || '2000-01-01';
     const to   = req.query.to   || '2100-01-01';
+    const k    = `${from}|${to}`;
+
+    // cache hit (60s TTL)
+    const hit = summaryCache.get(k);
+    if (hit && (Date.now() - hit.ts) < 60_000) {
+      return res.json(hit.data);
+    }
 
     let rows = [];
     try {
-      // NOTE: no 'const' here; we assign the outer 'rows'
-      rows = await loadLineDayRows(pool, from, to, {
-        includeMaterial: false,      // ⬅️ skip OUTER APPLY for summary
-        requestTimeoutMs: 45000      // ⬅️ give the query headroom
-      });
+      rows = await loadLineDayRows(pool, from, to); // includeMaterial=false fast path
     } catch (e) {
       console.error('[production/summary] loadLineDayRows failed', { from, to, err: e?.message || e });
       return res.json([]);  // don’t 500 the UI
     }
+    if (!rows || rows.length === 0) return res.json([]);
 
-    if (!rows || rows.length === 0) {
-      return res.json([]);  // nothing to aggregate
-    }
-
+    let out;
     try {
-      const summary = aggregateByDate(rows) || [];
-      return res.json(summary);
+      out = aggregateByDate(rows) || [];
     } catch (e) {
       console.error('[production/summary] aggregateByDate failed', e?.message || e);
-      // Minimal fallback so tiles show something
+      // simple fallback
       const map = new Map();
       for (const r of rows) {
         const d = (r.src_date || '').slice(0,10);
@@ -355,11 +357,15 @@ export default function productionRoutes(poolPromise) {
         m.maint_hours += Number(r.maint_dt_h)    || 0;
         map.set(d, m);
       }
-      return res.json([...map.values()].sort((a,b)=>a.src_date.localeCompare(b.src_date)));
+      out = [...map.values()].sort((a,b)=>a.src_date.localeCompare(b.src_date));
     }
+
+    // cache store
+    summaryCache.set(k, { ts: Date.now(), data: out });
+    return res.json(out);
   } catch (e) {
     console.error('[production/summary] unexpected', e?.message || e);
-    return res.json([]);   // never 500 the UI
+    return res.json([]);
   }
 });
 
