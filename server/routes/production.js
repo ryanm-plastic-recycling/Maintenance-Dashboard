@@ -243,14 +243,21 @@ async function resolveMaterialColumn(pool) {
   return materialColumnCache.name;
 }
 
-async function loadLineDayRows(pool, from, to) {
+async function loadLineDayRows(pool, from, to, opts = {}) {
   if (!pool) return [];
+  const { includeMaterial = true, requestTimeoutMs = 45000 } = opts;
 
-  const materialColumn = await resolveMaterialColumn(pool);
-  const materialSelect = materialColumn
+  // Only resolve material column if we plan to use it
+  let materialColumn = null;
+  if (includeMaterial) {
+    materialColumn = await resolveMaterialColumn(pool);
+  }
+
+  const materialSelect = (includeMaterial && materialColumn)
     ? 'mat.material'
     : 'CAST(NULL AS NVARCHAR(128)) AS material';
-  const applyJoin = materialColumn
+
+  const applyJoin = (includeMaterial && materialColumn)
     ? `OUTER APPLY (
          SELECT TOP (1) pf.${materialColumn} AS material
          FROM dbo.production_fact AS pf
@@ -275,15 +282,16 @@ async function loadLineDayRows(pool, from, to) {
     ORDER BY v.src_date, v.machine;
   `;
 
-  // ✅ actual request chain (no stray leading dot)
-  const out = await pool.request()
-    .input('from', sql.Date, from)
-    .input('to',   sql.Date, to)
-    .query(query)
-    .catch(e => {
-      console.error('[loadLineDayRows] SQL failed', { from, to, err: e?.message || e });
-      throw e;
-    });
+  // Use a longer per-request timeout
+  const req = pool.request();
+  req.input('from', sql.Date, from);
+  req.input('to',   sql.Date, to);
+  req.timeout = requestTimeoutMs;
+
+  const out = await req.query(query).catch(e => {
+    console.error('[loadLineDayRows] SQL failed', { from, to, err: e?.message || e });
+    throw e;
+  });
 
   return (out.recordset || [])
     .map(r => ({
@@ -297,12 +305,12 @@ async function loadLineDayRows(pool, from, to) {
       material: r.material ?? null,
       nameplate_lbs_hr: r.nameplate_lbs_hr,
     }))
-    // leave weekday filtering to the UI; backend returns all selected days
     .sort((a, b) => {
       const cmp = String(a.src_date || '').localeCompare(String(b.src_date || ''));
       return cmp !== 0 ? cmp : String(a.machine || '').localeCompare(String(b.machine || ''));
     });
 }
+
 
 export default function productionRoutes(poolPromise) {
   const r = express.Router();
@@ -317,7 +325,7 @@ export default function productionRoutes(poolPromise) {
   
       let rows = [];
       try {
-        rows = await loadLineDayRows(pool, from, to);
+        const rows = await loadLineDayRows(pool, from, to, { includeMaterial: true, requestTimeoutMs: 45000 });
       } catch (e) {
         console.error('[production/summary] loadLineDayRows failed', { from, to, err: e?.message || e });
         return res.json([]);  // don’t 500 the UI
