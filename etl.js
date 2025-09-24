@@ -16,7 +16,14 @@ const sqlConfig = {
   password: process.env.AZURE_SQL_PASS,
   server:   process.env.AZURE_SQL_SERVER,
   database: process.env.AZURE_SQL_DB,
-  options: { encrypt: true }
+  options: { encrypt: true 
+},
+  requestTimeout: 60000,
+  pool: {
+    max: 10,
+    min: 0,
+    idleTimeoutMillis: 30000
+  }
 };
 
 // Collect rows that fail during upsert
