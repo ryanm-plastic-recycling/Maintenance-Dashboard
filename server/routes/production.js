@@ -316,49 +316,52 @@ export default function productionRoutes(poolPromise) {
   const r = express.Router();
 
   r.get('/production/summary', async (req, res) => {
-    try {
-      const pool = await poolPromise;
-      if (!pool) { console.error('[production/summary] no pool'); return res.json([]); }
-  
-      const from = req.query.from || '2000-01-01';
-      const to   = req.query.to   || '2100-01-01';
-  
-      let rows = [];
-      try {
-        const rows = await loadLineDayRows(pool, from, to, { includeMaterial: true, requestTimeoutMs: 45000 });
-      } catch (e) {
-        console.error('[production/summary] loadLineDayRows failed', { from, to, err: e?.message || e });
-        return res.json([]);  // don’t 500 the UI
-      }
-  
-      if (!rows || rows.length === 0) {
-        return res.json([]);  // nothing to aggregate
-      }
-  
-      try {
-        const summary = aggregateByDate(rows) || [];
-        return res.json(summary);
-      } catch (e) {
-        console.error('[production/summary] aggregateByDate failed', e?.message || e);
-        // Minimal fallback so tiles show something
-        const map = new Map();
-        for (const r of rows) {
-          const d = (r.src_date || '').slice(0,10);
-          if (!d) continue;
-          const m = map.get(d) || { src_date: d, pounds: 0, run_hours: 0, maint_hours: 0, prod_hours: 0 };
-          m.pounds      += Number(r.pounds)        || 0;
-          m.run_hours   += Number(r.machine_hours) || 0;
-          m.maint_hours += Number(r.maint_dt_h)    || 0;
-          map.set(d, m);
-        }
-        return res.json([...map.values()].sort((a,b)=>a.src_date.localeCompare(b.src_date)));
-      }
-    } catch (e) {
-      console.error('[production/summary] unexpected', e?.message || e);
-      return res.json([]);   // never 500 the UI
-    }
-  });
+  try {
+    const pool = await poolPromise;
+    if (!pool) { console.error('[production/summary] no pool'); return res.json([]); }
 
+    const from = req.query.from || '2000-01-01';
+    const to   = req.query.to   || '2100-01-01';
+
+    let rows = [];
+    try {
+      // NOTE: no 'const' here; we assign the outer 'rows'
+      rows = await loadLineDayRows(pool, from, to, {
+        includeMaterial: false,      // ⬅️ skip OUTER APPLY for summary
+        requestTimeoutMs: 45000      // ⬅️ give the query headroom
+      });
+    } catch (e) {
+      console.error('[production/summary] loadLineDayRows failed', { from, to, err: e?.message || e });
+      return res.json([]);  // don’t 500 the UI
+    }
+
+    if (!rows || rows.length === 0) {
+      return res.json([]);  // nothing to aggregate
+    }
+
+    try {
+      const summary = aggregateByDate(rows) || [];
+      return res.json(summary);
+    } catch (e) {
+      console.error('[production/summary] aggregateByDate failed', e?.message || e);
+      // Minimal fallback so tiles show something
+      const map = new Map();
+      for (const r of rows) {
+        const d = (r.src_date || '').slice(0,10);
+        if (!d) continue;
+        const m = map.get(d) || { src_date: d, pounds: 0, run_hours: 0, maint_hours: 0, prod_hours: 0 };
+        m.pounds      += Number(r.pounds)        || 0;
+        m.run_hours   += Number(r.machine_hours) || 0;
+        m.maint_hours += Number(r.maint_dt_h)    || 0;
+        map.set(d, m);
+      }
+      return res.json([...map.values()].sort((a,b)=>a.src_date.localeCompare(b.src_date)));
+    }
+  } catch (e) {
+    console.error('[production/summary] unexpected', e?.message || e);
+    return res.json([]);   // never 500 the UI
+  }
+});
 
   r.get('/production/by-line', async (req, res) => {
     try {
