@@ -274,10 +274,11 @@ async function loadLineDayRows(pool, from, to) {
     ORDER BY v.src_date, v.machine;
   `;
 
-  const out = await pool.request()
-    .input('from', sql.Date, from)
-    .input('to',   sql.Date, to)
-    .query(query);
+  .query(query)
+   .catch(e => {
+     console.error('[loadLineDayRows] SQL failed', { from, to, err: e?.message || e });
+     throw e;
+   });
 
   return (out.recordset || [])
     .map(r => ({
