@@ -245,6 +245,7 @@ async function resolveMaterialColumn(pool) {
 
 async function loadLineDayRows(pool, from, to) {
   if (!pool) return [];
+
   const materialColumn = await resolveMaterialColumn(pool);
   const materialSelect = materialColumn
     ? 'mat.material'
@@ -274,11 +275,15 @@ async function loadLineDayRows(pool, from, to) {
     ORDER BY v.src_date, v.machine;
   `;
 
-  .query(query)
-   .catch(e => {
-     console.error('[loadLineDayRows] SQL failed', { from, to, err: e?.message || e });
-     throw e;
-   });
+  // ✅ actual request chain (no stray leading dot)
+  const out = await pool.request()
+    .input('from', sql.Date, from)
+    .input('to',   sql.Date, to)
+    .query(query)
+    .catch(e => {
+      console.error('[loadLineDayRows] SQL failed', { from, to, err: e?.message || e });
+      throw e;
+    });
 
   return (out.recordset || [])
     .map(r => ({
@@ -292,7 +297,7 @@ async function loadLineDayRows(pool, from, to) {
       material: r.material ?? null,
       nameplate_lbs_hr: r.nameplate_lbs_hr,
     }))
-    //.filter(r => isWeekdayISO(r.src_date))    // WEEKDAY ONLY FILTER, REMOVE IF YOU WANT TO ONLY INCLUDE WEEKDDAYS!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    // leave weekday filtering to the UI; backend returns all selected days
     .sort((a, b) => {
       const cmp = String(a.src_date || '').localeCompare(String(b.src_date || ''));
       return cmp !== 0 ? cmp : String(a.machine || '').localeCompare(String(b.machine || ''));
@@ -302,67 +307,72 @@ async function loadLineDayRows(pool, from, to) {
 export default function productionRoutes(poolPromise) {
   const r = express.Router();
 
-  r.get('/production/summary', async (req, res, next) => {
+  r.get('/production/summary', async (req, res) => {
     try {
       const pool = await poolPromise;
-      if (!pool) { console.error('[production/summary] no pool'); res.json([]); return; }
+      if (!pool) { console.error('[production/summary] no pool'); return res.json([]); }
+  
       const from = req.query.from || '2000-01-01';
       const to   = req.query.to   || '2100-01-01';
-
+  
       let rows = [];
-       try {
-         rows = await loadLineDayRows(pool, from, to);
-       } catch (e) {
-         console.error('[production/summary] loadLineDayRows failed', { from, to, err: e?.message || e });
-         return res.json([]);  // don’t 500 the UI
-       }
+      try {
+        rows = await loadLineDayRows(pool, from, to);
+      } catch (e) {
+        console.error('[production/summary] loadLineDayRows failed', { from, to, err: e?.message || e });
+        return res.json([]);  // don’t 500 the UI
+      }
   
-       if (!rows || rows.length === 0) {
-         return res.json([]);  // nothing to aggregate
-       }
+      if (!rows || rows.length === 0) {
+        return res.json([]);  // nothing to aggregate
+      }
   
-       // Harden the reducer
-       try {
-         const summary = aggregateByDate(rows) || [];
-         return res.json(summary);
-       } catch (e) {
-         console.error('[production/summary] aggregateByDate failed', e?.message || e);
-         // Minimal fallback: date-only sums so tiles still show *something*
-         const map = new Map();
-         for (const r of rows) {
-           const d = (r.src_date || '').slice(0,10);
-           if (!d) continue;
-           const m = map.get(d) || { src_date: d, pounds: 0, run_hours: 0, maint_hours: 0, prod_hours: 0 };
-           m.pounds      += Number(r.pounds)        || 0;
-           m.run_hours   += Number(r.machine_hours) || 0;
-           m.maint_hours += Number(r.maint_dt_h)    || 0;
-           map.set(d, m);
-         }
-         return res.json([...map.values()].sort((a,b)=>a.src_date.localeCompare(b.src_date)));
-       }
+      try {
+        const summary = aggregateByDate(rows) || [];
+        return res.json(summary);
+      } catch (e) {
+        console.error('[production/summary] aggregateByDate failed', e?.message || e);
+        // Minimal fallback so tiles show something
+        const map = new Map();
+        for (const r of rows) {
+          const d = (r.src_date || '').slice(0,10);
+          if (!d) continue;
+          const m = map.get(d) || { src_date: d, pounds: 0, run_hours: 0, maint_hours: 0, prod_hours: 0 };
+          m.pounds      += Number(r.pounds)        || 0;
+          m.run_hours   += Number(r.machine_hours) || 0;
+          m.maint_hours += Number(r.maint_dt_h)    || 0;
+          map.set(d, m);
+        }
+        return res.json([...map.values()].sort((a,b)=>a.src_date.localeCompare(b.src_date)));
+      }
+    } catch (e) {
       console.error('[production/summary] unexpected', e?.message || e);
-       res.json([]);   // never 500 the UI
-                }
+      return res.json([]);   // never 500 the UI
+    }
   });
 
-  r.get('/production/by-line', async (req, res, next) => {
+
+  r.get('/production/by-line', async (req, res) => {
     try {
       const pool = await poolPromise;
-      if (!pool) { console.error('[production/by-line] no pool'); res.json([]); return; }
+      if (!pool) { console.error('[production/by-line] no pool'); return res.json([]); }
+  
       const from = req.query.from || '2000-01-01';
       const to   = req.query.to   || '2100-01-01';
-
+  
       try {
-       const rows = await loadLineDayRows(pool, from, to);
-       res.json(rows || []);
-     } catch (e) {
-       console.error('[production/by-line] loadLineDayRows failed', { from, to, err: e?.message || e });
-       res.json([]);  // keep UI alive
-     }
-    console.error('[production/by-line] unexpected', e?.message || e);
-     res.json([]);   // never 500 the UI
-                }
+        const rows = await loadLineDayRows(pool, from, to);
+        return res.json(rows || []);
+      } catch (e) {
+        console.error('[production/by-line] loadLineDayRows failed', { from, to, err: e?.message || e });
+        return res.json([]);  // keep UI alive
+      }
+    } catch (e) {
+      console.error('[production/by-line] unexpected', e?.message || e);
+      return res.json([]);   // never 500 the UI
+    }
   });
+
 
   r.get('/production/validate', async (req, res, next) => {
     try {
