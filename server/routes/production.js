@@ -369,7 +369,10 @@ export default function productionRoutes(poolPromise) {
       const to   = req.query.to   || '2100-01-01';
   
       try {
-        const rows = await loadLineDayRows(pool, from, to);
+        const rows = await loadLineDayRows(pool, from, to, {
+           includeMaterial: true,
+           requestTimeoutMs: 45000
+         });
         return res.json(rows || []);
       } catch (e) {
         console.error('[production/by-line] loadLineDayRows failed', { from, to, err: e?.message || e });
