@@ -304,27 +304,63 @@ export default function productionRoutes(poolPromise) {
   r.get('/production/summary', async (req, res, next) => {
     try {
       const pool = await poolPromise;
-      if (!pool) { res.json([]); return; }
+      if (!pool) { console.error('[production/summary] no pool'); res.json([]); return; }
       const from = req.query.from || '2000-01-01';
       const to   = req.query.to   || '2100-01-01';
 
-      const rows = await loadLineDayRows(pool, from, to);
-      const summary = aggregateByDate(rows);
-      res.json(summary);
-    } catch (e) { next(e); }
+      let rows = [];
+       try {
+         rows = await loadLineDayRows(pool, from, to);
+       } catch (e) {
+         console.error('[production/summary] loadLineDayRows failed', { from, to, err: e?.message || e });
+         return res.json([]);  // don’t 500 the UI
+       }
+  
+       if (!rows || rows.length === 0) {
+         return res.json([]);  // nothing to aggregate
+       }
+  
+       // Harden the reducer
+       try {
+         const summary = aggregateByDate(rows) || [];
+         return res.json(summary);
+       } catch (e) {
+         console.error('[production/summary] aggregateByDate failed', e?.message || e);
+         // Minimal fallback: date-only sums so tiles still show *something*
+         const map = new Map();
+         for (const r of rows) {
+           const d = (r.src_date || '').slice(0,10);
+           if (!d) continue;
+           const m = map.get(d) || { src_date: d, pounds: 0, run_hours: 0, maint_hours: 0, prod_hours: 0 };
+           m.pounds      += Number(r.pounds)        || 0;
+           m.run_hours   += Number(r.machine_hours) || 0;
+           m.maint_hours += Number(r.maint_dt_h)    || 0;
+           map.set(d, m);
+         }
+         return res.json([...map.values()].sort((a,b)=>a.src_date.localeCompare(b.src_date)));
+       }
+      console.error('[production/summary] unexpected', e?.message || e);
+       res.json([]);   // never 500 the UI
+                }
   });
 
   r.get('/production/by-line', async (req, res, next) => {
     try {
       const pool = await poolPromise;
-      if (!pool) { res.json([]); return; }
+      if (!pool) { console.error('[production/by-line] no pool'); res.json([]); return; }
       const from = req.query.from || '2000-01-01';
       const to   = req.query.to   || '2100-01-01';
 
-      const rows = await loadLineDayRows(pool, from, to);
-      // Production's historical "downtime" column is ignored; prod DT is derived from machine_hours & maint_dt.
-      res.json(rows);
-    } catch (e) { next(e); }
+      try {
+       const rows = await loadLineDayRows(pool, from, to);
+       res.json(rows || []);
+     } catch (e) {
+       console.error('[production/by-line] loadLineDayRows failed', { from, to, err: e?.message || e });
+       res.json([]);  // keep UI alive
+     }
+    console.error('[production/by-line] unexpected', e?.message || e);
+     res.json([]);   // never 500 the UI
+                }
   });
 
   r.get('/production/validate', async (req, res, next) => {
