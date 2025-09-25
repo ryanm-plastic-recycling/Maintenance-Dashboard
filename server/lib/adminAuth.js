@@ -18,27 +18,21 @@ export function requireBasicAuth(req, res, next) {
 }
 
 export function requireBearer(req, res, next) {
-  if (!ADMIN_TOKEN) return res.status(401).json({ ok:false, error:'unauthorized' });
   const hdr = req.headers.authorization || '';
   const token = hdr.startsWith('Bearer ') ? hdr.slice(7) : (req.query.admin_token || '');
-  if (token === ADMIN_TOKEN) return next();
+  const ok = !!ADMIN_TOKEN && token === ADMIN_TOKEN;
+  console.log('[adminAuth] bearer hdr?', !!hdr, 'providedLen=', token.length,
+              'envLen=', (ADMIN_TOKEN||'').length, 'equal=', ok);
+  if (ok) return next();
   return res.status(401).json({ ok:false, error:'unauthorized' });
 }
 
 export function requireAdmin(req, res, next) {
+  // prefer bearer if a token is present
   if (ADMIN_TOKEN && (req.headers.authorization?.startsWith('Bearer ') || req.query.admin_token)) {
     return requireBearer(req, res, next);
   }
   return requireBasicAuth(req, res, next);
-}
-
-function requireBearer(req, res, next) {
-  const hdr = req.headers.authorization || '';
-  const token = hdr.startsWith('Bearer ') ? hdr.slice(7) : (req.query.admin_token || '');
-  console.log('[adminAuth] bearer hdr?', !!hdr, 'providedLen=', token.length,
-              'envLen=', (ADMIN_TOKEN||'').length, 'equal=', token === ADMIN_TOKEN);
-  if (ADMIN_TOKEN && token === ADMIN_TOKEN) return next();
-  return res.status(401).json({ ok:false, error:'unauthorized' });
 }
 
 console.log('[adminAuth] basic?', !!ADMIN_USER && !!ADMIN_PASS, 'bearer?', !!ADMIN_TOKEN);
