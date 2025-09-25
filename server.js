@@ -17,6 +17,8 @@ import { refreshHeaderKpis, refreshByAssetKpis, refreshWorkOrders } from './serv
 import { runFullRefresh } from './server/jobs/pipeline.js';
 import { fetchAllPages, syncLimbleToSql, syncLimbleCompletedOnly } from './server/jobs/limbleSync.js';
 import productionRoutes from './server/routes/production.js';
+import helmet from 'helmet';
+import { adminLimiter, adminSlowdown, adminAuthLimiter } from './server/lib/adminRateLimit.js';
 
 const API_V2 = `${process.env.API_BASE_URL}/v2`;
 
@@ -530,13 +532,21 @@ const ipv4 = Object.values(nets)
 const app = express();
 
 // 1) core middleware first
+app.use(helmet());
 app.use(cors());
 app.use(express.json());
 
-// 2) API routers (all under /api)
-app.use('/api', productionRoutes(poolPromise));  // <-- new production API
-app.use('/api', adminRoutes(poolPromise));
-app.use('/api', limbleWebhook(poolPromise));
+// 2) guards/rate limits that should run BEFORE routers
+//    (protect the whole /api/admin surface)
+app.use('/api/admin', adminAuthLimiter, adminSlowdown, adminLimiter);
+
+// 3) API routers (mounted under /api)
+app.use('/api', productionRoutes(poolPromise));   // /api/production/...
+app.use('/api', adminRoutes(poolPromise));        // /api/admin/...
+app.use('/api', limbleWebhook(poolPromise));      // /api/limble-...
+
+// 4) static last
+app.use(express.static(path.join(__dirname, 'public')));
 
 app.fetchAndCache = async () => null;
 const PORT = process.env.PORT || 3000;
