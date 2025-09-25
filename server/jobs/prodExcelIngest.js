@@ -87,7 +87,8 @@ function isTrulyEmptyRow(row) {
 export function mapRow(row){
   // Skip fully blank rows
   if (isTrulyEmptyRow(row)) return null;
-  const material = normMaterial(row[COL.materialType]); // <-- pick "Type" from Excel
+  const material = normMaterial(row[COL.materialType]); // Excel “Type” (col H)
+  const color    = safeStr(row[COL.color]) || null;     // Excel “Color” (col I)
   
   // Prefer serial date (col 0)
   let src_date = excelSerialToISO(row[COL.dateSerial]);
@@ -126,6 +127,7 @@ export function mapRow(row){
     machine: machineName,
     shift_n: safeNum(row[COL.shift_n], null),
     material,
+    color,
     pounds,
     machine_hours,
     maint_downtime_h: maint_dt_h,
@@ -145,6 +147,7 @@ function toDb(rec){
     prod_downtime_h: 0,
     nameplate_lbs_hr: rec.nameplate_lbs_hr == null ? null : safeNum(rec.nameplate_lbs_hr),
     material: rec.material || null,
+    color: rec.color || null,
   };
 }
 
@@ -202,7 +205,7 @@ async function upsertProductionFacts(pool, records){
       null,                               // lot_number
       null,                               // note
       r.material || null,                 // type
-      row[COL.color] || null,             // color
+      r.color || null,                    // color
       null,                               // format
       null,                               // options
       r.maint_downtime_h ?? 0,            // down_time_hours (shift-maint from sheet)
@@ -229,11 +232,6 @@ async function upsertProductionFacts(pool, records){
   const req = pool.request();
   req.input('Rows', tvp);
   await req.execute('dbo.upsert_production_staging_tvp');
-// Blank data cleanup.
-  await pool.request().query(`
-  DELETE FROM dbo.production_staging
-  WHERE machine IS NULL OR LTRIM(RTRIM(machine)) = ''
-`);
 
   // (optional single safety clean before roll)
  await pool.request().query(`
@@ -243,8 +241,6 @@ async function upsertProductionFacts(pool, records){
  // 2) Roll staging → production_fact (once)
  await pool.request().execute('dbo.upsert_production_fact');
 
-  // 2) Roll staging → production_fact (your existing proc)
-  await pool.request().execute('dbo.upsert_production_fact');
 }
 
 export async function runProdExcelIngest({ pool, dry=false } = {}){
