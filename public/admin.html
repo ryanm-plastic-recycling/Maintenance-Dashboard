@@ -570,7 +570,7 @@ document.getElementById('btnProdExcel').addEventListener('click', async () => {
   const tok = (document.getElementById('admTok').value || '').trim();
   const dry = document.getElementById('dry').checked ? '1' : '0';
 
-  const url = `/admin/run-prod-excel?dry=${dry}`; // <-- note /api/admin
+  const url = `/api/admin/run-prod-excel?dry=${dry}`; // <-- note /api/admin
   const headers = tok ? { 'Authorization': 'Bearer ' + tok } : {};
 
   try {
