@@ -19,6 +19,7 @@ import { fetchAllPages, syncLimbleToSql, syncLimbleCompletedOnly } from './serve
 import productionRoutes from './server/routes/production.js';
 import helmet from 'helmet';
 import { adminLimiter, adminSlowdown, adminAuthLimiter } from './server/lib/adminRateLimit.js';
+import { requireAdmin } from './server/lib/adminAuth.js';
 
 const API_V2 = `${process.env.API_BASE_URL}/v2`;
 
@@ -532,77 +533,72 @@ const ipv4 = Object.values(nets)
 const app = express();
 
 // 1) core middleware first
-app.use(helmet());
-app.use(cors());
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+}));
+app.use(cors({ origin: ['https://dashboard.plastic-recycling.net'], credentials: false }));
 app.use(express.json());
+// If you’re behind a proxy (NGINX/Cloudflare):
+// app.set('trust proxy', 1);
 
-// 2) guards/rate limits that should run BEFORE routers
-//    (protect the whole /api/admin surface)
+// 2) guards/rate limits BEFORE routers (protect the whole /api/admin surface)
 app.use('/api/admin', adminAuthLimiter, adminSlowdown, adminLimiter);
 
-// 3) API routers (mounted under /api)
+// 3) API routers
 app.use('/api', productionRoutes(poolPromise));   // /api/production/...
 app.use('/api', adminRoutes(poolPromise));        // /api/admin/...
 app.use('/api', limbleWebhook(poolPromise));      // /api/limble-...
 
-// 4) static last
+// 4) static and page routes (BEFORE 404)
 app.use(express.static(path.join(__dirname, 'public')));
 
+// simple HTML routes (optional — static would also serve these if filenames match)
+app.get('/',                 (req,res)=>res.sendFile(path.join(__dirname,'public','index.html')));
+app.get('/pm',               (req,res)=>res.sendFile(path.join(__dirname,'public','pm.html')));
+app.get('/prodstatus',       (req,res)=>res.sendFile(path.join(__dirname,'public','prodstatus.html')));
+app.get('/kpi-by-asset.html',(req,res)=>res.sendFile(path.join(__dirname,'public','kpi-by-asset.html')));
+app.get('/admin',            (req,res)=>res.sendFile(path.join(__dirname,'public','admin.html')));
+
+// lightweight config endpoints (consider protecting with requireAdmin)
+app.get('/api/config', (req,res)=>{
+  res.sendFile(path.join(__dirname,'public','config.json'));
+});
+app.post('/api/config', requireAdmin, (req,res)=>{
+  if (req.body.password !== process.env.ADMIN_PASSWORD) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  fs.writeFile(path.join(__dirname,'public','config.json'),
+    JSON.stringify(req.body.config,null,2),
+    err => err ? (console.error('Config save error:',err), res.status(500).json({error:'Failed to save config'}))
+               : res.json({ status:'ok' })
+  );
+});
+app.post('/api/mappings', requireAdmin, (req,res)=>{
+  if (req.body.password !== process.env.ADMIN_PASSWORD) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  fs.writeFile(path.join(__dirname,'public','mappings.json'),
+    JSON.stringify(req.body.mappings,null,2),
+    err => err ? (console.error('Mappings save error:',err), res.status(500).json({error:'Failed to save mappings'}))
+               : res.json({ status:'ok' })
+  );
+});
+
+// 5) 404 & error handlers LAST
+app.use((req, res) => res.status(404).json({ ok:false, error:'not found' }));
+app.use((err, req, res, next) => {
+  console.error(err);
+  res.status(500).json({ ok:false, error:'server error' });
+});
+
+// optional util you’re setting:
 app.fetchAndCache = async () => null;
+
+// 6) listen LAST
 const PORT = process.env.PORT || 3000;
-
-// Serve the HTML file for the root path
-// 3) static and root
-app.use(express.static(path.join(__dirname, 'public')));
-
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
-app.get('/pm', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'pm.html'));
-});
-
-app.get('/prodstatus', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'prodstatus.html'));
-});
-
-app.get('/kpi-by-asset.html', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'kpi-by-asset.html'));
-});
-
-app.get('/admin', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'admin.html'));
-});
-
-app.get('/api/config', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'config.json'));
-});
-
-app.post('/api/config', (req, res) => {
-    if (req.body.password !== process.env.ADMIN_PASSWORD) {
-        return res.status(401).json({ error: 'Unauthorized' });
-    }
-    fs.writeFile(path.join(__dirname, 'public', 'config.json'), JSON.stringify(req.body.config, null, 2), err => {
-        if (err) {
-            console.error('Config save error:', err);
-            return res.status(500).json({ error: 'Failed to save config' });
-        }
-        res.json({ status: 'ok' });
-    });
-});
-
-app.post('/api/mappings', (req, res) => {
-    if (req.body.password !== process.env.ADMIN_PASSWORD) {
-        return res.status(401).json({ error: 'Unauthorized' });
-    }
-    fs.writeFile(path.join(__dirname, 'public', 'mappings.json'), JSON.stringify(req.body.mappings, null, 2), err => {
-        if (err) {
-            console.error('Mappings save error:', err);
-            return res.status(500).json({ error: 'Failed to save mappings' });
-        }
-        res.json({ status: 'ok' });
-    });
+app.listen(PORT, () => {
+  console.log(`NOICE! Server running at ${PORT}.`);
+  console.log(`On LAN: http://${ipv4 || '127.0.0.1'}:${PORT}/`);
 });
 
 // ─── KPI Theme Settings Endpoints ──────────────────────────────────────────
