@@ -36,7 +36,7 @@ const capacityByLine = mappings.capacities_lbs_hr;
 const capacityByMaterial = mappings.capacity_by_material_lbs_hr;
 const materialAlias = mappings.material_aliases;
 
-/ --- tiny 60s cache for summary responses ---
+// --- tiny 60s cache for summary responses ---
 const summaryCache = new Map();
 
 const ISO_WEEKDAY = new Set([1, 2, 3, 4, 5]); // Monday = 1 .. Sunday = 7
