@@ -34,6 +34,17 @@ export async function start(pool, jobs) {
     });
     if (r.Enabled) schedule(r.Name, r.Cron, handler);
   }
+
+  // Weekly index maintenance: Sun @ 02:00
+  cron.schedule('0 2 * * 0', async () => {
+    try {
+      console.log('[scheduler] index_maintenance starting');
+      await jobs.index_maintenance();
+      console.log('[scheduler] index_maintenance done');
+    } catch (e) {
+      console.error('[scheduler] index_maintenance failed', e);
+    }
+  });
 }
 
 export async function reload(pool, jobs) {
