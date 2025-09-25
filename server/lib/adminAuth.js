@@ -31,3 +31,5 @@ export function requireAdmin(req, res, next) {
   }
   return requireBasicAuth(req, res, next);
 }
+
+console.log('[adminAuth] basic?', !!ADMIN_USER && !!ADMIN_PASS, 'bearer?', !!ADMIN_TOKEN);
