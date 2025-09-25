@@ -274,7 +274,7 @@ const applyJoin = (includeMaterial && materialColumn)
     v.pounds,
     v.maint_dt_h,
     v.machine_hours,
-    COALESCE(dm.material, 'DEFAULT') AS material,  -- << dominant day-material
+    COALESCE(dm.material, 'DEFAULT') AS material,  -- dominant material for the day
     v.nameplate_lbs_hr
   FROM dbo.v_prod_daily_line AS v
   LEFT JOIN dbo.v_prod_day_material AS dm
@@ -283,6 +283,7 @@ const applyJoin = (includeMaterial && materialColumn)
   WHERE v.src_date BETWEEN @from AND @to
   ORDER BY v.src_date, v.machine;
 `;
+
 
   // Use a longer per-request timeout
   const req = pool.request();
