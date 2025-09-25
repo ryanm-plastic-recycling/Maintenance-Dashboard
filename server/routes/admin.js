@@ -50,15 +50,5 @@ export default function adminRoutes(poolPromise) {
     }
   });
 
-  function requireBearer(req, res, next) {
-  const hdr = req.headers.authorization || '';
-  const token = hdr.startsWith('Bearer ') ? hdr.slice(7) : (req.query.admin_token || '');
-  console.log('[adminAuth] bearer hdr?', !!hdr, 'providedLen=', token.length,
-              'envLen=', (ADMIN_TOKEN||'').length, 'equal=', token === ADMIN_TOKEN);
-  if (ADMIN_TOKEN && token === ADMIN_TOKEN) return next();
-  return res.status(401).json({ ok:false, error:'unauthorized' });
-}
-
-
   return r;
 }
