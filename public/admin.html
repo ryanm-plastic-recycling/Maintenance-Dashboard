@@ -571,11 +571,11 @@ document.getElementById('btnProdExcel').addEventListener('click', async () => {
   const dry = document.getElementById('dry').checked ? '1' : '0';
 
   // Option A: pass token as query param (the guard accepts admin_token)
-  const url = `/admin/run-prod-excel?dry=${dry}&admin_token=${encodeURIComponent(tok)}`;
+  //const url = `/admin/run-prod-excel?dry=${dry}&admin_token=${encodeURIComponent(tok)}`;
 
   // Option B (alternative): send Bearer header
-  // const url = `/admin/run-prod-excel?dry=${dry}`;
-  // const headers = tok ? { 'Authorization': 'Bearer ' + tok } : {};
+   const url = `/admin/run-prod-excel?dry=${dry}`;
+   const headers = tok ? { 'Authorization': 'Bearer ' + tok } : {};
 
   try {
     const res = await fetch(url, { method:'POST' /*, headers*/ });
