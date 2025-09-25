@@ -34,6 +34,8 @@ const COL = {
   dateSerial:    0,   // Excel serial DATE
   machine:       1,
   shift_n:       2,
+  materialType:  7,   // "Type" column (Excel col H)
+  color:         8,   // "Color" column (Excel col I)
   maint_dt_h:    11,  // "Down Time"
   machine_hours: 13,  // "Machine Hours"
   pounds:        15,  // "Pounds"
@@ -43,6 +45,14 @@ const COL = {
   day:           25,
 };
 
+// simple normalizer: upper-case, trim, map trivial aliases you want
+function normMaterial(v) {
+  const s = (v == null ? '' : String(v)).trim().toUpperCase();
+  if (!s) return null;
+  // cheap fixups if you want (you can expand this or let SQL aliasing handle it):
+  if (s === 'PP.' ) return 'PP';
+  return s;
+}
 
 function excelSerialToISO(n) {
   const dnum = Number(n);
@@ -77,7 +87,8 @@ function isTrulyEmptyRow(row) {
 export function mapRow(row){
   // Skip fully blank rows
   if (isTrulyEmptyRow(row)) return null;
-
+  const material = normMaterial(row[COL.materialType]); // <-- pick "Type" from Excel
+  
   // Prefer serial date (col 0)
   let src_date = excelSerialToISO(row[COL.dateSerial]);
 
@@ -114,7 +125,7 @@ export function mapRow(row){
     src_date,
     machine: machineName,
     shift_n: safeNum(row[COL.shift_n], null),
-    material: null,
+    material,
     pounds,
     machine_hours,
     maint_downtime_h: maint_dt_h,
