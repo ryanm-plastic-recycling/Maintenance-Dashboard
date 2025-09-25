@@ -558,6 +558,45 @@ app.use('/api', (req, res, next) => {
 // 2) guards/rate limits BEFORE routers (protect the whole /api/admin surface)
 app.use('/api/admin', adminAuthLimiter, adminSlowdown, adminLimiter);
 
+// Put this BEFORE routers
+app.use(helmet({
+  // 1) no HSTS (we are serving over HTTP right now)
+  hsts: false,
+
+  // 2) COOP can be dropped in HTTP mode to avoid “untrustworthy origin” noise
+  crossOriginOpenerPolicy: false,
+
+  // 3) Custom CSP: NO upgrade-insecure-requests; allow inline scripts/styles for now
+  contentSecurityPolicy: {
+    useDefaults: false,
+    directives: {
+      defaultSrc: ["'self'"],
+      baseUri: ["'self'"],
+      objectSrc: ["'none'"],
+      frameAncestors: ["'self'"],
+
+      // allow your JS/CSS/images over HTTP and inline scripts used by admin.html
+      scriptSrc: ["'self'", "'unsafe-inline'"],
+      styleSrc:  ["'self'", "'unsafe-inline'"],
+      imgSrc:    ["'self'", "data:", "http:"],
+      fontSrc:   ["'self'", "data:"],
+      connectSrc:["'self'", "http:"],
+
+      // IMPORTANT: don't include `upgrade-insecure-requests`
+      // upgradeInsecureRequests: []  // (omit entirely)
+    }
+  },
+
+  // 4) CORP in HTTP is fine as cross-origin; you already had cross-origin
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+}));
+
+// Optional: explicitly clear any leftover HSTS
+app.use((req, res, next) => {
+  res.set('Strict-Transport-Security', 'max-age=0');
+  next();
+});
+
 // 3) API routers
 app.use('/api', productionRoutes(poolPromise));   // /api/production/...
 app.use('/api', adminRoutes(poolPromise));        // /api/admin/...
