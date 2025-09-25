@@ -534,7 +534,15 @@ const app = express();
 // 1) core middleware first
 app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
+  hsts: false,
 }));
+// (optional) if you prefer to explicitly clear any caches that *do* hit HTTPS:
+app.use((req, res, next) => {
+  // sends a “forget HSTS” if this ever goes over TLS later
+  res.setHeader('Strict-Transport-Security', 'max-age=0');
+  next();
+});
+
 app.use(cors({ origin: ['https://dashboard.plastic-recycling.net'], credentials: false }));
 app.use(express.json());
 
