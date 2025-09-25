@@ -570,11 +570,10 @@ document.getElementById('btnProdExcel').addEventListener('click', async () => {
   const tok = (document.getElementById('admTok').value || '').trim();
   const dry = document.getElementById('dry').checked ? '1' : '0';
 
-  const url = `/api/admin/run-prod-excel?dry=${dry}`;
-  const headers = tok ? { 'Authorization': 'Bearer ' + tok } : {};
-
+  const url = `/api/admin/run-prod-excel?dry=${dry}&admin_token=${encodeURIComponent(tok)}`;
+ 
   try {
-    const res = await fetch(url, { method:'POST', headers }); // <-- include headers
+     const res = await fetch(url, { method:'POST' });
     const data = await res.json();
     alert(JSON.stringify(data, null, 2));
   } catch (e) {
