@@ -1,3 +1,4 @@
+import 'dotenv/config'; // or: const dotenv = require('dotenv'); dotenv.config();
 import express  from 'express';
 import { fileURLToPath } from 'url';
 import path     from 'path';
@@ -16,9 +17,6 @@ import { refreshHeaderKpis, refreshByAssetKpis, refreshWorkOrders } from './serv
 import { runFullRefresh } from './server/jobs/pipeline.js';
 import { fetchAllPages, syncLimbleToSql, syncLimbleCompletedOnly } from './server/jobs/limbleSync.js';
 import productionRoutes from './server/routes/production.js';
-import 'dotenv/config'; // or: const dotenv = require('dotenv'); dotenv.config();
-
-dotenv.config();
 
 const API_V2 = `${process.env.API_BASE_URL}/v2`;
 
