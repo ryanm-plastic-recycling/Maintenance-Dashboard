@@ -578,5 +578,79 @@ r.get('/production/debug-cap', async (req, res) => {
   res.json(out);
 });
 
+  // --- admin: capacity audit (by day) ---------------------------------
+r.get('/admin/cap-audit', async (req, res) => {
+  try {
+    const pool = await poolPromise; if (!pool) return res.json({ ok:false, error:'no DB pool' });
+    const from   = (req.query.from || '2000-01-01').slice(0,10);
+    const to     = (req.query.to   || '2100-01-01').slice(0,10);
+    const mach   = (req.query.machine || '').trim() || null;
+    const limit  = Math.max(1, Math.min(Number(req.query.limit)||20, 500));
+
+    // pull rows with day-level material
+    const rows = await loadLineDayRows(pool, from, to, { includeMaterial: true, requestTimeoutMs: 45000 });
+    const filt = mach ? rows.filter(r => r.machine === mach) : rows;
+
+    // group by machine+day like the UI
+    const byDay = new Map(); // m|d -> {machine, day, md, lbs, sumCapRun, sumRun, caps:[], mats:Set()}
+    for (const r of filt) {
+      const d  = (r.src_date||'').slice(0,10); if (!d) continue;
+      const k  = `${r.machine}|${d}`;
+      const nm = Number(r.nameplate_lbs_hr)||0;
+      const mat= String(r.material||'').trim().toUpperCase() || 'DEFAULT';
+      const capFromMap = nm>0 ? nm : capacityFor(r.machine, mat);
+      const runH = Math.max(0, Number(r.machine_hours)||0);
+      const md   = Math.max(0, Number(r.maint_dt_h)||0);
+      const lbs  = Math.max(0, Number(r.pounds)||0);
+
+      if (!byDay.has(k)) byDay.set(k, { machine:r.machine, day:d, md:0, lbs:0, sumCapRun:0, sumRun:0, caps:[], mats:new Set() });
+      const o = byDay.get(k);
+      o.lbs += lbs;
+      o.md   = Math.max(o.md, md);
+      o.mats.add(mat);
+      if (capFromMap>0) { o.sumCapRun += capFromMap * runH; o.sumRun += runH; o.caps.push({cap:capFromMap, mat, nm}); }
+    }
+
+    // compute per-day figures
+    const out = [];
+    for (const o of byDay.values()) {
+      let capDay = 0, how = 'none';
+      if (o.sumRun > 0) { capDay = o.sumCapRun / o.sumRun; how = 'run-weighted'; }
+      else if (o.caps.length) {
+        const arr = o.caps.map(x=>x.cap).sort((a,b)=>a-b);
+        capDay = arr[Math.floor(arr.length/2)]; how = 'median-candidate';
+      }
+      const adjDen = capDay * Math.max(0, 24 - o.md);
+      const perfAdj = adjDen>0 ? (o.lbs/adjDen) : null;
+
+      // show the “primary” material (by pounds) for the day
+      let domMat = 'DEFAULT', mapLbs = {};
+      for (const r of o.caps) mapLbs[r.mat] = (mapLbs[r.mat]||0) + 1;
+      let best=-1; for (const [k,v] of Object.entries(mapLbs)) if (v>best){ best=v; domMat=k; }
+
+      // show a representative mapped cap for that mat (ignoring nameplate)
+      const chosenMapCap = capacityFor(o.machine, domMat);
+
+      out.push({
+        machine: o.machine,
+        day: o.day,
+        mat_dom: domMat,
+        chosen_mapping_cap_lbs_hr: chosenMapCap,
+        capDay_used_by_UI: capDay,
+        capDay_how: how,              // run-weighted vs median-candidate
+        maint_h: o.md,
+        pounds: o.lbs,
+        perfAdj: perfAdj
+      });
+    }
+
+    // order newest first, cap
+    const sorted = out.sort((a,b)=> (a.machine===b.machine ? a.day.localeCompare(b.day) : a.machine.localeCompare(b.machine)) );
+    res.json({ ok:true, from, to, machine: mach, rows: sorted.slice(0, limit) });
+  } catch (e) {
+    res.status(500).json({ ok:false, error:String(e.message||e) });
+  }
+});
+
   return r;
 }
