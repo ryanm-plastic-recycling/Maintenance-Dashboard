@@ -1,6 +1,7 @@
 import express from 'express';
 import { refreshHeaderKpis, refreshByAssetKpis, refreshWorkOrders } from '../jobs/kpiJobs.js';
 import { runFullRefresh } from '../jobs/pipeline.js';
+import { requireAdmin } from '../lib/adminAuth.js';
 
 export default function adminRoutes(poolPromise) {
   const r = express.Router();
