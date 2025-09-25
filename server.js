@@ -531,11 +531,6 @@ const ipv4 = Object.values(nets)
 // ─── express setup ────────────────────────────────────────────────────────
 const app = express();
 
-// 1) core middleware first
-app.use(helmet({
-  crossOriginResourcePolicy: { policy: 'cross-origin' },
-  hsts: false,
-}));
 // (optional) if you prefer to explicitly clear any caches that *do* hit HTTPS:
 app.use((req, res, next) => {
   // sends a “forget HSTS” if this ever goes over TLS later
@@ -543,7 +538,7 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(cors({ origin: ['https://dashboard.plastic-recycling.net'], credentials: false }));
+app.use(cors({ origin: true }));
 app.use(express.json());
 
 // Ensure API responses are not cached by browsers/CDNs (prevents 304 + JSON mismatch)
