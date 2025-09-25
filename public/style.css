@@ -289,6 +289,6 @@ body::before {
   background:
     /* soften the image so cards & text stay readable */
     linear-gradient(to bottom, rgba(255,255,255,.75), rgba(255,255,255,.85)),
-    url('img/PRIfront.jpg') center / cover no-repeat fixed;
+    url('img/PRIfront.png') center / cover no-repeat fixed;
 }
 
