@@ -52,3 +52,5 @@ export default function adminRoutes(poolPromise) {
 
   return r;
 }
+
+console.log('[adminAuth] basic?', !!ADMIN_USER && !!ADMIN_PASS, 'bearer?', !!ADMIN_TOKEN);
