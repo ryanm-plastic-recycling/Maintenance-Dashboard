@@ -5,6 +5,10 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
+const ADMIN_USER  = process.env.BASIC_AUTH_USER || '';
+const ADMIN_PASS  = process.env.BASIC_AUTH_PASS || '';
+const ADMIN_TOKEN = process.env.ADMIN_TOKEN     || '';
+
 const QUALITY_DEFAULT = 0.70;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -40,6 +44,39 @@ const materialAlias = mappings.material_aliases;
 const summaryCache = new Map();
 
 const ISO_WEEKDAY = new Set([1, 2, 3, 4, 5]); // Monday = 1 .. Sunday = 7
+
+function unauthorized(res, realm='PACE Admin') {
+  res.set('WWW-Authenticate', `Basic realm="${realm}"`);
+  return res.status(401).json({ ok:false, error:'unauthorized' });
+}
+
+// Basic Auth (for curl/browser)
+function requireBasicAuth(req, res, next) {
+  if (!ADMIN_USER || !ADMIN_PASS) return unauthorized(res); // not configured -> deny
+  const hdr = req.headers.authorization || '';
+  if (!hdr.startsWith('Basic ')) return unauthorized(res);
+  const [u, p] = Buffer.from(hdr.slice(6), 'base64').toString().split(':', 2);
+  if (u === ADMIN_USER && p === ADMIN_PASS) return next();
+  return unauthorized(res);
+}
+
+// Bearer token (for programmatic calls)
+function requireBearer(req, res, next) {
+  if (!ADMIN_TOKEN) return res.status(401).json({ ok:false, error:'unauthorized' });
+  const hdr = req.headers.authorization || '';
+  const token = hdr.startsWith('Bearer ') ? hdr.slice(7) : (req.query.admin_token || '');
+  if (token === ADMIN_TOKEN) return next();
+  return res.status(401).json({ ok:false, error:'unauthorized' });
+}
+
+// Admin guard: accept either Basic or Bearer
+function requireAdmin(req, res, next) {
+  // Try bearer first, then basic
+  if (ADMIN_TOKEN && (req.headers.authorization?.startsWith('Bearer ') || req.query.admin_token)) {
+    return requireBearer(req, res, next);
+  }
+  return requireBasicAuth(req, res, next);
+}
 
 function canonLine(machine) {
   if (!machine) return '';
