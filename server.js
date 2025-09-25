@@ -23,6 +23,13 @@ const API_V2 = `${process.env.API_BASE_URL}/v2`;
 const EXPECTED_RUN_DAYS = process.env.EXPECTED_RUN_DAYS || 'Mon-Fri';
 const EXPECTED_HOURS_PER_DAY = Number(process.env.EXPECTED_HOURS_PER_DAY || 24);
 
+app.use((req,res,next) => {
+  if (req.path.startsWith('/api/admin')) {
+    console.log('[req]', req.method, req.originalUrl, 'Auth=', req.headers.authorization || '(none)');
+  }
+  next();
+});
+
 function parseRunDays(spec) {
   if (spec === 'Mon-Fri') return new Set([1,2,3,4,5]);
   if (spec === 'Sun-Sat') return new Set([1,2,3,4,5,6,7]);
