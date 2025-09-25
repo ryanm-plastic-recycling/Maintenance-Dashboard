@@ -845,6 +845,7 @@ app.post('/api/admin/run', async (req, res) => {
       case 'limble_sync_refresh': result = await jobs.limble_sync_refresh(); break;
       case 'limble_sync_completed': result = await jobs.limble_sync_completed(); break;
       case 'full_refresh_daily':  result = await jobs.full_refresh_daily(); break;
+      case 'index_maintenance':   result = await jobs.index_maintenance(); break;
       default: return res.status(400).json({ error: 'unknown job' });
     }
 
