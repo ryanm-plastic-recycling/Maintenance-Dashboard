@@ -201,8 +201,8 @@ async function upsertProductionFacts(pool, records){
       null,                               // source_ref_po
       null,                               // lot_number
       null,                               // note
-      null,                               // type
-      null,                               // color
+      r.material || null,                 // type
+      row[COL.color] || null,             // color
       null,                               // format
       null,                               // options
       r.maint_downtime_h ?? 0,            // down_time_hours (shift-maint from sheet)
@@ -234,16 +234,14 @@ async function upsertProductionFacts(pool, records){
   DELETE FROM dbo.production_staging
   WHERE machine IS NULL OR LTRIM(RTRIM(machine)) = ''
 `);
-await pool.request().execute('dbo.upsert_production_fact');
-  
-  // 1.5) SAFETY CLEAN: drop any staging rows with blank/NULL machine
-  await pool.request().query(`
-    DELETE FROM dbo.production_staging
-    WHERE machine IS NULL OR LTRIM(RTRIM(machine)) = ''
-  `);
-  
-  // 2) Roll staging → production_fact (your existing proc)
-  await pool.request().execute('dbo.upsert_production_fact');
+
+  // (optional single safety clean before roll)
+ await pool.request().query(`
+   DELETE FROM dbo.production_staging
+   WHERE machine IS NULL OR LTRIM(RTRIM(machine)) = ''
+ `);
+ // 2) Roll staging → production_fact (once)
+ await pool.request().execute('dbo.upsert_production_fact');
 
   // 2) Roll staging → production_fact (your existing proc)
   await pool.request().execute('dbo.upsert_production_fact');
