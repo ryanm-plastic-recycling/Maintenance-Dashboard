@@ -4,11 +4,19 @@ import sql from 'mssql';
 let tasks = {};
 
 async function withAppLock(pool, name, fn) {
-  const req = pool.request();
-  await req.query(`EXEC sp_getapplock @Resource='${name}', @LockMode='Exclusive', @LockTimeout=0;`);
-  try { return await fn(); }
-  finally { await pool.request().query(`EXEC sp_releaseapplock @Resource='${name}';`); }
-}
+   const req1 = pool.request();
+   await req1
+     .input('res', sql.NVarChar, name)
+     .query('EXEC sp_getapplock @Resource=@res, @LockMode=Exclusive, @LockTimeout=0;');
+   try {
+     return await fn();
+   } finally {
+     const req2 = pool.request();
+     await req2
+       .input('res', sql.NVarChar, name)
+       .query('EXEC sp_releaseapplock @Resource=@res;');
+   }
+ }
 
 async function loadSchedules(pool) {
   const { recordset } = await pool.request().query(`SELECT Name,Cron,Enabled FROM dbo.UpdateSchedules`);
