@@ -558,22 +558,19 @@
   });
 </script>
 <script type="module" src="js/header-kpis.js" defer></script>
-// <script>
-//document.getElementById('btnProdExcel').onclick = async () => {
-//  const r = await fetch('/api/admin/run-prod-excel', { method: 'POST' });
-//  const j = await r.json();
-//  alert(r.ok ? `Ingested: ${j.ingested}, Enriched: ${j.enriched}` : (j.error || 'Error'));
-//};
-//</script>
 <script>
 document.getElementById('btnProdExcel').addEventListener('click', async () => {
   const tok = (document.getElementById('admTok').value || '').trim();
   const dry = document.getElementById('dry').checked ? '1' : '0';
 
-  const url = `/api/admin/run-prod-excel?dry=${dry}&admin_token=${encodeURIComponent(tok)}`;
- 
+  // NOTE the /api prefix here:
+  const url = `/api/admin/run-prod-excel?dry=${dry}`;
+
+  // Send token in the Authorization header
+  const headers = tok ? { 'Authorization': 'Bearer ' + tok } : {};
+
   try {
-     const res = await fetch(url, { method:'POST' });
+    const res = await fetch(url, { method: 'POST', headers });
     const data = await res.json();
     alert(JSON.stringify(data, null, 2));
   } catch (e) {
@@ -581,5 +578,6 @@ document.getElementById('btnProdExcel').addEventListener('click', async () => {
   }
 });
 </script>
+
 </body>
 </html>
