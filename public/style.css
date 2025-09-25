@@ -274,3 +274,21 @@ label[for="timeframe-select"] {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
 }
+
+/* === Global background (subtle overlay) === */
+body {
+  position: relative;
+  background-color: #E9EDF5; /* your current fallback */
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1; /* behind everything */
+  background:
+    /* soften the image so cards & text stay readable */
+    linear-gradient(to bottom, rgba(255,255,255,.75), rgba(255,255,255,.85)),
+    url('img/PRIfront.jpg') center / cover no-repeat fixed;
+}
+
