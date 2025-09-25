@@ -22,7 +22,7 @@ export default function adminRoutes(poolPromise) {
   });
 
   // POST /api/admin/run-prod-excel  { password }
-  r.post('/admin/run-prod-excel', async (req, res) => {
+  r.post('/admin/run-prod-excel', requireAdmin, async (req, res) => {
     try {
       const pool = await poolPromise;
       const { runProdExcelIngest } = await import('../jobs/prodExcelIngest.js');
