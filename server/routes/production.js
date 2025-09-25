@@ -284,7 +284,6 @@ const applyJoin = (includeMaterial && materialColumn)
   ORDER BY v.src_date, v.machine;
 `;
 
-
   // Use a longer per-request timeout
   const req = pool.request();
   req.input('from', sql.Date, from);
