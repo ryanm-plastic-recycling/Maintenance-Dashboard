@@ -4,7 +4,6 @@ import { fileURLToPath } from 'url';
 import path     from 'path';
 import fs       from 'fs';
 import fetch    from 'node-fetch';
-import dotenv   from 'dotenv';
 import os       from 'os';
 import moment   from 'moment';
 import _        from 'lodash';
@@ -538,6 +537,13 @@ app.use(helmet({
 }));
 app.use(cors({ origin: ['https://dashboard.plastic-recycling.net'], credentials: false }));
 app.use(express.json());
+
+// Ensure API responses are not cached by browsers/CDNs (prevents 304 + JSON mismatch)
+app.use('/api', (req, res, next) => {
+  res.set('Cache-Control', 'no-store, max-age=0, must-revalidate');
+  next();
+});
+
 // If you’re behind a proxy (NGINX/Cloudflare):
 // app.set('trust proxy', 1);
 
@@ -593,13 +599,6 @@ app.use((err, req, res, next) => {
 
 // optional util you’re setting:
 app.fetchAndCache = async () => null;
-
-// 6) listen LAST
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`NOICE! Server running at ${PORT}.`);
-  console.log(`On LAN: http://${ipv4 || '127.0.0.1'}:${PORT}/`);
-});
 
 // ─── KPI Theme Settings Endpoints ──────────────────────────────────────────
 app.get('/api/settings/kpi-theme', (req, res) => {
@@ -761,12 +760,6 @@ app.get('/api/hours', async (req, res) => {
         console.error('Error:', error);
         res.status(500).json({ error: 'An error occurred while fetching new tasks.' });
     }
-});
-
-// Ensure API responses are not cached by browsers/CDNs (prevents 304 + JSON mismatch)
-app.use('/api', (req, res, next) => {
-  res.set('Cache-Control', 'no-store, max-age=0, must-revalidate');
-  next();
 });
 
 // ---- Admin schedule API ----
@@ -966,9 +959,6 @@ const jobs = {
   async full_refresh_daily()      { const p = await poolPromise; return runFullRefresh(p); },
 };
 
-const shouldListen =
-  process.env.NODE_ENV !== 'test' || process.env.FORCE_LISTEN === 'true';
-
 app.get('/api/kpis/header', async (req, res) => {
   try {
     const pool = await poolPromise;
@@ -997,6 +987,10 @@ app.get('/api/kpis/header', async (req, res) => {
 });
 
 app.get('/api/health', (_req, res) => res.json({ ok: true, ts: new Date().toISOString() }));
+
+const shouldListen =
+  process.env.NODE_ENV !== 'test' || process.env.FORCE_LISTEN === 'true';
+const PORT = process.env.PORT || 3000;
 
 if (shouldListen) {
   app.listen(PORT, () => {
