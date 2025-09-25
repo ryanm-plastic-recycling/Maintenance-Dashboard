@@ -251,17 +251,14 @@ async function loadLineDayRows(pool, from, to, opts = {}) {
   const { includeMaterial = true, requestTimeoutMs = 45000 } = opts;
 
   // Only resolve material column if we plan to use it
-  let materialColumn = null;
-  if (includeMaterial) {
-    materialColumn = await resolveMaterialColumn(pool);
-  }
+  const materialColumn = await resolveMaterialColumn(pool);
 
   const materialSelect = (includeMaterial && materialColumn)
-    ? 'mat.material'
-    : 'CAST(NULL AS NVARCHAR(128)) AS material';
+  ? 'mat.material'
+  : 'CAST(NULL AS NVARCHAR(128)) AS material';
 
-  const applyJoin = (includeMaterial && materialColumn)
-    ? `OUTER APPLY (
+const applyJoin = (includeMaterial && materialColumn)
+  ? `OUTER APPLY (
          SELECT TOP (1) pf.${materialColumn} AS material
          FROM dbo.production_fact AS pf
          WHERE CONVERT(date, pf.src_date) = CONVERT(date, v.src_date)
@@ -271,19 +268,21 @@ async function loadLineDayRows(pool, from, to, opts = {}) {
     : '';
 
   const query = `
-    SELECT
-      CONVERT(char(10), v.src_date, 23) AS src_date,
-      v.machine,
-      v.pounds,
-      v.maint_dt_h,
-      v.machine_hours,
-      ${materialSelect},
-      v.nameplate_lbs_hr
-    FROM dbo.v_prod_daily_line AS v
-    ${applyJoin}
-    WHERE v.src_date BETWEEN @from AND @to
-    ORDER BY v.src_date, v.machine;
-  `;
+  SELECT
+    CONVERT(char(10), v.src_date, 23) AS src_date,
+    v.machine,
+    v.pounds,
+    v.maint_dt_h,
+    v.machine_hours,
+    COALESCE(dm.material, 'DEFAULT') AS material,  -- << dominant day-material
+    v.nameplate_lbs_hr
+  FROM dbo.v_prod_daily_line AS v
+  LEFT JOIN dbo.v_prod_day_material AS dm
+    ON dm.src_date = CAST(v.src_date AS date)
+   AND dm.machine  = v.machine
+  WHERE v.src_date BETWEEN @from AND @to
+  ORDER BY v.src_date, v.machine;
+`;
 
   // Use a longer per-request timeout
   const req = pool.request();
