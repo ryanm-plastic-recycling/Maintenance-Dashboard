@@ -448,5 +448,112 @@ export default function productionRoutes(poolPromise) {
     } catch (e) { next(e); }
   });
 
+  // --- diagnostics: capacity lookup ---------------------------------
+r.get('/production/cap-check', (req, res) => {
+  try {
+    const machine = (req.query.machine || '').trim();
+    const rawMat  = (req.query.material || '').trim();
+    const mat     = rawMat ? rawMat.toUpperCase() : '';
+    const capByLine = capacityByLine[canonLine(machine)];
+    const capByMat  = capacityByMaterial[canonLine(machine)];
+    const matKey    = canonMaterial(mat);
+    const mappingCap =
+      (capByMat && (capByMat[matKey] ?? capByMat.DEFAULT)) ??
+      (capByLine ?? null);
+
+    res.json({
+      machine_input: machine,
+      material_input: rawMat,
+      machine_canon: canonLine(machine),
+      material_canon: matKey,
+      from_capacities_lbs_hr: capByLine ?? null,
+      from_capacity_by_material: capByMat ?? null,
+      chosen_mapping_cap_lbs_hr: (mappingCap != null) ? Number(mappingCap) : null
+    });
+  } catch (e) {
+    res.status(500).json({ error: String(e.message || e) });
+  }
+});
+
+  // --- diagnostics: per-day cap and perf-Adj exactly like UI --------------
+r.get('/production/debug-cap', async (req, res) => {
+  try {
+    const pool = await poolPromise;
+    if (!pool) return res.json({ ok:false, error:'no DB pool' });
+
+    const from = req.query.from || '2000-01-01';
+    const to   = req.query.to   || '2100-01-01';
+    const only = (req.query.machine || '').trim();  // optional machine filter
+
+    // use includeMaterial so we test mapping-by-material too
+    const rows = await loadLineDayRows(pool, from, to, {
+      includeMaterial: true, requestTimeoutMs: 45000
+    });
+
+    const filt = only ? rows.filter(r => r.machine === only) : rows;
+
+    // group rows by machine+day
+    const dayMap = new Map(); // key: m|d -> {rows:[], lbs, maint, runH, capCandidates:[...]}
+    for (const r of filt) {
+      const d = (r.src_date || '').slice(0,10);
+      if (!d) continue;
+      const key = `${r.machine}|${d}`;
+      const capRow = (Number(r.nameplate_lbs_hr) > 0)
+        ? Number(r.nameplate_lbs_hr)
+        : capacityFor(r.machine, r.material);
+      const runH = Math.max(0, Number(r.machine_hours)||0);
+      const md   = Math.max(0, Number(r.maint_dt_h)||0);
+      const lbs  = Math.max(0, Number(r.pounds)||0);
+
+      if (!dayMap.has(key)) dayMap.set(key, {
+        machine:r.machine, day:d,
+        sumCapRun:0, sumRun:0, capCandidates:[],
+        lbs:0, maint:0
+      });
+      const o = dayMap.get(key);
+      o.lbs   += lbs;
+      o.maint  = Math.max(o.maint, md);
+      if (capRow > 0) { o.sumCapRun += capRow * runH; o.sumRun += runH; o.capCandidates.push(capRow); }
+    }
+
+    // compute capDay and perfAdj per day
+    const out = [];
+    for (const o of dayMap.values()) {
+      let capDay = 0;
+      if (o.sumRun > 0) capDay = o.sumCapRun / o.sumRun;
+      else if (o.capCandidates.length) {
+        const s = o.capCandidates.slice().sort((a,b)=>a-b);
+        capDay = s[Math.floor(s.length/2)];
+      }
+      const adjDen = capDay * Math.max(0, 24 - o.maint);
+      const perfAdj = adjDen > 0 ? (o.lbs / adjDen) : null;
+      out.push({
+        machine:o.machine, day:o.day,
+        capDay,
+        maint:o.maint,
+        lbs:o.lbs,
+        perfAdj
+      });
+    }
+
+    // if a single machine requested, also give line-level tile numbers the same way as UI:
+    let lineTile = null;
+    if (only) {
+      const rows = out.filter(x => x.machine === only);
+      const nPA  = rows.filter(x => Number.isFinite(x.perfAdj)).length;
+      const sumPA= rows.reduce((a,x)=>a + (Number.isFinite(x.perfAdj)?x.perfAdj:0),0);
+      lineTile = {
+        machine: only,
+        perfAdj_dayAverage: (nPA>0? sumPA/nPA : null),
+        note: 'day-average of daily perfAdj; not weighted by capacity'
+      };
+    }
+
+    res.json({ ok:true, from, to, machineFilter: (only||null), days: out, lineTile });
+  } catch (e) {
+    res.status(500).json({ ok:false, error:String(e.message||e) });
+  }
+});
+
   return r;
 }
