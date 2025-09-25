@@ -992,6 +992,14 @@ const jobs = {
 
   // Any long “full refresh” you keep
   async full_refresh_daily()      { const p = await poolPromise; return runFullRefresh(p); },
+  
+  async index_maintenance() {
+    const p = await poolPromise;
+    // target the hottest table only, or omit param to do all tables
+    return p.request()
+      // .input('target_table', sql.NVarChar, 'dbo.production_fact') // optional
+      .execute('dbo.usp_index_maintenance');
+  },
 };
 
 app.get('/api/kpis/header', async (req, res) => {
