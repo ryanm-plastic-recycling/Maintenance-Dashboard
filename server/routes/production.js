@@ -555,5 +555,29 @@ r.get('/production/debug-cap', async (req, res) => {
   }
 });
 
+  r.get('/production/debug-material', async (req, res) => {
+  const pool = await poolPromise; if (!pool) return res.json([]);
+  const from = req.query.from || '2000-01-01';
+  const to   = req.query.to   || '2100-01-01';
+  const m    = req.query.machine;
+  const rows = await loadLineDayRows(pool, from, to, { includeMaterial: true, requestTimeoutMs: 45000 });
+  const filt = m ? rows.filter(r => r.machine === m) : rows;
+  const map = new Map(); // m|d -> {lbsByMat}
+  for (const r of filt) {
+    const d = (r.src_date||'').slice(0,10); if (!d) continue;
+    const key = `${r.machine}|${d}`;
+    const mat = String(r.material||'').trim().toUpperCase() || 'DEFAULT';
+    if (!map.has(key)) map.set(key, { machine:r.machine, day:d, lbsByMat:{} });
+    const o = map.get(key);
+    o.lbsByMat[mat] = (o.lbsByMat[mat]||0) + (Number(r.pounds)||0);
+  }
+  const out = [...map.values()].map(o => {
+    let bestK='DEFAULT', bestV=-1;
+    for (const [k,v] of Object.entries(o.lbsByMat)) if (v>bestV){ bestV=v; bestK=k; }
+    return { machine:o.machine, day:o.day, dominant_material:bestK, lbs:o.lbsByMat[bestK] };
+  });
+  res.json(out);
+});
+
   return r;
 }
