@@ -632,13 +632,6 @@ app.post('/api/mappings', requireAdmin, (req,res)=>{
   );
 });
 
-// 5) 404 & error handlers LAST
-app.use((req, res) => res.status(404).json({ ok:false, error:'not found' }));
-app.use((err, req, res, next) => {
-  console.error(err);
-  res.status(500).json({ ok:false, error:'server error' });
-});
-
 // optional util you’re setting:
 app.fetchAndCache = async () => null;
 
@@ -1029,6 +1022,13 @@ app.get('/api/kpis/header', async (req, res) => {
 });
 
 app.get('/api/health', (_req, res) => res.json({ ok: true, ts: new Date().toISOString() }));
+
+// 5) 404 & error handlers LAST
+app.use((req, res) => res.status(404).json({ ok:false, error:'not found' }));
+app.use((err, req, res, next) => {
+  console.error(err);
+  res.status(500).json({ ok:false, error:'server error' });
+});
 
 const shouldListen =
   process.env.NODE_ENV !== 'test' || process.env.FORCE_LISTEN === 'true';
