@@ -485,7 +485,7 @@ export default function productionRoutes(poolPromise) {
   });
 
   // --- diagnostics: capacity lookup ---------------------------------
-r.get('/production/cap-check', (req, res) => {
+r.get('/production/cap-check', requireAdmin, (req, res) => {
   try {
     const machine = (req.query.machine || '').trim();
     const rawMat  = (req.query.material || '').trim();
@@ -512,7 +512,7 @@ r.get('/production/cap-check', (req, res) => {
 });
 
   // --- diagnostics: per-day cap and perf-Adj exactly like UI --------------
-r.get('/production/debug-cap', async (req, res) => {
+r.get('/production/debug-cap', requireAdmin, async (req, res) => {
   try {
     const pool = await poolPromise;
     if (!pool) return res.json({ ok:false, error:'no DB pool' });
@@ -591,7 +591,7 @@ r.get('/production/debug-cap', async (req, res) => {
   }
 });
 
-  r.get('/production/debug-material', async (req, res) => {
+  r.get('/production/debug-material', requireAdmin, async (req, res) => {
   const pool = await poolPromise; if (!pool) return res.json([]);
   const from = req.query.from || '2000-01-01';
   const to   = req.query.to   || '2100-01-01';
@@ -616,7 +616,7 @@ r.get('/production/debug-cap', async (req, res) => {
 });
 
   // --- admin: capacity audit (by day) ---------------------------------
-r.get('/admin/cap-audit', async (req, res) => {
+r.get('/admin/cap-audit', requireAdmin, async (req, res) => {
   try {
     const pool = await poolPromise; if (!pool) return res.json({ ok:false, error:'no DB pool' });
     const from   = (req.query.from || '2000-01-01').slice(0,10);
