@@ -1,4 +1,7 @@
 // ecosystem.config.cjs
+
+require('dotenv').config();
+
 module.exports = {
   apps: [
     {
@@ -26,7 +29,10 @@ module.exports = {
         ADMIN_PASSWORD: process.env.ADMIN_PASSWORD,
         CACHE_TTL_MINUTES: process.env.CACHE_TTL_MINUTES,
         CACHE_CHECK_PERIOD_SECONDS: process.env.CACHE_CHECK_PERIOD_SECONDS,
-        STATUS_REFRESH_ENDPOINT: process.env.STATUS_REFRESH_ENDPOINT
+        STATUS_REFRESH_ENDPOINT: process.env.STATUS_REFRESH_ENDPOINT,
+	BASIC_AUTH_USER: process.env.BASIC_AUTH_USER,
+	BASIC_AUTH_PASS: process.env.BASIC_AUTH_PASS,
+	ADMIN_TOKEN:     process.env.ADMIN_TOKEN
       }
     },
     {
