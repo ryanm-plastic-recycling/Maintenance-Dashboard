@@ -178,6 +178,18 @@
     .gauge.bad,   .gauge.bad   svg  { color: var(--bad-fg);  }
     .gauge.empty, .gauge.empty svg  { color: var(--muted);   }
     .gauge .track { stroke: currentColor; }   /* optional: color the track too */
+    
+    /* Force gauge colors without relying on currentColor inheritance */
+    .gauge.good  .band, .gauge.good  .needle { stroke: var(--good-fg) !important; }
+    .gauge.warn  .band, .gauge.warn  .needle { stroke: var(--warn-fg) !important; }
+    .gauge.bad   .band, .gauge.bad   .needle { stroke: var(--bad-fg)  !important; }
+    .gauge.empty .band, .gauge.empty .needle { stroke: var(--muted)   !important; }
+    
+    /* (optional) color the track too; remove if you like it gray */
+    .gauge.good  .track { stroke: color-mix(in srgb, var(--good-fg) 30%, #e5e7eb) !important; }
+    .gauge.warn  .track { stroke: color-mix(in srgb, var(--warn-fg) 30%, #e5e7eb) !important; }
+    .gauge.bad   .track { stroke: color-mix(in srgb, var(--bad-fg)  30%, #e5e7eb) !important; }
+    .gauge.empty .track { stroke: #e5e7eb !important; }
 
   </style>
 </head>
