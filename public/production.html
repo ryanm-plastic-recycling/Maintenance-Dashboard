@@ -1137,14 +1137,28 @@ function capacityFor(lineName, material){
         const lbs = r.pounds || 0;
         const md  = Math.max(0, r.maint_dt_h || 0);
         const mh  = Math.max(0, r.machine_hours || 0);
-        const availability = (24>0 ? (mh/24) : 0);
-        const perfAdj      = (cap>0 ? (lbs/(cap*Math.max(0,24-md))) : 0);
-        const qual         = QUALITY_DEFAULT;
+        const availability = 24 > 0 ? (mh / 24) : 0;
+
+        // adjusted perf: ignore when runtime is tiny; otherwise cap (winsorize)
+        let perfAdj = NaN;
+        if (mh >= MIN_RUN_H_FOR_ADJ && cap > 0) {
+          const adjDen = cap * Math.max(0, 24 - md);
+          if (adjDen > 0) perfAdj = Math.min(lbs / adjDen, PERF_CAP);
+        }
+        
+        const qual = QUALITY_DEFAULT;
+        
         aggBy[m] ??= {};
         aggBy[m][wd] ??= { av:{sum:0,n:0}, pa:{sum:0,n:0}, q:{sum:0,n:0} };
+        
         if (Number.isFinite(availability)) { aggBy[m][wd].av.sum += availability; aggBy[m][wd].av.n += 1; }
         if (Number.isFinite(perfAdj))      { aggBy[m][wd].pa.sum += perfAdj;      aggBy[m][wd].pa.n += 1; }
-        if (Number.isFinite(availability) && Number.isFinite(perfAdj)) { aggBy[m][wd].q.sum += qual; aggBy[m][wd].q.n += 1; }
+        
+        // Keep quality in step with the other two factors (only count when both exist)
+        if (Number.isFinite(availability) && Number.isFinite(perfAdj)) {
+          aggBy[m][wd].q.sum += qual; aggBy[m][wd].q.n += 1;
+        }
+
       }
       const machines = Object.keys(aggBy).sort();
       let thead =
