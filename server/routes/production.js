@@ -526,15 +526,18 @@ r.get('/production/debug-cap', requireAdmin, async (req, res) => {
         const s = o.capCandidates.slice().sort((a,b)=>a-b);
         capDay = s[Math.floor(s.length/2)];
       }
+      const PERF_CAP = 1.25;
+      const MIN_RUN_H_FOR_ADJ = 0.25;
+      
       const adjDen = capDay * Math.max(0, 24 - o.maint);
-      const perfAdj = adjDen > 0 ? (o.lbs / adjDen) : null;
-      out.push({
-        machine:o.machine, day:o.day,
-        capDay,
-        maint:o.maint,
-        lbs:o.lbs,
-        perfAdj
-      });
+      
+      // if runtime is effectively zero, drop adjusted perf (NaN) to avoid blow-up
+      let perfAdj = (o.sumRun > MIN_RUN_H_FOR_ADJ && adjDen > 0) ? (o.lbs / adjDen) : NaN;
+      
+      // cap (winsorize) daily values for display/debug parity with the UI
+      if (Number.isFinite(perfAdj)) perfAdj = Math.min(perfAdj, PERF_CAP);
+      
+      out.push({ machine:o.machine, day:o.day, capDay, maint:o.maint, lbs:o.lbs, perfAdj });
     }
 
     // if a single machine requested, also give line-level tile numbers the same way as UI:
