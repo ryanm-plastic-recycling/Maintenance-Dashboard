@@ -584,8 +584,21 @@ function capacityFor(lineName, material){
       if (c.bad?.fg)   document.documentElement.style.setProperty('--bad-fg',  c.bad.fg);
     } catch {}
   }
+  
+  function setTileClassBy(sel, cls) {
+      const el = document.querySelector(sel);
+      if (!el) return;
+      el.classList.remove('good','warn','bad');
+      if (cls) el.classList.add(cls);
+    }
+  
+  // use the same limits you already applied for the % tiles
+  function classFromLowPct(pct) {
+    if (!Number.isFinite(pct)) return '';
+    // good <= 10%, warn <= 20% (adjust if yours differ)
+    return (pct <= 0.10) ? 'good' : (pct <= 0.20) ? 'warn' : 'bad';
+  }
 </script>
-
 <script>
   const THRESH = {
     capacityAdj: { good: 0.80, warn: 0.60 },
@@ -624,12 +637,6 @@ function capacityFor(lineName, material){
   function showEmpty(idTable, idEmpty, isEmpty){
     document.getElementById(idTable).style.display = isEmpty ? 'none' : '';
     document.getElementById(idEmpty).style.display = isEmpty ? '' : 'none';
-  }
-
-  // Spinnder - loading
-  function setLoading(on) {
-    const el = document.getElementById('loading');
-    if (el) el.style.display = on ? 'flex' : 'none';
   }
   
   async function renderForRange(fromISO, toISO, label){
@@ -946,13 +953,6 @@ function capacityFor(lineName, material){
       if (!el) return;
       el.classList.remove('good','warn','bad');
     })();
-    
-    function setTileClassBy(sel, cls) {
-      const el = document.querySelector(sel);
-      if (!el) return;
-      el.classList.remove('good','warn','bad');
-      if (cls) el.classList.add(cls);
-    }
 
     const paintLow = (sel, v) => {
       const el = document.querySelector(sel);
@@ -960,10 +960,10 @@ function capacityFor(lineName, material){
       if (!Number.isFinite(v)) return;
       el.classList.add(v <= 0.10 ? 'good' : v <= 0.20 ? 'warn' : 'bad');
     };
-    paintLow('#tile-mdt-pct', ovMdtPct);
-    paintLow('#tile-pdt-pct', ovPdtPct);
-    paintLow('#tile-mo-mdt-pct', ovMoM_pct);
-    paintLow('#tile-mo-pdt-pct', ovMoP_pct);
+    //paintLow('#tile-mdt-pct', ovMdtPct);
+    //paintLow('#tile-pdt-pct', ovPdtPct);
+    //paintLow('#tile-mo-mdt-pct', ovMoM_pct);
+    //paintLow('#tile-mo-pdt-pct', ovMoP_pct);
 
     // -------- Line Tiles --------
     const cont = document.getElementById('lineTiles'); cont.innerHTML = '';
@@ -1165,7 +1165,7 @@ function capacityFor(lineName, material){
         const wd = weekdayLocal(r.src_date);
         if (!wd || wd==='Sat' || wd==='Sun') continue;
         const m = r.machine;
-        const cap = (r.nameplate_lbs_hr && r.nameplate_lbs_hr > 0) ? r.nameplate_lbs_hr : capacityFor(r.machine, r.material);
+        const cap = capacityFor(r.machine, r.material);
         const lbs = r.pounds || 0;
         const md  = Math.max(0, r.maint_dt_h || 0);
         const mh  = Math.max(0, r.machine_hours || 0);
@@ -1371,13 +1371,6 @@ function capacityFor(lineName, material){
   })();
 
   // Small helpers
-  // use the same limits you already applied for the % tiles
-  function classFromLowPct(pct) {
-    if (!Number.isFinite(pct)) return '';
-    // good <= 10%, warn <= 20% (adjust if yours differ)
-    return (pct <= 0.10) ? 'good' : (pct <= 0.20) ? 'warn' : 'bad';
-  }
-
   // resolve a CSS custom property to its computed value (e.g. "--good-fg" -> "#10B981")
   function cssVar(name) {
     return getComputedStyle(document.documentElement)
