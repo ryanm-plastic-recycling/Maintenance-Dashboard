@@ -232,12 +232,12 @@
       <div class="lab">Run Hours
         <span class="tooltip"><span class="info" tabindex="0">i</span>
           <span class="tooltip-panel"><b>Run Hours</b><br>
-            Reported machine runtime from production excel entries (no front-end backfill).
+            Reported machine runtime from production entries (no front-end backfill).
           </span>
         </span>
       </div>
       
-      <!-- Performance (Raw 24h) -->
+      <!-- tile-pr -->
       <div class="lab">Performance (Raw 24h)
         <span class="tooltip"><span class="info" tabindex="0">i</span>
           <span class="tooltip-panel"><b>Performance (Raw)</b><br>
@@ -250,8 +250,7 @@
       <div class="lab">Capacity Potential (lb)
         <span class="tooltip"><span class="info" tabindex="0">i</span>
           <span class="tooltip-panel"><b>Capacity Potential</b><br>
-            Nameplate capacity across the selected calendar (24h per day). Per line uses its
-            material mapping and includes idle weekdays. Nameplate capacity based on an average of historical data and can be changed in the mappings file as needed.
+            Nameplate capacity across the selected calendar (24h/day); per line uses material mapping and includes idle weekdays.
           </span>
         </span>
       </div>
@@ -260,16 +259,16 @@
       <div class="lab">Total Pounds
         <span class="tooltip"><span class="info" tabindex="0">i</span>
           <span class="tooltip-panel"><b>Total Pounds</b><br>
-            Sum of all reported pounds for the selected range and lines.
+            Sum of all reported pounds in range (filtered to lines shown).
           </span>
         </span>
       </div>
       
-      <!-- Under-Perf Gap (lb) -->
+      <!-- tile-under -->
       <div class="lab">Under-Perf Gap (lb)
         <span class="tooltip"><span class="info" tabindex="0">i</span>
           <span class="tooltip-panel"><b>Under-performance Gap</b><br>
-            (Capacity × Run Hours) − Pounds. “Lost” pounds while running. Running factors ingnore any associated downtime metrics accounted elsewhere.
+            (Capacity × Run Hours) − Pounds. “Lost” pounds while running.
           </span>
         </span>
       </div>
@@ -278,14 +277,13 @@
       <!-- Maint DT (h) -->
       <div class="lab">Maint DT (h)
         <span class="tooltip"><span class="info" tabindex="0">i</span>
-          <span class="tooltip-panel"><b>Maintenance Downtime (hours)</b><br>
-            Limble downtime sliced back over weekdays to the occurrence days,
-            capped at 24h per machine-day.
+          <span class="tooltip-panel"><b>Maintenance Downtime</b><br>
+            Limble downtime sliced back over weekdays to the occurrence days, capped at 24h per machine-day.
           </span>
         </span>
       </div>
       
-      <!-- Maint DT (%) -->
+      <!-- tile-mdt-pct -->
       <div class="lab">Maint DT (%)
         <span class="tooltip"><span class="info" tabindex="0">i</span>
           <span class="tooltip-panel"><b>Maintenance DT %</b><br>
@@ -297,13 +295,13 @@
       <!-- Prod DT (h) -->
       <div class="lab">Prod DT (h)
         <span class="tooltip"><span class="info" tabindex="0">i</span>
-          <span class="tooltip-panel"><b>Production Downtime (hours)</b><br>
-            Remaining hours in the 24h budget after Run hours and Maintenance Downtime (includes idle weekdays). No data entered for a day & production line will account for 24 hours UNLESS Maintenance Downtime hours were incurred that day.
+          <span class="tooltip-panel"><b>Production Downtime</b><br>
+            Remaining hours from the 24h budget after Run and Maint DT (includes idle weekdays).
           </span>
         </span>
       </div>
       
-      <!-- Prod DT (%) -->
+      <!-- tile-pdt-pct -->
       <div class="lab">Prod DT (%)
         <span class="tooltip"><span class="info" tabindex="0">i</span>
           <span class="tooltip-panel"><b>Production DT %</b><br>
@@ -315,7 +313,7 @@
       <!-- Missed Opp (Maint, lb) -->
       <div class="lab">Missed Opp (Maint, lb)
         <span class="tooltip"><span class="info" tabindex="0">i</span>
-          <span class="tooltip-panel"><b>Missed Pounds Opportunity (Maintenance)</b><br>
+          <span class="tooltip-panel"><b>Missed Opportunity (Maint)</b><br>
             Capacity × Maint&nbsp;DT, summed over lines and/or days.
           </span>
         </span>
@@ -324,31 +322,33 @@
       <!-- Missed Opp (Prod, lb) -->
       <div class="lab">Missed Opp (Prod, lb)
         <span class="tooltip"><span class="info" tabindex="0">i</span>
-          <span class="tooltip-panel"><b>Missed Pounds Opportunity (Production)</b><br>
+          <span class="tooltip-panel"><b>Missed Opportunity (Prod)</b><br>
             Capacity × Prod&nbsp;DT, including idle weekdays.
           </span>
         </span>
       </div>
       
-      <!-- Missed Opp (Maint, %) -->
+      <!-- tile-mo-mdt-pct -->
       <div class="lab">Missed Opp (Maint, %)
         <span class="tooltip"><span class="info" tabindex="0">i</span>
-          <span class="tooltip-panel"><b>Missed Opportunity Maintenance %</b><br>
-            Missed-Maint (lb) ÷ Capacity Potential (lb). Capacity potential is by line and influences a non-linear return on an hour of downtime.
+          <span class="tooltip-panel"><b>Missed Opp Maint %</b><br>
+            Missed-Maint (lb) ÷ Capacity Potential (lb).
           </span>
         </span>
       </div>
       
-      <!-- Missed Opp (Prod, %) -->
+      <!-- tile-mo-pdt-pct -->
       <div class="lab">Missed Opp (Prod, %)
         <span class="tooltip"><span class="info" tabindex="0">i</span>
-          <span class="tooltip-panel"><b>Missed Opportunity Production %</b><br>
-            Missed-Prod (lb) ÷ Capacity Potential (lb). Capacity potential is by line and influences a non-linear return on an hour of downtime.
+          <span class="tooltip-panel"><b>Missed Opp Prod %</b><br>
+            Missed-Prod (lb) ÷ Capacity Potential (lb).
           </span>
         </span>
       </div>
-
+  </section>
+    
     <!-- Next Sections -->
+    <!-- Heatmaps -->
     <section class="section-gap">
       <div class="card">
         <h3>Weekday OEE Heatmap <span class="sub" id="hmLabel"></span></h3>
@@ -356,25 +356,27 @@
         <div id="heatEmpty" class="empty" style="display:none">No data for selected range.</div>
       </div>
 
-      <div class="card" style="margin-top:14px">
+      <div class="card" style="margin-top:24px">
         <h3>OEE Factors Heatmap (Availability / Performance-Adj / Quality) <span class="sub" id="hm2Label"></span></h3>
         <table id="heatFactors"></table>
         <div id="heat2Empty" class="empty" style="display:none">No data for selected range.</div>
       </div>
 
-      <div class="card" style="margin-top:14px">
+      <div class="card" style="margin-top:24px">
         <h3>Line Tiles <span class="sub" id="ltLabel"></span></h3>
         <div id="lineTiles" class="line-tiles"></div>
         <div id="ltEmpty" class="empty" style="display:none">No data for selected range.</div>
       </div>
     </section>
 
-    <div class="card" style="margin-top:14px">
+    <!-- Missed Opportunity table -->
+    <div class="card" style="margin-top:24px">
       <h3>Missed Opportunity by Line <span class="sub" id="moLabel"></span></h3>
       <table id="missedTbl"></table>
       <div id="missedEmpty" class="empty" style="display:none">No data for selected range.</div>
     </div>
 
+    <!-- Trend -->
     <section class="chart-section">
       <div class="chart-container">
         <h2>Production Trend <span class="sub" id="trLabel"></span></h2>
