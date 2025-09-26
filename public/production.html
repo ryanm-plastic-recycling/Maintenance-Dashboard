@@ -587,7 +587,7 @@ function capacityFor(lineName, material){
     capacityAdj: { good: 0.80, warn: 0.60 },
     oee:         { good: 0.50, warn: 0.25 },
     availability:{ good: 0.80, warn: 0.60 },
-    quality:     { good: 0.98, warn: 0.70 }
+    quality:     { good: 0.98, warn: 0.85 }
   };
   const QUALITY_DEFAULT = 0.70;
   const grade  = (v, {good, warn}) => (v >= good ? 'good' : v >= warn ? 'warn' : 'bad');
@@ -605,6 +605,10 @@ function capacityFor(lineName, material){
     const dt = new Date(Y, M-1, D);
     return isNaN(dt) ? null : _WDAYS[dt.getDay()];
   };
+
+  // caps to keep outlier days from blowing up the averages
+  const PERF_CAP = 1.25;        // 125%  (use 1.50 for 150% if you prefer)
+  const MIN_RUN_H_FOR_ADJ = 1.00;  // ignore adjusted perf when run hours < 1.00h
 
   function startOfWeek(d){ const x=new Date(d); const day=(x.getDay()+6)%7; x.setDate(x.getDate()-day); x.setHours(0,0,0,0); return x;}
   function endOfWeek(d){ const x=startOfWeek(d); x.setDate(x.getDate()+6); return x;}
@@ -733,8 +737,20 @@ function capacityFor(lineName, material){
       const rawDen = capDay * HOURS_PER_WEEKDAY;
       const adjDen = capDay * Math.max(0, HOURS_PER_WEEKDAY - maint);
       d.perfRaw  = rawDen > 0 ? (d.lbs / rawDen) : NaN;
-      d.perfAdj  = adjDen > 0 ? (d.lbs / adjDen) : NaN;
-      d.underLb  = Math.max(0, capDay * run - d.lbs);
+      
+      // only consider adjusted perf if there’s a reasonable amount of runtime,
+      // otherwise outliers with pounds but ~zero “available hours” will explode
+      if (run < MIN_RUN_H_FOR_ADJ) {
+        d.perfAdj = NaN;              // exclude from day-avg
+      } else {
+        d.perfAdj = adjDen > 0 ? (d.lbs / adjDen) : NaN;
+      }
+      
+      // clamp both to a ceiling (winsorize)
+      if (Number.isFinite(d.perfRaw)) d.perfRaw = Math.min(d.perfRaw, PERF_CAP);
+      if (Number.isFinite(d.perfAdj)) d.perfAdj = Math.min(d.perfAdj, PERF_CAP);
+      
+      d.underLb = Math.max(0, capDay * run - d.lbs);
     }
 
     // -------- Aggregate per machine from machine-days --------
