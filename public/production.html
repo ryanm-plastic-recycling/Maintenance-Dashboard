@@ -485,6 +485,71 @@
   </div>
 
 <script>
+  const REFRESH_MS = 10 * 60 * 1000;   // 10 minutes
+  let refreshTimer = null;
+  let lastRenderAt = 0;
+
+  // no-op if you don't have one already
+  function setLoading(v){ 
+    try{ const el = document.getElementById('loading'); if (el) el.style.display = v ? 'flex' : 'none'; }catch{}
+  }
+
+  function currentSelection() {
+    return {
+      tf:   document.getElementById('tf')?.value || 'last30',
+      day:  document.getElementById('dayPick')?.value || '',
+      wknd: !!document.getElementById('wkndToggle')?.checked
+    };
+  }
+
+  function saveSelectionToLS() {
+    localStorage.setItem('pace:prodSel', JSON.stringify(currentSelection()));
+  }
+
+  function restoreSelectionFromLS() {
+    try {
+      const s = JSON.parse(localStorage.getItem('pace:prodSel') || '{}');
+      if (s.tf)   document.getElementById('tf').value = s.tf;
+      if (s.day)  document.getElementById('dayPick').value = s.day;
+      if (typeof s.wknd === 'boolean') document.getElementById('wkndToggle').checked = s.wknd;
+    } catch {}
+  }
+
+  function scheduleAutoRefresh(goRange, goSingleDay) {
+    if (refreshTimer) clearTimeout(refreshTimer);
+    refreshTimer = setTimeout(async () => {
+      const sel = currentSelection();
+      try {
+        setLoading(true);
+        // re-apply controls in case the DOM changed
+        document.getElementById('tf').value = sel.tf;
+        document.getElementById('dayPick').value = sel.day;
+        document.getElementById('wkndToggle').checked = sel.wknd;
+
+        if (sel.day) {          // single-day mode
+          await goSingleDay();
+        } else {                // timeframe mode
+          await goRange();
+        }
+      } finally {
+        setLoading(false);
+        scheduleAutoRefresh(goRange, goSingleDay); // reschedule
+      }
+    }, REFRESH_MS);
+  }
+
+  // If the tab was hidden for a while, refresh on focus if stale.
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) {
+      const age = Date.now() - lastRenderAt;
+      if (age > REFRESH_MS * 0.9 && typeof window.__forceRefresh__ === 'function') {
+        window.__forceRefresh__(); // quick refresh + restart timer
+      }
+    }
+  });
+</script>
+
+<script>
 let MAPPINGS;
 async function loadMappings(){
   try {
@@ -502,7 +567,6 @@ function capacityFor(lineName, material){
   return byMat[canon]?.[m] ?? byMat[canon]?.DEFAULT ?? caps[canon] ?? 0;
 }
 </script>
-
 <script>
   async function loadThemeAndApply() {
     try {
@@ -1158,6 +1222,7 @@ function capacityFor(lineName, material){
     } finally {
       setLoading(false);
     }
+    lastRenderAt = Date.now();
   }
 
   function computeRange(sel){
@@ -1198,12 +1263,16 @@ function capacityFor(lineName, material){
     const wkndToggle = document.getElementById('wkndToggle');
     wkndToggle.checked = false; // default to weekdays only
 
+    // restore last selection (if any) before first render
+    restoreSelectionFromLS();
+    
     async function goRange(){
       const r = computeRange(sel.value);
       document.getElementById('tfLabel').textContent = `${r.from} → ${r.to}`;
       document.getElementById('dayPick').value = '';
       document.getElementById('dayPickLabel').textContent = '';
       await renderForRange(r.from, r.to, r.label);
+      saveSelectionToLS();
     }
     async function goSingleDay(){
       const d = dayPick.value;
@@ -1211,14 +1280,32 @@ function capacityFor(lineName, material){
       document.getElementById('dayPickLabel').textContent = d;
       document.getElementById('tfLabel').textContent = `${d} → ${d}`;
       await renderForRange(d, d, `Specific date ${d}`);
+      saveSelectionToLS();
     }
 
+    // expose a force-refresh hook used by visibility handler
+    window.__forceRefresh__ = async () => {
+      const selNow = currentSelection();
+      setLoading(true);
+      try {
+        if (selNow.day) await goSingleDay();
+        else await goRange();
+      } finally {
+        setLoading(false);
+      }
+    };
+    
     await loadMappings();
+    
     sel.addEventListener('change', goRange);
     dayPick.addEventListener('change', goSingleDay);
     wkndToggle.addEventListener('change', goRange);
 
-    await goRange();
+    // first paint
+    if (dayPick.value) await goSingleDay(); else await goRange();
+  
+    // start the 10-minute auto-refresh
+    scheduleAutoRefresh(goRange, goSingleDay);
   })();
 
   // Small helpers
@@ -1270,6 +1357,16 @@ function capacityFor(lineName, material){
     document.querySelectorAll('.tooltip-panel.show').forEach(p=>p.classList.remove('show'));
   });
 </script>
+<div id="loading" style="
+  display:none;position:fixed;inset:0;z-index:9999;
+  background:rgba(255,255,255,.55);backdrop-filter:saturate(140%) blur(2px);
+  align-items:center;justify-content:center;">
+  <div style="width:56px;height:56px;border:6px solid #e5e7eb;border-top-color:#2563eb;border-radius:50%;
+              animation:prodspin 1s linear infinite"></div>
+</div>
+<style>
+@keyframes prodspin {to{transform:rotate(360deg)}}
+</style>
 
 </body>
 </html>
