@@ -609,9 +609,8 @@ function capacityFor(lineName, material){
       // filter rows to selected calendar
       if (!planDays.includes(day)) continue;
 
-      const capRow = (row.nameplate_lbs_hr && row.nameplate_lbs_hr > 0)
-        ? row.nameplate_lbs_hr
-        : capacityFor(row.machine, row.material);
+      // Force mappings for capacity
+      const capRow = capacityFor(row.machine, row.material);
 
       const lbs  = row.pounds || 0;
       const md   = Math.max(0, row.maint_dt_h    || 0);
