@@ -2,6 +2,8 @@
 import sql from "mssql";
 import { fetchProductionExcelRows } from "./productionExcelJob.js";
 
+const INGEST_CUTOFF_ISO = process.env.INGEST_CUTOFF_ISO || '2019-01-01';
+
 // ---------- helpers ----------
 function safeNum(v, d = 0) { const n = Number(v); return Number.isFinite(n) ? n : d; }
 function safeStr(v) { return v == null ? "" : String(v).trim(); }
@@ -280,7 +282,12 @@ await pool.request().query(`
     AND (LTRIM(RTRIM(ps.lot_number))    = '' OR ps.lot_number    IS NULL)
     AND (LTRIM(RTRIM(ps.source_ref_po)) = '' OR ps.source_ref_po IS NULL);
 `);
-  
+  // Use gated cutoff date for old data
+  await pool.request().query(`
+  DELETE FROM dbo.production_staging
+  WHERE TRY_CONVERT(date, src_date) < '${INGEST_CUTOFF_ISO}'
+`);
+
   // 2) Roll staging → production_fact (once)
  await pool.request().execute('dbo.upsert_production_fact');
 
@@ -331,8 +338,12 @@ export async function runProdExcelIngest({ pool, dry=false } = {}){
   // Absolute final safety: remove any accidental nulls
   const before = mapped.length;
   mapped = mapped.filter(r => isValidISODate(r.src_date) && r.machine);
-  const extraDropped = before - mapped.length;
-  if (extraDropped > 0) skippedBadDate += extraDropped;
+  
+  // Gate by cutoff (keeps lexicographic ISO compare)
+  const gated = mapped.filter(r => r.src_date >= INGEST_CUTOFF_ISO);
+  
+  const extraDropped = before - gated.length;
+  if (extraDropped > 0) console.warn('[prod-excel] dropped rows due to cutoff:', extraDropped);
 
   if (dry) {
     return {
@@ -340,11 +351,11 @@ export async function runProdExcelIngest({ pool, dry=false } = {}){
       skippedEmpty,
       skippedBadDate,
       skippedNoMachine,
-      sample: mapped.slice(0,5)
+      sample: gated.slice(0,5)
     };
   }
 
-  try { await upsertProductionFacts(pool, mapped); }
+  try { await upsertProductionFacts(pool, gated); }
   catch(e){ e.stage="sqlUpsert"; throw e; }
 
   return { ok:true,
