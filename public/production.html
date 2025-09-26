@@ -347,7 +347,7 @@
       <!-- Row C: DT & missed-op -->
       <div class="kpis kpis-rowC">
         <!-- Maint DT (h) -->
-        <div class="tile" id="tile-mdt-pct">
+        <div class="tile" id="tile-mdt-h">
           <div class="lab">Maint DT (h)
             <span class="tooltip"><span class="info" tabindex="0">i</span>
               <span class="tooltip-panel"><b>Maintenance Downtime</b><br>
@@ -371,7 +371,7 @@
         </div>
       
         <!-- Prod DT (h) -->
-        <div class="tile" id="tile-pdt-pct">
+        <div class="tile" id="tile-pdt-h">
           <div class="lab">Prod DT (h)
             <span class="tooltip"><span class="info" tabindex="0">i</span>
               <span class="tooltip-panel"><b>Production Downtime</b><br>
@@ -395,7 +395,7 @@
         </div>
       
         <!-- Missed Opp (Maint, lb) -->
-        <div class="tile" id="tile-mo-mdt-pct">
+        <div class="tile" id="tile-mo-mdt-lb">
           <div class="lab">Missed Opp (Maint, lb)
             <span class="tooltip"><span class="info" tabindex="0">i</span>
               <span class="tooltip-panel"><b>Missed Opportunity (Maint)</b><br>
@@ -407,7 +407,7 @@
         </div>
       
         <!-- Missed Opp (Prod, lb) -->
-        <div class="tile" id="tile-mo-pdt-pct">
+        <div class="tile" id="tile-mo-pdt-lb">
           <div class="lab">Missed Opp (Prod, lb)
             <span class="tooltip"><span class="info" tabindex="0">i</span>
               <span class="tooltip-panel"><b>Missed Opportunity (Prod)</b><br>
@@ -916,11 +916,43 @@ function capacityFor(lineName, material){
       el.classList.remove('good','warn','bad');
       if (valid && Number.isFinite(v)) el.classList.add( grade(v||0, thr) );
     };
+    // Keep these for OEE, Availability, Perf-Adj, Quality
     setTileClass('#tile-oee',  ovOEE,     THRESH.oee,          totals.nAvail>0 && totals.nPA>0);
     setTileClass('#tile-av',   ovAvail,   THRESH.availability, totals.nAvail>0);
-    setTileClass('#tile-pr',   ovPerfRaw, THRESH.capacityAdj,  totals.nPR>0);
     setTileClass('#tile-pa',   ovPerfAdj, THRESH.capacityAdj,  totals.nPA>0);
     setTileClass('#tile-qual', QUALITY_DEFAULT, THRESH.quality, true);
+    
+    // ---- Downtime pairings: use % to color BOTH tiles ----
+    const mdtCls = classFromLowPct(ovMdtPct);
+    setTileClassBy('#tile-mdt-pct', mdtCls);
+    setTileClassBy('#tile-mdt-h',   mdtCls);
+    
+    const pdtCls = classFromLowPct(ovPdtPct);
+    setTileClassBy('#tile-pdt-pct', pdtCls);
+    setTileClassBy('#tile-pdt-h',   pdtCls);
+    
+    // ---- Missed opportunity pairings: use % to color BOTH tiles ----
+    const moMCls = classFromLowPct(ovMoM_pct);
+    setTileClassBy('#tile-mo-mdt-pct', moMCls);
+    setTileClassBy('#tile-mo-mdt-lb',  moMCls);
+    
+    const moPCls = classFromLowPct(ovMoP_pct);
+    setTileClassBy('#tile-mo-pdt-pct', moPCls);
+    setTileClassBy('#tile-mo-pdt-lb',  moPCls);
+    
+    // REMOVE coloring for Under-Perf (lb)
+    (function clearUnderColor(){
+      const el = document.querySelector('#tile-under');
+      if (!el) return;
+      el.classList.remove('good','warn','bad');
+    })();
+    
+    function setTileClassBy(sel, cls) {
+      const el = document.querySelector(sel);
+      if (!el) return;
+      el.classList.remove('good','warn','bad');
+      if (cls) el.classList.add(cls);
+    }
 
     const paintLow = (sel, v) => {
       const el = document.querySelector(sel);
@@ -932,15 +964,6 @@ function capacityFor(lineName, material){
     paintLow('#tile-pdt-pct', ovPdtPct);
     paintLow('#tile-mo-mdt-pct', ovMoM_pct);
     paintLow('#tile-mo-pdt-pct', ovMoP_pct);
-
-    (function paintUnder(){
-      const el = document.querySelector('#tile-under');
-      el.classList.remove('good','warn','bad');
-      const denom = totals.runCapDen > 0 ? totals.runCapDen : NaN;
-      if (!Number.isFinite(denom)) return;
-      const ratio = ovUnderGap / denom;
-      el.classList.add(ratio <= 0.05 ? 'good' : ratio <= 0.15 ? 'warn' : 'bad');
-    })();
 
     // -------- Line Tiles --------
     const cont = document.getElementById('lineTiles'); cont.innerHTML = '';
@@ -1348,6 +1371,13 @@ function capacityFor(lineName, material){
   })();
 
   // Small helpers
+  // use the same limits you already applied for the % tiles
+  function classFromLowPct(pct) {
+    if (!Number.isFinite(pct)) return '';
+    // good <= 10%, warn <= 20% (adjust if yours differ)
+    return (pct <= 0.10) ? 'good' : (pct <= 0.20) ? 'warn' : 'bad';
+  }
+
   // resolve a CSS custom property to its computed value (e.g. "--good-fg" -> "#10B981")
   function cssVar(name) {
     return getComputedStyle(document.documentElement)
