@@ -256,6 +256,12 @@ async function upsertProductionFacts(pool, records){
    DELETE FROM dbo.production_staging
    WHERE machine IS NULL OR LTRIM(RTRIM(machine)) = ''
  `);
+  // HARD STOP: remove any rows with NULL/invalid dates from staging
+   await pool.request().query(`
+     DELETE FROM dbo.production_staging
+     WHERE src_date IS NULL
+        OR TRY_CONVERT(date, src_date) IS NULL
+   `);
  // 2) Roll staging → production_fact (once)
  await pool.request().execute('dbo.upsert_production_fact');
 
