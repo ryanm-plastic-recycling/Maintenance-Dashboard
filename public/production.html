@@ -146,14 +146,6 @@
     .gauge.warn { color: var(--warn-fg); }
     .gauge.bad  { color: var(--bad-fg);  }
     .gauge.empty{ color: var(--muted);   }
-    /* ensure SVG inherits the container's semantic color */
-    .gauge svg { color: inherit; }
-    
-    /* belt-and-suspenders: set color on both the container AND the svg */
-    .gauge.good,  .gauge.good  svg  { color: var(--good-fg); }
-    .gauge.warn,  .gauge.warn  svg  { color: var(--warn-fg); }
-    .gauge.bad,   .gauge.bad   svg  { color: var(--bad-fg);  }
-    .gauge.empty, .gauge.empty svg  { color: var(--muted);   }
 
     table{width:100%;border-collapse:collapse;margin-top:6px}
     th,td{padding:8px;border-bottom:1px solid #E1E9F8;text-align:center}
@@ -176,6 +168,17 @@
     .cap-dash{border-bottom:2px dashed #0f172a; width:14px; height:0; display:inline-block; margin-right:6px; opacity:.6}
 
     .empty{padding:12px;color:#64748b;border:1px dashed #cbd5e1;border-radius:10px;background:#f8fafc;margin-top:6px;text-align:center}
+  
+    /* ensure SVG inherits the container's semantic color */
+    .gauge svg { color: inherit; }
+    
+    /* belt-and-suspenders: set color on both the container AND the svg */
+    .gauge.good,  .gauge.good  svg  { color: var(--good-fg); }
+    .gauge.warn,  .gauge.warn  svg  { color: var(--warn-fg); }
+    .gauge.bad,   .gauge.bad   svg  { color: var(--bad-fg);  }
+    .gauge.empty, .gauge.empty svg  { color: var(--muted);   }
+    .gauge .track { stroke: currentColor; }   /* optional: color the track too */
+
   </style>
 </head>
 <body class="page-production">
