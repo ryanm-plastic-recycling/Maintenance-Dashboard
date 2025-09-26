@@ -28,6 +28,13 @@ function normMachine(v) {
   // hard trim to staging width
   return s.length > 64 ? s.slice(0, 64) : s;
 }
+// Valid Date Review
+function isValidISODate(s) {
+  if (typeof s !== 'string') return false;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
+  const d = new Date(s + 'T00:00:00Z');
+  return !Number.isNaN(d.getTime());
+}
 
 // TODO: update these indexes after you run a dry-run with the index log
 const COL = {
@@ -107,6 +114,13 @@ export function mapRow(row){
     src_date = `${String(y).padStart(4,"0")}-${String(m).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
   }
 
+  if (!isValidISODate(src_date)) {
+    const err = new Error('BAD_SRC_DATE');
+    err.code = 'BAD_SRC_DATE';
+    err.rowSample = row;
+    throw err;
+  }
+
   // Require a valid machine
   const machineName = normMachine(row[COL.machine]);
   if (!machineName) {
@@ -154,6 +168,10 @@ function toDb(rec){
 async function upsertProductionFacts(pool, records){
   if (!records?.length) return;
 
+  // Final guard here too for null src_date or machine:
+  const good = records.filter(r => r && isValidISODate(r.src_date) && r.machine);
+  if (!good.length) return;
+  
   // Build TVP that matches dbo.upsert_production_staging_tvp
   const tvp = new sql.Table('ProductionStagingTvp'); // name of the TVP type
   tvp.columns.add('src_date',          sql.Date);
@@ -194,7 +212,7 @@ async function upsertProductionFacts(pool, records){
     return s == null ? null : String(s); // your staging has both shift (text) and shift_n (computed later)
   }
 
-  for (const r of records){
+  for (const r of good){
     // map our minimal rec → full TVP row; most extra fields NULL
     tvp.rows.add(
       r.src_date,                         // src_date
@@ -285,9 +303,15 @@ export async function runProdExcelIngest({ pool, dry=false } = {}){
     }
   }
 
+  // Absolute final safety: remove any accidental nulls
+  const before = mapped.length;
+  mapped = mapped.filter(r => isValidISODate(r.src_date) && r.machine);
+  const extraDropped = before - mapped.length;
+  if (extraDropped > 0) skippedBadDate += extraDropped;
+
   if (dry) {
     return {
-      parsed: mapped.length,
+      parsed: mapped.length + skippedEmpty + skippedBadDate + skippedNoMachine,
       skippedEmpty,
       skippedBadDate,
       skippedNoMachine,
@@ -295,10 +319,12 @@ export async function runProdExcelIngest({ pool, dry=false } = {}){
     };
   }
 
-
   try { await upsertProductionFacts(pool, mapped); }
   catch(e){ e.stage="sqlUpsert"; throw e; }
 
-  return { parsed: mapped.length, inserted: mapped.length };
+  return { ok:true,
+         parsed: mapped.length + skippedEmpty + skippedBadDate + skippedNoMachine,
+         inserted: mapped.length,
+         skippedEmpty, skippedBadDate, skippedNoMachine };
 }
 
