@@ -562,7 +562,7 @@ function capacityFor(lineName, material){
   
   async function renderForRange(fromISO, toISO, label){
     setLoading(true); // Flag for spinner loading
-      try {}
+      try {
     // labels
     document.getElementById('rangeLabel').textContent = `(${label})`;
     document.getElementById('hmLabel').textContent    = label;
@@ -1156,6 +1156,9 @@ function capacityFor(lineName, material){
       </svg>`;
       chart.innerHTML = svg;
     })();
+    } finally {
+      setLoading(false);
+    }
   }
 
   function computeRange(sel){
