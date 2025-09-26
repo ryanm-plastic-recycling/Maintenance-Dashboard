@@ -526,8 +526,8 @@ r.get('/production/debug-cap', requireAdmin, async (req, res) => {
         const s = o.capCandidates.slice().sort((a,b)=>a-b);
         capDay = s[Math.floor(s.length/2)];
       }
-      const PERF_CAP = 1.25;
-      const MIN_RUN_H_FOR_ADJ = 0.25;
+      const PERF_CAP = 1.00;
+      const MIN_RUN_H_FOR_ADJ = 0.75;
       
       const adjDen = capDay * Math.max(0, 24 - o.maint);
       
