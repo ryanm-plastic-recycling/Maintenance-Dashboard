@@ -44,6 +44,25 @@
     .meta-range{color:var(--muted);font-size:13px}
     .select{appearance:none;border:1px solid var(--border);background:#fff;border-radius:10px;padding:8px 12px;font-weight:600}
     .divider{height:24px;width:1px;background:var(--border)}
+    
+    /* ---- loading overlay ---- */
+    #loading {
+      position: fixed;
+      inset: 0;
+      display: none;                 /* toggled by JS */
+      align-items: center;
+      justify-content: center;
+      background: rgba(255,255,255,.55);
+      z-index: 9999;
+    }
+    #loading .spinner {
+      width: 64px; height: 64px;
+      border: 8px solid #e5e7eb;
+      border-top-color: var(--pri-blue);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
 
     .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-top:6px}
     .tile{background:var(--card);padding:14px;border-radius:12px;box-shadow:0 2px 4px rgba(0,0,0,.08);border:1px solid var(--border);text-align:center;min-height:84px}
@@ -148,6 +167,7 @@
   </style>
 </head>
 <body class="page-production">
+  <div id="loading"><div class="spinner" aria-label="Loading…"></div></div>
   <div class="top-border">
     <img src="img/pri-logo.png" alt="PRI Logo" class="logo" />
     <div class="top-title">PACE – Production Analysis & Capacity Explorer</div>
@@ -534,7 +554,15 @@ function capacityFor(lineName, material){
     document.getElementById(idEmpty).style.display = isEmpty ? '' : 'none';
   }
 
+  // Spinnder - loading
+  function setLoading(on) {
+    const el = document.getElementById('loading');
+    if (el) el.style.display = on ? 'flex' : 'none';
+  }
+  
   async function renderForRange(fromISO, toISO, label){
+    setLoading(true); // Flag for spinner loading
+      try {}
     // labels
     document.getElementById('rangeLabel').textContent = `(${label})`;
     document.getElementById('hmLabel').textContent    = label;
