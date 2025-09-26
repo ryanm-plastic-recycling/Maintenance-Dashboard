@@ -142,9 +142,10 @@
     .gauge .pct { font-size: 18px; font-weight: 800; }
     .gauge .cap{font-size:11px;color:var(--muted);text-align:center;margin-top:-6px}
     .gauge .band { opacity:.25; stroke-width:10; fill:none }
-    .gauge.good .pct  { color: var(--good-fg); }
-    .gauge.warn .pct  { color: var(--warn-fg); }
-    .gauge.bad  .pct  { color: var(--bad-fg); }
+    .gauge.good { color: var(--good-fg); }
+    .gauge.warn { color: var(--warn-fg); }
+    .gauge.bad  { color: var(--bad-fg);  }
+    .gauge.empty{ color: var(--muted);   }
 
     table{width:100%;border-collapse:collapse;margin-top:6px}
     th,td{padding:8px;border-bottom:1px solid #E1E9F8;text-align:center}
@@ -1354,36 +1355,28 @@ function capacityFor(lineName, material){
       .trim() || name;
   }
 
-  function gaugeSVG(pct, label, cls='', valid=true) {
+  function gaugeSVG(pct, label, cls = '', valid = true) {
     const has = valid && Number.isFinite(pct);
+    // cap to 0..1 (100%)
     const p = has ? Math.max(0, Math.min(1, pct || 0)) : 0;
   
     const R = 48, cx = 60, cy = 60;
     const track  = arcPath(cx, cy, R, 180, 360, 1);
-  
-    // pick color based on class (good/warn/bad); fall back to muted if unknown/empty
-    let col;
-    switch (cls) {
-      case 'good': col = cssVar('--good-fg'); break;
-      case 'warn': col = cssVar('--warn-fg'); break;
-      case 'bad':  col = cssVar('--bad-fg');  break;
-      default:     col = cssVar('--muted');   break;
-    }
-  
-    // partial band + needle
     const endDeg = 180 + 180 * Math.max(p, 0.02);
     const band   = has ? arcPath(cx, cy, R, 180, endDeg, 1) : '';
     const needle = has ? arcPath(cx, cy, R, 180, 180 + 180*p, 1) : '';
+    const pctLabel = has ? Math.round(p * 100) + '%' : MISSING;
   
-    const pctLabel = has ? Math.round(p*100) + '%' : MISSING;
+    // class carries good|warn|bad|empty → CSS sets currentColor
+    const klass = `gauge ${cls || 'empty'}`;
   
     return `
-      <div class="gauge ${cls}">
+      <div class="${klass}">
         <svg viewBox="0 0 120 80" xmlns="http://www.w3.org/2000/svg" class="speedo">
-          <path d="${track}"  class="track"  fill="none" stroke="#e5e7eb" stroke-width="10"/>
-          ${band   ? `<path d="${band}"   class="band"   fill="none" stroke="${col}" stroke-width="10" opacity=".25"/>` : ''}
-          ${needle ? `<path d="${needle}" class="needle" fill="none" stroke="${col}" stroke-width="10" stroke-linecap="round"/>` : ''}
-          <text x="60" y="48" text-anchor="middle" class="pct" style="fill:${col};font-weight:800;">${pctLabel}</text>
+          <path d="${track}" class="track" fill="none" stroke-width="10"/>
+          ${band   ? `<path d="${band}"   class="band"   stroke="currentColor"/>` : ''}
+          ${needle ? `<path d="${needle}" class="needle" stroke="currentColor" stroke-width="10" stroke-linecap="round" fill="none"/>` : ''}
+          <text x="60" y="48" text-anchor="middle" class="pct" fill="currentColor">${pctLabel}</text>
         </svg>
         <div class="cap">${label}</div>
       </div>`;
