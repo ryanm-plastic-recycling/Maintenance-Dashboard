@@ -262,7 +262,13 @@ async function upsertProductionFacts(pool, records){
      WHERE src_date IS NULL
         OR TRY_CONVERT(date, src_date) IS NULL
    `);
- // 2) Roll staging → production_fact (once)
+ 
+  UPDATE dbo.production_staging
+SET shift_n = TRY_CONVERT(int, LTRIM(RTRIM(shift)))
+WHERE (shift_n IS NULL)
+  AND TRY_CONVERT(int, LTRIM(RTRIM(shift))) IS NOT NULL;
+  
+  // 2) Roll staging → production_fact (once)
  await pool.request().execute('dbo.upsert_production_fact');
 
 }
