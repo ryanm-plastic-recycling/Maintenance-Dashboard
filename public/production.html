@@ -1180,7 +1180,7 @@ function capacityFor(lineName, material){
         for (const d of days) {
           tbody += tdFor(row, d, 'av', THRESH.availability);
           tbody += tdFor(row, d, 'pa', THRESH.capacityAdj);
-          tbody += tdFor(row, d, 'q',  THRESH.oee);
+          tbody += tdFor(row, d, 'q',  THRESH.quality);   // color Qual* with quality setpoints
         }
         tbody += '</tr>';
       }
