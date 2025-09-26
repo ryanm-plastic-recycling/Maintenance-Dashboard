@@ -93,15 +93,17 @@ function deriveDayMetrics(row) {
   let machineHoursRaw = Number(row.machine_hours);
   if (!Number.isFinite(machineHoursRaw) || machineHoursRaw < 0) machineHoursRaw = 0;
   machineHoursRaw = clamp(machineHoursRaw, 0, 24);
-   const line = row.machine || '';
+  
+  const line = row.machine || '';
   const mat  = row.material || '';
 
   // 1) Start from machine_hours (what production reported)
   let runH = machineHoursRaw;
 
-  // 2) Capacity (explicit → mappings)
-  const explicitCap = Number(row.nameplate_lbs_hr) || 0;
-  let cap = explicitCap > 0 ? explicitCap : capacityFor(line, mat);
+  // 2) ALWAYS use mappings (ignore any nameplate_lbs_hr coming from Excel)
+  // const explicitCap = Number(row.nameplate_lbs_hr) || 0; // This allows for excel
+  // let cap = explicitCap > 0 ? explicitCap : capacityFor(line, mat); // This allows for excel
+  let cap = capacityFor(line, mat); // This ignores for excel and forced mappings!!!
 
   // 3) If runtime missing but we have pounds+cap, backfill runtime - - -Only use this as needed later!
   //if ((runH <= 0 || !Number.isFinite(runH)) && pounds > 0 && cap > 0) {
@@ -276,7 +278,7 @@ const applyJoin = (includeMaterial && materialColumn)
     v.maint_dt_h,
     v.machine_hours,
     COALESCE(dm.material, 'DEFAULT') AS material,  -- dominant material for the day
-    v.nameplate_lbs_hr
+    CAST(NULL AS int) AS nameplate_lbs_hr  -- <— no more Excel 8 here
   FROM dbo.v_prod_daily_line AS v
   LEFT JOIN dbo.v_prod_day_material AS dm
     ON dm.src_date = CAST(v.src_date AS date)
@@ -498,9 +500,8 @@ r.get('/production/debug-cap', requireAdmin, async (req, res) => {
       const d = (r.src_date || '').slice(0,10);
       if (!d) continue;
       const key = `${r.machine}|${d}`;
-      const capRow = (Number(r.nameplate_lbs_hr) > 0)
-        ? Number(r.nameplate_lbs_hr)
-        : capacityFor(r.machine, r.material);
+      // Force mappings
+      const capRow = capacityFor(r.machine, r.material);
       const runH = Math.max(0, Number(r.machine_hours)||0);
       const md   = Math.max(0, Number(r.maint_dt_h)||0);
       const lbs  = Math.max(0, Number(r.pounds)||0);
