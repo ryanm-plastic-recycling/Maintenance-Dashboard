@@ -2,7 +2,7 @@
 import sql from "mssql";
 import { fetchProductionExcelRows } from "./productionExcelJob.js";
 
-const INGEST_CUTOFF_ISO = process.env.INGEST_CUTOFF_ISO || '2019-01-01';
+const INGEST_CUTOFF_ISO = process.env.INGEST_CUTOFF_ISO || '2024-01-01';
 
 // ---------- helpers ----------
 function safeNum(v, d = 0) { const n = Number(v); return Number.isFinite(n) ? n : d; }
