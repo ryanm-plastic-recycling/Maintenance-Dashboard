@@ -191,16 +191,16 @@
       <h2>Overall KPIs <span class="sub" id="rangeLabel"></span></h2>
 
       <!-- Row A: OEE = AVAIL × PERF(Adj) × QUAL -->
-      <!-- OEE -->
+      <!-- tile-oee -->
       <div class="lab">OEE
         <span class="tooltip"><span class="info" tabindex="0">i</span>
           <span class="tooltip-panel"><b>Overall Equipment Effectiveness</b><br>
-            OEE = Availability × Performance (Adjusted removing Maintenance Downtime) × Quality.
+            OEE = Availability × Performance (Adj) × Quality.
           </span>
         </span>
       </div>
       
-      <!-- Availability -->
+      <!-- tile-av -->
       <div class="lab">Availability
         <span class="tooltip"><span class="info" tabindex="0">i</span>
           <span class="tooltip-panel"><b>Availability</b><br>
@@ -209,16 +209,16 @@
         </span>
       </div>
       
-      <!-- Performance (Adj) -->
+      <!-- tile-pa -->
       <div class="lab">Performance (Adj)
         <span class="tooltip"><span class="info" tabindex="0">i</span>
-          <span class="tooltip-panel"><b>Performance (Adjusted removing Maintenance Downtime)</b><br>
+          <span class="tooltip-panel"><b>Performance (Adjusted)</b><br>
             Pounds ÷ (Capacity × (24 − Maint&nbsp;DT)). Uses nameplate/material mapping per day.
           </span>
         </span>
       </div>
       
-      <!-- Quality -->
+      <!-- tile-qual -->
       <div class="lab">Quality*
         <span class="tooltip"><span class="info" tabindex="0">i</span>
           <span class="tooltip-panel"><b>Quality (assumed)</b><br>
@@ -226,7 +226,6 @@
           </span>
         </span>
       </div>
-
 
       <!-- Row B: throughput chain -->
       <!-- Run Hours -->
