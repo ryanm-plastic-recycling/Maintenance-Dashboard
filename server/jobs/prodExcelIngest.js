@@ -262,11 +262,24 @@ async function upsertProductionFacts(pool, records){
      WHERE src_date IS NULL
         OR TRY_CONVERT(date, src_date) IS NULL
    `);
- 
-  UPDATE dbo.production_staging
-SET shift_n = TRY_CONVERT(int, LTRIM(RTRIM(shift)))
-WHERE (shift_n IS NULL)
-  AND TRY_CONVERT(int, LTRIM(RTRIM(shift))) IS NOT NULL;
+  // normalize text Shift -> shift_n when possible
+  await pool.request().query(`
+    UPDATE dbo.production_staging
+    SET shift_n = TRY_CONVERT(int, LTRIM(RTRIM(shift)))
+    WHERE (shift_n IS NULL)
+      AND TRY_CONVERT(int, LTRIM(RTRIM(shift))) IS NOT NULL;
+  `);
+ // OPTIONAL: drop rows that have date/machine but *no* production signal at all
+await pool.request().query(`
+  DELETE ps
+  FROM dbo.production_staging ps
+  WHERE TRY_CONVERT(date, ps.src_date) IS NOT NULL
+    AND (ps.pounds IS NULL OR ps.pounds = 0)
+    AND (ps.machine_hours IS NULL OR ps.machine_hours = 0)
+    AND (ps.down_time_hours IS NULL OR ps.down_time_hours = 0)
+    AND (LTRIM(RTRIM(ps.lot_number))    = '' OR ps.lot_number    IS NULL)
+    AND (LTRIM(RTRIM(ps.source_ref_po)) = '' OR ps.source_ref_po IS NULL);
+`);
   
   // 2) Roll staging → production_fact (once)
  await pool.request().execute('dbo.upsert_production_fact');
