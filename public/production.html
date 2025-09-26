@@ -608,7 +608,7 @@ function capacityFor(lineName, material){
 
   // caps to keep outlier days from blowing up the averages
   const PERF_CAP = 1.00;        // 100%  (use 1.50 for 150% if you prefer)
-  const MIN_RUN_H_FOR_ADJ = 1.00;  // ignore adjusted perf when run hours < 1.00h
+  const MIN_RUN_H_FOR_ADJ = 0.75;  // ignore adjusted perf when run hours < 0.75h
 
   function startOfWeek(d){ const x=new Date(d); const day=(x.getDay()+6)%7; x.setDate(x.getDate()-day); x.setHours(0,0,0,0); return x;}
   function endOfWeek(d){ const x=startOfWeek(d); x.setDate(x.getDate()+6); return x;}
