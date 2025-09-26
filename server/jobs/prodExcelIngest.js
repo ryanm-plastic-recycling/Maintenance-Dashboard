@@ -267,7 +267,7 @@ export async function runProdExcelIngest({ pool, dry=false } = {}){
 
   if (body.length) logWithIndexes(body[0]); // will print [0]..[n] with values
 
-      const mapped = [];
+      let mapped = [];
   let skippedEmpty = 0;
   let skippedBadDate = 0;
   let skippedNoMachine = 0;
@@ -282,7 +282,7 @@ export async function runProdExcelIngest({ pool, dry=false } = {}){
       }
     } catch (e) {
       const msg = String(e.message || '');
-      if (msg.startsWith('Bad date parts')) {
+      if (e.code === 'BAD_SRC_DATE' || msg.startsWith('Bad date parts')) {
         skippedBadDate++;
         if (skippedBadDate <= 3) {
           console.warn('[prod-excel] skipped row (bad date) idx', i);
@@ -323,8 +323,9 @@ export async function runProdExcelIngest({ pool, dry=false } = {}){
   catch(e){ e.stage="sqlUpsert"; throw e; }
 
   return { ok:true,
-         parsed: mapped.length + skippedEmpty + skippedBadDate + skippedNoMachine,
-         inserted: mapped.length,
-         skippedEmpty, skippedBadDate, skippedNoMachine };
+          totalRows: body.length,
+          parsed: mapped.length + skippedEmpty + skippedBadDate + skippedNoMachine,
+          inserted: mapped.length,
+          skippedEmpty, skippedBadDate, skippedNoMachine };
 }
 
