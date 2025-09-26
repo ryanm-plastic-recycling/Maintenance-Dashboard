@@ -142,6 +142,9 @@
     .gauge .pct { font-size: 18px; font-weight: 800; }
     .gauge .cap{font-size:11px;color:var(--muted);text-align:center;margin-top:-6px}
     .gauge .band { opacity:.25; stroke-width:10; fill:none }
+    .gauge.good .pct  { color: var(--good-fg); }
+    .gauge.warn .pct  { color: var(--warn-fg); }
+    .gauge.bad  .pct  { color: var(--bad-fg); }
 
     table{width:100%;border-collapse:collapse;margin-top:6px}
     th,td{padding:8px;border-bottom:1px solid #E1E9F8;text-align:center}
