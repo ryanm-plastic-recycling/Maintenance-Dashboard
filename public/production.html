@@ -1013,8 +1013,8 @@ function capacityFor(lineName, material){
             </div>
           </div>
           <div class="lt-right">
-            ${gaugeSVG(r.perfRaw, 'Raw 24h', rawGrade, r.prV)}
-            ${gaugeSVG(r.perfAdj, 'Adj for DT', adjGrade, r.paV)}
+            ${gaugeSVG(rawForGauge, 'Raw 24h', rawGrade, r.prV)}
+            ${gaugeSVG(adjForGauge, 'Adj for DT', adjGrade, r.paV)}
           </div>`;
         cont.appendChild(el);
       });
