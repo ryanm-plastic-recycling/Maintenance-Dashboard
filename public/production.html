@@ -607,7 +607,7 @@ function capacityFor(lineName, material){
   };
 
   // caps to keep outlier days from blowing up the averages
-  const PERF_CAP = 1.25;        // 125%  (use 1.50 for 150% if you prefer)
+  const PERF_CAP = 1.00;        // 100%  (use 1.50 for 150% if you prefer)
   const MIN_RUN_H_FOR_ADJ = 1.00;  // ignore adjusted perf when run hours < 1.00h
 
   function startOfWeek(d){ const x=new Date(d); const day=(x.getDay()+6)%7; x.setDate(x.getDate()-day); x.setHours(0,0,0,0); return x;}
@@ -947,6 +947,11 @@ function capacityFor(lineName, material){
       perLine.forEach(r => {
         const tileGrade = (r.oeeV && Number.isFinite(r.oee)) ? grade(r.oee, THRESH.oee) : 'empty';
         const rawGrade  = (r.prV && Number.isFinite(r.perfRaw)) ? grade(r.perfRaw, THRESH.capacityAdj) : '';
+        
+        // ✅ cap gauges at 100% visual fill (does NOT change the number labels)
+        const rawForGauge = (r.prV && Number.isFinite(r.perfRaw)) ? Math.min(1, Math.max(0, r.perfRaw)) : r.perfRaw;
+        const adjForGauge = (r.paV && Number.isFinite(r.perfAdj)) ? Math.min(1, Math.max(0, r.perfAdj)) : r.perfAdj;
+
         const adjGrade  = (r.paV && Number.isFinite(r.perfAdj)) ? grade(r.perfAdj, THRESH.capacityAdj) : '';
         const el = document.createElement('div');
         el.className = `lt-card ${tileGrade}`;
