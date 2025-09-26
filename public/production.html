@@ -14,6 +14,21 @@
       --warn-bg:#fef9c3;  --warn-fg:#7c5e10;
       --bad-bg:#fee2e2;   --bad-fg:#7f1d1d;
     }
+    /* Production page background (softened for readability) */
+    .page-production {
+      position: relative;
+      background-color: var(--bg);
+    }
+    .page-production::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      background:
+        linear-gradient(to bottom, rgba(255,255,255,.75), rgba(255,255,255,.85)),
+        url('img/PRIfront.png') center / cover no-repeat fixed;
+    }
+
     *{box-sizing:border-box}
     body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,Segoe UI,Arial,sans-serif}
 
@@ -37,6 +52,25 @@
     .tile.good { background: var(--good-bg); color: var(--good-fg); }
     .tile.warn { background: var(--warn-bg); color: var(--warn-fg); }
     .tile.bad  { background: var(--bad-bg);  color: var(--bad-fg);  }
+
+    /* tiny info bubble + tooltip (local copy for production.html) */
+    .info{
+      display:inline-flex;align-items:center;justify-content:center;
+      width:16px;height:16px;margin-left:6px;border-radius:50%;
+      font-size:11px;line-height:1;cursor:pointer;user-select:none;
+      background:#25408F;color:#fff;font-weight:700;
+    }
+    .tooltip{position:relative;display:inline-block;vertical-align:middle}
+    .tooltip .tooltip-panel{
+      position:absolute;z-index:10000;top:100%;left:50%;transform:translate(-50%,4px);
+      min-width:220px;max-width:340px;padding:10px 12px;border-radius:8px;
+      box-shadow:0 6px 18px rgba(0,0,0,.15);background:#111;color:#fff;
+      font-size:.9rem;line-height:1.3;opacity:0;pointer-events:none;transition:.15s ease;
+    }
+    .tooltip:hover .tooltip-panel,
+    .tooltip:focus-within .tooltip-panel,
+    .tooltip .tooltip-panel.show{opacity:1;pointer-events:auto;transform:translate(-50%,-2px)}
+    .tooltip .tooltip-panel b{color:#fff}
 
     .kpis-rowA .tile.big { min-height: 104px; }
     .kpis-rowA .tile.big .val { font-size: 28px; }
@@ -104,7 +138,7 @@
     .empty{padding:12px;color:#64748b;border:1px dashed #cbd5e1;border-radius:10px;background:#f8fafc;margin-top:6px;text-align:center}
   </style>
 </head>
-<body>
+<body class="page-production">
   <div class="top-border">
     <img src="img/pri-logo.png" alt="PRI Logo" class="logo" />
     <div class="top-title">PACE – Production Analysis & Capacity Explorer</div>
@@ -157,72 +191,165 @@
       <h2>Overall KPIs <span class="sub" id="rangeLabel"></span></h2>
 
       <!-- Row A: OEE = AVAIL × PERF(Adj) × QUAL -->
-      <div class="kpis kpis-rowA">
-        <div class="tile big" id="tile-oee">
-          <div class="lab">OEE</div>
-          <div class="val" id="ov-oee">--%</div>
-          <div class="tiny" id="ov-oee-eq"></div>
-        </div>
-
-        <div class="op">=</div>
-
-        <div class="tile big" id="tile-av">
-          <div class="lab">Availability</div>
-          <div class="val" id="ov-av">--%</div>
-        </div>
-
-        <div class="op">×</div>
-
-        <div class="tile big" id="tile-pa">
-          <div class="lab">Performance (Adj)</div>
-          <div class="val" id="ov-pa">--%</div>
-        </div>
-
-        <div class="op">×</div>
-
-        <div class="tile big" id="tile-qual">
-          <div class="lab">Quality*</div>
-          <div class="val" id="ov-qual">70%</div>
-        </div>
+      <!-- OEE -->
+      <div class="lab">OEE
+        <span class="tooltip"><span class="info" tabindex="0">i</span>
+          <span class="tooltip-panel"><b>Overall Equipment Effectiveness</b><br>
+            OEE = Availability × Performance (Adjusted removing Maintenance Downtime) × Quality.
+          </span>
+        </span>
+      </div>
+      
+      <!-- Availability -->
+      <div class="lab">Availability
+        <span class="tooltip"><span class="info" tabindex="0">i</span>
+          <span class="tooltip-panel"><b>Availability</b><br>
+            Run Hours / Planned Hours. Planned Hours are 24h per selected day (weekdays by default).
+          </span>
+        </span>
+      </div>
+      
+      <!-- Performance (Adj) -->
+      <div class="lab">Performance (Adj)
+        <span class="tooltip"><span class="info" tabindex="0">i</span>
+          <span class="tooltip-panel"><b>Performance (Adjusted removing Maintenance Downtime)</b><br>
+            Pounds ÷ (Capacity × (24 − Maint&nbsp;DT)). Uses nameplate/material mapping per day.
+          </span>
+        </span>
+      </div>
+      
+      <!-- Quality -->
+      <div class="lab">Quality*
+        <span class="tooltip"><span class="info" tabindex="0">i</span>
+          <span class="tooltip-panel"><b>Quality (assumed)</b><br>
+            Temporary constant (70%) until lab data is integrated.
+          </span>
+        </span>
       </div>
 
+
       <!-- Row B: throughput chain -->
-      <div class="kpis kpis-rowB">
-        <div class="tile">
-          <div class="lab">Run Hours</div>
-          <div class="val" id="ov-runh">--</div>
-        </div>
-        <div class="tile" id="tile-pr">
-          <div class="lab">Performance (Raw 24h)</div>
-          <div class="val" id="ov-pr">--%</div>
-        </div>
-        <div class="tile">
-          <div class="lab">Capacity Potential (lb)</div>
-          <div class="val" id="ov-cap">--</div>
-        </div>
-        <div class="tile">
-          <div class="lab">Total Pounds</div>
-          <div class="val" id="ov-lbs">--</div>
-        </div>
-        <div class="tile" id="tile-under">
-          <div class="lab">Under-Perf Gap (lb)</div>
-          <div class="val" id="ov-under">--</div>
-        </div>
+      <!-- Run Hours -->
+      <div class="lab">Run Hours
+        <span class="tooltip"><span class="info" tabindex="0">i</span>
+          <span class="tooltip-panel"><b>Run Hours</b><br>
+            Reported machine runtime from production excel entries (no front-end backfill).
+          </span>
+        </span>
+      </div>
+      
+      <!-- Performance (Raw 24h) -->
+      <div class="lab">Performance (Raw 24h)
+        <span class="tooltip"><span class="info" tabindex="0">i</span>
+          <span class="tooltip-panel"><b>Performance (Raw)</b><br>
+            Pounds ÷ (Capacity × 24). Not adjusted for maintenance downtime.
+          </span>
+        </span>
+      </div>
+      
+      <!-- Capacity Potential (lb) -->
+      <div class="lab">Capacity Potential (lb)
+        <span class="tooltip"><span class="info" tabindex="0">i</span>
+          <span class="tooltip-panel"><b>Capacity Potential</b><br>
+            Nameplate capacity across the selected calendar (24h per day). Per line uses its
+            material mapping and includes idle weekdays. Nameplate capacity based on an average of historical data and can be changed in the mappings file as needed.
+          </span>
+        </span>
+      </div>
+      
+      <!-- Total Pounds -->
+      <div class="lab">Total Pounds
+        <span class="tooltip"><span class="info" tabindex="0">i</span>
+          <span class="tooltip-panel"><b>Total Pounds</b><br>
+            Sum of all reported pounds for the selected range and lines.
+          </span>
+        </span>
+      </div>
+      
+      <!-- Under-Perf Gap (lb) -->
+      <div class="lab">Under-Perf Gap (lb)
+        <span class="tooltip"><span class="info" tabindex="0">i</span>
+          <span class="tooltip-panel"><b>Under-performance Gap</b><br>
+            (Capacity × Run Hours) − Pounds. “Lost” pounds while running. Running factors ingnore any associated downtime metrics accounted elsewhere.
+          </span>
+        </span>
       </div>
 
       <!-- Row C: DT & missed-op -->
-      <div class="kpis kpis-rowC">
-        <div class="tile"><div class="lab">Maint DT (h)</div><div class="val" id="ov-mdt">--</div></div>
-        <div class="tile" id="tile-mdt-pct"><div class="lab">Maint DT (%)</div><div class="val" id="ov-mdt-pct">--%</div></div>
-        <div class="tile"><div class="lab">Prod DT (h)</div><div class="val" id="ov-pdt">--</div></div>
-        <div class="tile" id="tile-pdt-pct"><div class="lab">Prod DT (%)</div><div class="val" id="ov-pdt-pct">--%</div></div>
-        <div class="tile"><div class="lab">Missed Opp (Maint, lb)</div><div class="val" id="ov-mo-mdt">--</div></div>
-        <div class="tile"><div class="lab">Missed Opp (Prod, lb)</div><div class="val" id="ov-mo-pdt">--</div></div>
-        <div class="tile" id="tile-mo-mdt-pct"><div class="lab">Missed Opp (Maint, %)</div><div class="val" id="ov-mo-mdt-pct">--%</div></div>
-        <div class="tile" id="tile-mo-pdt-pct"><div class="lab">Missed Opp (Prod, %)</div><div class="val" id="ov-mo-pdt-pct">--%</div></div>
+      <!-- Maint DT (h) -->
+      <div class="lab">Maint DT (h)
+        <span class="tooltip"><span class="info" tabindex="0">i</span>
+          <span class="tooltip-panel"><b>Maintenance Downtime (hours)</b><br>
+            Limble downtime sliced back over weekdays to the occurrence days,
+            capped at 24h per machine-day.
+          </span>
+        </span>
       </div>
-    </section>
+      
+      <!-- Maint DT (%) -->
+      <div class="lab">Maint DT (%)
+        <span class="tooltip"><span class="info" tabindex="0">i</span>
+          <span class="tooltip-panel"><b>Maintenance DT %</b><br>
+            Maint&nbsp;DT ÷ Planned Hours. Lower is better.
+          </span>
+        </span>
+      </div>
+      
+      <!-- Prod DT (h) -->
+      <div class="lab">Prod DT (h)
+        <span class="tooltip"><span class="info" tabindex="0">i</span>
+          <span class="tooltip-panel"><b>Production Downtime (hours)</b><br>
+            Remaining hours in the 24h budget after Run hours and Maintenance Downtime (includes idle weekdays). No data entered for a day & production line will account for 24 hours UNLESS Maintenance Downtime hours were incurred that day.
+          </span>
+        </span>
+      </div>
+      
+      <!-- Prod DT (%) -->
+      <div class="lab">Prod DT (%)
+        <span class="tooltip"><span class="info" tabindex="0">i</span>
+          <span class="tooltip-panel"><b>Production DT %</b><br>
+            Prod&nbsp;DT ÷ Planned Hours. Lower is better.
+          </span>
+        </span>
+      </div>
+      
+      <!-- Missed Opp (Maint, lb) -->
+      <div class="lab">Missed Opp (Maint, lb)
+        <span class="tooltip"><span class="info" tabindex="0">i</span>
+          <span class="tooltip-panel"><b>Missed Pounds Opportunity (Maintenance)</b><br>
+            Capacity × Maint&nbsp;DT, summed over lines and/or days.
+          </span>
+        </span>
+      </div>
+      
+      <!-- Missed Opp (Prod, lb) -->
+      <div class="lab">Missed Opp (Prod, lb)
+        <span class="tooltip"><span class="info" tabindex="0">i</span>
+          <span class="tooltip-panel"><b>Missed Pounds Opportunity (Production)</b><br>
+            Capacity × Prod&nbsp;DT, including idle weekdays.
+          </span>
+        </span>
+      </div>
+      
+      <!-- Missed Opp (Maint, %) -->
+      <div class="lab">Missed Opp (Maint, %)
+        <span class="tooltip"><span class="info" tabindex="0">i</span>
+          <span class="tooltip-panel"><b>Missed Opportunity Maintenance %</b><br>
+            Missed-Maint (lb) ÷ Capacity Potential (lb). Capacity potential is by line and influences a non-linear return on an hour of downtime.
+          </span>
+        </span>
+      </div>
+      
+      <!-- Missed Opp (Prod, %) -->
+      <div class="lab">Missed Opp (Prod, %)
+        <span class="tooltip"><span class="info" tabindex="0">i</span>
+          <span class="tooltip-panel"><b>Missed Opportunity Production %</b><br>
+            Missed-Prod (lb) ÷ Capacity Potential (lb). Capacity potential is by line and influences a non-linear return on an hour of downtime.
+          </span>
+        </span>
+      </div>
 
+    <!-- Next Sections -->
     <section class="section-gap">
       <div class="card">
         <h3>Weekday OEE Heatmap <span class="sub" id="hmLabel"></span></h3>
@@ -1024,5 +1151,21 @@ function capacityFor(lineName, material){
     return `M ${s.x} ${s.y} A ${r} ${r} 0 ${largeArc} ${sweepFlag} ${e.x} ${e.y}`;
   }
 </script>
+<script>
+  // toggle tooltip panels on tap/keyboard
+  document.addEventListener('click', (e) => {
+    const info = e.target.closest('.info');
+    if (!info) return;
+    const panel = info.parentElement.querySelector('.tooltip-panel');
+    if (!panel) return;
+    panel.classList.toggle('show');
+  });
+  // close if you click elsewhere
+  document.addEventListener('click', (e) => {
+    if (e.target.closest('.tooltip')) return;
+    document.querySelectorAll('.tooltip-panel.show').forEach(p=>p.classList.remove('show'));
+  });
+</script>
+
 </body>
 </html>
