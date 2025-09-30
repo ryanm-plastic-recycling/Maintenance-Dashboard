@@ -1042,7 +1042,7 @@ function capacityFor(lineName, material){
           for (const d of datesAll) {
             const v = row.get(d);
             const valid = Number.isFinite(v);
-            const cls = valid ? grade(v, THRESH.oee) : 'empty';
+            const cls = valid ? grade(v, thr) : 'empty';
             html += `<td class="${cls}">${fmtPct(v, valid)}</td>`;
           }
           html += '</tr>';
