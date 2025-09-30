@@ -26,6 +26,21 @@
     h1{font-size:28px;margin:0;color:var(--pri-blue);letter-spacing:.2px}
     h1 .sub{color:var(--muted);font-weight:600;font-size:16px;margin-left:8px}
 
+    .top-border{position:fixed;top:0;left:0;width:100%;height:96px;background:var(--pri-green);z-index:10;display:flex;align-items:center;padding:0 20px}
+    .top-border .logo{height:72px}
+    .top-title{font-size:28px;font-weight:900;margin-left:20px;color:#0A2A12}
+    .tabs{margin-left:auto;display:flex;gap:8px}
+    .tab{background:#ffffffd9;padding:8px 12px;border-radius:10px;text-decoration:none;color:#0A2A12;font-weight:700}
+    .tab.active{background:#fff}
+    
+    /* background overlay same as production */
+    .page-production::before{
+      content:"";position:fixed;inset:0;z-index:-1;
+      background:linear-gradient(to bottom, rgba(255,255,255,.75), rgba(255,255,255,.85)),
+                 url('img/PRIfront.png') center/cover no-repeat fixed;
+    }
+    .wrap{margin:120px 20px 40px 20px}
+
     .toolbar{display:flex;justify-content:space-between;align-items:center;margin:10px 0 16px;gap:10px;flex-wrap:wrap}
     .left, .right{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
     .seg, .segBig{display:inline-flex;border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--card);box-shadow:var(--shadow)}
@@ -105,18 +120,22 @@
 <body>
   <div class="app" id="app">
     <header style="background:var(--pri-green);color:#0b2a03;border-radius:12px;padding:10px 14px;box-shadow:var(--shadow);display:flex;align-items:center;justify-content:space-between">
-      <div style="display:flex;align-items:center;gap:12px">
-        <img src="/public/img/pri-logo.png" alt="PRI" style="height:44px;border-radius:6px;background:#fff;padding:4px"/>
-        <h1 style="margin:0;color:#0b2a03">PRI Pulse <span id="periodLabel" class="sub" style="color:#0b2a03;font-weight:700"></span></h1>
+      <body class="page-production">
+      <div class="top-border">
+        <img src="img/pri-logo.png" alt="PRI Logo" class="logo" />
+        <div class="top-title">PRI Pulse</div>
+        <div class="tabs">
+          <a class="tab" href="index.html">Work Orders</a>
+          <a class="tab" href="pm.html">PM</a>
+          <a class="tab" href="prodstatus.html">Prod Status</a>
+          <a class="tab" href="kpi-by-asset.html">KPIs by Asset</a>
+          <a class="tab active" href="pulse.html">Pulse</a>
+          <a class="tab" href="admin">Admin</a>
+          <img src="img/innovation-logo.png" alt="Innovation" style="height:60px;margin-left:6px;background:#fff;border-radius:8px;padding:4px"/>
+        </div>
       </div>
-      <nav style="display:flex;gap:12px;align-items:center">
-        <a href="/production.html" style="font-weight:800;color:#0b2a03;text-decoration:none;padding:6px 10px;border-radius:8px;background:rgba(255,255,255,.7)">Production</a>
-        <a href="/prodstatus.html" style="font-weight:800;color:#0b2a03;text-decoration:none;padding:6px 10px;border-radius:8px;background:rgba(255,255,255,.7)">Status</a>
-        <a href="/pace.html" style="font-weight:800;color:#0b2a03;text-decoration:none;padding:6px 10px;border-radius:8px;background:rgba(255,255,255,.7)">PACE</a>
-        <a href="/pulse.html" style="font-weight:900;color:#0b2a03;text-decoration:none;padding:6px 10px;border-radius:8px;background:#fff">Pulse</a>
-        <img src="/public/img/innovation-logo.png" alt="Innovation" style="height:44px;border-radius:6px;background:#fff;padding:4px;margin-left:8px"/>
-      </nav>
-    </header>
+</header>
+  <div class="wrap">
 
     <div class="toolbar">
       <div class="left">
@@ -217,35 +236,37 @@ const STATUSES = [
   {key:'downp',     label:'Down (Prod)',  dot:'st-downp'}
 ];
 
+<script>
 function makeDataset(period){
-  const points = ['today','yesterday'].includes(period)? 12 : ['week','lastweek','r7'].includes(period)? 7 : 30;
+  const points = ['today','yesterday'].includes(period)? 12
+               : ['week','lastweek','r7'].includes(period)? 7 : 30;
+
   const oee = Math.round(25 + seedRand()*45);
   const availability = Math.round(40 + seedRand()*40);
-  const performance = Math.round(55 + seedRand()*30);
+  const performance  = Math.round(55 + seedRand()*30);
   const pounds = 200000 + Math.round(seedRand()*900000);
   const missed = 500000 + Math.round(seedRand()*800000);
 
-  // Split totals between maintenance and production as placeholders
   const maintPct = Math.round(35 + seedRand()*30);
-  const prodPct = 100 - maintPct;
+  const prodPct  = 100 - maintPct;
 
   function donutParts(type){
-    const colors = type==='maint' ? ['#ef4444','#f97316','#f59e0b','#eab308'] : ['#0ea5e9','#22d3ee','#a78bfa','#34d399'];
+    const colors = type==='maint' ? ['#ef4444','#f97316','#f59e0b','#eab308']
+                                  : ['#0ea5e9','#22d3ee','#a78bfa','#34d399'];
     const labels = type==='maint' ? ['PM Overrun','Mechanical','Electrical','Waiting on Parts']
                                   : ['Changeover','Material','Quality Hold','Operator'];
     const base = type==='maint' ? maintPct : prodPct;
-    // split base into 4 parts
     let remaining = base; const vals=[];
-    for(let i=0;i<3;i++){ const v = Math.max(5, Math.round(seedRand()*remaining*0.6)); vals.push(v); remaining -= v; }
+    for(let i=0;i<3;i++){ const v=Math.max(5, Math.round(seedRand()*remaining*0.6)); vals.push(v); remaining-=v; }
     vals.push(Math.max(5, remaining));
     return labels.map((l,i)=>({label:l,value:vals[i],color:colors[i]}));
   }
 
   function topIssues(type){
-    const pool = type==='maint' ? ['Gearbox vibration','Heater band','PM overrun','Bearing swap','Thermocouple']
-                                : ['Changeover delay','Regrind jam','Setup scrap','No work order','Material swap'];
-    return Array.from({length:3},()=> ({label: pick(pool), hrs: Math.round(8+seedRand()*26)}))
-      .sort((a,b)=>b.hrs-a.hrs);
+    const pool = type==='maint'
+      ? ['Gearbox vibration','Heater band','PM overrun','Bearing swap','Thermocouple']
+      : ['Changeover delay','Regrind jam','Setup scrap','No work order','Material swap'];
+    return Array.from({length:3},()=>({label:pick(pool), hrs:Math.round(8+seedRand()*26)})).sort((a,b)=>b.hrs-a.hrs);
   }
 
   const lines = LINES.map(name=>{
@@ -254,30 +275,22 @@ function makeDataset(period){
     const o = hist[hist.length-1];
     const a = Math.round(o*(0.7+seedRand()*0.3));
     const p = Math.round(60 + seedRand()*30);
-    const q = Math.round(95 + seedRand()*5); // quality placeholder
+    const q = Math.round(95 + seedRand()*5);
     const lbs = 20000 + Math.round(seedRand()*90000);
     const miss = Math.max(0, Math.round((100-o)*1200));
-    const limble = seedRand()>0.7; // 30% chance of open request
+    const limble = seedRand()>0.7;
     const status = pick(STATUSES).key;
     return {name,oee:o,avail:a,perf:p,qual:q,lbs,miss,hist,limble,status};
-  }).sort((a,b)=>b.oee-a.oee);
-    const o = hist[hist.length-1];
-    const a = Math.round(o*(0.7+seedRand()*0.3));
-    const p = Math.round(60 + seedRand()*30);
-    const lbs = 20000 + Math.round(seedRand()*90000);
-    const miss = Math.max(0, Math.round((100-o)*1200));
-    const limble = seedRand()>0.7; // 30% chance of open request
-    const status = pick(STATUSES).key;
-    return {name,oee:o,avail:a,perf:p,lbs,miss,hist,limble,status};
   }).sort((a,b)=>b.oee-a.oee);
 
   return {
     summary:{oee,availability,performance,pounds,missed},
     maint:{parts:donutParts('maint'), issues:topIssues('maint')},
-    prod:{parts:donutParts('prod'), issues:topIssues('prod')},
+    prod:{parts:donutParts('prod'),   issues:topIssues('prod')},
     lines, points
   };
 }
+</script>
 
 /********************** UI helpers **********************/
 function setText(el, txt){ if(typeof el==="string") el = document.querySelector(el); el.textContent = txt; }
