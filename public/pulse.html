@@ -16,7 +16,6 @@
     }
     *{box-sizing:border-box}
 
-    /* production background + header */
     body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial,sans-serif}
     .page-production::before{
       content:"";position:fixed;inset:0;z-index:-1;
@@ -33,7 +32,6 @@
     .wrap{margin:120px 20px 40px 20px}
 
     .app{max-width:1920px;margin:0 auto}
-
     .toolbar{display:flex;justify-content:space-between;align-items:center;margin:10px 0 16px;gap:10px;flex-wrap:wrap}
     .left, .right{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
     .segBig{display:inline-flex;border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--card);box-shadow:var(--shadow)}
@@ -41,7 +39,6 @@
     .segBig button.active{background:var(--pri-blue);color:white}
     .pill{padding:6px 10px;border-radius:999px;background:white;border:1px solid var(--border);color:var(--muted);font-weight:700}
 
-    /* KPIs */
     .kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:12px}
     .kpi{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:14px 16px;box-shadow:var(--shadow);min-height:90px}
     .kpi .label{font-size:12px;color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:.6px}
@@ -50,7 +47,6 @@
     .kpi.warn{background:var(--warn-bg);color:var(--warn-fg);border-color:#fde68a}
     .kpi.bad{ background:var(--bad-bg); color:var(--bad-fg); border-color:#fecaca}
 
-    /* status ticker */
     .statusbar{display:flex;gap:10px;overflow:auto;padding:8px 2px;margin-bottom:14px}
     .chip{display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--border);border-radius:999px;background:var(--chip);white-space:nowrap}
     .dot{width:12px;height:12px;border-radius:50%}
@@ -59,20 +55,17 @@
     .st-downm{background:#ef4444}
     .st-downp{background:#dc2626}
 
-    /* cards/grid */
     .grid{display:grid;grid-template-columns: 430px 1fr;gap:16px;align-items:stretch}
     .card{background:var(--card);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow)}
     .card h3{margin:0;padding:12px 14px;border-bottom:1px solid var(--border);font-size:15px;letter-spacing:.3px;color:var(--muted)}
     .card .content{padding:14px}
 
-    /* donuts + legends */
     .donutwrap{display:grid;grid-template-columns: 1fr;gap:12px}
     .donutrow{display:grid;grid-template-columns: 160px 1fr;gap:12px;align-items:center}
     .legend{display:grid;grid-template-columns:1fr 1fr;gap:8px}
     .legend .row{display:flex;align-items:center;gap:8px}
     .legend .name{max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
-    /* line tiles */
     .lines{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
     .line{border:1px solid var(--border);border-radius:14px;padding:12px;background:white}
     .lineheader{display:flex;justify-content:space-between;align-items:center}
@@ -114,6 +107,7 @@
       <a class="tab" href="pm.html">PM</a>
       <a class="tab" href="prodstatus.html">Prod Status</a>
       <a class="tab" href="kpi-by-asset.html">KPIs by Asset</a>
+      <a class="tab" href="production.html">Transformation</a>
       <a class="tab active" href="pulse.html">Pulse</a>
       <a class="tab" href="admin">Admin</a>
       <img src="img/innovation-logo.png" alt="Innovation" style="height:60px;margin-left:6px;background:#fff;border-radius:8px;padding:4px"/>
@@ -203,56 +197,55 @@
   </div>
 
 <script>
-/* ========= endpoints from /server/routes/production.js ========= */
+/* ===== endpoints (server/routes/production.js) ===== */
 const ENDPOINTS = {
-  SUMMARY: '/api/production/summary',      // expects { oee, availability, performanceAdj, quality? (if absent use constant), pounds, maint_dt_h, prod_dt_h, ... }
-  BY_LINE: '/api/production/by-line',      // daily rows by machine
-  // Optional (if you add later):
-  STATUS:  '/api/prodstatus/lines',        // [{machine,status,limble}]
-  ISSUES:  '/api/downtime/issues'          // ?from=YYYY-MM-DD&to=YYYY-MM-DD&type=maintenance|production -> [{label,hours}]
+  SUMMARY: '/api/production/summary',
+  BY_LINE: '/api/production/by-line',
+  STATUS:  '/api/prodstatus/lines', // optional
+  ISSUES:  '/api/downtime/issues'   // optional
 };
 const HOURS_PER_DAY = 24;
-const QUALITY_DEFAULT = 0.70;              // ← hard-coded to match your existing pages
+const QUALITY_DEFAULT = 0.70;
 
-/* ========= helpers ========= */
+/* thresholds: KPIs vs Quality use different bars */
+const classForKPI = v => v>=70? 'good' : v>=50? 'warn':'bad';
+const classForQuality = v => v>=98? 'good' : v>=85? 'warn' : 'bad';
+
 const $ = s => document.querySelector(s);
 const fmtInt = n => Number(Math.round(n||0)).toLocaleString();
-const classFor = v => v>=70? 'good' : v>=50? 'warn':'bad';
 const formatISO = d => new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10);
-const fetchJSON = async (url) => {
-  try { const r = await fetch(url, {cache:'no-store'}); if (!r.ok) throw new Error(r.status); return await r.json(); }
+async function fetchJSON(url){
+  try{ const r=await fetch(url,{cache:'no-store'}); if(!r.ok) throw new Error(r.status); return await r.json(); }
   catch(e){ console.warn('fetch failed', url, e); return null; }
-};
+}
 
-/* ========= timeframe (same options as header) ========= */
+/* timeframe */
 function startOfWeek(d){ const x=new Date(d); const day=(x.getDay()+6)%7; x.setDate(x.getDate()-day); x.setHours(0,0,0,0); return x;}
 function endOfWeek(d){ const x=startOfWeek(d); x.setDate(x.getDate()+6); return x;}
 function startOfMonth(d){ return new Date(d.getFullYear(), d.getMonth(), 1); }
 function endOfMonth(d){ return new Date(d.getFullYear(), d.getMonth()+1, 0); }
-
 function computeRange(sel){
-  const now = new Date(); now.setHours(0,0,0,0);
-  const y = new Date(now); y.setDate(y.getDate()-1);
+  const now=new Date(); now.setHours(0,0,0,0);
+  const y=new Date(now); y.setDate(y.getDate()-1);
   const fmt = d => formatISO(d);
-  const thisW = {from:startOfWeek(now), to:endOfWeek(now)};
-  const lastW = {from:new Date(startOfWeek(now)), to:new Date(endOfWeek(now))}; lastW.from.setDate(lastW.from.getDate()-7); lastW.to.setDate(lastW.to.getDate()-7);
-  const thisM = {from:startOfMonth(now), to:endOfMonth(now)};
-  const lastM = {from:startOfMonth(new Date(now.getFullYear(), now.getMonth()-1, 1)), to:endOfMonth(new Date(now.getFullYear(), now.getMonth()-1, 1))};
-
+  const thisW={from:startOfWeek(now),to:endOfWeek(now)};
+  const lastW={from:new Date(startOfWeek(now)),to:new Date(endOfWeek(now))}; lastW.from.setDate(lastW.from.getDate()-7); lastW.to.setDate(lastW.to.getDate()-7);
+  const thisM={from:startOfMonth(now),to:endOfMonth(now)};
+  const lastM={from:startOfMonth(new Date(now.getFullYear(),now.getMonth()-1,1)),to:endOfMonth(new Date(now.getFullYear(),now.getMonth()-1,1))};
   switch(sel){
-    case 'today':     return {from:fmt(now), to:fmt(now), label:'Today'};
-    case 'yesterday': return {from:fmt(y),   to:fmt(y),   label:'Yesterday'};
-    case 'week':      return {from:fmt(thisW.from), to:fmt(thisW.to), label:'This Week'};
-    case 'lastweek':  return {from:fmt(lastW.from), to:fmt(lastW.to), label:'Last Week'};
-    case 'month':     return {from:fmt(thisM.from), to:fmt(thisM.to), label:'This Month'};
-    case 'lastmonth': return {from:fmt(lastM.from), to:fmt(lastM.to), label:'Last Month'};
-    case 'r7':        { const s=new Date(now); s.setDate(s.getDate()-6); return {from:fmt(s), to:fmt(now), label:'Rolling 7d'}; }
-    case 'r30':       { const s=new Date(now); s.setDate(s.getDate()-29); return {from:fmt(s), to:fmt(now), label:'Rolling 30d'}; }
-    default:          { const s=new Date(now); s.setDate(s.getDate()-29); return {from:fmt(s), to:fmt(now), label:'Rolling 30d'}; }
+    case 'today':return{from:fmt(now),to:fmt(now)};
+    case 'yesterday':return{from:fmt(y),to:fmt(y)};
+    case 'week':return{from:fmt(thisW.from),to:fmt(thisW.to)};
+    case 'lastweek':return{from:fmt(lastW.from),to:fmt(lastW.to)};
+    case 'month':return{from:fmt(thisM.from),to:fmt(thisM.to)};
+    case 'lastmonth':return{from:fmt(lastM.from),to:fmt(lastM.to)};
+    case 'r7':{const s=new Date(now);s.setDate(s.getDate()-6);return{from:fmt(s),to:fmt(now)};}
+    case 'r30':{const s=new Date(now);s.setDate(s.getDate()-29);return{from:fmt(s),to:fmt(now)};}
+    default:{const s=new Date(now);s.setDate(s.getDate()-29);return{from:fmt(s),to:fmt(now)};}
   }
 }
 
-/* ========= charts ========= */
+/* charts */
 function drawDonut(canvas, parts){
   const ctx = canvas.getContext('2d');
   const {width:w,height:h} = canvas; ctx.clearRect(0,0,w,h);
@@ -265,86 +258,91 @@ function drawDonut(canvas, parts){
     ctx.fillStyle = d.color; ctx.fill();
     start += ang;
   });
-  ctx.fillStyle = '#111'; ctx.font = '800 20px system-ui'; ctx.textAlign='center'; ctx.textBaseline='middle';
   const mainPct = Math.round((parts[0]?.value||0)/total*100);
+  ctx.fillStyle='#111'; ctx.font='800 20px system-ui'; ctx.textAlign='center'; ctx.textBaseline='middle';
   ctx.fillText(mainPct+'%', cx, cy);
 }
 function drawSparkline(canvas, arr){
-  const ctx = canvas.getContext('2d'), w=canvas.width, h=canvas.height;
+  const ctx=canvas.getContext('2d'), w=canvas.width, h=canvas.height;
   ctx.clearRect(0,0,w,h);
-  if (!arr.length) return;
-  const min = Math.min(...arr), max=Math.max(...arr);
-  const pad=4; const x = i => pad + (w-2*pad)*(i/(arr.length-1)); const y = v => h - pad - (h-2*pad)*((v-min)/Math.max(1,(max-min)));
+  if(!arr.length) return;
+  const min=Math.min(...arr), max=Math.max(...arr);
+  const pad=4, x=i=>pad+(w-2*pad)*(i/(arr.length-1)), y=v=>h-pad-(h-2*pad)*((v-min)/Math.max(1,(max-min)));
   ctx.beginPath(); ctx.moveTo(x(0),y(arr[0])); for(let i=1;i<arr.length;i++) ctx.lineTo(x(i),y(arr[i])); ctx.lineTo(w-pad,h-pad); ctx.lineTo(pad,h-pad); ctx.closePath();
-  ctx.fillStyle = 'rgba(37,64,143,.12)'; ctx.fill();
-  ctx.beginPath(); ctx.moveTo(x(0),y(arr[0])); for(let i=1;i<arr.length;i++) ctx.lineTo(x(i),y(arr[i])); ctx.lineWidth=2; ctx.strokeStyle = 'rgba(37,64,143,.9)'; ctx.stroke();
+  ctx.fillStyle='rgba(37,64,143,.12)'; ctx.fill();
+  ctx.beginPath(); ctx.moveTo(x(0),y(arr[0])); for(let i=1;i<arr.length;i++) ctx.lineTo(x(i),y(arr[i])); ctx.lineWidth=2; ctx.strokeStyle='rgba(37,64,143,.9)'; ctx.stroke();
 }
 
-/* ========= render ========= */
+/* render */
 let STATE = { period:'today', refreshEvery:60 };
 
 async function renderAll(){
-  const pNames = {today:'Today', yesterday:'Yesterday', week:'This Week', lastweek:'Last Week', month:'This Month', lastmonth:'Last Month', r7:'Rolling 7d', r30:'Rolling 30d'};
-  document.getElementById('periodLabel').textContent = `• ${pNames[STATE.period]}`;
+  const names = {today:'Today',yesterday:'Yesterday',week:'This Week',lastweek:'Last Week',month:'This Month',lastmonth:'Last Month',r7:'Rolling 7d',r30:'Rolling 30d'};
+  document.getElementById('periodLabel').textContent = '• ' + (names[STATE.period]||'Range');
 
-  const {from, to} = computeRange(STATE.period);
+  const {from,to} = computeRange(STATE.period);
 
-  // 1) Summary (authoritative, from server routes)
+  // 1) summary (authoritative when fields present)
   const summary = await fetchJSON(`${ENDPOINTS.SUMMARY}?from=${from}&to=${to}`) || {};
-  const oeePct   = Math.round((summary.oee ?? 0) * 100);
-  const avlPct   = Math.round((summary.availability ?? 0) * 100);
-  const perfPct  = Math.round((summary.performanceAdj ?? summary.performance ?? 0) * 100);
-  const qualPct  = Math.round((summary.quality ?? QUALITY_DEFAULT) * 100);
-  const pounds   = Math.round(summary.pounds ?? summary.totalPounds ?? 0);
 
-  // downtime split from summary if present
-  const maintH = Number(summary.maint_dt_h ?? summary.maintHours ?? 0);
-  const prodH  = Number(summary.prod_dt_h  ?? summary.prodHours  ?? 0);
-  const totalH = Math.max(maintH + prodH, 1);
-  const maintPct = Math.round(maintH / totalH * 100);
+  // 2) per-line rows (used for KPIs fallback + lines list)
+  const rows = await fetchJSON(`${ENDPOINTS.BY_LINE}?from=${from}&to=${to}`) || [];
+
+  // ===== aggregate from rows (fallback if summary has zeros/undefined) =====
+  // Build per-day, per-machine
+  const dayMap = new Map();
+  rows.forEach(r=>{
+    const m=r.machine; if(!m) return;
+    const d=(r.src_date||'').slice(0,10); if(!d) return;
+    const key=`${m}__${d}`;
+    const o = dayMap.get(key)||{lbs:0,maint:0,run:0};
+    o.lbs += +r.pounds||0;
+    o.maint = Math.max(o.maint, +r.maint_dt_h||0);
+    o.run   = Math.max(o.run,   +r.machine_hours||0);
+    dayMap.set(key,o);
+  });
+  let agg = {lbs:0, run:0, maint:0, prod:0};
+  for(const d of dayMap.values()){
+    agg.lbs += d.lbs;
+    agg.run += d.run;
+    agg.maint += d.maint;
+    agg.prod += Math.max(0, HOURS_PER_DAY - d.maint - d.run);
+  }
+  const daysCount = new Set([...dayMap.keys()].map(k=>k.split('__')[1])).size || 1;
+  const avail_fallback = (agg.run / (HOURS_PER_DAY*daysCount)) || 0;
+  const perf_fallback  = Math.min(1, agg.lbs / Math.max(1, (HOURS_PER_DAY*daysCount - agg.maint) * 1)); // nameplate unknown → treat as 1× for fallback
+  const oee_fallback   = avail_fallback * perf_fallback * QUALITY_DEFAULT;
+
+  const oeePct   = Math.round(((summary.oee ?? 0) || oee_fallback) * 100);
+  const avlPct   = Math.round(((summary.availability ?? 0) || avail_fallback) * 100);
+  const perfPct  = Math.round(((summary.performanceAdj ?? summary.performance ?? 0) || perf_fallback) * 100);
+  const qualPct  = Math.round(((summary.quality ?? QUALITY_DEFAULT) * 100));
+  const pounds   = Math.round(summary.pounds ?? summary.totalPounds ?? agg.lbs);
+
+  const maintH   = Number(summary.maint_dt_h ?? agg.maint);
+  const prodH    = Number(summary.prod_dt_h  ?? agg.prod);
+  const totalH   = Math.max(maintH + prodH, 1);
+  const maintPct = Math.round(maintH/totalH*100);
   const prodPct  = 100 - maintPct;
 
-  // 2) Per-line daily rows
-  const rows = await fetchJSON(`${ENDPOINTS.BY_LINE}?from=${from}&to=${to}`) || [];
-  // group by machine for pounds + simple OEE trend (server is the source of truth for KPIs; trend is cosmetic here)
-  const byMachine = new Map();
-  rows.forEach(r=>{
-    const m = r.machine; if(!m) return;
-    const d = (r.src_date||'').slice(0,10);
-    const lbs = Number(r.pounds||0);
-    const run = Number(r.machine_hours||0);
-    if(!byMachine.has(m)) byMachine.set(m,{lbs:0, days:[], oeeSeries:[]});
-    const M = byMachine.get(m);
-    M.lbs += lbs;
-    // rough per-day oee series: use summary factors if available, else 0 (display only)
-    const oeeDay = (summary.oee ?? QUALITY_DEFAULT) * 100; // keep line spark gentle
-    if (d) { M.days.push(d); M.oeeSeries.push(Math.round(oeeDay)); }
-  });
-
-  // 3) Status (optional; if missing we’ll infer)
-  const statusRows = await fetchJSON(ENDPOINTS.STATUS);
-  const statusByMachine = new Map();
-  if (Array.isArray(statusRows)) {
-    statusRows.forEach(s=> statusByMachine.set(s.machine, {status:s.status, limble:!!s.limble}));
-  }
-
-  /* ======= KPI strip ======= */
+  // ===== KPI strip (quality uses its own thresholds) =====
   const kpiStrip = document.getElementById('kpiStrip'); kpiStrip.innerHTML='';
-  [
-    {label:'OEE', value:`${oeePct}%`, cls: classFor(oeePct)},
-    {label:'Availability', value:`${avlPct}%`, cls: classFor(avlPct)},
-    {label:'Performance (Adj)', value:`${perfPct}%`, cls: classFor(perfPct)},
-    {label:'Quality', value:`${qualPct}%`, cls: classFor(qualPct)},
+  const tiles = [
+    {label:'OEE', value:`${oeePct}%`, cls: classForKPI(oeePct)},
+    {label:'Availability', value:`${avlPct}%`, cls: classForKPI(avlPct)},
+    {label:'Performance (Adj)', value:`${perfPct}%`, cls: classForKPI(perfPct)},
+    {label:'Quality', value:`${qualPct}%`, cls: classForQuality(qualPct)},
     {label:'Total Pounds', value: fmtInt(pounds)},
     {label:'Missed Opp', value: '—'}
-  ].forEach(k=>{
+  ];
+  tiles.forEach(k=>{
     const div = document.createElement('div');
     div.className = `kpi ${k.cls||''}`.trim();
     div.innerHTML = `<div class="label">${k.label}</div><div class="value">${k.value}</div>`;
     kpiStrip.appendChild(div);
   });
 
-  /* ======= donuts ======= */
+  // ===== downtime pies
   const maintParts = [
     {label:'Maintenance', value:maintPct, color:'#ef4444'},
     {label:'Other',       value:100-maintPct, color:'#f59e0b'}
@@ -362,53 +360,64 @@ async function renderAll(){
     `<div class="row"><span class="dot" style="background:${d.color};width:12px;height:12px;border-radius:3px"></span><span class="name" style="font-weight:800">${d.label}</span><span style="margin-left:auto;color:var(--muted);font-weight:800">${d.value}%</span></div>`
   ).join('');
 
-  // issue lists (left empty unless you wire /api/downtime/issues)
+  // issues (leave placeholder unless you wire ENDPOINTS.ISSUES)
   document.getElementById('issuesMaint').innerHTML = '<li style="color:var(--muted)">No issue breakdown available.</li>';
   document.getElementById('issuesProd').innerHTML  = '<li style="color:var(--muted)">No issue breakdown available.</li>';
 
-  /* ======= status bar + production status list ======= */
+  // ===== status bar (optional endpoint; otherwise infer from run hours)
+  const statusRows = await fetchJSON(ENDPOINTS.STATUS);
+  const statusMap = new Map();
+  if (Array.isArray(statusRows)) statusRows.forEach(s=>statusMap.set(s.machine, {status:s.status, limble:!!s.limble}));
+
   const statusBar = document.getElementById('statusBar'); statusBar.innerHTML='';
   const prodList  = document.getElementById('prodStatusList'); prodList.innerHTML='';
-  const machines = [...byMachine.keys()].sort();
+  const machines = [...new Set(rows.map(r=>r.machine))].sort();
   machines.forEach(m=>{
-    const S = statusByMachine.get(m) || {status: (byMachine.get(m).lbs>0?'available':'downp'), limble:false};
+    const machineDay = [...dayMap.entries()].find(([k])=>k.startsWith(m+'__'));
+    const inferred = machineDay && machineDay[1].run>0;
+    const S = statusMap.get(m) || {status: inferred?'available':'downp', limble:false};
     const dotClass = S.status==='available'? 'st-available' : S.status==='setup'? 'st-setup' : S.status==='downm'? 'st-downm' : 'st-downp';
     const wrench = S.limble? '<span title="Open Limble request" style="font-weight:900">🛠️</span>' : '';
 
-    const chip = document.createElement('div'); chip.className='chip';
-    chip.innerHTML = `<span class="dot ${dotClass}"></span><strong>${m}</strong><span style="color:var(--muted);font-weight:800">${S.status.toUpperCase()}</span>${wrench}`;
+    const chip=document.createElement('div'); chip.className='chip';
+    chip.innerHTML=`<span class="dot ${dotClass}"></span><strong>${m}</strong><span style="color:var(--muted);font-weight:800">${S.status.toUpperCase()}</span>${wrench}`;
     statusBar.appendChild(chip);
 
-    const row = document.createElement('div');
+    const row=document.createElement('div');
     const bg = S.limble ? '#fff7cc' : '#eaffea';
     const border = S.limble ? '#fde68a' : '#bbf7d0';
-    row.style.cssText = `display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;padding:10px 12px;border-radius:12px;background:${bg};border:1px solid ${border}`;
-    row.innerHTML = `<strong>${m}</strong><span style="color:var(--muted);font-weight:800">${S.limble? 'Limble Request' : 'Available'}</span>`;
+    row.style.cssText=`display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;padding:10px 12px;border-radius:12px;background:${bg};border:1px solid ${border}`;
+    row.innerHTML=`<strong>${m}</strong><span style="color:var(--muted);font-weight:800">${S.limble?'Limble Request':'Available'}</span>`;
     prodList.appendChild(row);
   });
 
-  /* ======= line health grid ======= */
+  // ===== line health grid
   const linesGrid = document.getElementById('linesGrid'); linesGrid.innerHTML='';
+  const perMachineSeries = {};
+  for (const [key,obj] of dayMap.entries()){
+    const m = key.split('__')[0];
+    perMachineSeries[m] ??= [];
+    // basic OEE day estimate using fallback factors (display only)
+    const avail = obj.run / HOURS_PER_DAY;
+    const perf  = (obj.lbs>0 && (HOURS_PER_DAY-obj.maint)>0) ? Math.min(1, obj.lbs / Math.max(1,(HOURS_PER_DAY-obj.maint))) : 0;
+    const oee   = Math.round(avail * perf * QUALITY_DEFAULT * 100);
+    perMachineSeries[m].push(oee);
+  }
   machines.forEach(m=>{
-    const M = byMachine.get(m);
-    const series = M.oeeSeries || [];
-    const last = series.length ? series[series.length-1] : oeePct; // fallback to overall
-    const avail = avlPct; // without per-line split from server, mirror overall; swap to per-line if you add it
-    const perf  = perfPct;
-    const qual  = Math.round(QUALITY_DEFAULT*100);
-    const el = document.createElement('div'); el.className='line';
-    const statusCls = classFor(last);
-    const limTag = (statusByMachine.get(m)?.limble) ? '<span class="pill" style="margin-left:8px;background:#fff0f0;border-color:#fecaca;color:#991b1b">🛠️ Limble</span>' : '';
-    el.innerHTML = `
+    const series = perMachineSeries[m] || [];
+    const last = series.length ? series[series.length-1] : oeePct;
+    const el=document.createElement('div'); el.className='line';
+    const cls=classForKPI(last);
+    el.innerHTML=`
       <div class="lineheader">
         <div class="linename">${m}</div>
-        <div><span class="badge ${statusCls}">${statusCls.toUpperCase()}</span>${limTag}</div>
+        <div><span class="badge ${cls}">${cls.toUpperCase()}</span></div>
       </div>
       <div class="metricrow">
         <div class="mitem"><div class="label">OEE</div><div class="mkv">${last}%</div></div>
-        <div class="mitem"><div class="label">Avail</div><div class="mkv">${avail}%</div></div>
-        <div class="mitem"><div class="label">Perf</div><div class="mkv">${perf}%</div></div>
-        <div class="mitem"><div class="label">Quality</div><div class="mkv">${qual}%</div></div>
+        <div class="mitem"><div class="label">Avail</div><div class="mkv">${avlPct}%</div></div>
+        <div class="mitem"><div class="label">Perf</div><div class="mkv">${perfPct}%</div></div>
+        <div class="mitem"><div class="label">Quality</div><div class="mkv">${Math.round(QUALITY_DEFAULT*100)}%</div></div>
       </div>
       <canvas class="spark" width="340" height="40"></canvas>
     `;
@@ -416,21 +425,22 @@ async function renderAll(){
     drawSparkline(el.querySelector('canvas'), series);
   });
 
-  /* ======= rank table ======= */
-  const tbody = document.querySelector('#rankTable tbody'); tbody.innerHTML='';
-  machines
-    .map(m => ({name:m, lbs:byMachine.get(m).lbs, oee:(byMachine.get(m).oeeSeries.slice(-1)[0] ?? oeePct)}))
-    .sort((a,b)=>b.oee-a.oee)
-    .forEach(L=>{
-      const tr = document.createElement('tr');
-      tr.innerHTML = `<td>${L.name}</td><td><strong>${L.oee}%</strong></td><td>${fmtInt(L.lbs)}</td><td>—</td>`;
-      tbody.appendChild(tr);
-    });
+  // ===== ranks
+  const tbody=document.querySelector('#rankTable tbody'); tbody.innerHTML='';
+  machines.map(m=>{
+    const lbs = rows.filter(r=>r.machine===m).reduce((s,r)=>s+(+r.pounds||0),0);
+    const last = (perMachineSeries[m]||[]).slice(-1)[0] ?? oeePct;
+    return {name:m, oee:last, lbs};
+  }).sort((a,b)=>b.oee-a.oee).forEach(L=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML = `<td>${L.name}</td><td><strong>${L.oee}%</strong></td><td>${fmtInt(L.lbs)}</td><td>—</td>`;
+    tbody.appendChild(tr);
+  });
 
   document.getElementById('updated').textContent = new Date().toLocaleString();
 }
 
-/* ========= controls/timers ========= */
+/* controls/timers */
 document.querySelectorAll('.segBig button').forEach(b=>{
   b.addEventListener('click', ()=>{
     document.querySelectorAll('.segBig button').forEach(x=>x.classList.remove('active'));
