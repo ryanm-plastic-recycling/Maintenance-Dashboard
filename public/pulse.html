@@ -23,6 +23,8 @@
         linear-gradient(to bottom, rgba(255,255,255,.75), rgba(255,255,255,.85)),
         url('img/PRIfront.png') center/cover no-repeat fixed;
     }
+
+    /* Header like production.html */
     .top-border{position:fixed;top:0;left:0;width:100%;height:96px;background:var(--pri-green);z-index:10;display:flex;align-items:center;padding:0 20px}
     .top-border .logo{height:72px}
     .top-title{font-size:28px;font-weight:900;margin-left:20px;color:#0A2A12}
@@ -31,9 +33,14 @@
     .tab.active{background:#fff}
     .wrap{margin:120px 20px 40px 20px}
 
+    /* Loading overlay spinner */
+    #loading{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(255,255,255,.55);z-index:9999}
+    #loading .spinner{width:64px;height:64px;border:8px solid #e5e7eb;border-top-color:var(--pri-blue);border-radius:50%;animation:spin 1s linear infinite}
+    @keyframes spin { to{ transform:rotate(360deg) } }
+
     .app{max-width:1920px;margin:0 auto}
     .toolbar{display:flex;justify-content:space-between;align-items:center;margin:10px 0 16px;gap:10px;flex-wrap:wrap}
-    .left, .right{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+    .left,.right{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
     .segBig{display:inline-flex;border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--card);box-shadow:var(--shadow)}
     .segBig button{border:0;background:transparent;padding:8px 12px;font-weight:700;color:var(--muted);cursor:pointer}
     .segBig button.active{background:var(--pri-blue);color:white}
@@ -55,24 +62,30 @@
     .st-downm{background:#ef4444}
     .st-downp{background:#dc2626}
 
-    .grid{display:grid;grid-template-columns: 430px 1fr;gap:16px;align-items:stretch}
+    /* Grid: auto-fit tiles so they scale inside container */
+    .grid{display:grid;grid-template-columns: 420px 1fr;gap:16px;align-items:stretch}
     .card{background:var(--card);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow)}
     .card h3{margin:0;padding:12px 14px;border-bottom:1px solid var(--border);font-size:15px;letter-spacing:.3px;color:var(--muted)}
     .card .content{padding:14px}
 
-    /* Hide downtime until wired to real “why” data */
-    .card.downtime{display:none}
+    /* Downtime pies/legend (kept visible even if zero) */
+    .donutwrap{display:grid;grid-template-columns:1fr;gap:12px}
+    .donutrow{display:grid;grid-template-columns:160px 1fr;gap:12px;align-items:center}
+    .legend{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+    .legend .row{display:flex;align-items:center;gap:8px}
+    .legend .name{max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
-    .lines{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
-    .line{border:1px solid var(--border);border-radius:14px;padding:12px;background:white}
+    /* Line tiles responsive */
+    .lines{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px}
+    .line{border:1px solid var(--border);border-radius:14px;padding:12px;background:white;display:flex;flex-direction:column}
     .lineheader{display:flex;justify-content:space-between;align-items:center}
     .linename{font-weight:900}
     .badge{font-size:12px;font-weight:900;padding:4px 8px;border-radius:999px}
     .badge.good{background:var(--good-bg);color:var(--good-fg);border:1px solid #bbf7d0}
     .badge.warn{background:var(--warn-bg);color:var(--warn-fg);border:1px solid #fde68a}
     .badge.bad{ background:var(--bad-bg); color:var(--bad-fg); border:1px solid #fecaca}
-    .metricrow{display:grid;grid-template-columns: repeat(4,1fr);gap:8px;margin-top:8px}
-    .mitem{background:#f7fafc;border:1px solid var(--border);border-radius:10px;padding:8px}
+    .metricrow{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:8px}
+    .mitem{background:#f7fafc;border:1px solid var(--border);border-radius:10px;padding:8px;min-width:0}
     .mitem .mkv{font-size:22px;font-weight:900}
     .spark{width:100%;height:40px;margin-top:6px}
 
@@ -96,6 +109,8 @@
 </head>
 
 <body class="page-production">
+  <div id="loading"><div class="spinner" aria-label="Loading…"></div></div>
+
   <div class="top-border">
     <img src="img/pri-logo.png" alt="PRI Logo" class="logo" />
     <div class="top-title">PRI Pulse <span id="periodLabel" style="font-size:16px;font-weight:800;margin-left:8px;color:#0A2A12"></span></div>
@@ -107,7 +122,8 @@
       <a class="tab" href="production.html">Transformation</a>
       <a class="tab active" href="pulse.html">Pulse</a>
       <a class="tab" href="admin">Admin</a>
-      <img src="img/innovation-logo.png" alt="Innovation" style="height:60px;margin-left:6px;background:#fff;border-radius:8px;padding:4px"/>
+      <!-- innovation logo without white background, sized to header -->
+      <img src="img/innovation-logo.png" alt="Innovation" style="height:72px;margin-left:8px;object-fit:contain"/>
     </div>
   </div>
 
@@ -117,10 +133,10 @@
       <div class="toolbar">
         <div class="left">
           <div class="segBig" role="tablist" aria-label="Timeframe">
-            <button data-period="today" class="active" role="tab">Today</button>
+            <button data-period="today" role="tab">Today</button>
             <button data-period="yesterday" role="tab">Yesterday</button>
             <button data-period="week" role="tab">This Week</button>
-            <button data-period="lastweek" role="tab">Last Week</button>
+            <button data-period="lastweek" class="active" role="tab">Last Week</button>
             <button data-period="month" role="tab">This Month</button>
             <button data-period="lastmonth" role="tab">Last Month</button>
             <button data-period="r7" role="tab">Rolling 7d</button>
@@ -141,8 +157,8 @@
       <section class="kpis" id="kpiStrip"></section>
 
       <section class="grid">
-        <!-- Left: (hidden) downtime card placeholder -->
-        <article class="card downtime">
+        <!-- Left: Downtime pies (placeholder if no data) -->
+        <article class="card">
           <h3>Downtime Overview — Maintenance vs Production</h3>
           <div class="content donutwrap">
             <div class="donutrow">
@@ -193,82 +209,104 @@
   </div>
 
 <script>
-/* ===== endpoints from your server ===== */
+/* ===== endpoints ===== */
 const ENDPOINTS = {
-  SUMMARY: '/api/production/summary',     // server/routes/production.js
-  BY_LINE: '/api/production/by-line',     // server/routes/production.js
-  PRODSTATUS: '/api/workorders/prodstatus'// server side used by prodstatus.html
+  SUMMARY   : '/api/production/summary',
+  BY_LINE   : '/api/production/by-line',
+  PRODSTATUS: '/api/workorders/prodstatus',
+  MAP       : 'mappings.json'
 };
 const HOURS_PER_DAY = 24;
 const QUALITY_DEFAULT = 0.70;
 
-/* thresholds (Quality uses stricter colors so 70% is RED) */
-const classForKPI = v => v>=70? 'good' : v>=50? 'warn':'bad';
-const classForQuality = v => v>=98? 'good' : v>=85? 'warn' : 'bad';
+/* thresholds (Quality stricter → 70% shows BAD/red) */
+const classForKPI      = v => v>=70? 'good' : v>=50? 'warn':'bad';
+const classForQuality  = v => v>=98? 'good' : v>=85? 'warn' : 'bad';
+const $   = s => document.querySelector(s);
+const fmt = n => Number(Math.round(n||0)).toLocaleString();
+const fmtPct = v => `${Math.round((v||0))}%`;
 
-const $ = s => document.querySelector(s);
-const fmtInt = n => Number(Math.round(n||0)).toLocaleString();
-const formatISO = d => new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10);
+function setLoading(v){ const el=$('#loading'); if(el) el.style.display = v ? 'flex':'none'; }
 async function fetchJSON(url){
   try{ const r=await fetch(url,{cache:'no-store'}); if(!r.ok) throw new Error(r.status); return await r.json(); }
   catch(e){ console.warn('fetch failed', url, e); return null; }
 }
 
-/* timeframe */
+/* timeframe helpers */
 function startOfWeek(d){ const x=new Date(d); const day=(x.getDay()+6)%7; x.setDate(x.getDate()-day); x.setHours(0,0,0,0); return x;}
 function endOfWeek(d){ const x=startOfWeek(d); x.setDate(x.getDate()+6); return x;}
 function startOfMonth(d){ return new Date(d.getFullYear(), d.getMonth(), 1); }
 function endOfMonth(d){ return new Date(d.getFullYear(), d.getMonth()+1, 0); }
+function iso(d){ return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10); }
+
 function computeRange(sel){
   const now=new Date(); now.setHours(0,0,0,0);
   const y=new Date(now); y.setDate(y.getDate()-1);
-  const fmt = d => formatISO(d);
   const thisW={from:startOfWeek(now),to:endOfWeek(now)};
   const lastW={from:new Date(startOfWeek(now)),to:new Date(endOfWeek(now))}; lastW.from.setDate(lastW.from.getDate()-7); lastW.to.setDate(lastW.to.getDate()-7);
   const thisM={from:startOfMonth(now),to:endOfMonth(now)};
   const lastM={from:startOfMonth(new Date(now.getFullYear(),now.getMonth()-1,1)),to:endOfMonth(new Date(now.getFullYear(),now.getMonth()-1,1))};
   switch(sel){
-    case 'today':return{from:fmt(now),to:fmt(now)};
-    case 'yesterday':return{from:fmt(y),to:fmt(y)};
-    case 'week':return{from:fmt(thisW.from),to:fmt(thisW.to)};
-    case 'lastweek':return{from:fmt(lastW.from),to:fmt(lastW.to)};
-    case 'month':return{from:fmt(thisM.from),to:fmt(thisM.to)};
-    case 'lastmonth':return{from:fmt(lastM.from),to:fmt(lastM.to)};
-    case 'r7':{const s=new Date(now);s.setDate(s.getDate()-6);return{from:fmt(s),to:fmt(now)};}
-    case 'r30':{const s=new Date(now);s.setDate(s.getDate()-29);return{from:fmt(s),to:fmt(now)};}
-    default:{const s=new Date(now);s.setDate(s.getDate()-29);return{from:fmt(s),to:fmt(now)};}
+    case 'today'    : return {from:iso(now), to:iso(now)};
+    case 'yesterday': return {from:iso(y), to:iso(y)};
+    case 'week'     : return {from:iso(thisW.from), to:iso(thisW.to)};
+    case 'lastweek' : return {from:iso(lastW.from), to:iso(lastW.to)};
+    case 'month'    : return {from:iso(thisM.from), to:iso(thisM.to)};
+    case 'lastmonth': return {from:iso(lastM.from), to:iso(lastM.to)};
+    case 'r7'       : { const s=new Date(now); s.setDate(s.getDate()-6); return {from:iso(s), to:iso(now)}; }
+    case 'r30'      : { const s=new Date(now); s.setDate(s.getDate()-29); return {from:iso(s), to:iso(now)}; }
+    default         : { const s=new Date(now); s.setDate(s.getDate()-29); return {from:iso(s), to:iso(now)}; }
   }
 }
 
-/* charts */
-function drawSparkline(canvas, arr){
-  const ctx=canvas.getContext('2d'), w=canvas.width, h=canvas.height;
-  ctx.clearRect(0,0,w,h);
-  if(!arr.length) return;
-  const min=Math.min(...arr), max=Math.max(...arr);
-  const pad=4, x=i=>pad+(w-2*pad)*(i/(arr.length-1)), y=v=>h-pad-(h-2*pad)*((v-min)/Math.max(1,(max-min)));
-  ctx.beginPath(); ctx.moveTo(x(0),y(arr[0])); for(let i=1;i<arr.length;i++) ctx.lineTo(x(i),y(arr[i])); ctx.lineTo(w-pad,h-pad); ctx.lineTo(pad,h-pad); ctx.closePath();
-  ctx.fillStyle='rgba(37,64,143,.12)'; ctx.fill();
-  ctx.beginPath(); ctx.moveTo(x(0),y(arr[0])); for(let i=1;i<arr.length;i++) ctx.lineTo(x(i),y(arr[i])); ctx.lineWidth=2; ctx.strokeStyle='rgba(37,64,143,.9)'; ctx.stroke();
+/* mappings.json support (same idea as production) */
+let MAPPINGS = null;
+async function loadMappings(){
+  const j = await fetchJSON(`${ENDPOINTS.MAP}?ts=${Date.now()}`);
+  MAPPINGS = j || { capacities_lbs_hr:{}, capacity_by_material_lbs_hr:{}, capacity_aliases:{}, material_aliases:{}, productionAssets:[] };
+}
+function capacityFor(lineName, material){
+  const { capacities_lbs_hr: caps = {}, capacity_by_material_lbs_hr: byMat = {}, capacity_aliases: alias = {}, material_aliases: malias = {} } = MAPPINGS || {};
+  const canon = (caps[lineName] !== undefined || byMat[lineName]) ? lineName : (alias[lineName] || lineName);
+  const k = String(material ?? '').trim().toUpperCase();
+  const m = malias[k] || (k === '' ? 'DEFAULT' : k);
+  return byMat[canon]?.[m] ?? byMat[canon]?.DEFAULT ?? caps[canon] ?? 0;
+}
+function mappedMachineNames(){
+  const arr = Array.isArray(MAPPINGS?.productionAssets) ? MAPPINGS.productionAssets : [];
+  // support either {name:'Extruder 1', id:...} or strings
+  return arr.map(x => (typeof x === 'string' ? x : (x?.name||'')).trim()).filter(Boolean);
 }
 
-/* ====== PROD STATUS (reuse prodstatus.html logic, simplified) ====== */
+/* simple donuts */
+function drawDonut(canvas, mainPct, mainLabel, mainColor, otherColor){
+  const ctx = canvas.getContext('2d');
+  const {width:w,height:h} = canvas; ctx.clearRect(0,0,w,h);
+  const cx=w/2, cy=h/2, r=Math.min(w,h)/2-6, t=24;
+  const parts = [
+    {val:Math.max(0,Math.min(100,mainPct)), color:mainColor},
+    {val:100-Math.max(0,Math.min(100,mainPct)), color:otherColor}
+  ];
+  let start=-Math.PI/2, total=100;
+  parts.forEach(p=>{
+    const ang = (p.val/total)*Math.PI*2;
+    ctx.beginPath(); ctx.arc(cx,cy,r,start,start+ang); ctx.arc(cx,cy,r-t,start+ang,start,true); ctx.closePath();
+    ctx.fillStyle=p.color; ctx.fill(); start+=ang;
+  });
+  ctx.fillStyle='#111'; ctx.font='800 20px system-ui'; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText(`${Math.round(mainPct)}%`, cx, cy);
+}
+
+/* STATUS (reusing prodstatus approach) */
 async function loadProdStatus(){
   const raw = await fetchJSON(`${ENDPOINTS.PRODSTATUS}?t=${Date.now()}`);
   if (!raw) return null;
-
-  // rows can be in raw.rows or raw.tiles; sometimes SQL wrapper packs JSON string in a single object key
   let rows = Array.isArray(raw?.rows) ? raw.rows : (Array.isArray(raw?.tiles) ? raw.tiles : []);
   if (Array.isArray(rows) && rows.length === 1 && rows[0] && typeof rows[0] === 'object') {
-    const k = Object.keys(rows[0])[0];
-    const v = rows[0][k];
-    if (typeof v === 'string' && v.startsWith('[')) {
-      try { rows = JSON.parse(v); } catch {}
-    }
+    const k = Object.keys(rows[0])[0], v = rows[0][k];
+    if (typeof v === 'string' && v.startsWith('[')) { try{ rows = JSON.parse(v); }catch{} }
   }
   if (!Array.isArray(rows) || !rows.length) return null;
-
-  // Normalize → { name, status, limble? }
   return rows.map(r=>{
     const name = r.assetName || r.name || r.AssetName || r.machine || r.asset || 'Unknown';
     const val  = (r.assetStatus ?? r.value ?? r.valueText ?? r.statusText ?? r.status ?? r.statusID ?? '').toString().trim();
@@ -277,138 +315,152 @@ async function loadProdStatus(){
     if (txt.includes('setup')) status = 'setup';
     else if (txt.includes('maint')) status = 'downm';
     else if (txt.includes('avail') || txt==='running' || txt==='run') status = 'available';
-    const limble = /limble|work ?order|wo/i.test(val) ? true : false; // dumb guess if text carries it
+    const limble = /limble|work ?order|wo/i.test(val);
     return {name, status, limble};
   });
 }
 
-/* render */
-let STATE = { period:'today', refreshEvery:60 };
+/* ===== render ===== */
+let STATE = { period:'lastweek', refreshEvery:60 };
 
 async function renderAll(){
-  const names = {today:'Today',yesterday:'Yesterday',week:'This Week',lastweek:'Last Week',month:'This Month',lastmonth:'Last Month',r7:'Rolling 7d',r30:'Rolling 30d'};
-  document.getElementById('periodLabel').textContent = '• ' + (names[STATE.period]||'Range');
-  const {from,to} = computeRange(STATE.period);
+  setLoading(true);
+  try{
+    const names = {today:'Today',yesterday:'Yesterday',week:'This Week',lastweek:'Last Week',month:'This Month',lastmonth:'Last Month',r7:'Rolling 7d',r30:'Rolling 30d'};
+    $('#periodLabel').textContent = '• ' + (names[STATE.period]||'Range');
 
-  // Pull summary + by-line
-  const [summary, byline, prodstatus] = await Promise.all([
-    fetchJSON(`${ENDPOINTS.SUMMARY}?from=${from}&to=${to}`),
-    fetchJSON(`${ENDPOINTS.BY_LINE}?from=${from}&to=${to}`),
-    loadProdStatus() // may be null
-  ]);
+    // sync button state
+    document.querySelectorAll('.segBig button').forEach(b=>b.classList.toggle('active', b.dataset.period===STATE.period));
 
-  // Fallbacks if summary empty
-  const oeePct   = Math.round(((summary?.oee) ?? 0) * 100);
-  const avlPct   = Math.round(((summary?.availability) ?? 0) * 100);
-  const perfPct  = Math.round(((summary?.performanceAdj ?? summary?.performance) ?? 0) * 100);
-  const qualPct  = Math.round((summary?.quality ?? QUALITY_DEFAULT) * 100);
-  const pounds   = Math.round(summary?.pounds ?? summary?.totalPounds ?? 0);
+    const {from,to} = computeRange(STATE.period);
 
-  // KPI strip (quality uses its own thresholds → 70% shows BAD/red)
-  const kpiStrip = document.getElementById('kpiStrip'); kpiStrip.innerHTML='';
-  [
-    {label:'OEE', value:`${isFinite(oeePct)?oeePct:0}%`, cls: classForKPI(oeePct||0)},
-    {label:'Availability', value:`${isFinite(avlPct)?avlPct:0}%`, cls: classForKPI(avlPct||0)},
-    {label:'Performance (Adj)', value:`${isFinite(perfPct)?perfPct:0}%`, cls: classForKPI(perfPct||0)},
-    {label:'Quality', value:`${qualPct}%`, cls: classForQuality(qualPct)},
-    {label:'Total Pounds', value: fmtInt(pounds||0)},
-    {label:'Missed Opp', value: '—'}
-  ].forEach(k=>{
-    const div = document.createElement('div');
-    div.className = `kpi ${k.cls||''}`.trim();
-    div.innerHTML = `<div class="label">${k.label}</div><div class="value">${k.value}</div>`;
-    kpiStrip.appendChild(div);
-  });
+    // Load mappings first (for filtering + capacity)
+    if (!MAPPINGS) await loadMappings();
+    const allowed = new Set(mappedMachineNames()); // if empty -> show all
 
-  // Status bar + Production status list
-  const statusBar = document.getElementById('statusBar'); statusBar.innerHTML='';
-  const prodList  = document.getElementById('prodStatusList'); prodList.innerHTML='';
+    const [summary, bylineRaw, prodstatus] = await Promise.all([
+      fetchJSON(`${ENDPOINTS.SUMMARY}?from=${from}&to=${to}`),
+      fetchJSON(`${ENDPOINTS.BY_LINE}?from=${from}&to=${to}`),
+      loadProdStatus()
+    ]);
 
-  const statusArr = Array.isArray(prodstatus) ? prodstatus
-                    : [...new Set((byline||[]).map(r=>r.machine).filter(Boolean))].map(m=>({name:m,status:'downp',limble:false}));
+    const byline = (bylineRaw||[]).filter(r=>{
+      const m = r.machine; if (!m) return false;
+      return allowed.size ? allowed.has(m) : true;
+    });
 
-  statusArr.sort((a,b)=> a.name.localeCompare(b.name));
-  statusArr.forEach(S=>{
-    const dot = S.status==='available' ? 'st-available' : S.status==='setup' ? 'st-setup' : S.status==='downm' ? 'st-downm' : 'st-downp';
-    const wrench = S.limble ? '<span title="Open Limble request" style="font-weight:900">🛠️</span>' : '';
-    const chip=document.createElement('div'); chip.className='chip';
-    chip.innerHTML = `<span class="dot ${dot}"></span><strong>${S.name}</strong><span style="color:var(--muted);font-weight:800">${S.status.toUpperCase()}</span>${wrench}`;
-    statusBar.appendChild(chip);
+    /* === KPI source of truth: summary, else compute from by-line with capacity === */
+    let oeePct   = Math.round(((summary?.oee) ?? 0) * 100);
+    let avlPct   = Math.round(((summary?.availability) ?? 0) * 100);
+    let perfPct  = Math.round(((summary?.performanceAdj ?? summary?.performance) ?? 0) * 100);
+    let qualPct  = Math.round((summary?.quality ?? QUALITY_DEFAULT) * 100);
+    let pounds   = Math.round(summary?.pounds ?? summary?.totalPounds ?? 0);
 
-    const row=document.createElement('div');
-    const bg = S.limble ? '#fff7cc' : '#eaffea';
-    const border = S.limble ? '#fde68a' : '#bbf7d0';
-    row.style.cssText = `display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;padding:10px 12px;border-radius:12px;background:${bg};border:1px solid ${border}`;
-    row.innerHTML = `<strong>${S.name}</strong><span style="color:var(--muted);font-weight:800">${S.limble?'Limble Request':'Available'}</span>`;
-    prodList.appendChild(row);
-  });
+    const needFallback = !(oeePct||avlPct||perfPct||pounds);
+    if (needFallback && byline.length){
+      // build per-day per-line using capacityFor (like production)
+      const dayMap = new Map(); // key: m__date
+      const dates = new Set();
+      for (const r of byline){
+        const m=r.machine, d=(r.src_date||'').slice(0,10); if(!m||!d) continue;
+        dates.add(d);
+        const key=`${m}__${d}`;
+        if (!dayMap.has(key)) dayMap.set(key,{lbs:0, run:0, maint:0, cap:0});
+        const o = dayMap.get(key);
+        o.lbs   += +r.pounds||0;
+        o.run    = Math.max(o.run, +r.machine_hours||0);
+        o.maint  = Math.max(o.maint, +r.maint_dt_h||0);
+        const cap = capacityFor(m, r.material) || +r.nameplate_lbs_hr || 0;
+        o.cap = Math.max(o.cap, cap);
+      }
+      let sumLbs=0,sumRun=0,sumMaint=0,adjDen=0;
+      for (const o of dayMap.values()){
+        sumLbs += o.lbs; sumRun += o.run; sumMaint += o.maint;
+        adjDen += o.cap * Math.max(0, HOURS_PER_DAY - o.maint);
+      }
+      const dayCount = dates.size || 1;
+      const avail = (sumRun / (HOURS_PER_DAY*dayCount)) || 0;
+      const perfA = adjDen>0 ? Math.min(1, sumLbs/adjDen) : 0;
+      const oee   = avail * perfA * QUALITY_DEFAULT;
 
-  // Line health grid (sparkline from per-day OEE-ish using by-line)
-  const seriesBy = {};
-  (byline||[]).forEach(r=>{
-    const m=r.machine; if(!m) return;
-    const d=(r.src_date||'').slice(0,10); if(!d) return;
-    seriesBy[m] ??= [];
-    const run=+r.machine_hours||0, md=+r.maint_dt_h||0, lbs=+r.pounds||0;
-    const avail = run / HOURS_PER_DAY;
-    const perf  = (HOURS_PER_DAY-md)>0 ? Math.min(1, lbs/Math.max(1,(HOURS_PER_DAY-md))) : 0;
-    const oee   = Math.round(avail*perf*QUALITY_DEFAULT*100);
-    seriesBy[m].push(oee);
-  });
+      oeePct = Math.round(oee*100);
+      avlPct = Math.round(avail*100);
+      perfPct= Math.round(perfA*100);
+      qualPct= Math.round(QUALITY_DEFAULT*100);
+      pounds = Math.round(sumLbs);
+    }
 
-  const linesGrid = document.getElementById('linesGrid'); linesGrid.innerHTML='';
-  const uniqMachines = [...new Set((byline||[]).map(r=>r.machine).filter(Boolean))].sort();
-  uniqMachines.forEach(m=>{
-    const series = seriesBy[m]||[];
-    const last = series.length ? series[series.length-1] : (oeePct||0);
-    const el=document.createElement('div'); el.className='line';
-    const cls=classForKPI(last);
-    el.innerHTML=`
-      <div class="lineheader">
-        <div class="linename">${m}</div>
-        <div><span class="badge ${cls}">${cls.toUpperCase()}</span></div>
-      </div>
-      <div class="metricrow">
-        <div class="mitem"><div class="label">OEE</div><div class="mkv">${last}%</div></div>
-        <div class="mitem"><div class="label">Avail</div><div class="mkv">${isFinite(avlPct)?avlPct:0}%</div></div>
-        <div class="mitem"><div class="label">Perf</div><div class="mkv">${isFinite(perfPct)?perfPct:0}%</div></div>
-        <div class="mitem"><div class="label">Quality</div><div class="mkv">${Math.round(QUALITY_DEFAULT*100)}%</div></div>
-      </div>
-      <canvas class="spark" width="340" height="40"></canvas>
-    `;
-    linesGrid.appendChild(el);
-    drawSparkline(el.querySelector('canvas'), series);
-  });
+    // KPI strip
+    const kpiStrip = $('#kpiStrip'); kpiStrip.innerHTML='';
+    [
+      {label:'OEE', value:`${oeePct}%`, cls: classForKPI(oeePct)},
+      {label:'Availability', value:`${avlPct}%`, cls: classForKPI(avlPct)},
+      {label:'Performance (Adj)', value:`${perfPct}%`, cls: classForKPI(perfPct)},
+      {label:'Quality', value:`${qualPct}%`, cls: classForQuality(qualPct)},
+      {label:'Total Pounds', value: fmt(pounds)},
+      {label:'Missed Opp', value: '—'}
+    ].forEach(k=>{
+      const div=document.createElement('div'); div.className=`kpi ${k.cls||''}`.trim();
+      div.innerHTML = `<div class="label">${k.label}</div><div class="value">${k.value}</div>`;
+      kpiStrip.appendChild(div);
+    });
 
-  // Rank table
-  const tbody=document.querySelector('#rankTable tbody'); tbody.innerHTML='';
-  uniqMachines.map(m=>{
-    const lbs = (byline||[]).filter(r=>r.machine===m).reduce((s,r)=>s+(+r.pounds||0),0);
-    const last = (seriesBy[m]||[]).slice(-1)[0] ?? (oeePct||0);
-    return {name:m, lbs, oee:last};
-  }).sort((a,b)=>b.oee-a.oee).forEach(L=>{
-    const tr=document.createElement('tr');
-    tr.innerHTML = `<td>${L.name}</td><td><strong>${L.oee}%</strong></td><td>${fmtInt(L.lbs)}</td><td>—</td>`;
-    tbody.appendChild(tr);
-  });
+    // Downtime pies: placeholder (0%) so layout is ready
+    drawDonut($('#donutMaint'), 0, 'Maintenance', '#ef4444', '#f59e0b');
+    $('#legendMaint').innerHTML =
+      `<div class="row"><span class="dot" style="background:#ef4444;width:12px;height:12px;border-radius:3px"></span>
+        <span class="name" style="font-weight:800">Maintenance</span>
+        <span style="margin-left:auto;color:var(--muted);font-weight:800">0%</span></div>
+       <div class="row"><span class="dot" style="background:#f59e0b;width:12px;height:12px;border-radius:3px"></span>
+        <span class="name" style="font-weight:800">Other</span>
+        <span style="margin-left:auto;color:var(--muted);font-weight:800">100%</span></div>`;
+    drawDonut($('#donutProd'), 0, 'Production', '#0ea5e9', '#a78bfa');
+    $('#legendProd').innerHTML =
+      `<div class="row"><span class="dot" style="background:#0ea5e9;width:12px;height:12px;border-radius:3px"></span>
+        <span class="name" style="font-weight:800">Production</span>
+        <span style="margin-left:auto;color:var(--muted);font-weight:800">0%</span></div>
+       <div class="row"><span class="dot" style="background:#a78bfa;width:12px;height:12px;border-radius:3px"></span>
+        <span class="name" style="font-weight:800">Other</span>
+        <span style="margin-left:auto;color:var(--muted);font-weight:800">100%</span></div>`;
 
-  document.getElementById('updated').textContent = new Date().toLocaleString();
-}
+    // PROD STATUS (filtered by mappings if provided)
+    const statusArrRaw = Array.isArray(prodstatus) ? prodstatus : [];
+    const statusArr = statusArrRaw.filter(s => allowed.size ? allowed.has(s.name) : true)
+                                  .sort((a,b)=>a.name.localeCompare(b.name));
 
-/* controls/timers */
-document.querySelectorAll('.segBig button').forEach(b=>{
-  b.addEventListener('click', ()=>{
-    document.querySelectorAll('.segBig button').forEach(x=>x.classList.remove('active'));
-    b.classList.add('active');
-    STATE.period = b.dataset.period;
-    renderAll();
-  });
-});
-document.getElementById('refreshSec').textContent = STATE.refreshEvery+'s';
-setInterval(()=>{ const c=document.getElementById('clock'); if(c) c.textContent=new Date().toLocaleTimeString(); }, 500);
-setInterval(()=>{ renderAll(); }, STATE.refreshEvery*1000);
+    const statusBar = $('#statusBar'); statusBar.innerHTML='';
+    const prodList  = $('#prodStatusList'); prodList.innerHTML='';
+    statusArr.forEach(S=>{
+      const dot = S.status==='available' ? 'st-available' : S.status==='setup' ? 'st-setup' : S.status==='downm' ? 'st-downm' : 'st-downp';
+      const wrench = S.limble ? '<span title="Open Limble request" style="font-weight:900">🛠️</span>' : '';
+      const chip=document.createElement('div'); chip.className='chip';
+      chip.innerHTML = `<span class="dot ${dot}"></span><strong>${S.name}</strong><span style="color:var(--muted);font-weight:800">${S.status.toUpperCase()}</span>${wrench}`;
+      statusBar.appendChild(chip);
 
-renderAll();
-</script>
-</body>
-</html>
+      const row=document.createElement('div');
+      const bg = S.limble ? '#fff7cc' : '#eaffea';
+      const border = S.limble ? '#fde68a' : '#bbf7d0';
+      row.style.cssText = `display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;padding:10px 12px;border-radius:12px;background:${bg};border:1px solid ${border}`;
+      row.innerHTML = `<strong>${S.name}</strong><span style="color:var(--muted);font-weight:800">${S.limble?'Limble Request':'Available'}</span>`;
+      prodList.appendChild(row);
+    });
+
+    // Line health grid (sparkline OEE per day using capacity mapping)
+    const seriesBy = {};
+    const lastBy   = {};
+    const uniqMachines = [...new Set(byline.map(r=>r.machine).filter(Boolean))]
+      .filter(m => allowed.size ? allowed.has(m) : true)
+      .sort();
+
+    // per-day compute
+    const byKey = (m,d)=>`${m}__${d}`;
+    const dayCalc = new Map();
+    for (const r of byline){
+      const m=r.machine, d=(r.src_date||'').slice(0,10); if(!m||!d) continue;
+      const key = byKey(m,d);
+      if(!dayCalc.has(key)) dayCalc.set(key,{lbs:0,run:0,maint:0,cap:0});
+      const o = dayCalc.get(key);
+      o.lbs   += +r.pounds||0;
+      o.run    = Math.max(o.run, +r.machine_hours||0);
+      o.maint  = Math.max(o.maint, +r.maint_dt_h||0);
+      const cap = capacityFor(m, r.material) || +r.nameplate_lassistant.analysis
