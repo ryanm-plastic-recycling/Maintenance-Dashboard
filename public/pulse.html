@@ -151,7 +151,7 @@
         </div>
       </div>
 
-      <!-- STATUS TICKER -->
+      <!-- STATUS TICKER (keep for later) -->
       <!-- <div class="statusbar" id="statusBar"></div> -->
 
       <!-- KPI STRIP -->
@@ -212,27 +212,18 @@
 <script>
 /* ===== endpoints ===== */
 const ENDPOINTS = {
-  SUMMARY   : '/api/production/summary',
   BY_LINE   : '/api/production/by-line',
   PRODSTATUS: '/api/workorders/prodstatus',
   MAP       : 'mappings.json'
 };
 const HOURS_PER_DAY = 24;
 const QUALITY_DEFAULT = 0.70;  // match production
-
-/* thresholds */
 const classForKPI     = v => v>=70? 'good' : v>=50? 'warn':'bad';
 const classForQuality = v => v>=98? 'good' : v>=85? 'warn' : 'bad';
-
-const $   = s => document.querySelector(s);
+const $ = s => document.querySelector(s);
 const fmt = n => Number(Math.round(n||0)).toLocaleString();
-
-/* spinner + fetch */
 function setLoading(v){ const el=$('#loading'); if(el) el.style.display = v ? 'flex':'none'; }
-async function fetchJSON(url){
-  try{ const r=await fetch(url,{cache:'no-store'}); if(!r.ok) throw new Error(r.status); return await r.json(); }
-  catch(e){ console.warn('fetch failed', url, e); return null; }
-}
+async function fetchJSON(url){ try{ const r=await fetch(url,{cache:'no-store'}); if(!r.ok) throw new Error(r.status); return await r.json(); } catch(e){ console.warn('fetch failed', url, e); return null; } }
 
 /* timeframe */
 function startOfWeek(d){ const x=new Date(d); const day=(x.getDay()+6)%7; x.setDate(x.getDate()-day); x.setHours(0,0,0,0); return x;}
@@ -266,14 +257,6 @@ async function loadMappings(){
   const j = await fetchJSON(`${ENDPOINTS.MAP}?ts=${Date.now()}`);
   MAPPINGS = j || { capacities_lbs_hr:{}, capacity_by_material_lbs_hr:{}, capacity_aliases:{}, material_aliases:{}, productionAssets:[] };
 }
-function capacityFor(lineName, material){
-  const { capacities_lbs_hr: caps = {}, capacity_by_material_lbs_hr: byMat = {}, capacity_aliases: alias = {}, material_aliases: malias = {} } = MAPPINGS || {};
-  const canon = (caps[lineName] !== undefined || byMat[lineName]) ? lineName : (alias[lineName] || lineName);
-  const k = String(material ?? '').trim().toUpperCase();
-  const m = malias[k] || (k === '' ? 'DEFAULT' : k);
-  return byMat[canon]?.[m] ?? byMat[canon]?.DEFAULT ?? caps[canon] ?? 0;
-}
-// Build a reverse alias map: aliasName -> canonicalName
 function aliasToCanonMap() {
   const a = (MAPPINGS?.capacity_aliases) || {};
   const rev = new Map();
@@ -283,18 +266,17 @@ function aliasToCanonMap() {
   });
   return rev;
 }
-
-// Canonicalize any machine name using capacity_aliases (fallback: itself)
 function canonName(name) {
   const n = String(name||'').trim();
   const rev = aliasToCanonMap();
   return rev.get(n) || n;
 }
-
-// productionAssets can be strings or {name: "..."}
-function mappedMachineNames() {
-  const arr = Array.isArray(MAPPINGS?.productionAssets) ? MAPPINGS.productionAssets : [];
-  return arr.map(x => (typeof x === 'string' ? x : (x?.name||'')).trim()).filter(Boolean);
+function capacityFor(lineName, material){
+  const { capacities_lbs_hr: caps = {}, capacity_by_material_lbs_hr: byMat = {}, capacity_aliases: alias = {}, material_aliases: malias = {} } = MAPPINGS || {};
+  const canon = (caps[lineName] !== undefined || byMat[lineName]) ? lineName : (alias[lineName] || lineName);
+  const k = String(material ?? '').trim().toUpperCase();
+  const m = malias[k] || (k === '' ? 'DEFAULT' : k);
+  return byMat[canon]?.[m] ?? byMat[canon]?.DEFAULT ?? caps[canon] ?? 0;
 }
 function mappedMachineNames(){
   const arr = Array.isArray(MAPPINGS?.productionAssets) ? MAPPINGS.productionAssets : [];
@@ -356,21 +338,19 @@ async function renderAll(){
     const isAllowed = (m) => allow.size ? allow.has(canonName(m)) : true;
 
     const {from,to} = computeRange(STATE.period);
-    const [summary, bylineRaw, prodstatus] = await Promise.all([
-      fetchJSON(`${ENDPOINTS.SUMMARY}?from=${from}&to=${to}`),
+    const [bylineRaw, prodstatus] = await Promise.all([
       fetchJSON(`${ENDPOINTS.BY_LINE}?from=${from}&to=${to}`),
       loadProdStatus()
     ]);
 
-    // filter by mappings if provided
     const byline = (bylineRaw || []).filter(r => r.machine && isAllowed(r.machine));
 
-    // === Compute KPIs only from by-line, like production.html ===
-    const dates = [...new Set((byline||[]).map(r => (r.src_date||'').slice(0,10)).filter(Boolean))].sort();
-    
-    // 1) per-day per-machine
+    /* === Compute KPIs from by-line (production pipeline) === */
+    const dates = [...new Set(byline.map(r => (r.src_date||'').slice(0,10)).filter(Boolean))].sort();
+
+    // per-day per-machine map (canon)
     const dayMap = new Map(); // key: `${canon(machine)}__${date}` -> {lbs, run, maint, cap}
-    for (const r of (byline || [])) {
+    for (const r of byline) {
       const mCanon = canonName(r.machine);
       const d = (r.src_date || '').slice(0,10);
       if (!mCanon || !d) continue;
@@ -383,8 +363,8 @@ async function renderAll(){
       const cap = capacityFor(mCanon, r.material) || +r.nameplate_lbs_hr || 0;
       o.cap = Math.max(o.cap, cap);
     }
-    
-    // 2) aggregate over the timeframe
+
+    // aggregate over the timeframe
     let sumLbs=0, sumRun=0, sumMaint=0, adjDen=0;
     for (const o of dayMap.values()) {
       sumLbs  += o.lbs;
@@ -395,54 +375,27 @@ async function renderAll(){
     const dayCount = dates.length || 1;
     const avail = sumRun / (24 * dayCount);
     const perfA = adjDen > 0 ? Math.min(1, sumLbs / adjDen) : 0;
-    const oee   = avail * perfA * 0.70;  // Quality fixed at 70% like prod
-    
+    const oee   = avail * perfA * QUALITY_DEFAULT;
+
     const oeePct  = Math.round(oee * 100);
     const avlPct  = Math.round(avail * 100);
     const perfPct = Math.round(perfA * 100);
-    const qualPct = 70;
+    const qualPct = Math.round(QUALITY_DEFAULT * 100);
     const pounds  = Math.round(sumLbs);
 
-    // per-machine series (OEE per day)
-    dates.forEach(d => {
-      // collect machines that had any record that day
-      const todaysMachines = [...new Set((byline||[]).filter(r => (r.src_date||'').slice(0,10)===d)
-        .map(r => canonName(r.machine)))];
-    
-      todaysMachines.forEach(m => {
+    // per-machine OEE series per day (canon)
+    const seriesBy = {};
+    const machinesCanon = [...new Set(byline.map(r=>canonName(r.machine)))].filter(isAllowed).sort();
+    for (const m of machinesCanon){
+      seriesBy[m] = [];
+      for (const d of dates){
         const o = dayMap.get(`${m}__${d}`);
-        if (!o) return;
-        const availD = o.run / 24;
-        const perfD  = o.cap > 0 ? Math.min(1, o.lbs / Math.max(1, o.cap * (24 - o.maint))) : 0;
-        const oeeD   = Math.round(availD * perfD * 0.70 * 100);
-        (seriesBy[m] ||= []).push(isFinite(oeeD) ? oeeD : 0);
-      });
-    });
-
-    const needFallback = !(oeePct||avlPct||perfPct||pounds);
-    if (needFallback && byline.length){
-      const dayMap=new Map(), dates=new Set();
-      for(const r of byline){
-        const m=r.machine, d=(r.src_date||'').slice(0,10); if(!m||!d) continue;
-        dates.add(d);
-        const k=`${m}__${d}`;
-        if(!dayMap.has(k)) dayMap.set(k,{lbs:0,run:0,maint:0,cap:0});
-        const o=dayMap.get(k);
-        o.lbs+= +r.pounds||0; o.run=Math.max(o.run, +r.machine_hours||0); o.maint=Math.max(o.maint, +r.maint_dt_h||0);
-        const cap = capacityFor(m, r.material) || +r.nameplate_lbs_hr || 0;
-        o.cap = Math.max(o.cap, cap);
+        if (!o){ seriesBy[m].push(0); continue; }
+        const a = o.run / 24;
+        const p = o.cap > 0 ? Math.min(1, o.lbs / Math.max(1, o.cap * (24 - o.maint))) : 0;
+        const v = Math.round(a * p * QUALITY_DEFAULT * 100);
+        seriesBy[m].push(isFinite(v) ? v : 0);
       }
-      let sumLbs=0,sumRun=0,sumMaint=0,adjDen=0;
-      for(const o of dayMap.values()){
-        sumLbs+=o.lbs; sumRun+=o.run; sumMaint+=o.maint;
-        adjDen+= o.cap * Math.max(0, HOURS_PER_DAY - o.maint);
-      }
-      const dayCount = dates.size || 1;
-      const avail = sumRun/(HOURS_PER_DAY*dayCount);
-      const perfA = adjDen>0 ? Math.min(1, sumLbs/adjDen) : 0;
-      const oee   = avail * perfA * QUALITY_DEFAULT;
-      oeePct=Math.round(oee*100); avlPct=Math.round(avail*100); perfPct=Math.round(perfA*100);
-      qualPct=Math.round(QUALITY_DEFAULT*100); pounds=Math.round(sumLbs);
     }
 
     // KPIs
@@ -470,57 +423,24 @@ async function renderAll(){
       `<div class="row"><span class="dot" style="background:#0ea5e9;width:12px;height:12px;border-radius:3px"></span><span class="name" style="font-weight:800">Production</span><span style="margin-left:auto;color:var(--muted);font-weight:800">0%</span></div>
        <div class="row"><span class="dot" style="background:#a78bfa;width:12px;height:12px;border-radius:3px"></span><span class="name" style="font-weight:800">Other</span><span style="margin-left:auto;color:var(--muted);font-weight:800">100%</span></div>`;
 
-    // Status (filtered by mappings)
-    const statusRaw = Array.isArray(prodstatus) ? prodstatus : [];
-    const statusArr = (Array.isArray(prodstatus) ? prodstatus : [])
+    // Production Line Status (filtered by mappings)
+    const statusArr = (Array.isArray(prodstatus)?prodstatus:[])
       .filter(s => isAllowed(s.name))
       .sort((a,b)=> a.name.localeCompare(b.name));
-
-    const statusBar=$('#statusBar'); statusBar.innerHTML='';
     const prodList=$('#prodStatusList'); prodList.innerHTML='';
     statusArr.forEach(S=>{
-      const dot = S.status==='available'?'st-available':S.status==='setup'?'st-setup':S.status==='downm'?'st-downm':'st-downp';
-      const wrench = S.limble? '<span title="Open Limble request" style="font-weight:900">🛠️</span>' : '';
-      const chip=document.createElement('div'); chip.className='chip';
-      chip.innerHTML = `<span class="dot ${dot}"></span><strong>${S.name}</strong><span style="color:var(--muted);font-weight:800">${S.status.toUpperCase()}</span>${wrench}`;
-      statusBar.appendChild(chip);
-
-      const row=document.createElement('div');
       const bg=S.limble?'#fff7cc':'#eaffea', border=S.limble?'#fde68a':'#bbf7d0';
+      const row=document.createElement('div');
       row.style.cssText=`display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;padding:10px 12px;border-radius:12px;background:${bg};border:1px solid ${border}`;
       row.innerHTML=`<strong>${S.name}</strong><span style="color:var(--muted);font-weight:800">${S.limble?'Limble Request':'Available'}</span>`;
       prodList.appendChild(row);
     });
 
-    // Line tiles: compute per-day OEE series with capacity mapping (display-level)
-    const seriesBy={}, uniqMachines=[...new Set(byline.map(r=>r.machine))].filter(Boolean)
-      .filter(m => allow.size ? allow.has(m) : true).sort();
-    const byKey=(m,d)=>`${m}__${d}`, dayCalc=new Map();
-    for (const r of byline){
-      const m=r.machine, d=(r.src_date||'').slice(0,10); if(!m||!d) continue;
-      const k=byKey(m,d);
-      if(!dayCalc.has(k)) dayCalc.set(k,{lbs:0,run:0,maint:0,cap:0});
-      const o=dayCalc.get(k);
-      o.lbs+= +r.pounds||0; o.run=Math.max(o.run, +r.machine_hours||0); o.maint=Math.max(o.maint, +r.maint_dt_h||0);
-      const cap=capacityFor(m, r.material) || +r.nameplate_lbs_hr || 0; o.cap=Math.max(o.cap,cap);
-    }
-    // Build series
-    uniqMachines.forEach(m=>{
-      seriesBy[m]=[];
-      dates.forEach(d=>{
-        const o=dayCalc.get(byKey(m,d));
-        if(!o){ seriesBy[m].push(0); return; }
-        const avail=o.run/HOURS_PER_DAY;
-        const perfA = o.cap>0 ? Math.min(1, o.lbs/Math.max(1,o.cap*(HOURS_PER_DAY-o.maint))) : 0;
-        const oee=Math.round(avail*perfA*QUALITY_DEFAULT*100);
-        seriesBy[m].push(isFinite(oee)?oee:0);
-      });
-    });
-
+    // Line Health
     const linesGrid=$('#linesGrid'); linesGrid.innerHTML='';
-    uniqMachines.forEach(m=>{
+    machinesCanon.forEach(m=>{
       const series = seriesBy[m]||[];
-      const last = series.length ? series[series.length-1] : oeePct;
+      const last = series.length ? series[series.length-1] : 0;
       const cls = classForKPI(last);
       const el=document.createElement('div'); el.className='line';
       el.innerHTML=`
@@ -552,9 +472,9 @@ async function renderAll(){
 
     // Rank table
     const tbody=$('#rankTable tbody'); tbody.innerHTML='';
-    uniqMachines.map(m=>{
-      const lbs = (byline||[]).filter(r=>r.machine===m).reduce((s,r)=>s+(+r.pounds||0),0);
-      const last = (seriesBy[m]||[]).slice(-1)[0] ?? oeePct;
+    machinesCanon.map(m=>{
+      const lbs = (byline||[]).filter(r=>canonName(r.machine)===m).reduce((s,r)=>s+(+r.pounds||0),0);
+      const last = (seriesBy[m]||[]).slice(-1)[0] ?? 0;
       return {name:m, lbs, oee:last};
     }).sort((a,b)=>b.oee-a.oee).forEach(L=>{
       const tr=document.createElement('tr');
