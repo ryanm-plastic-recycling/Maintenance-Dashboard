@@ -273,6 +273,29 @@ function capacityFor(lineName, material){
   const m = malias[k] || (k === '' ? 'DEFAULT' : k);
   return byMat[canon]?.[m] ?? byMat[canon]?.DEFAULT ?? caps[canon] ?? 0;
 }
+// Build a reverse alias map: aliasName -> canonicalName
+function aliasToCanonMap() {
+  const a = (MAPPINGS?.capacity_aliases) || {};
+  const rev = new Map();
+  Object.keys(a).forEach(canon => {
+    const aliases = Array.isArray(a[canon]) ? a[canon] : [a[canon]].filter(Boolean);
+    aliases.forEach(x => rev.set(String(x).trim(), canon));
+  });
+  return rev;
+}
+
+// Canonicalize any machine name using capacity_aliases (fallback: itself)
+function canonName(name) {
+  const n = String(name||'').trim();
+  const rev = aliasToCanonMap();
+  return rev.get(n) || n;
+}
+
+// productionAssets can be strings or {name: "..."}
+function mappedMachineNames() {
+  const arr = Array.isArray(MAPPINGS?.productionAssets) ? MAPPINGS.productionAssets : [];
+  return arr.map(x => (typeof x === 'string' ? x : (x?.name||'')).trim()).filter(Boolean);
+}
 function mappedMachineNames(){
   const arr = Array.isArray(MAPPINGS?.productionAssets) ? MAPPINGS.productionAssets : [];
   return arr.map(x => (typeof x === 'string' ? x : (x?.name||'')).trim()).filter(Boolean);
@@ -329,7 +352,8 @@ async function renderAll(){
     document.querySelectorAll('.segBig button').forEach(b=>b.classList.toggle('active', b.dataset.period===STATE.period));
 
     if (!MAPPINGS) await loadMappings();
-    const allow = new Set(mappedMachineNames());
+    const allow = new Set(mappedMachineNames().map(canonName));
+    const isAllowed = (m) => allow.size ? allow.has(canonName(m)) : true;
 
     const {from,to} = computeRange(STATE.period);
     const [summary, bylineRaw, prodstatus] = await Promise.all([
@@ -339,17 +363,62 @@ async function renderAll(){
     ]);
 
     // filter by mappings if provided
-    const byline = (bylineRaw||[]).filter(r=>{
-      const m=r.machine; if(!m) return false;
-      return allow.size ? allow.has(m) : true;
-    });
+    const byline = (bylineRaw || []).filter(r => r.machine && isAllowed(r.machine));
 
-    // === KPI from summary, fallback to computed (capacity aware) ===
-    let oeePct   = Math.round(((summary?.oee) ?? 0) * 100);
-    let avlPct   = Math.round(((summary?.availability) ?? 0) * 100);
-    let perfPct  = Math.round(((summary?.performanceAdj ?? summary?.performance) ?? 0) * 100);
-    let qualPct  = Math.round((summary?.quality ?? QUALITY_DEFAULT) * 100);
-    let pounds   = Math.round(summary?.pounds ?? summary?.totalPounds ?? 0);
+    // === Compute KPIs only from by-line, like production.html ===
+    const dates = [...new Set((byline||[]).map(r => (r.src_date||'').slice(0,10)).filter(Boolean))].sort();
+    
+    // 1) per-day per-machine
+    const dayMap = new Map(); // key: `${canon(machine)}__${date}` -> {lbs, run, maint, cap}
+    for (const r of (byline || [])) {
+      const mCanon = canonName(r.machine);
+      const d = (r.src_date || '').slice(0,10);
+      if (!mCanon || !d) continue;
+      const k = `${mCanon}__${d}`;
+      if (!dayMap.has(k)) dayMap.set(k, { lbs:0, run:0, maint:0, cap:0 });
+      const o = dayMap.get(k);
+      o.lbs   += +r.pounds || 0;
+      o.run    = Math.max(o.run,   +r.machine_hours || 0);
+      o.maint  = Math.max(o.maint, +r.maint_dt_h    || 0);
+      const cap = capacityFor(mCanon, r.material) || +r.nameplate_lbs_hr || 0;
+      o.cap = Math.max(o.cap, cap);
+    }
+    
+    // 2) aggregate over the timeframe
+    let sumLbs=0, sumRun=0, sumMaint=0, adjDen=0;
+    for (const o of dayMap.values()) {
+      sumLbs  += o.lbs;
+      sumRun  += o.run;
+      sumMaint+= o.maint;
+      adjDen  += o.cap * Math.max(0, 24 - o.maint);
+    }
+    const dayCount = dates.length || 1;
+    const avail = sumRun / (24 * dayCount);
+    const perfA = adjDen > 0 ? Math.min(1, sumLbs / adjDen) : 0;
+    const oee   = avail * perfA * 0.70;  // Quality fixed at 70% like prod
+    
+    const oeePct  = Math.round(oee * 100);
+    const avlPct  = Math.round(avail * 100);
+    const perfPct = Math.round(perfA * 100);
+    const qualPct = 70;
+    const pounds  = Math.round(sumLbs);
+
+    // per-machine series (OEE per day)
+    const seriesBy = {};
+    dates.forEach(d => {
+      // collect machines that had any record that day
+      const todaysMachines = [...new Set((byline||[]).filter(r => (r.src_date||'').slice(0,10)===d)
+        .map(r => canonName(r.machine)))];
+    
+      todaysMachines.forEach(m => {
+        const o = dayMap.get(`${m}__${d}`);
+        if (!o) return;
+        const availD = o.run / 24;
+        const perfD  = o.cap > 0 ? Math.min(1, o.lbs / Math.max(1, o.cap * (24 - o.maint))) : 0;
+        const oeeD   = Math.round(availD * perfD * 0.70 * 100);
+        (seriesBy[m] ||= []).push(isFinite(oeeD) ? oeeD : 0);
+      });
+    });
 
     const needFallback = !(oeePct||avlPct||perfPct||pounds);
     if (needFallback && byline.length){
@@ -404,8 +473,10 @@ async function renderAll(){
 
     // Status (filtered by mappings)
     const statusRaw = Array.isArray(prodstatus) ? prodstatus : [];
-    const statusArr = statusRaw.filter(s=> allow.size ? allow.has(s.name) : true)
-                               .sort((a,b)=>a.name.localeCompare(b.name));
+    const statusArr = (Array.isArray(prodstatus) ? prodstatus : [])
+      .filter(s => isAllowed(s.name))
+      .sort((a,b)=> a.name.localeCompare(b.name));
+
     const statusBar=$('#statusBar'); statusBar.innerHTML='';
     const prodList=$('#prodStatusList'); prodList.innerHTML='';
     statusArr.forEach(S=>{
