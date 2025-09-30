@@ -505,7 +505,6 @@ async function renderAll(){
       const cap=capacityFor(m, r.material) || +r.nameplate_lbs_hr || 0; o.cap=Math.max(o.cap,cap);
     }
     // Build series
-    const dates = [...new Set((byline||[]).map(r=>(r.src_date||'').slice(0,10)).filter(Boolean))].sort();
     uniqMachines.forEach(m=>{
       seriesBy[m]=[];
       dates.forEach(d=>{
