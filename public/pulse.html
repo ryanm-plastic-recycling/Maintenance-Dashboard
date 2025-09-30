@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PRI Pulse (TV) Draft</title>
+  <style>
+    :root{
+      /* PACE palette */
+      --pri-blue:#25408F; --pri-green:#92D050;
+      --bg:#E9EDF5; --card:#FBFCFE; --ink:#0F172A; --muted:#475569; --border:#D7E0F3;
+      --good-bg:#dcfce7;  --good-fg:#065f46;
+      --warn-bg:#fef9c3;  --warn-fg:#7c5e10;
+      --bad-bg:#fee2e2;   --bad-fg:#7f1d1d;
+      --shadow: 0 10px 25px rgba(0,0,0,.08);
+      --chip:#f7fafc;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;color:var(--ink);font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial,sans-serif;background:url('/public/img/PRIfront.png') center/cover no-repeat fixed;}
+    body::before{content:"";position:fixed;inset:0;background:rgba(233,237,245,.85);pointer-events:none}
+    .app{max-width:1920px;margin:0 auto;padding:18px 22px 28px}
+    header{display:flex;align-items:center;gap:16px;margin-bottom:14px}
+    .logo{width:48px;height:48px;border-radius:10px;background:var(--pri-blue);position:relative;box-shadow:var(--shadow)}
+    .logo::after{content:"";position:absolute;inset:9px;border-radius:6px;background:var(--pri-green)}
+    h1{font-size:28px;margin:0;color:var(--pri-blue);letter-spacing:.2px}
+    h1 .sub{color:var(--muted);font-weight:600;font-size:16px;margin-left:8px}
+
+    .toolbar{display:flex;justify-content:space-between;align-items:center;margin:10px 0 16px;gap:10px;flex-wrap:wrap}
+    .left, .right{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+    .seg, .segBig{display:inline-flex;border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--card);box-shadow:var(--shadow)}
+    .seg button{border:0;background:transparent;padding:8px 12px;font-weight:700;color:var(--muted);cursor:pointer}
+    .seg button.active{background:var(--pri-blue);color:white}
+    .segBig button{border:0;background:transparent;padding:8px 12px;font-weight:700;color:var(--muted);cursor:pointer}
+    .segBig button.active{background:var(--pri-blue);color:white}
+    .pill{padding:6px 10px;border-radius:999px;background:white;border:1px solid var(--border);color:var(--muted);font-weight:700}
+
+    /* KPI row */
+    .kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:12px}
+    .kpi{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:14px 16px;box-shadow:var(--shadow);min-height:90px}
+    .kpi .label{font-size:12px;color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:.6px}
+    .kpi .value{font-size:32px;font-weight:900;margin-top:6px}
+    .kpi.good{background:var(--good-bg);color:var(--good-fg);border-color:#bbf7d0}
+    .kpi.warn{background:var(--warn-bg);color:var(--warn-fg);border-color:#fde68a}
+    .kpi.bad{ background:var(--bad-bg); color:var(--bad-fg); border-color:#fecaca}
+
+    /* Status ticker */
+    .statusbar{display:flex;gap:10px;overflow:auto;padding:8px 2px;margin-bottom:14px}
+    .chip{display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--border);border-radius:999px;background:var(--chip);white-space:nowrap}
+    .dot{width:12px;height:12px;border-radius:50%}
+    .st-available{background:#16a34a}
+    .st-setup{background:#f59e0b}
+    .st-downm{background:#ef4444}
+    .st-downp{background:#dc2626}
+    .st-limble{background:#1f2937}
+
+    /* Main grid */
+    .grid{display:grid;grid-template-columns: 430px 1fr;gap:16px;align-items:stretch}
+    .card{background:var(--card);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow)}
+    .card h3{margin:0;padding:12px 14px;border-bottom:1px solid var(--border);font-size:15px;letter-spacing:.3px;color:var(--muted)}
+    .card .content{padding:14px}
+
+    /* Dual donuts + issues */
+    .donutwrap{display:grid;grid-template-columns: 1fr;gap:12px}
+    .donutrow{display:grid;grid-template-columns: 160px 1fr;gap:12px;align-items:center}
+    .legend{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+    .legend .row{display:flex;align-items:center;gap:8px}
+
+    /* Lines grid */
+    .lines{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+    .line{border:1px solid var(--border);border-radius:14px;padding:12px;background:white}
+    .lineheader{display:flex;justify-content:space-between;align-items:center}
+    .linename{font-weight:900}
+    .badge{font-size:12px;font-weight:900;padding:4px 8px;border-radius:999px}
+    .badge.good{background:var(--good-bg);color:var(--good-fg);border:1px solid #bbf7d0}
+    .badge.warn{background:var(--warn-bg);color:var(--warn-fg);border:1px solid #fde68a}
+    .badge.bad{ background:var(--bad-bg); color:var(--bad-fg); border:1px solid #fecaca}
+    .metricrow{display:grid;grid-template-columns: repeat(4,1fr);gap:8px;margin-top:8px}
+    .mitem{background:#f7fafc;border:1px solid var(--border);border-radius:10px;padding:8px}
+    .mitem .mkv{font-size:22px;font-weight:900}
+    .spark{width:100%;height:40px;margin-top:6px}
+
+    /* Rank table */
+    table{width:100%;border-collapse:collapse;font-size:14px}
+    th,td{padding:10px;border-bottom:1px dashed var(--border)}
+    th{text-align:left;color:var(--muted);font-weight:900}
+
+    /* Footer */
+    footer{display:flex;justify-content:space-between;align-items:center;margin-top:12px;color:var(--muted)}
+    .clock{font-variant-numeric:tabular-nums;font-weight:900}
+
+    /* 4K scaling */
+    @media (min-width:2560px){
+      .app{max-width:2560px;padding:26px 30px 40px}
+      h1{font-size:42px}
+      .kpi .value{font-size:46px}
+      .kpi .label, .badge{font-size:16px}
+      .spark{height:54px}
+      .lines{gap:18px}
+      .line{padding:16px}
+      table{font-size:18px}
+    }
+  </style>
+</head>
+<body>
+  <div class="app" id="app">
+    <header style="background:var(--pri-green);color:#0b2a03;border-radius:12px;padding:10px 14px;box-shadow:var(--shadow);display:flex;align-items:center;justify-content:space-between">
+      <div style="display:flex;align-items:center;gap:12px">
+        <img src="/public/img/pri-logo.png" alt="PRI" style="height:44px;border-radius:6px;background:#fff;padding:4px"/>
+        <h1 style="margin:0;color:#0b2a03">PRI Pulse <span id="periodLabel" class="sub" style="color:#0b2a03;font-weight:700"></span></h1>
+      </div>
+      <nav style="display:flex;gap:12px;align-items:center">
+        <a href="/production.html" style="font-weight:800;color:#0b2a03;text-decoration:none;padding:6px 10px;border-radius:8px;background:rgba(255,255,255,.7)">Production</a>
+        <a href="/prodstatus.html" style="font-weight:800;color:#0b2a03;text-decoration:none;padding:6px 10px;border-radius:8px;background:rgba(255,255,255,.7)">Status</a>
+        <a href="/pace.html" style="font-weight:800;color:#0b2a03;text-decoration:none;padding:6px 10px;border-radius:8px;background:rgba(255,255,255,.7)">PACE</a>
+        <a href="/pulse.html" style="font-weight:900;color:#0b2a03;text-decoration:none;padding:6px 10px;border-radius:8px;background:#fff">Pulse</a>
+        <img src="/public/img/innovation-logo.png" alt="Innovation" style="height:44px;border-radius:6px;background:#fff;padding:4px;margin-left:8px"/>
+      </nav>
+    </header>
+
+    <div class="toolbar">
+      <div class="left">
+        <div class="segBig" role="tablist" aria-label="Timeframe">
+          <button data-period="today" class="active" role="tab">Today</button>
+          <button data-period="yesterday" role="tab">Yesterday</button>
+          <button data-period="week" role="tab">This Week</button>
+          <button data-period="lastweek" role="tab">Last Week</button>
+          <button data-period="month" role="tab">This Month</button>
+          <button data-period="lastmonth" role="tab">Last Month</button>
+          <button data-period="r7" role="tab">Rolling 7d</button>
+          <button data-period="r30" role="tab">Rolling 30d</button>
+        </div>
+        <span class="pill" id="sitePill">All Sites</span>
+      </div>
+      <div class="right">
+        <span class="pill">Auto‑refresh: <strong id="refreshSec">60s</strong></span>
+        <span class="pill">Press <strong>F</strong> for Fullscreen</span>
+      </div>
+    </div>
+
+    <!-- STATUS TICKER from prodstatus idea -->
+    <div class="statusbar" id="statusBar" aria-label="Line availability and Limble status"></div>
+
+    <!-- KPI STRIP -->
+    <section class="kpis" id="kpiStrip"></section>
+
+    <section class="grid">
+      <!-- Left: Dual donuts (placeholders) + issues lists -->
+      <article class="card">
+        <h3>Downtime Overview — Maintenance vs Production</h3>
+        <div class="content donutwrap">
+          <div class="donutrow">
+            <canvas id="donutMaint" width="160" height="160" aria-label="Maintenance downtime donut"></canvas>
+            <div>
+              <div class="legend" id="legendMaint"></div>
+              <div style="margin-top:10px"><h4 style="margin:4px 0 6px">Top Maint. Issues (placeholder)</h4><ol id="issuesMaint" style="margin:0;padding-left:18px"></ol></div>
+            </div>
+          </div>
+          <div class="donutrow">
+            <canvas id="donutProd" width="160" height="160" aria-label="Production downtime donut"></canvas>
+            <div>
+              <div class="legend" id="legendProd"></div>
+              <div style="margin-top:10px"><h4 style="margin:4px 0 6px">Top Prod. Issues (placeholder)</h4><ol id="issuesProd" style="margin:0;padding-left:18px"></ol></div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- Right: Line status cards -->
+      <article class="card">
+        <h3>Line Health (OEE / Avail / Perf / Quality)</h3>
+        <div class="content">
+          <div class="lines" id="linesGrid"></div>
+        </div>
+      </article>
+    </section>
+
+    <section class="grid" style="margin-top:16px">
+      <article class="card">
+        <h3>Production Line Status</h3>
+        <div class="content" id="prodStatusList"></div>
+      </article>
+      <article class="card">
+        <h3>Lines Ranked by OEE & Missed Opportunity</h3>
+        <div class="content">
+          <table id="rankTable">
+            <thead>
+              <tr><th style="width:28%">Line</th><th style="width:14%">OEE %</th><th style="width:22%">Pounds</th><th>Missed Opp (lb)</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </article>
+    </section>
+
+    <footer>
+      <div>Last updated <span id="updated"></span></div>
+      <div class="clock" id="clock"></div>
+    </footer>
+  </div>
+
+<script>
+/**********************
+ * Dummy data generator
+ **********************/
+const seedRand = (s=>()=> (s=Math.sin(s)*10000) - Math.floor(s))(123);
+function pick(arr){ return arr[Math.floor(seedRand()*arr.length)]; }
+function genSeries(n, base=50, swing=20){
+  return Array.from({length:n}, (_,i)=> Math.max(0, Math.min(96, Math.round(base + (seedRand()-.5)*swing + Math.sin(i/2)*8))));
+}
+
+const LINES = ["Extruder 1","Extruder 2","Extruder 3","Extruder 4","New Single","New Twin","Ext5","Ext6","Ext7"];
+const STATUSES = [
+  {key:'available', label:'Available', dot:'st-available'},
+  {key:'setup',     label:'In Setup',  dot:'st-setup'},
+  {key:'downm',     label:'Down (Maint)', dot:'st-downm'},
+  {key:'downp',     label:'Down (Prod)',  dot:'st-downp'}
+];
+
+function makeDataset(period){
+  const points = ['today','yesterday'].includes(period)? 12 : ['week','lastweek','r7'].includes(period)? 7 : 30;
+  const oee = Math.round(25 + seedRand()*45);
+  const availability = Math.round(40 + seedRand()*40);
+  const performance = Math.round(55 + seedRand()*30);
+  const pounds = 200000 + Math.round(seedRand()*900000);
+  const missed = 500000 + Math.round(seedRand()*800000);
+
+  // Split totals between maintenance and production as placeholders
+  const maintPct = Math.round(35 + seedRand()*30);
+  const prodPct = 100 - maintPct;
+
+  function donutParts(type){
+    const colors = type==='maint' ? ['#ef4444','#f97316','#f59e0b','#eab308'] : ['#0ea5e9','#22d3ee','#a78bfa','#34d399'];
+    const labels = type==='maint' ? ['PM Overrun','Mechanical','Electrical','Waiting on Parts']
+                                  : ['Changeover','Material','Quality Hold','Operator'];
+    const base = type==='maint' ? maintPct : prodPct;
+    // split base into 4 parts
+    let remaining = base; const vals=[];
+    for(let i=0;i<3;i++){ const v = Math.max(5, Math.round(seedRand()*remaining*0.6)); vals.push(v); remaining -= v; }
+    vals.push(Math.max(5, remaining));
+    return labels.map((l,i)=>({label:l,value:vals[i],color:colors[i]}));
+  }
+
+  function topIssues(type){
+    const pool = type==='maint' ? ['Gearbox vibration','Heater band','PM overrun','Bearing swap','Thermocouple']
+                                : ['Changeover delay','Regrind jam','Setup scrap','No work order','Material swap'];
+    return Array.from({length:3},()=> ({label: pick(pool), hrs: Math.round(8+seedRand()*26)}))
+      .sort((a,b)=>b.hrs-a.hrs);
+  }
+
+  const lines = LINES.map(name=>{
+    const base = 40 + seedRand()*40;
+    const hist = genSeries(points, base, 30);
+    const o = hist[hist.length-1];
+    const a = Math.round(o*(0.7+seedRand()*0.3));
+    const p = Math.round(60 + seedRand()*30);
+    const q = Math.round(95 + seedRand()*5); // quality placeholder
+    const lbs = 20000 + Math.round(seedRand()*90000);
+    const miss = Math.max(0, Math.round((100-o)*1200));
+    const limble = seedRand()>0.7; // 30% chance of open request
+    const status = pick(STATUSES).key;
+    return {name,oee:o,avail:a,perf:p,qual:q,lbs,miss,hist,limble,status};
+  }).sort((a,b)=>b.oee-a.oee);
+    const o = hist[hist.length-1];
+    const a = Math.round(o*(0.7+seedRand()*0.3));
+    const p = Math.round(60 + seedRand()*30);
+    const lbs = 20000 + Math.round(seedRand()*90000);
+    const miss = Math.max(0, Math.round((100-o)*1200));
+    const limble = seedRand()>0.7; // 30% chance of open request
+    const status = pick(STATUSES).key;
+    return {name,oee:o,avail:a,perf:p,lbs,miss,hist,limble,status};
+  }).sort((a,b)=>b.oee-a.oee);
+
+  return {
+    summary:{oee,availability,performance,pounds,missed},
+    maint:{parts:donutParts('maint'), issues:topIssues('maint')},
+    prod:{parts:donutParts('prod'), issues:topIssues('prod')},
+    lines, points
+  };
+}
+
+/********************** UI helpers **********************/
+function setText(el, txt){ if(typeof el==="string") el = document.querySelector(el); el.textContent = txt; }
+function fmt(x){ return typeof x==="number" ? x.toLocaleString() : x; }
+function classFor(val){ return val>=70? 'good' : val>=50? 'warn' : 'bad'; }
+
+/********************** Canvas charts **********************/
+function drawDonut(canvas, data){
+  const ctx = canvas.getContext('2d');
+  const {width:w,height:h} = canvas; ctx.clearRect(0,0,w,h);
+  const cx=w/2, cy=h/2, r=Math.min(w,h)/2-6, t=24; // thickness
+  let start=-Math.PI/2;
+  const total = data.reduce((s,d)=>s+d.value,0);
+  data.forEach(d=>{
+    const ang = (d.value/total)*Math.PI*2;
+    ctx.beginPath(); ctx.arc(cx,cy,r,start,start+ang); ctx.arc(cx,cy,r-t,start+ang,start,true); ctx.closePath();
+    ctx.fillStyle = d.color; ctx.fill();
+    start += ang;
+  });
+  ctx.fillStyle = '#111'; ctx.font = '800 20px system-ui'; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText(total+'%', cx, cy);
+}
+
+function drawSparkline(canvas, arr){
+  const ctx = canvas.getContext('2d'), w=canvas.width, h=canvas.height;
+  ctx.clearRect(0,0,w,h);
+  const min = Math.min(...arr), max=Math.max(...arr);
+  const pad=4; const x = i => pad + (w-2*pad)*(i/(arr.length-1)); const y = v => h - pad - (h-2*pad)*((v-min)/Math.max(1,(max-min)));
+  ctx.beginPath(); ctx.moveTo(x(0),y(arr[0])); for(let i=1;i<arr.length;i++) ctx.lineTo(x(i),y(arr[i])); ctx.lineTo(w-pad,h-pad); ctx.lineTo(pad,h-pad); ctx.closePath();
+  ctx.fillStyle = 'rgba(37,64,143,.12)'; ctx.fill();
+  ctx.beginPath(); ctx.moveTo(x(0),y(arr[0])); for(let i=1;i<arr.length;i++) ctx.lineTo(x(i),y(arr[i])); ctx.lineWidth=2; ctx.strokeStyle = 'rgba(37,64,143,.9)'; ctx.stroke();
+}
+
+/********************** Render **********************/
+let state = { period:'today', data: makeDataset('today') };
+
+function render(){
+  const {summary, maint, prod, lines} = state.data;
+  const pNames = {today:'Today', yesterday:'Yesterday', week:'This Week', lastweek:'Last Week', month:'This Month', lastmonth:'Last Month', r7:'Rolling 7d', r30:'Rolling 30d'};
+  setText('#periodLabel', `• ${pNames[state.period]}`);
+
+  // KPI strip
+  const kpiEl = document.getElementById('kpiStrip');
+  kpiEl.innerHTML = '';
+  const kpis = [
+    {label:'OEE', value:`${summary.oee}%`, cls: classFor(summary.oee)},
+    {label:'Availability', value:`${summary.availability}%`, cls: classFor(summary.availability)},
+    {label:'Performance (Adj)', value:`${summary.performance}%`, cls: classFor(summary.performance)},
+    {label:'Quality', value: `${Math.round(95 + seedRand()*5)}%`, cls: 'good'},
+    {label:'Total Pounds', value: fmt(summary.pounds)},
+    {label:'Missed Opp', value: fmt(summary.missed)}
+  ];
+  kpis.forEach(k=>{
+    const div = document.createElement('div'); div.className = `kpi ${k.cls??''}`.trim();
+    div.innerHTML = `<div class="label">${k.label}</div><div class="value">${k.value}</div>`; kpiEl.appendChild(div);
+  });
+
+  // Donuts + legends + issues
+  drawDonut(document.getElementById('donutMaint'), maint.parts);
+  const lm = document.getElementById('legendMaint'); lm.innerHTML='';
+  maint.parts.forEach(d=>{ const row=document.createElement('div'); row.className='row'; row.innerHTML = `<span class="dot" style="background:${d.color};width:12px;height:12px;border-radius:3px"></span><span style="font-weight:800">${d.label}</span><span style="margin-left:auto;color:var(--muted);font-weight:800">${d.value}%</span>`; lm.appendChild(row); });
+  const im = document.getElementById('issuesMaint'); im.innerHTML=''; maint.issues.forEach(i=>{ const li=document.createElement('li'); li.textContent=`${i.label} — ${i.hrs}h`; im.appendChild(li); });
+
+  drawDonut(document.getElementById('donutProd'), prod.parts);
+  const lp = document.getElementById('legendProd'); lp.innerHTML='';
+  prod.parts.forEach(d=>{ const row=document.createElement('div'); row.className='row'; row.innerHTML = `<span class=\"dot\" style=\"background:${d.color};width:12px;height:12px;border-radius:3px\"></span><span style=\"font-weight:800\">${d.label}</span><span style=\"margin-left:auto;color:var(--muted);font-weight:800\">${d.value}%</span>`; lp.appendChild(row); });
+  const ip = document.getElementById('issuesProd'); ip.innerHTML=''; prod.issues.forEach(i=>{ const li=document.createElement('li'); li.textContent=`${i.label} — ${i.hrs}h`; ip.appendChild(li); });
+
+  // Status bar (avail + limble)
+  const sb = document.getElementById('statusBar'); sb.innerHTML='';
+  lines.forEach(L=>{
+    const chip=document.createElement('div'); chip.className='chip';
+    const dotClass = L.status==='available'? 'st-available' : L.status==='setup'? 'st-setup' : L.status==='downm'? 'st-downm' : 'st-downp';
+    const wrench = L.limble? '<span title="Open Limble request" style="font-weight:900">🛠️</span>' : '';
+    chip.innerHTML = `<span class=\"dot ${dotClass}\"></span><strong>${L.name}</strong><span style=\"color:var(--muted);font-weight:800\">${L.status.toUpperCase()}</span>${wrench}`;
+    sb.appendChild(chip);
+  });
+
+  // Production line status list (bottom-left)
+  const ps = document.getElementById('prodStatusList'); if(ps){ ps.innerHTML='';
+    lines.forEach(L=>{
+      const row = document.createElement('div');
+      const bg = L.limble ? '#fff7cc' : '#eaffea';
+      const border = L.limble ? '#fde68a' : '#bbf7d0';
+      row.style.cssText = `display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;padding:10px 12px;border-radius:12px;background:${bg};border:1px solid ${border}`;
+      row.innerHTML = `<strong>${L.name}</strong><span style=\"color:var(--muted);font-weight:800\">${L.limble? 'Limble Request' : 'Available'}</span>`;
+      ps.appendChild(row);
+    });
+  }
+
+  // Lines grid
+  const grid = document.getElementById('linesGrid'); grid.innerHTML='';
+  lines.forEach(L=>{
+    const status = classFor(L.oee);
+    const el = document.createElement('div'); el.className='line';
+    const lim = L.limble? '<span class="pill" style="margin-left:8px;background:#fff0f0;border-color:#fecaca;color:#991b1b">🛠️ Limble</span>' : '';
+    el.innerHTML = `
+      <div class="lineheader">
+        <div class="linename">${L.name}</div>
+        <div><span class="badge ${status}">${status.toUpperCase()}</span>${lim}</div>
+      </div>
+      <div class=\"metricrow\">
+        <div class=\"mitem\"><div class=\"label\">OEE</div><div class=\"mkv\">${L.oee}%</div></div>
+        <div class=\"mitem\"><div class=\"label\">Avail</div><div class=\"mkv\">${L.avail}%</div></div>
+        <div class=\"mitem\"><div class=\"label\">Perf</div><div class=\"mkv\">${L.perf}%</div></div>
+        <div class=\"mitem\"><div class=\"label\">Quality</div><div class=\"mkv\">${L.qual}%</div></div>
+      </div>
+      <canvas class="spark" width="340" height="40"></canvas>
+    `;
+    grid.appendChild(el);
+    drawSparkline(el.querySelector('canvas'), L.hist);
+  });
+
+  // Rank table
+  const tbody = document.querySelector('#rankTable tbody'); tbody.innerHTML='';
+  lines.slice().sort((a,b)=>b.oee-a.oee).forEach(L=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML = `<td>${L.name}</td><td><strong>${L.oee}%</strong></td><td>${fmt(L.lbs)}</td><td>${fmt(L.miss)}</td>`; tbody.appendChild(tr);
+  });
+
+  // Footer
+  setText('#updated', new Date().toLocaleString());
+}
+
+/********************** Controls & timers **********************/
+const seg = document.querySelectorAll('.segBig button');
+seg.forEach(b=> b.addEventListener('click', ()=>{
+  seg.forEach(x=>x.classList.remove('active')); b.classList.add('active');
+  state.period = b.dataset.period; state.data = makeDataset(state.period); render();
+}));
+
+let refreshEvery = 60; // seconds
+setInterval(()=>{ document.getElementById('clock').textContent=new Date().toLocaleTimeString(); }, 500);
+setInterval(()=>{ state.data = makeDataset(state.period); render(); }, refreshEvery*1000);
+setText('#refreshSec', refreshEvery+'s');
+
+// Fullscreen shortcut
+window.addEventListener('keydown', (e)=>{
+  if(e.key.toLowerCase()==='f'){
+    if(!document.fullscreenElement) document.documentElement.requestFullscreen();
+    else document.exitFullscreen();
+  }
+});
+
+render();
+</script>
+</body>
+</html>
