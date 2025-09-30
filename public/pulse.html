@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>PRI Pulse (TV) Draft</title>
+  <title>PRI Pulse</title>
   <style>
     :root{
       --pri-blue:#25408F; --pri-green:#92D050;
@@ -16,7 +16,6 @@
     }
     *{box-sizing:border-box}
 
-    /* Production background + spacing identical to production.html */
     body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial,sans-serif}
     .page-production::before{
       content:"";position:fixed;inset:0;z-index:-1;
@@ -32,9 +31,7 @@
     .tab.active{background:#fff}
     .wrap{margin:120px 20px 40px 20px}
 
-    /* App layout */
     .app{max-width:1920px;margin:0 auto}
-
     .toolbar{display:flex;justify-content:space-between;align-items:center;margin:10px 0 16px;gap:10px;flex-wrap:wrap}
     .left, .right{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
     .segBig{display:inline-flex;border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--card);box-shadow:var(--shadow)}
@@ -42,7 +39,6 @@
     .segBig button.active{background:var(--pri-blue);color:white}
     .pill{padding:6px 10px;border-radius:999px;background:white;border:1px solid var(--border);color:var(--muted);font-weight:700}
 
-    /* KPI row */
     .kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:12px}
     .kpi{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:14px 16px;box-shadow:var(--shadow);min-height:90px}
     .kpi .label{font-size:12px;color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:.6px}
@@ -51,7 +47,6 @@
     .kpi.warn{background:var(--warn-bg);color:var(--warn-fg);border-color:#fde68a}
     .kpi.bad{ background:var(--bad-bg); color:var(--bad-fg); border-color:#fecaca}
 
-    /* Status ticker */
     .statusbar{display:flex;gap:10px;overflow:auto;padding:8px 2px;margin-bottom:14px}
     .chip{display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--border);border-radius:999px;background:var(--chip);white-space:nowrap}
     .dot{width:12px;height:12px;border-radius:50%}
@@ -60,19 +55,16 @@
     .st-downm{background:#ef4444}
     .st-downp{background:#dc2626}
 
-    /* Cards/Grid */
     .grid{display:grid;grid-template-columns: 430px 1fr;gap:16px;align-items:stretch}
     .card{background:var(--card);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow)}
     .card h3{margin:0;padding:12px 14px;border-bottom:1px solid var(--border);font-size:15px;letter-spacing:.3px;color:var(--muted)}
     .card .content{padding:14px}
 
-    /* Dual donuts + issues */
     .donutwrap{display:grid;grid-template-columns: 1fr;gap:12px}
     .donutrow{display:grid;grid-template-columns: 160px 1fr;gap:12px;align-items:center}
     .legend{display:grid;grid-template-columns:1fr 1fr;gap:8px}
     .legend .row{display:flex;align-items:center;gap:8px}
 
-    /* Lines grid */
     .lines{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
     .line{border:1px solid var(--border);border-radius:14px;padding:12px;background:white}
     .lineheader{display:flex;justify-content:space-between;align-items:center}
@@ -86,7 +78,6 @@
     .mitem .mkv{font-size:22px;font-weight:900}
     .spark{width:100%;height:40px;margin-top:6px}
 
-    /* Table */
     table{width:100%;border-collapse:collapse;font-size:14px}
     th,td{padding:10px;border-bottom:1px dashed var(--border)}
     th{text-align:left;color:var(--muted);font-weight:900}
@@ -94,7 +85,6 @@
     footer{display:flex;justify-content:space-between;align-items:center;margin-top:12px;color:var(--muted)}
     .clock{font-variant-numeric:tabular-nums;font-weight:900}
 
-    /* 4K scaling */
     @media (min-width:2560px){
       .app{max-width:2560px}
       .kpi .value{font-size:46px}
@@ -108,7 +98,6 @@
 </head>
 
 <body class="page-production">
-  <!-- Header identical to production -->
   <div class="top-border">
     <img src="img/pri-logo.png" alt="PRI Logo" class="logo" />
     <div class="top-title">PRI Pulse <span id="periodLabel" style="font-size:16px;font-weight:800;margin-left:8px;color:#0A2A12"></span></div>
@@ -146,14 +135,11 @@
         </div>
       </div>
 
-      <!-- STATUS TICKER -->
       <div class="statusbar" id="statusBar" aria-label="Line availability and Limble status"></div>
 
-      <!-- KPI STRIP -->
       <section class="kpis" id="kpiStrip"></section>
 
       <section class="grid">
-        <!-- Left: Dual donuts + issues -->
         <article class="card">
           <h3>Downtime Overview — Maintenance vs Production</h3>
           <div class="content donutwrap">
@@ -161,20 +147,19 @@
               <canvas id="donutMaint" width="160" height="160" aria-label="Maintenance downtime donut"></canvas>
               <div>
                 <div class="legend" id="legendMaint"></div>
-                <div style="margin-top:10px"><h4 style="margin:4px 0 6px">Top Maint. Issues (placeholder)</h4><ol id="issuesMaint" style="margin:0;padding-left:18px"></ol></div>
+                <div style="margin-top:10px"><h4 style="margin:4px 0 6px">Top Maint. Issues</h4><ol id="issuesMaint" style="margin:0;padding-left:18px"></ol></div>
               </div>
             </div>
             <div class="donutrow">
               <canvas id="donutProd" width="160" height="160" aria-label="Production downtime donut"></canvas>
               <div>
                 <div class="legend" id="legendProd"></div>
-                <div style="margin-top:10px"><h4 style="margin:4px 0 6px">Top Prod. Issues (placeholder)</h4><ol id="issuesProd" style="margin:0;padding-left:18px"></ol></div>
+                <div style="margin-top:10px"><h4 style="margin:4px 0 6px">Top Prod. Issues</h4><ol id="issuesProd" style="margin:0;padding-left:18px"></ol></div>
               </div>
             </div>
           </div>
         </article>
 
-        <!-- Right: Line health -->
         <article class="card">
           <h3>Line Health (OEE / Avail / Perf / Quality)</h3>
           <div class="content">
@@ -183,7 +168,6 @@
         </article>
       </section>
 
-      <!-- Bottom row: Production line status + Rank table -->
       <section class="grid" style="margin-top:16px">
         <article class="card">
           <h3>Production Line Status</h3>
@@ -211,102 +195,132 @@
   </div>
 
 <script>
-/**********************
- * Dummy data generator
- **********************/
-const seedRand = (s=>()=> (s=Math.sin(s)*10000) - Math.floor(s))(123);
-function pick(arr){ return arr[Math.floor(seedRand()*arr.length)]; }
-function genSeries(n, base=50, swing=20){
-  return Array.from({length:n}, (_,i)=> Math.max(0, Math.min(96, Math.round(base + (seedRand()-.5)*swing + Math.sin(i/2)*8))));
+/* ======= CONFIG: tweak these if your routes differ ======= */
+const ENDPOINTS = {
+  BY_LINE: '/api/production/by-line',
+  STATUS:  '/api/prodstatus/lines',                 // optional
+  ISSUES:  '/api/downtime/issues',                  // optional (requires ?type=maintenance|production)
+  THEME:   '/api/settings/kpi-theme',               // optional (same as production.html)
+  MAP:     'mappings.json'                          // optional (capacity by material)
+};
+const HOURS_PER_DAY = 24;
+
+/* ======= UTIL ======= */
+const $ = sel => document.querySelector(sel);
+const fmtInt = n => Number(Math.round(n||0)).toLocaleString();
+const classFor = v => v>=70? 'good' : v>=50? 'warn':'bad';
+const fetchJSON = async (url) => {
+  try { const r = await fetch(url, {cache:'no-store'}); if (!r.ok) throw new Error(r.status); return await r.json(); }
+  catch(e){ console.warn('fetch failed', url, e); return null; }
+};
+const formatISO = d => new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10);
+
+/* ======= TIMEFRAME ======= */
+function startOfWeek(d){ const x=new Date(d); const day=(x.getDay()+6)%7; x.setDate(x.getDate()-day); x.setHours(0,0,0,0); return x;}
+function endOfWeek(d){ const x=startOfWeek(d); x.setDate(x.getDate()+6); return x;}
+function startOfMonth(d){ return new Date(d.getFullYear(), d.getMonth(), 1); }
+function endOfMonth(d){ return new Date(d.getFullYear(), d.getMonth()+1, 0); }
+
+function computeRange(sel){
+  const now = new Date(); now.setHours(0,0,0,0);
+  const y = new Date(now); y.setDate(y.getDate()-1);
+  const fmt = d => formatISO(d);
+
+  const thisW = {from:startOfWeek(now), to:endOfWeek(now)};
+  const lastW = {from:new Date(startOfWeek(now)), to:new Date(endOfWeek(now))}; lastW.from.setDate(lastW.from.getDate()-7); lastW.to.setDate(lastW.to.getDate()-7);
+  const thisM = {from:startOfMonth(now), to:endOfMonth(now)};
+  const lastM = {from:startOfMonth(new Date(now.getFullYear(), now.getMonth()-1, 1)), to:endOfMonth(new Date(now.getFullYear(), now.getMonth()-1, 1))};
+
+  switch(sel){
+    case 'today':     return {from:fmt(now), to:fmt(now), label:'Today'};
+    case 'yesterday': return {from:fmt(y),   to:fmt(y),   label:'Yesterday'};
+    case 'week':      return {from:fmt(thisW.from), to:fmt(thisW.to), label:'This Week'};
+    case 'lastweek':  return {from:fmt(lastW.from), to:fmt(lastW.to), label:'Last Week'};
+    case 'month':     return {from:fmt(thisM.from), to:fmt(thisM.to), label:'This Month'};
+    case 'lastmonth': return {from:fmt(lastM.from), to:fmt(lastM.to), label:'Last Month'};
+    case 'r7':        { const s=new Date(now); s.setDate(s.getDate()-6); return {from:fmt(s), to:fmt(now), label:'Rolling 7d'}; }
+    case 'r30':       { const s=new Date(now); s.setDate(s.getDate()-29); return {from:fmt(s), to:fmt(now), label:'Rolling 30d'}; }
+    default:          { const s=new Date(now); s.setDate(s.getDate()-29); return {from:fmt(s), to:fmt(now), label:'Rolling 30d'}; }
+  }
 }
 
-const LINES = ["Extruder 1","Extruder 2","Extruder 3","Extruder 4","New Single","New Twin","Ext5","Ext6","Ext7"];
-const STATUSES = [
-  {key:'available', label:'Available', dot:'st-available'},
-  {key:'setup',     label:'In Setup',  dot:'st-setup'},
-  {key:'downm',     label:'Down (Maint)', dot:'st-downm'},
-  {key:'downp',     label:'Down (Prod)',  dot:'st-downp'}
-];
-
-function makeDataset(period){
-  const points = ['today','yesterday'].includes(period)? 12
-               : ['week','lastweek','r7'].includes(period)? 7 : 30;
-
-  const oee = Math.round(25 + seedRand()*45);
-  const availability = Math.round(40 + seedRand()*40);
-  const performance  = Math.round(55 + seedRand()*30);
-  const pounds = 200000 + Math.round(seedRand()*900000);
-  const missed = 500000 + Math.round(seedRand()*800000);
-
-  const maintPct = Math.round(35 + seedRand()*30);
-  const prodPct  = 100 - maintPct;
-
-  function donutParts(type){
-    const colors = type==='maint' ? ['#ef4444','#f97316','#f59e0b','#eab308']
-                                  : ['#0ea5e9','#22d3ee','#a78bfa','#34d399'];
-    const labels = type==='maint' ? ['PM Overrun','Mechanical','Electrical','Waiting on Parts']
-                                  : ['Changeover','Material','Quality Hold','Operator'];
-    const base = type==='maint' ? maintPct : prodPct;
-    let remaining = base; const vals=[];
-    for(let i=0;i<3;i++){ const v=Math.max(5, Math.round(seedRand()*remaining*0.6)); vals.push(v); remaining-=v; }
-    vals.push(Math.max(5, remaining));
-    return labels.map((l,i)=>({label:l,value:vals[i],color:colors[i]}));
-  }
-
-  function topIssues(type){
-    const pool = type==='maint'
-      ? ['Gearbox vibration','Heater band','PM overrun','Bearing swap','Thermocouple']
-      : ['Changeover delay','Regrind jam','Setup scrap','No work order','Material swap'];
-    return Array.from({length:3},()=>({label:pick(pool), hrs:Math.round(8+seedRand()*26)})).sort((a,b)=>b.hrs-a.hrs);
-  }
-
-  const lines = LINES.map(name=>{
-    const base = 40 + seedRand()*40;
-    const hist = genSeries(points, base, 30);
-    const o = hist[hist.length-1];
-    const a = Math.round(o*(0.7+seedRand()*0.3));
-    const p = Math.round(60 + seedRand()*30);
-    const q = Math.round(95 + seedRand()*5);
-    const lbs = 20000 + Math.round(seedRand()*90000);
-    const miss = Math.max(0, Math.round((100-o)*1200));
-    const limble = seedRand()>0.7;
-    const status = pick(STATUSES).key;
-    return {name,oee:o,avail:a,perf:p,qual:q,lbs,miss,hist,limble,status};
-  }).sort((a,b)=>b.oee-a.oee);
-
-  return {
-    summary:{oee,availability,performance,pounds,missed},
-    maint:{parts:donutParts('maint'), issues:topIssues('maint')},
-    prod:{parts:donutParts('prod'),   issues:topIssues('prod')},
-    lines, points
-  };
+/* ======= OPTIONAL: theme + mappings ======= */
+let MAPPINGS=null;
+async function loadMappings(){
+  const j = await fetchJSON(`${ENDPOINTS.MAP}?ts=${Date.now()}`);
+  if (!j) { MAPPINGS = { capacities_lbs_hr:{}, capacity_by_material_lbs_hr:{}, capacity_aliases:{}, material_aliases:{} }; return; }
+  MAPPINGS = j;
+}
+function capacityFor(lineName, material){
+  const { capacities_lbs_hr: caps = {}, capacity_by_material_lbs_hr: byMat = {}, capacity_aliases: alias = {}, material_aliases: malias = {} } = MAPPINGS || {};
+  const canon = (caps[lineName] !== undefined || byMat[lineName]) ? lineName : (alias[lineName] || lineName);
+  const k = String(material ?? '').trim().toUpperCase();
+  const m = malias[k] || (k === '' ? 'DEFAULT' : k);
+  return byMat[canon]?.[m] ?? byMat[canon]?.DEFAULT ?? caps[canon] ?? 0;
+}
+async function applyTheme(){
+  const t = await fetchJSON(ENDPOINTS.THEME);
+  if (!t?.colors) return;
+  const c = t.colors;
+  if (c.good?.bg)  document.documentElement.style.setProperty('--good-bg', c.good.bg);
+  if (c.good?.fg)  document.documentElement.style.setProperty('--good-fg', c.good.fg);
+  if (c.warn?.bg)  document.documentElement.style.setProperty('--warn-bg', c.warn.bg);
+  if (c.warn?.fg)  document.documentElement.style.setProperty('--warn-fg', c.warn.fg);
+  if (c.bad?.bg)   document.documentElement.style.setProperty('--bad-bg',  c.bad.bg);
+  if (c.bad?.fg)   document.documentElement.style.setProperty('--bad-fg',  c.bad.fg);
 }
 
-/********************** UI helpers **********************/
-function setText(el, txt){ if(typeof el==="string") el = document.querySelector(el); el.textContent = txt; }
-function fmt(x){ return typeof x==="number" ? x.toLocaleString() : x; }
-function classFor(val){ return val>=70? 'good' : val>=50? 'warn' : 'bad'; }
+/* ======= DATA LOAD ======= */
+async function loadByLine(fromISO, toISO){
+  const url = `${ENDPOINTS.BY_LINE}?from=${fromISO}&to=${toISO}`;
+  const rows = await fetchJSON(url);
+  if (!rows) return [];
+  // normalize
+  return rows.map(r=>({
+    machine: r.machine,
+    date: (r.src_date||'').slice(0,10),
+    lbs: Number(r.pounds||0),
+    maint_h: Number(r.maint_dt_h||0),
+    mach_h: Number(r.machine_hours||0),
+    nameplate: Number(r.nameplate_lbs_hr||0),
+    material: r.material
+  })).filter(r=>r.machine && r.date);
+}
 
-/********************** Canvas charts **********************/
-function drawDonut(canvas, data){
+async function loadStatus(){
+  const rows = await fetchJSON(ENDPOINTS.STATUS);
+  // Expected format: [{machine, status: 'available|setup|downm|downp', limble: bool}]
+  return Array.isArray(rows) ? rows : null;
+}
+
+async function loadIssues(fromISO,toISO,type){
+  // type = 'maintenance' | 'production'
+  const url = `${ENDPOINTS.ISSUES}?from=${fromISO}&to=${toISO}&type=${encodeURIComponent(type)}`;
+  const rows = await fetchJSON(url);
+  return Array.isArray(rows) ? rows : null;
+}
+
+/* ======= CHART HELPERS ======= */
+function drawDonut(canvas, parts){
   const ctx = canvas.getContext('2d');
   const {width:w,height:h} = canvas; ctx.clearRect(0,0,w,h);
   const cx=w/2, cy=h/2, r=Math.min(w,h)/2-6, t=24;
+  const total = parts.reduce((s,d)=>s+d.value,0) || 1;
   let start=-Math.PI/2;
-  const total = data.reduce((s,d)=>s+d.value,0);
-  data.forEach(d=>{
+  parts.forEach(d=>{
     const ang = (d.value/total)*Math.PI*2;
     ctx.beginPath(); ctx.arc(cx,cy,r,start,start+ang); ctx.arc(cx,cy,r-t,start+ang,start,true); ctx.closePath();
     ctx.fillStyle = d.color; ctx.fill();
     start += ang;
   });
   ctx.fillStyle = '#111'; ctx.font = '800 20px system-ui'; ctx.textAlign='center'; ctx.textBaseline='middle';
-  ctx.fillText(total+'%', cx, cy);
+  ctx.fillText(Math.round((parts[0]?.value||0)/total*100)+'%', cx, cy);
 }
 
 function drawSparkline(canvas, arr){
   const ctx = canvas.getContext('2d'), w=canvas.width, h=canvas.height;
   ctx.clearRect(0,0,w,h);
+  if (!arr.length){ return; }
   const min = Math.min(...arr), max=Math.max(...arr);
   const pad=4; const x = i => pad + (w-2*pad)*(i/(arr.length-1)); const y = v => h - pad - (h-2*pad)*((v-min)/Math.max(1,(max-min)));
   ctx.beginPath(); ctx.moveTo(x(0),y(arr[0])); for(let i=1;i<arr.length;i++) ctx.lineTo(x(i),y(arr[i])); ctx.lineTo(w-pad,h-pad); ctx.lineTo(pad,h-pad); ctx.closePath();
@@ -314,69 +328,204 @@ function drawSparkline(canvas, arr){
   ctx.beginPath(); ctx.moveTo(x(0),y(arr[0])); for(let i=1;i<arr.length;i++) ctx.lineTo(x(i),y(arr[i])); ctx.lineWidth=2; ctx.strokeStyle = 'rgba(37,64,143,.9)'; ctx.stroke();
 }
 
-/********************** Render **********************/
-let state = { period:'today', data: makeDataset('today') };
+/* ======= RENDER ======= */
+let STATE = { period:'today', refreshEvery:60 };
 
-function render(){
-  const {summary, maint, prod, lines} = state.data;
+async function renderAll(){
   const pNames = {today:'Today', yesterday:'Yesterday', week:'This Week', lastweek:'Last Week', month:'This Month', lastmonth:'Last Month', r7:'Rolling 7d', r30:'Rolling 30d'};
-  setText('#periodLabel', `• ${pNames[state.period]}`);
+  $('#periodLabel').textContent = `• ${pNames[STATE.period]}`;
 
-  // KPI strip
-  const kpiEl = document.getElementById('kpiStrip');
-  kpiEl.innerHTML = '';
-  const kpis = [
-    {label:'OEE', value:`${summary.oee}%`, cls: classFor(summary.oee)},
-    {label:'Availability', value:`${summary.availability}%`, cls: classFor(summary.availability)},
-    {label:'Performance (Adj)', value:`${summary.performance}%`, cls: classFor(summary.performance)},
-    {label:'Quality', value: `${Math.round(95 + seedRand()*5)}%`, cls: 'good'},
-    {label:'Total Pounds', value: fmt(summary.pounds)},
-    {label:'Missed Opp', value: fmt(summary.missed)}
-  ];
-  kpis.forEach(k=>{
-    const div = document.createElement('div'); div.className = `kpi ${k.cls??''}`.trim();
-    div.innerHTML = `<div class="label">${k.label}</div><div class="value">${k.value}</div>`; kpiEl.appendChild(div);
+  const {from, to, label} = computeRange(STATE.period);
+
+  await applyTheme();
+  await loadMappings();
+
+  // Load data
+  const [rows, statusRows, issuesMaint, issuesProd] = await Promise.all([
+    loadByLine(from,to),
+    loadStatus(),                 // may be null
+    loadIssues(from,to,'maintenance'), // may be null
+    loadIssues(from,to,'production')   // may be null
+  ]);
+
+  // Build date list
+  const dates = [];
+  { let d=new Date(from+'T00:00:00'); const end=new Date(to+'T00:00:00');
+    for(; d<=end; d.setDate(d.getDate()+1)) dates.push(formatISO(d)); }
+
+  // Group by machine+date
+  const dayMap = new Map(); // key `${machine}__${date}`
+  rows.forEach(r=>{
+    const key = `${r.machine}__${r.date}`;
+    const obj = dayMap.get(key) || { machine:r.machine, date:r.date, lbs:0, maint:r.maint_h, run:r.mach_h, capCandidates:[], capRun:0, runH:0, material:r.material };
+    obj.lbs += r.lbs;
+    obj.maint = Math.max(obj.maint, r.maint_h);
+    obj.run   = Math.max(obj.run, r.mach_h);
+    // capacity from mappings if available, else from row nameplate
+    const cap = capacityFor(r.machine, r.material) || r.nameplate || 0;
+    if (cap>0){
+      obj.capRun += cap * obj.run;
+      obj.runH   += obj.run;
+      obj.capCandidates = [...obj.capCandidates, cap];
+    }
+    dayMap.set(key, obj);
   });
 
-  // Donuts + legends + issues
-  drawDonut(document.getElementById('donutMaint'), maint.parts);
-  const lm = document.getElementById('legendMaint'); lm.innerHTML='';
-  maint.parts.forEach(d=>{ const row=document.createElement('div'); row.className='row'; row.innerHTML = `<span class="dot" style="background:${d.color};width:12px;height:12px;border-radius:3px"></span><span style="font-weight:800">${d.label}</span><span style="margin-left:auto;color:var(--muted);font-weight:800">${d.value}%</span>`; lm.appendChild(row); });
-  const im = document.getElementById('issuesMaint'); im.innerHTML=''; maint.issues.forEach(i=>{ const li=document.createElement('li'); li.textContent=`${i.label} — ${i.hrs}h`; im.appendChild(li); });
+  // Per-day derived + collect per machine arrays for sparkline
+  const byMachine = new Map(); // machine -> {days:[], seriesOEE:[], agg:...}
+  dates.forEach(date=>{
+    // collect per machine day entry (or blank)
+    rows.filter(r=>r.date===date).forEach(r=>{
+      const key = `${r.machine}__${date}`;
+      const d = dayMap.get(key) || {machine:r.machine, date, lbs:0, maint:0, run:0, capCandidates:[], capRun:0, runH:0};
+      // choose capDay
+      let capDay = 0;
+      if (d.runH>0) capDay = d.capRun/Math.max(1,d.runH);
+      else if (d.capCandidates.length) { const s = d.capCandidates.slice().sort((a,b)=>a-b); capDay = s[Math.floor(s.length/2)]; }
+      const prod = Math.max(0, HOURS_PER_DAY - d.maint - d.run);
+      const avail = HOURS_PER_DAY>0? d.run/HOURS_PER_DAY : 0;
+      const adjDen = capDay * Math.max(0, HOURS_PER_DAY - d.maint);
+      const perfAdj = adjDen>0? Math.min(1, d.lbs/adjDen) : NaN; // cap at 100% for sanity
+      const qual = 0.95; // until you have real quality; swap when ready
+      const oee = (isFinite(avail) && isFinite(perfAdj)) ? Math.round(avail*perfAdj*qual*100) : 0;
 
-  drawDonut(document.getElementById('donutProd'), prod.parts);
-  const lp = document.getElementById('legendProd'); lp.innerHTML='';
-  prod.parts.forEach(d=>{ const row=document.createElement('div'); row.className='row'; row.innerHTML = `<span class="dot" style="background:${d.color};width:12px;height:12px;border-radius:3px"></span><span style="font-weight:800">${d.label}</span><span style="margin-left:auto;color:var(--muted);font-weight:800">${d.value}%</span>`; lp.appendChild(row); });
-  const ip = document.getElementById('issuesProd'); ip.innerHTML=''; prod.issues.forEach(i=>{ const li=document.createElement('li'); li.textContent=`${i.label} — ${i.hrs}h`; ip.appendChild(li); });
-
-  // Status bar (avail + limble)
-  const sb = document.getElementById('statusBar'); sb.innerHTML='';
-  lines.forEach(L=>{
-    const chip=document.createElement('div'); chip.className='chip';
-    const dotClass = L.status==='available'? 'st-available' : L.status==='setup'? 'st-setup' : L.status==='downm'? 'st-downm' : 'st-downp';
-    const wrench = L.limble? '<span title="Open Limble request" style="font-weight:900">🛠️</span>' : '';
-    chip.innerHTML = `<span class="dot ${dotClass}"></span><strong>${L.name}</strong><span style="color:var(--muted);font-weight:800">${L.status.toUpperCase()}</span>${wrench}`;
-    sb.appendChild(chip);
-  });
-
-  // Production line status list (bottom-left)
-  const ps = document.getElementById('prodStatusList'); if(ps){ ps.innerHTML='';
-    lines.forEach(L=>{
-      const row = document.createElement('div');
-      const bg = L.limble ? '#fff7cc' : '#eaffea';
-      const border = L.limble ? '#fde68a' : '#bbf7d0';
-      row.style.cssText = `display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;padding:10px 12px;border-radius:12px;background:${bg};border:1px solid ${border}`;
-      row.innerHTML = `<strong>${L.name}</strong><span style="color:var(--muted);font-weight:800">${L.limble? 'Limble Request' : 'Available'}</span>`;
-      ps.appendChild(row);
+      const M = byMachine.get(d.machine) || {days:[], seriesOEE:[], lbs:0, run:0, maint:0, prod:0, capRun:0, runH:0, capPot:0};
+      M.days.push(date);
+      M.seriesOEE.push(oee);
+      M.lbs += d.lbs;
+      M.run += d.run;
+      M.maint += d.maint;
+      M.prod += prod;
+      M.capRun += capRunFor(calcCap(capDay), d.run);
+      M.runH += d.run;
+      M.capPot += capDay * HOURS_PER_DAY;
+      byMachine.set(d.machine, M);
+      function calcCap(x){return x||0} function capRunFor(c,r){return c*r}
     });
+  });
+
+  // Build lines array for UI
+  const lines = [...byMachine.entries()].map(([machine,M])=>{
+    const avail = HOURS_PER_DAY>0? (M.run/(HOURS_PER_DAY*dates.length)) : 0;
+    const perfAdj = (M.capPot>0) ? Math.min(1, M.lbs / (M.capPot - (/* approx maint adj */ 0))) : 0;
+    const qual = 0.95;
+    const oee = Math.round((avail*perfAdj*qual)*100);
+    const missed = Math.max(0, Math.round((100-oee)*1200)); // placeholder: we’ll compute below
+    return {
+      name: machine,
+      oee, avail: Math.round(avail*100), perf: Math.round(perfAdj*100), qual: Math.round(qual*100),
+      lbs: M.lbs, miss: missed, hist: M.seriesOEE
+    };
+  }).sort((a,b)=>b.oee-a.oee);
+
+  // Derive downtime split (totals)
+  let maintH=0, prodH=0;
+  for (const obj of dayMap.values()){
+    const prod = Math.max(0, HOURS_PER_DAY - obj.maint - obj.run);
+    maintH += obj.maint;
+    prodH  += prod;
+  }
+  const maintPct = Math.round( (maintH/(maintH+prodH||1))*100 );
+  const prodPct  = 100 - maintPct;
+  const maintParts = [
+    {label:'Maintenance', value:maintPct, color:'#ef4444'},
+    {label:'Other',       value:100-maintPct, color:'#f59e0b'}
+  ];
+  const prodParts = [
+    {label:'Production', value:prodPct, color:'#0ea5e9'},
+    {label:'Other',      value:100-prodPct, color:'#a78bfa'}
+  ];
+
+  // KPIs (overall)
+  const sumLbs = lines.reduce((s,l)=>s+l.lbs,0);
+  const avgOEE = Math.round(lines.reduce((s,l)=>s+l.oee,0)/Math.max(1,lines.length));
+  const avgAvail = Math.round(lines.reduce((s,l)=>s+l.avail,0)/Math.max(1,lines.length));
+  const avgPerf = Math.round(lines.reduce((s,l)=>s+l.perf,0)/Math.max(1,lines.length));
+  const qualPct = 95;
+
+  // ===== Render header meta
+  $('#kpiStrip').innerHTML = '';
+  [
+    {label:'OEE', value:`${avgOEE}%`, cls: classFor(avgOEE)},
+    {label:'Availability', value:`${avgAvail}%`, cls: classFor(avgAvail)},
+    {label:'Performance (Adj)', value:`${avgPerf}%`, cls: classFor(avgPerf)},
+    {label:'Quality', value:`${qualPct}%`, cls:'good'},
+    {label:'Total Pounds', value: fmtInt(sumLbs)},
+    {label:'Missed Opp', value: '—'}
+  ].forEach(k=>{
+    const div = document.createElement('div');
+    div.className = `kpi ${k.cls||''}`.trim();
+    div.innerHTML = `<div class="label">${k.label}</div><div class="value">${k.value}</div>`;
+    $('#kpiStrip').appendChild(div);
+  });
+
+  // ===== Donuts + legends + issues
+  drawDonut($('#donutMaint'), maintParts);
+  $('#legendMaint').innerHTML = maintParts.map(d=>(
+    `<div class="row"><span class="dot" style="background:${d.color};width:12px;height:12px;border-radius:3px"></span><span style="font-weight:800">${d.label}</span><span style="margin-left:auto;color:var(--muted);font-weight:800">${d.value}%</span></div>`
+  )).join('');
+  drawDonut($('#donutProd'), prodParts);
+  $('#legendProd').innerHTML = prodParts.map(d=>(
+    `<div class="row"><span class="dot" style="background:${d.color};width:12px;height:12px;border-radius:3px"></span><span style="font-weight:800">${d.label}</span><span style="margin-left:auto;color:var(--muted);font-weight:800">${d.value}%</span></div>`
+  )).join('');
+
+  // Issues lists (optional)
+  function fillIssues(el, arr){
+    el.innerHTML = '';
+    if (arr && arr.length){
+      arr.slice(0,5).forEach(i=>{
+        const li = document.createElement('li');
+        li.textContent = `${i.label} — ${Math.round(i.hours||i.hrs||0)}h`;
+        el.appendChild(li);
+      });
+    } else {
+      const li = document.createElement('li');
+      li.style.color='var(--muted)';
+      li.textContent = 'No issue breakdown available.';
+      el.appendChild(li);
+    }
+  }
+  fillIssues($('#issuesMaint'), issuesMaint);
+  fillIssues($('#issuesProd'),  issuesProd);
+
+  // ===== Status bar + Production status list
+  const statusByMachine = new Map();
+  if (statusRows){
+    statusRows.forEach(s=> statusByMachine.set(s.machine, {status:s.status, limble:!!s.limble}));
+  } else {
+    // derive naively from range data: >0 run hours => 'available'
+    lines.forEach(l=> statusByMachine.set(l.name, {status: (l.avail>0?'available':'downp'), limble:false}));
   }
 
-  // Lines grid
-  const grid = document.getElementById('linesGrid'); grid.innerHTML='';
+  $('#statusBar').innerHTML = '';
+  lines.forEach(L=>{
+    const S = statusByMachine.get(L.name) || {status:'downp', limble:false};
+    const dotClass = S.status==='available'? 'st-available' : S.status==='setup'? 'st-setup' : S.status==='downm'? 'st-downm' : 'st-downp';
+    const wrench = S.limble? '<span title="Open Limble request" style="font-weight:900">🛠️</span>' : '';
+    const chip = document.createElement('div');
+    chip.className='chip';
+    chip.innerHTML=`<span class="dot ${dotClass}"></span><strong>${L.name}</strong><span style="color:var(--muted);font-weight:800">${S.status.toUpperCase()}</span>${wrench}`;
+    $('#statusBar').appendChild(chip);
+  });
+
+  // Production line list (bottom-left)
+  $('#prodStatusList').innerHTML = '';
+  lines.forEach(L=>{
+    const S = statusByMachine.get(L.name) || {status:'downp', limble:false};
+    const row = document.createElement('div');
+    const bg = S.limble ? '#fff7cc' : '#eaffea';
+    const border = S.limble ? '#fde68a' : '#bbf7d0';
+    row.style.cssText = `display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;padding:10px 12px;border-radius:12px;background:${bg};border:1px solid ${border}`;
+    row.innerHTML = `<strong>${L.name}</strong><span style="color:var(--muted);font-weight:800">${S.limble? 'Limble Request' : 'Available'}</span>`;
+    $('#prodStatusList').appendChild(row);
+  });
+
+  // ===== Lines grid
+  $('#linesGrid').innerHTML = '';
   lines.forEach(L=>{
     const status = classFor(L.oee);
     const el = document.createElement('div'); el.className='line';
-    const lim = L.limble? '<span class="pill" style="margin-left:8px;background:#fff0f0;border-color:#fecaca;color:#991b1b">🛠️ Limble</span>' : '';
+    const lim = (statusByMachine.get(L.name)?.limble) ? '<span class="pill" style="margin-left:8px;background:#fff0f0;border-color:#fecaca;color:#991b1b">🛠️ Limble</span>' : '';
     el.innerHTML = `
       <div class="lineheader">
         <div class="linename">${L.name}</div>
@@ -390,33 +539,34 @@ function render(){
       </div>
       <canvas class="spark" width="340" height="40"></canvas>
     `;
-    grid.appendChild(el);
+    $('#linesGrid').appendChild(el);
     drawSparkline(el.querySelector('canvas'), L.hist);
   });
 
-  // Rank table
-  const tbody = document.querySelector('#rankTable tbody'); tbody.innerHTML='';
-  lines.slice().sort((a,b)=>b.oee-a.oee).forEach(L=>{
-    const tr=document.createElement('tr');
-    tr.innerHTML = `<td>${L.name}</td><td><strong>${L.oee}%</strong></td><td>${fmt(L.lbs)}</td><td>${fmt(L.miss)}</td>`; tbody.appendChild(tr);
+  // ===== Rank table
+  const tbody = $('#rankTable tbody'); tbody.innerHTML='';
+  lines.forEach(L=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${L.name}</td><td><strong>${L.oee}%</strong></td><td>${fmtInt(L.lbs)}</td><td>${fmtInt(L.miss)}</td>`;
+    tbody.appendChild(tr);
   });
 
-  setText('#updated', new Date().toLocaleString());
+  // Footer
+  $('#updated').textContent = new Date().toLocaleString();
 }
 
-/********************** Controls & timers **********************/
-const seg = document.querySelectorAll('.segBig button');
-seg.forEach(b=> b.addEventListener('click', ()=>{
-  seg.forEach(x=>x.classList.remove('active')); b.classList.add('active');
-  state.period = b.dataset.period; state.data = makeDataset(state.period); render();
-}));
-
-let refreshEvery = 60; // seconds
-setInterval(()=>{ const c = document.getElementById('clock'); if(c) c.textContent=new Date().toLocaleTimeString(); }, 500);
-setInterval(()=>{ state.data = makeDataset(state.period); render(); }, refreshEvery*1000);
-document.getElementById('refreshSec').textContent = refreshEvery+'s';
-
-// Fullscreen shortcut
+/* ======= UI WIRING ======= */
+document.querySelectorAll('.segBig button').forEach(b=>{
+  b.addEventListener('click', ()=>{
+    document.querySelectorAll('.segBig button').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    STATE.period = b.dataset.period;
+    renderAll();
+  });
+});
+document.getElementById('refreshSec').textContent = STATE.refreshEvery+'s';
+setInterval(()=>{ const c=$('#clock'); if(c) c.textContent=new Date().toLocaleTimeString(); }, 500);
+setInterval(()=>{ renderAll(); }, STATE.refreshEvery*1000);
 window.addEventListener('keydown', (e)=>{
   if(e.key.toLowerCase()==='f'){
     if(!document.fullscreenElement) document.documentElement.requestFullscreen();
@@ -424,7 +574,7 @@ window.addEventListener('keydown', (e)=>{
   }
 });
 
-render();
+renderAll();
 </script>
 </body>
 </html>
