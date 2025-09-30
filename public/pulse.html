@@ -3,273 +3,545 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>PRI Pulse</title>
+  <title>PRI Pulse – Production (TV)</title>
   <style>
     :root{
       --pri-blue:#25408F; --pri-green:#92D050;
       --bg:#E9EDF5; --card:#FBFCFE; --ink:#0F172A; --muted:#475569; --border:#D7E0F3;
+
+      /* overridden by /api/settings/kpi-theme at runtime */
       --good-bg:#dcfce7;  --good-fg:#065f46;
       --warn-bg:#fef9c3;  --warn-fg:#7c5e10;
       --bad-bg:#fee2e2;   --bad-fg:#7f1d1d;
-      --shadow: 0 10px 25px rgba(0,0,0,.08);
-      --chip:#f7fafc;
     }
-    *{box-sizing:border-box}
-
-    body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial,sans-serif}
-    .page-production::before{
-      content:"";position:fixed;inset:0;z-index:-1;
+    /* Production page background (softened for readability) */
+    .page-production {
+      position: relative;
+      background-color: var(--bg);
+    }
+    .page-production::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      z-index: -1;
       background:
         linear-gradient(to bottom, rgba(255,255,255,.75), rgba(255,255,255,.85)),
-        url('img/PRIfront.png') center/cover no-repeat fixed;
+        url('img/PRIfront.png') center / cover no-repeat fixed;
     }
 
-    /* Header (match production.html) */
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,Segoe UI,Arial,sans-serif}
+
     .top-border{position:fixed;top:0;left:0;width:100%;height:96px;background:var(--pri-green);z-index:10;display:flex;align-items:center;padding:0 20px}
     .top-border .logo{height:72px}
     .top-title{font-size:28px;font-weight:900;margin-left:20px;color:#0A2A12}
-    .tabs{margin-left:auto;display:flex;gap:8px;align-items:center}
+    .tabs{margin-left:auto;display:flex;gap:8px}
     .tab{background:#ffffffd9;padding:8px 12px;border-radius:10px;text-decoration:none;color:#0A2A12;font-weight:700}
     .tab.active{background:#fff}
+
     .wrap{margin:120px 20px 40px 20px}
+    .controls{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin:0 0 16px}
+    .meta-range{color:var(--muted);font-size:13px}
+    .select{appearance:none;border:1px solid var(--border);background:#fff;border-radius:10px;padding:8px 12px;font-weight:600}
+    .divider{height:24px;width:1px;background:var(--border)}
+    
+    /* ---- loading overlay ---- */
+    #loading {
+      position: fixed;
+      inset: 0;
+      display: none;                 /* toggled by JS */
+      align-items: center;
+      justify-content: center;
+      background: rgba(255,255,255,.55);
+      z-index: 9999;
+    }
+    #loading .spinner {
+      width: 64px; height: 64px;
+      border: 8px solid #e5e7eb;
+      border-top-color: var(--pri-blue);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
 
-    /* Loading overlay spinner */
-    #loading{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(255,255,255,.55);z-index:9999}
-    #loading .spinner{width:64px;height:64px;border:8px solid #e5e7eb;border-top-color:var(--pri-blue);border-radius:50%;animation:spin 1s linear infinite}
-    @keyframes spin{to{transform:rotate(360deg)}}
+    .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-top:6px}
+    .tile{background:var(--card);padding:14px;border-radius:12px;box-shadow:0 2px 4px rgba(0,0,0,.08);border:1px solid var(--border);text-align:center;min-height:84px}
+    .tile .lab{font-size:12px;color:#000;text-transform:uppercase;letter-spacing:.3px}
+    .tile .val{font-size:22px;font-weight:900;margin-top:6px}
+    .tile.good { background: var(--good-bg); color: var(--good-fg); }
+    .tile.warn { background: var(--warn-bg); color: var(--warn-fg); }
+    .tile.bad  { background: var(--bad-bg);  color: var(--bad-fg);  }
 
-    .app{max-width:1920px;margin:0 auto}
-    .toolbar{display:flex;justify-content:space-between;align-items:center;margin:10px 0 16px;gap:10px;flex-wrap:wrap}
-    .left,.right{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-    .segBig{display:inline-flex;border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--card);box-shadow:var(--shadow)}
-    .segBig button{border:0;background:transparent;padding:8px 12px;font-weight:700;color:var(--muted);cursor:pointer}
-    .segBig button.active{background:var(--pri-blue);color:white}
-    .pill{padding:6px 10px;border-radius:999px;background:white;border:1px solid var(--border);color:var(--muted);font-weight:700}
+    /* tiny info bubble + tooltip (local copy for production.html) */
+    .info{
+      display:inline-flex;align-items:center;justify-content:center;
+      width:16px;height:16px;margin-left:6px;border-radius:50%;
+      font-size:11px;line-height:1;cursor:pointer;user-select:none;
+      background:#25408F;color:#fff;font-weight:700;
+    }
+    .tooltip{position:relative;display:inline-block;vertical-align:middle}
+    .tooltip .tooltip-panel{
+      position:absolute;z-index:10000;
+      bottom: calc(100% + 8px);   /* ⬅️ open UP */
+      top: auto;                  /* ⬅️ override */
+      left:50%;transform:translate(-50%,4px);
+      min-width:220px;max-width:340px;padding:10px 12px;border-radius:8px;
+      box-shadow:0 6px 18px rgba(0,0,0,.15);background:#111;color:#fff;
+      font-size:.9rem;line-height:1.3;opacity:0;pointer-events:none;transition:.15s ease;
+    }
+    .tooltip:hover .tooltip-panel,
+    .tooltip:focus-within .tooltip-panel,
+    .tooltip .tooltip-panel.show{opacity:1;pointer-events:auto;transform:translate(-50%,-2px)}
+    .tooltip .tooltip-panel::after{
+      content:"";position:absolute;
+      top:100%; left:50%; margin-left:-6px;
+      border-width:6px;border-style:solid;
+      border-color:#111 transparent transparent transparent;
+    }
+    
+    .kpis-rowA .tile.big { min-height: 104px; }
+    .kpis-rowA .tile.big .val { font-size: 28px; }
+    .tiny { font-size: 11px; color: var(--muted); margin-top: 6px; font-weight: 700; }
+    .op{
+      background:#e9e9e9 ;border:1px solid var(--border);
+      border-radius:12px;display:flex;align-items:center;justify-content:center;
+      font-weight:900;font-size:40px;min-height:104px
+    }
 
-    .kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:12px}
-    .kpi{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:14px 16px;box-shadow:var(--shadow);min-height:90px}
-    .kpi .label{font-size:12px;color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:.6px}
-    .kpi .value{font-size:32px;font-weight:900;margin-top:6px}
-    .kpi.good{background:var(--good-bg);color:var(--good-fg);border-color:#bbf7d0}
-    .kpi.warn{background:var(--warn-bg);color:var(--warn-fg);border-color:#fde68a}
-    .kpi.bad{ background:var(--bad-bg); color:var(--bad-fg); border-color:#fecaca}
+    .section-gap{margin-top:28px}
 
-    .statusbar{display:flex;gap:10px;overflow:auto;padding:8px 2px;margin-bottom:14px}
-    .chip{display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--border);border-radius:999px;background:var(--chip);white-space:nowrap}
-    .dot{width:12px;height:12px;border-radius:50%}
-    .st-available{background:#16a34a}
-    .st-setup{background:#f59e0b}
-    .st-downm{background:#ef4444}
-    .st-downp{background:#dc2626}
+    .card{background:var(--card);border-radius:12px;border:1px solid var(--border);box-shadow:0 2px 6px rgba(0,0,0,.08);padding:12px}
+    .card h3{margin:0 0 8px;font-size:18px;color:var(--pri-blue);display:flex;gap:8px;align-items:center}
+    .card .sub{font-size:12px;color:var(--muted);font-weight:600}
 
-    /* Grid + cards */
-    .grid{display:grid;grid-template-columns:420px 1fr;gap:16px;align-items:stretch}
-    .card{background:var(--card);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow)}
-    .card h3{margin:0;padding:12px 14px;border-bottom:1px solid var(--border);font-size:15px;letter-spacing:.3px;color:var(--muted)}
-    .card .content{padding:14px}
+    .line-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px}
+    .lt-card{background:#fff;border:1px solid var(--border);border-radius:12px;padding:12px;display:grid;grid-template-columns:1fr 140px;gap:10px;border-left-width:6px}
+    .lt-card.good { border-left-color: var(--good-fg); }
+    .lt-card.warn { border-left-color: var(--warn-fg); }
+    .lt-card.bad  { border-left-color: var(--bad-fg); }
+    .lt-card.empty { border-left-color:#cbd5e1; }
+    .lt-head{display:flex;align-items:baseline;justify-content:space-between}
+    .lt-name{font-weight:900}
+    .lt-nameplate{font-size:12px;color:var(--muted)}
+    .lt-badges{display:flex;gap:6px;margin-top:6px}
+    .badge{padding:2px 8px;border-radius:999px;font-size:12px;font-weight:800;border:1px solid #0001}
+    .badge.maint{background:#FEE8A6;color:#3B2F0A}
+    .badge.prod {background:#DBE6FF;color:#0D246F}
+    .lt-metrics{display:grid;grid-template-columns:repeat(2,1fr);gap:6px}
+    .m{background:#f7fafc;border:1px solid var(--border);border-radius:10px;padding:8px;text-align:center}
+    .m .lab{font-size:11px;color:var(--muted)}
+    .m .val{font-weight:900}
+    .m.good { background: var(--good-bg); }
+    .m.warn { background: var(--warn-bg); }
+    .m.bad  { background: var(--bad-bg);  }
+    .m.empty { background:#f1f5f9; color:#94a3b8; border-color:#e2e8f0; }
 
-    /* Donuts kept visible (placeholder ok) */
-    .donutwrap{display:grid;grid-template-columns:1fr;gap:12px}
-    .donutrow{display:grid;grid-template-columns:160px 1fr;gap:12px;align-items:center}
-    .legend{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-    .legend .row{display:flex;align-items:center;gap:8px}
-    .legend .name{max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .speedo{width:120px;height:78px}
+    .gauge .track { stroke: #e5e7eb; }
+    .gauge .pct { font-size: 18px; font-weight: 800; }
+    .gauge .cap{font-size:11px;color:var(--muted);text-align:center;margin-top:-6px}
+    .gauge .band { opacity:.25; stroke-width:10; fill:none }
+    .gauge.good { color: var(--good-fg); }
+    .gauge.warn { color: var(--warn-fg); }
+    .gauge.bad  { color: var(--bad-fg);  }
+    .gauge.empty{ color: var(--muted);   }
 
-    /* Line tiles responsive with clean scaling */
-    .lines{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px}
-    .line{border:1px solid var(--border);border-radius:14px;padding:12px;background:white;display:flex;flex-direction:column}
-    .lineheader{display:flex;justify-content:space-between;align-items:center}
-    .linename{font-weight:900}
-    .badge{font-size:12px;font-weight:900;padding:4px 8px;border-radius:999px}
-    .badge.good{background:var(--good-bg);color:var(--good-fg);border:1px solid #bbf7d0}
-    .badge.warn{background:var(--warn-bg);color:var(--warn-fg);border:1px solid #fde68a}
-    .badge.bad{ background:var(--bad-bg); color:var(--bad-fg); border:1px solid #fecaca}
-    .metricrow{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:8px}
-    .mitem{background:#f7fafc;border:1px solid var(--border);border-radius:10px;padding:8px;min-width:0}
-    .mitem .mkv{font-size:22px;font-weight:900}
-    .spark{width:100%;height:40px;margin-top:6px}
+    table{width:100%;border-collapse:collapse;margin-top:6px}
+    th,td{padding:8px;border-bottom:1px solid #E1E9F8;text-align:center}
+    th{background:var(--pri-blue);color:#fff;font-size:13px;position:sticky;top:0}
+    td.line{text-align:left;font-weight:700}
+    #heat td.good, #heatFactors td.good { background: var(--good-bg); }
+    #heat td.warn, #heatFactors td.warn { background: var(--warn-bg); }
+    #heat td.bad,  #heatFactors td.bad  { background: var(--bad-bg); }
+    #heat td.empty, #heatFactors td.empty { background:#f1f5f9 !important; color:#94a3b8 !important; }
 
-    table{width:100%;border-collapse:collapse;font-size:14px}
-    th,td{padding:10px;border-bottom:1px dashed var(--border)}
-    th{text-align:left;color:var(--muted);font-weight:900}
+    .chart-section{margin-top:16px}
+    .chart-container{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:10px}
+    .chart{background:linear-gradient(180deg,#F7F9FF,#EEF3FF);border:1px solid var(--border);border-radius:10px;padding:6px}
+    .chart svg{width:100%;height:260px;display:block}
+    .legend{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-top:8px;font-size:12px;color:#334155}
+    .sw{display:inline-block;width:14px;height:4px;border-radius:2px;margin-right:6px}
+    .sw.raw{background:#2563eb}
+    .sw.adj{background:var(--warn-fg)}
+    .sw.cap{background:#0f172a;opacity:.6}
+    .cap-dash{border-bottom:2px dashed #0f172a; width:14px; height:0; display:inline-block; margin-right:6px; opacity:.6}
 
-    footer{display:flex;justify-content:space-between;align-items:center;margin-top:12px;color:var(--muted)}
-    .clock{font-variant-numeric:tabular-nums;font-weight:900}
+    .empty{padding:12px;color:#64748b;border:1px dashed #cbd5e1;border-radius:10px;background:#f8fafc;margin-top:6px}
 
-    @media (min-width:2560px){
-      .app{max-width:2560px}
-      .kpi .value{font-size:46px}
-      .kpi .label, .badge{font-size:16px}
-      .spark{height:54px}
-      .lines{gap:18px}
-      .line{padding:16px}
-      table{font-size:18px}
+    /* TV tweaks for ≥1920px: bigger text for distance viewing */
+    @media (min-width: 1920px) {
+      .top-title{font-size:34px}
+      .tile .val{font-size:28px}
+      .tile.big .val{font-size:34px}
+      .kpis{gap:14px}
+      .tabs .tab{font-size:16px}
+      .controls .select{font-size:16px}
+      .card h3{font-size:20px}
+      table th, table td{font-size:16px}
     }
   </style>
 </head>
-
 <body class="page-production">
-  <!-- Spinner -->
   <div id="loading"><div class="spinner" aria-label="Loading…"></div></div>
-
   <div class="top-border">
     <img src="img/pri-logo.png" alt="PRI Logo" class="logo" />
-    <div class="top-title">PRI Pulse <span id="periodLabel" style="font-size:16px;font-weight:800;margin-left:8px;color:#0A2A12"></span></div>
+    <div class="top-title">PACE – Production Analysis & Capacity Explorer</div>
     <div class="tabs">
       <a class="tab" href="index.html">Work Orders</a>
       <a class="tab" href="pm.html">PM</a>
       <a class="tab" href="prodstatus.html">Prod Status</a>
       <a class="tab" href="kpi-by-asset.html">KPIs by Asset</a>
-      <a class="tab" href="production.html">Transformation</a>
-      <a class="tab active" href="pulse.html">Pulse</a>
+      <a class="tab" href="pulse.html">Pulse (TV)</a>
+      <a class="tab active" href="#">Production</a>
       <a class="tab" href="admin">Admin</a>
-      <!-- no white box; scale to header height -->
       <img src="img/innovation-logo.png" alt="Innovation" style="height:72px;margin-left:8px;object-fit:contain"/>
     </div>
   </div>
 
   <div class="wrap">
-    <div class="app" id="app">
+    <div class="controls">
+      <span class="meta-range">Timeframe:</span>
+      <select id="tf" class="select">
+        <option value="today">Today</option>
+        <option value="yesterday">Yesterday</option>
+        <option value="thisweek">This week (Mon–Sun)</option>
+        <option value="lastweek" selected>Last week (Mon–Sun)</option>
+        <option value="thismonth">This month</option>
+        <option value="lastmonth">Last month</option>
+        <option value="thisq">This quarter</option>
+        <option value="lastq">Last quarter</option>
+        <option value="thisyear">This year</option>
+        <option value="lastyear">Last year</option>
+        <option value="last7">Trailing 7 days</option>
+        <option value="last30">Trailing 30 days</option>
+        <option value="last12m">Trailing 12 months</option>
+      </select>
+      <span id="tfLabel" class="meta-range"></span>
+      <span class="divider"></span>
+      <span class="meta-range">Pick date:</span>
+      <input id="dayPick" type="date" class="select" />
+      <span id="dayPickLabel" class="meta-range"></span>
 
-      <div class="toolbar">
-        <div class="left">
-          <div class="segBig" role="tablist" aria-label="Timeframe">
-            <button data-period="today" role="tab">Today</button>
-            <button data-period="yesterday" role="tab">Yesterday</button>
-            <button data-period="week" role="tab">This Week</button>
-            <button data-period="lastweek" class="active" role="tab">Last Week</button>
-            <button data-period="month" role="tab">This Month</button>
-            <button data-period="lastmonth" role="tab">Last Month</button>
-            <button data-period="r7" role="tab">Rolling 7d</button>
-            <button data-period="r30" role="tab">Rolling 30d</button>
+      <!-- Include Weekends toggle + note -->
+      <span class="divider"></span>
+      <label style="display:flex;align-items:center;gap:6px;font-weight:600">
+        <input type="checkbox" id="wkndToggle">
+        Include Weekends
+      </label>
+      <span id="weekendNote" class="meta-range" style="display:none">
+        (Note: Maintenance downtime is weekday-only)
+      </span>
+      <span class="divider"></span>
+      <span class="meta-range">Press <b>F</b> for Fullscreen</span>
+    </div>
+
+    <section>
+      <h2>Overall KPIs <span class="sub" id="rangeLabel"></span></h2>
+
+      <!-- Row A: OEE = AVAIL × PERF(Adj) × QUAL -->
+      <div class="kpis kpis-rowA">
+        <div class="tile big" id="tile-oee">
+          <div class="lab">OEE
+            <span class="tooltip"><span class="info" tabindex="0">i</span>
+              <span class="tooltip-panel"><b>Overall Equipment Effectiveness</b><br>
+                OEE = Availability × Performance (Adj) × Quality.
+              </span>
+            </span>
           </div>
-          <span class="pill" id="sitePill">All Sites</span>
+          <div class="val" id="ov-oee">--%</div>
+          <div class="tiny" id="ov-oee-eq"></div>
         </div>
-        <div class="right">
-          <span class="pill">Auto-refresh: <strong id="refreshSec">60s</strong></span>
-          <span class="pill">Press <strong>F</strong> for Fullscreen</span>
+        <div class="op">=</div>
+        <div class="tile big" id="tile-av">
+          <div class="lab">Availability
+            <span class="tooltip"><span class="info" tabindex="0">i</span>
+              <span class="tooltip-panel"><b>Availability</b><br>
+                Run Hours / Planned Hours. Planned Hours are 24h per selected day (weekdays by default).
+              </span>
+            </span>
+          </div>
+          <div class="val" id="ov-av">--%</div>
+        </div>
+        <div class="op">×</div>
+        <div class="tile big" id="tile-pa">
+          <div class="lab">Performance (Adj)
+            <span class="tooltip"><span class="info" tabindex="0">i</span>
+              <span class="tooltip-panel"><b>Performance (Adjusted)</b><br>
+                Pounds ÷ (Capacity × (24 − Maint&nbsp;DT)). Uses nameplate/material mapping per day.
+              </span>
+            </span>
+          </div>
+          <div class="val" id="ov-pa">--%</div>
+        </div>
+        <div class="op">×</div>
+        <div class="tile big" id="tile-qual">
+          <div class="lab">Quality*
+            <span class="tooltip"><span class="info" tabindex="0">i</span>
+              <span class="tooltip-panel"><b>Quality (assumed)</b><br>
+                Temporary constant (70%) until lab data is integrated.
+              </span>
+            </span>
+          </div>
+          <div class="val" id="ov-qual">70%</div>
         </div>
       </div>
 
-      <!-- STATUS TICKER (keep for later) -->
-      <!-- <div class="statusbar" id="statusBar"></div> -->
-
-      <!-- KPI STRIP -->
-      <section class="kpis" id="kpiStrip"></section>
-
-      <section class="grid">
-        <!-- Left: Downtime pies (placeholder OK) -->
-        <article class="card">
-          <h3>Downtime Overview — Maintenance vs Production</h3>
-          <div class="content donutwrap">
-            <div class="donutrow">
-              <canvas id="donutMaint" width="160" height="160"></canvas>
-              <div><div class="legend" id="legendMaint"></div></div>
-            </div>
-            <div class="donutrow">
-              <canvas id="donutProd" width="160" height="160"></canvas>
-              <div><div class="legend" id="legendProd"></div></div>
-            </div>
+      <!-- Row B -->
+      <div class="kpis kpis-rowB">
+        <div class="tile">
+          <div class="lab">Run Hours
+            <span class="tooltip"><span class="info" tabindex="0">i</span>
+              <span class="tooltip-panel"><b>Run Hours</b><br>
+                Reported machine runtime from production entries (no front-end backfill).
+              </span>
+            </span>
           </div>
-        </article>
-
-        <!-- Right: Line health -->
-        <article class="card">
-          <h3>Line Health (OEE / Avail / Perf / Quality)</h3>
-          <div class="content">
-            <div class="lines" id="linesGrid"></div>
+          <div class="val" id="ov-runh">--</div>
+        </div>
+        <div class="tile" id="tile-pr">
+          <div class="lab">Performance (Raw 24h)
+            <span class="tooltip"><span class="info" tabindex="0">i</span>
+              <span class="tooltip-panel"><b>Performance (Raw)</b><br>
+                Pounds ÷ (Capacity × 24). Not adjusted for maintenance downtime.
+              </span>
+            </span>
           </div>
-        </article>
-      </section>
-
-      <!-- Bottom row -->
-      <section class="grid" style="margin-top:16px">
-        <article class="card">
-          <h3>Production Line Status</h3>
-          <div class="content" id="prodStatusList"></div>
-        </article>
-        <article class="card">
-          <h3>Lines Ranked by OEE & Missed Opportunity</h3>
-          <div class="content">
-            <table id="rankTable">
-              <thead>
-                <tr><th style="width:28%">Line</th><th style="width:14%">OEE %</th><th style="width:22%">Pounds</th><th>Missed Opp (lb)</th></tr>
-              </thead>
-              <tbody></tbody>
-            </table>
+          <div class="val" id="ov-pr">--%</div>
+        </div>
+        <div class="tile">
+          <div class="lab">Capacity Potential (lb)
+            <span class="tooltip"><span class="info" tabindex="0">i</span>
+              <span class="tooltip-panel"><b>Capacity Potential</b><br>
+                Nameplate capacity across the selected calendar (24h/day); per line uses material mapping and includes idle weekdays.
+              </span>
+            </span>
           </div>
-        </article>
-      </section>
+          <div class="val" id="ov-cap">--</div>
+        </div>
+        <div class="tile">
+          <div class="lab">Total Pounds
+            <span class="tooltip"><span class="info" tabindex="0">i</span>
+              <span class="tooltip-panel"><b>Total Pounds</b><br>
+                Sum of all reported pounds in range (filtered to lines shown).
+              </span>
+            </span>
+          </div>
+          <div class="val" id="ov-lbs">--</div>
+        </div>
+        <div class="tile" id="tile-under">
+          <div class="lab">Under-Perf Gap (lb)
+            <span class="tooltip"><span class="info" tabindex="0">i</span>
+              <span class="tooltip-panel"><b>Under-performance Gap</b><br>
+                (Capacity × Run Hours) − Pounds. “Lost” pounds while running.
+              </span>
+            </span>
+          </div>
+          <div class="val" id="ov-under">--</div>
+        </div>
+      </div>
 
-      <footer>
-        <div>Last updated <span id="updated"></span></div>
-        <div class="clock" id="clock"></div>
-      </footer>
+      <!-- Row C -->
+      <div class="kpis kpis-rowC">
+        <div class="tile" id="tile-mdt-h">
+          <div class="lab">Maint DT (h)
+            <span class="tooltip"><span class="info" tabindex="0">i</span>
+              <span class="tooltip-panel"><b>Maintenance Downtime</b><br>
+                Limble downtime sliced back over weekdays to the occurrence days, capped at 24h per machine-day.
+              </span>
+            </span>
+          </div>
+          <div class="val" id="ov-mdt">--</div>
+        </div>
+        <div class="tile" id="tile-mdt-pct">
+          <div class="lab">Maint DT (%)
+            <span class="tooltip"><span class="info" tabindex="0">i</span>
+              <span class="tooltip-panel"><b>Maintenance DT %</b><br>
+                Maint&nbsp;DT ÷ Planned Hours. Lower is better.
+              </span>
+            </span>
+          </div>
+          <div class="val" id="ov-mdt-pct">--%</div>
+        </div>
+        <div class="tile" id="tile-pdt-h">
+          <div class="lab">Prod DT (h)
+            <span class="tooltip"><span class="info" tabindex="0">i</span>
+              <span class="tooltip-panel"><b>Production Downtime</b><br>
+                Remaining hours from the 24h budget after Run and Maint DT (includes idle weekdays).
+              </span>
+            </span>
+          </div>
+          <div class="val" id="ov-pdt">--</div>
+        </div>
+        <div class="tile" id="tile-pdt-pct">
+          <div class="lab">Prod DT (%)
+            <span class="tooltip"><span class="info" tabindex="0">i</span>
+              <span class="tooltip-panel"><b>Production DT %</b><br>
+                Prod&nbsp;DT ÷ Planned Hours. Lower is better.
+              </span>
+            </span>
+          </div>
+          <div class="val" id="ov-pdt-pct">--%</div>
+        </div>
+        <div class="tile" id="tile-mo-mdt-lb">
+          <div class="lab">Missed Opp (Maint, lb)
+            <span class="tooltip"><span class="info" tabindex="0">i</span>
+              <span class="tooltip-panel"><b>Missed Opportunity (Maint)</b><br>
+                Capacity × Maint&nbsp;DT, summed over lines and/or days.
+              </span>
+            </span>
+          </div>
+          <div class="val" id="ov-mo-mdt">--</div>
+        </div>
+        <div class="tile" id="tile-mo-pdt-lb">
+          <div class="lab">Missed Opp (Prod, lb)
+            <span class="tooltip"><span class="info" tabindex="0">i</span>
+              <span class="tooltip-panel"><b>Missed Opportunity (Prod)</b><br>
+                Capacity × Prod&nbsp;DT, including idle weekdays.
+              </span>
+            </span>
+          </div>
+          <div class="val" id="ov-mo-pdt">--</div>
+        </div>
+        <div class="tile" id="tile-mo-mdt-pct">
+          <div class="lab">Missed Opp (Maint, %)
+            <span class="tooltip"><span class="info" tabindex="0">i</span>
+              <span class="tooltip-panel"><b>Missed Opp Maint %</b><br>
+                Missed-Maint (lb) ÷ Capacity Potential (lb).
+              </span>
+            </span>
+          </div>
+          <div class="val" id="ov-mo-mdt-pct">--%</div>
+        </div>
+        <div class="tile" id="tile-mo-pdt-pct">
+          <div class="lab">Missed Opp (Prod, %)
+            <span class="tooltip"><span class="info" tabindex="0">i</span>
+              <span class="tooltip-panel"><b>Missed Opp Prod %</b><br>
+                Missed-Prod (lb) ÷ Capacity Potential (lb).
+              </span>
+            </span>
+          </div>
+          <div class="val" id="ov-mo-pdt-pct">--%</div>
+        </div>
+      </div>
+    </section>
+    
+    <!-- Heatmaps -->
+    <section class="section-gap">
+      <div class="card">
+        <h3>Weekday OEE Heatmap <span class="sub" id="hmLabel"></span></h3>
+        <table id="heat"></table>
+        <div id="heatEmpty" class="empty" style="display:none">No data for selected range.</div>
+      </div>
 
+      <div class="card" style="margin-top:32px">
+        <h3>OEE Factors Heatmap (Availability / Performance-Adj / Quality) <span class="sub" id="hm2Label"></span></h3>
+        <table id="heatFactors"></table>
+        <div id="heat2Empty" class="empty" style="display:none">No data for selected range.</div>
+      </div>
+
+      <div class="card" style="margin-top:32px">
+        <h3>Line Tiles <span class="sub" id="ltLabel"></span></h3>
+        <div id="lineTiles" class="line-tiles"></div>
+        <div id="ltEmpty" class="empty" style="display:none">No data for selected range.</div>
+      </div>
+    </section>
+
+    <!-- Missed Opportunity table -->
+    <div class="card" style="margin-top:32px">
+      <h3>Missed Opportunity by Line <span class="sub" id="moLabel"></span></h3>
+      <table id="missedTbl"></table>
+      <div id="missedEmpty" class="empty" style="display:none">No data for selected range.</div>
     </div>
+
+    <!-- Trend -->
+    <section class="chart-section">
+      <div class="chart-container">
+        <h2>Production Trend <span class="sub" id="trLabel"></span></h2>
+        <div class="chart"><div id="trendChart"></div></div>
+        <div class="legend" id="trendLegend">
+          <span><span class="sw raw"></span>Raw 24h</span>
+          <span><span class="sw adj"></span>Adj for DT</span>
+          <span><span class="cap-dash"></span>Nameplate (100%)</span>
+        </div>
+        <div id="trendEmpty" class="empty" style="display:none">No data for selected range.</div>
+      </div>
+    </section>
   </div>
 
 <script>
-/* ===== endpoints ===== */
-const ENDPOINTS = {
-  BY_LINE   : '/api/production/by-line',
-  PRODSTATUS: '/api/workorders/prodstatus',
-  MAP       : 'mappings.json'
-};
-const HOURS_PER_DAY = 24;
-const QUALITY_DEFAULT = 0.70;  // match production
-const classForKPI     = v => v>=70? 'good' : v>=50? 'warn':'bad';
-const classForQuality = v => v>=98? 'good' : v>=85? 'warn' : 'bad';
-const $ = s => document.querySelector(s);
-const fmt = n => Number(Math.round(n||0)).toLocaleString();
-function setLoading(v){ const el=$('#loading'); if(el) el.style.display = v ? 'flex':'none'; }
-async function fetchJSON(url){ try{ const r=await fetch(url,{cache:'no-store'}); if(!r.ok) throw new Error(r.status); return await r.json(); } catch(e){ console.warn('fetch failed', url, e); return null; } }
+  const REFRESH_MS = 10 * 60 * 1000;   // 10 minutes
+  let refreshTimer = null;
+  let lastRenderAt = 0;
 
-/* timeframe */
-function startOfWeek(d){ const x=new Date(d); const day=(x.getDay()+6)%7; x.setDate(x.getDate()-day); x.setHours(0,0,0,0); return x;}
-function endOfWeek(d){ const x=startOfWeek(d); x.setDate(x.getDate()+6); return x;}
-function startOfMonth(d){ return new Date(d.getFullYear(), d.getMonth(), 1); }
-function endOfMonth(d){ return new Date(d.getFullYear(), d.getMonth()+1, 0); }
-function iso(d){ return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10); }
-function computeRange(sel){
-  const now=new Date(); now.setHours(0,0,0,0);
-  const y=new Date(now); y.setDate(y.getDate()-1);
-  const thisW={from:startOfWeek(now),to:endOfWeek(now)};
-  const lastW={from:new Date(startOfWeek(now)),to:new Date(endOfWeek(now))}; lastW.from.setDate(lastW.from.getDate()-7); lastW.to.setDate(lastW.to.getDate()-7);
-  const thisM={from:startOfMonth(now),to:endOfMonth(now)};
-  const lastM={from:startOfMonth(new Date(now.getFullYear(),now.getMonth()-1,1)),to:endOfMonth(new Date(now.getFullYear(),now.getMonth()-1,1))};
-  switch(sel){
-    case 'today'    : return {from:iso(now), to:iso(now)};
-    case 'yesterday': return {from:iso(y),   to:iso(y)};
-    case 'week'     : return {from:iso(thisW.from), to:iso(thisW.to)};
-    case 'lastweek' : return {from:iso(lastW.from), to:iso(lastW.to)};
-    case 'month'    : return {from:iso(thisM.from), to:iso(thisM.to)};
-    case 'lastmonth': return {from:iso(lastM.from), to:iso(lastM.to)};
-    case 'r7'       : { const s=new Date(now); s.setDate(s.getDate()-6);  return {from:iso(s), to:iso(now)}; }
-    case 'r30'      : { const s=new Date(now); s.setDate(s.getDate()-29); return {from:iso(s), to:iso(now)}; }
-    default         : { const s=new Date(now); s.setDate(s.getDate()-29); return {from:iso(s), to:iso(now)}; }
+  function setLoading(v){ 
+    try{ const el = document.getElementById('loading'); if (el) el.style.display = v ? 'flex' : 'none'; }catch{}
   }
-}
 
-/* mappings.json support */
-let MAPPINGS=null;
-async function loadMappings(){
-  const j = await fetchJSON(`${ENDPOINTS.MAP}?ts=${Date.now()}`);
-  MAPPINGS = j || { capacities_lbs_hr:{}, capacity_by_material_lbs_hr:{}, capacity_aliases:{}, material_aliases:{}, productionAssets:[] };
-}
-function aliasToCanonMap() {
-  const a = (MAPPINGS?.capacity_aliases) || {};
-  const rev = new Map();
-  Object.keys(a).forEach(canon => {
-    const aliases = Array.isArray(a[canon]) ? a[canon] : [a[canon]].filter(Boolean);
-    aliases.forEach(x => rev.set(String(x).trim(), canon));
+  function currentSelection() {
+    return {
+      tf:   document.getElementById('tf')?.value || 'lastweek', // default last week
+      day:  document.getElementById('dayPick')?.value || '',
+      wknd: !!document.getElementById('wkndToggle')?.checked
+    };
+  }
+
+  function saveSelectionToLS() {
+    localStorage.setItem('pace:prodSel', JSON.stringify(currentSelection()));
+  }
+
+  function restoreSelectionFromLS() {
+    try {
+      const s = JSON.parse(localStorage.getItem('pace:prodSel') || '{}');
+      if (s.tf)   document.getElementById('tf').value = s.tf;
+      if (s.day)  document.getElementById('dayPick').value = s.day;
+      if (typeof s.wknd === 'boolean') document.getElementById('wkndToggle').checked = s.wknd;
+    } catch {}
+  }
+
+  function scheduleAutoRefresh(goRange, goSingleDay) {
+    if (refreshTimer) clearTimeout(refreshTimer);
+    refreshTimer = setTimeout(async () => {
+      const sel = currentSelection();
+      try {
+        setLoading(true);
+        document.getElementById('tf').value = sel.tf;
+        document.getElementById('dayPick').value = sel.day;
+        document.getElementById('wkndToggle').checked = sel.wknd;
+        if (sel.day) await goSingleDay(); else await goRange();
+      } finally {
+        setLoading(false);
+        scheduleAutoRefresh(goRange, goSingleDay);
+      }
+    }, REFRESH_MS);
+  }
+
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) {
+      const age = Date.now() - lastRenderAt;
+      if (age > REFRESH_MS * 0.9 && typeof window.__forceRefresh__ === 'function') {
+        window.__forceRefresh__();
+      }
+    }
   });
-  return rev;
-}
-function canonName(name) {
-  const n = String(name||'').trim();
-  const rev = aliasToCanonMap();
-  return rev.get(n) || n;
+
+  // fullscreen on F
+  window.addEventListener('keydown', (e)=>{
+    if (e.key.toLowerCase()==='f') {
+      if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+      else document.exitFullscreen();
+    }
+  });
+</script>
+
+<script>
+let MAPPINGS;
+async function loadMappings(){
+  try {
+    MAPPINGS = await (await fetch(`mappings.json?ts=${Date.now()}`, {cache:'no-store'})).json();
+  } catch {
+    console.warn('mappings.json not found; using empty defaults');
+    MAPPINGS = { capacities_lbs_hr:{}, capacity_by_material_lbs_hr:{}, capacity_aliases:{}, material_aliases:{} };
+  }
 }
 function capacityFor(lineName, material){
   const { capacities_lbs_hr: caps = {}, capacity_by_material_lbs_hr: byMat = {}, capacity_aliases: alias = {}, material_aliases: malias = {} } = MAPPINGS || {};
@@ -278,231 +550,806 @@ function capacityFor(lineName, material){
   const m = malias[k] || (k === '' ? 'DEFAULT' : k);
   return byMat[canon]?.[m] ?? byMat[canon]?.DEFAULT ?? caps[canon] ?? 0;
 }
-function mappedMachineNames(){
-  const arr = Array.isArray(MAPPINGS?.productionAssets) ? MAPPINGS.productionAssets : [];
-  return arr.map(x => (typeof x === 'string' ? x : (x?.name||'')).trim()).filter(Boolean);
-}
-
-/* donuts (placeholder) */
-function drawDonut(canvas, mainPct, mainColor, otherColor){
-  const ctx = canvas.getContext('2d');
-  const {width:w,height:h} = canvas; ctx.clearRect(0,0,w,h);
-  const cx=w/2, cy=h/2, r=Math.min(w,h)/2-6, t=24;
-  const A = Math.max(0,Math.min(100,mainPct));
-  const parts = [{v:A,c:mainColor},{v:100-A,c:otherColor}];
-  let start=-Math.PI/2;
-  parts.forEach(p=>{
-    const ang = (p.v/100)*Math.PI*2;
-    ctx.beginPath(); ctx.arc(cx,cy,r,start,start+ang); ctx.arc(cx,cy,r-t,start+ang,start,true); ctx.closePath();
-    ctx.fillStyle=p.c; ctx.fill(); start+=ang;
-  });
-  ctx.fillStyle='#111'; ctx.font='800 20px system-ui'; ctx.textAlign='center'; ctx.textBaseline='middle';
-  ctx.fillText(`${Math.round(A)}%`, cx, cy);
-}
-
-/* prodstatus (normalized) */
-async function loadProdStatus(){
-  const raw = await fetchJSON(`${ENDPOINTS.PRODSTATUS}?t=${Date.now()}`);
-  if (!raw) return null;
-  let rows = Array.isArray(raw?.rows) ? raw.rows : (Array.isArray(raw?.tiles) ? raw.tiles : []);
-  if (Array.isArray(rows) && rows.length === 1 && rows[0] && typeof rows[0] === 'object') {
-    const k=Object.keys(rows[0])[0], v=rows[0][k];
-    if (typeof v === 'string' && v.startsWith('[')) { try{ rows = JSON.parse(v); }catch{} }
+</script>
+<script>
+  async function loadThemeAndApply() {
+    try {
+      const t = await fetch('/api/settings/kpi-theme').then(r=>r.json());
+      const c = t?.colors || {};
+      if (c.good?.bg)  document.documentElement.style.setProperty('--good-bg', c.good.bg);
+      if (c.good?.fg)  document.documentElement.style.setProperty('--good-fg', c.good.fg);
+      if (c.warn?.bg)  document.documentElement.style.setProperty('--warn-bg', c.warn.bg);
+      if (c.warn?.fg)  document.documentElement.style.setProperty('--warn-fg', c.warn.fg);
+      if (c.bad?.bg)   document.documentElement.style.setProperty('--bad-bg',  c.bad.bg);
+      if (c.bad?.fg)   document.documentElement.style.setProperty('--bad-fg',  c.bad.fg);
+    } catch {}
   }
-  if (!Array.isArray(rows) || !rows.length) return null;
-  return rows.map(r=>{
-    const name = r.assetName || r.name || r.AssetName || r.machine || r.asset || 'Unknown';
-    const val  = (r.assetStatus ?? r.value ?? r.valueText ?? r.statusText ?? r.status ?? r.statusID ?? '').toString().trim();
-    const txt  = val.replace(/\u00A0/g,' ').toLowerCase();
-    let status='downp';
-    if (txt.includes('setup')) status='setup';
-    else if (txt.includes('maint')) status='downm';
-    else if (txt.includes('avail') || txt==='running' || txt==='run') status='available';
-    const limble = /limble|work ?order|wo/i.test(val);
-    return {name, status, limble};
-  });
-}
+  
+  function setTileClassBy(sel, cls) {
+      const el = document.querySelector(sel);
+      if (!el) return;
+      el.classList.remove('good','warn','bad');
+      if (cls) el.classList.add(cls);
+    }
+  
+  function classFromLowPct(pct) {
+    if (!Number.isFinite(pct)) return '';
+    return (pct <= 0.10) ? 'good' : (pct <= 0.20) ? 'warn' : 'bad';
+  }
+</script>
+<script>
+  const THRESH = {
+    capacityAdj: { good: 0.80, warn: 0.60 },
+    oee:         { good: 0.50, warn: 0.25 },
+    availability:{ good: 0.80, warn: 0.60 },
+    quality:     { good: 0.98, warn: 0.85 }
+  };
+  const QUALITY_DEFAULT = 0.70;
+  const grade  = (v, {good, warn}) => (v >= good ? 'good' : v >= warn ? 'warn' : 'bad');
+  const MISSING = '---';
+  const fmtPct = (v, valid=true) => (valid && Number.isFinite(v)) ? (Math.round(v*100) + '%') : MISSING;
+  const fmtFixed = (v, digits=1, valid=true) => (valid && Number.isFinite(v)) ? v.toFixed(digits) : MISSING;
+  const fmtInt = (v, valid=true) => (valid && Number.isFinite(v)) ? Number(Math.round(v)).toLocaleString() : MISSING;
+  const _WDAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const isWeekday = d => (d.getDay() !== 0 && d.getDay() !== 6);
+  const formatISO = d => new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10);
+  const weekdayLocal = v => {
+    if (!v) return null;
+    const s = (typeof v === 'string') ? v.slice(0,10) : v.toISOString().slice(0,10);
+    const [Y,M,D] = s.split('-').map(Number);
+    const dt = new Date(Y, M-1, D);
+    return isNaN(dt) ? null : _WDAYS[dt.getDay()];
+  };
 
-/* ===== render ===== */
-let STATE = { period:'lastweek', refreshEvery:60 };
+  const PERF_CAP = 1.00;
+  const MIN_RUN_H_FOR_ADJ = 0.75;
 
-async function renderAll(){
-  setLoading(true);
-  try{
-    const names = {today:'Today',yesterday:'Yesterday',week:'This Week',lastweek:'Last Week',month:'This Month',lastmonth:'Last Month',r7:'Rolling 7d',r30:'Rolling 30d'};
-    $('#periodLabel').textContent = '• ' + (names[STATE.period]||'Range');
-    document.querySelectorAll('.segBig button').forEach(b=>b.classList.toggle('active', b.dataset.period===STATE.period));
+  function startOfWeek(d){ const x=new Date(d); const day=(x.getDay()+6)%7; x.setDate(x.getDate()-day); x.setHours(0,0,0,0); return x;}
+  function endOfWeek(d){ const x=startOfWeek(d); x.setDate(x.getDate()+6); return x;}
+  function startOfMonth(d){ return new Date(d.getFullYear(), d.getMonth(), 1); }
+  function endOfMonth(d){ return new Date(d.getFullYear(), d.getMonth()+1, 0); }
+  function startOfQuarter(d){ return new Date(d.getFullYear(), Math.floor(d.getMonth()/3)*3, 1); }
+  function endOfQuarter(d){ const s=startOfQuarter(d); return new Date(s.getFullYear(), s.getMonth()+3, 0); }
 
-    if (!MAPPINGS) await loadMappings();
-    const allow = new Set(mappedMachineNames().map(canonName));
-    const isAllowed = (m) => allow.size ? allow.has(canonName(m)) : true;
+  function showEmpty(idTable, idEmpty, isEmpty){
+    document.getElementById(idTable).style.display = isEmpty ? 'none' : '';
+    document.getElementById(idEmpty).style.display = isEmpty ? '' : 'none';
+  }
+  
+  async function renderForRange(fromISO, toISO, label){
+    setLoading(true);
+      try {
+    document.getElementById('rangeLabel').textContent = `(${label})`;
+    document.getElementById('hmLabel').textContent    = label;
+    document.getElementById('hm2Label').textContent   = label;
+    document.getElementById('ltLabel').textContent    = label;
+    document.getElementById('trLabel').textContent    = label;
 
-    const {from,to} = computeRange(STATE.period);
-    const [bylineRaw, prodstatus] = await Promise.all([
-      fetchJSON(`${ENDPOINTS.BY_LINE}?from=${from}&to=${to}`),
-      loadProdStatus()
+    await loadThemeAndApply();
+
+    const fromD = new Date(fromISO + 'T00:00:00');
+    const toD   = new Date(toISO   + 'T00:00:00');
+
+    const weekdays = [];
+    const alldays  = [];
+    for (let d = new Date(fromD); d <= toD; d.setDate(d.getDate()+1)) {
+      const iso = formatISO(d);
+      alldays.push(iso);
+      if (isWeekday(d)) weekdays.push(iso);
+    }
+
+    const includeWeekends = document.getElementById('wkndToggle')?.checked === true;
+    const planDays        = includeWeekends ? alldays : weekdays;
+    const planDaysCount   = planDays.length;
+    document.getElementById('weekendNote').style.display = includeWeekends ? '' : 'none';
+
+    const HOURS_PER_WEEKDAY = 24;
+
+    const [summaryRaw, bylineRaw] = await Promise.all([
+      fetch(`/api/production/summary?from=${fromISO}&to=${toISO}`).then(r=>r.json()).catch(()=>null),
+      fetch(`/api/production/by-line?from=${fromISO}&to=${toISO}`).then(r=>r.json()).catch(()=>[])
     ]);
 
-    const byline = (bylineRaw || []).filter(r => r.machine && isAllowed(r.machine));
+    const byline = (bylineRaw || []).filter(r => r.machine && r.machine.startsWith('Extruder'));
 
-    /* === Compute KPIs from by-line (production pipeline) === */
-    const dates = [...new Set(byline.map(r => (r.src_date||'').slice(0,10)).filter(Boolean))].sort();
+    const dayMap = new Map(); // machine__day -> obj
+    for (const row of byline) {
+      const machine = row.machine;
+      const day = (row.src_date || '').slice(0,10);
+      if (!machine || !day) continue;
+      if (!planDays.includes(day)) continue;
 
-    // per-day per-machine map (canon)
-    const dayMap = new Map(); // key: `${canon(machine)}__${date}` -> {lbs, run, maint, cap}
-    for (const r of byline) {
-      const mCanon = canonName(r.machine);
-      const d = (r.src_date || '').slice(0,10);
-      if (!mCanon || !d) continue;
-      const k = `${mCanon}__${d}`;
-      if (!dayMap.has(k)) dayMap.set(k, { lbs:0, run:0, maint:0, cap:0 });
-      const o = dayMap.get(k);
-      o.lbs   += +r.pounds || 0;
-      o.run    = Math.max(o.run,   +r.machine_hours || 0);
-      o.maint  = Math.max(o.maint, +r.maint_dt_h    || 0);
-      const cap = capacityFor(mCanon, r.material) || +r.nameplate_lbs_hr || 0;
-      o.cap = Math.max(o.cap, cap);
-    }
+      const capRow = capacityFor(row.machine, row.material);
 
-    // aggregate over the timeframe
-    let sumLbs=0, sumRun=0, sumMaint=0, adjDen=0;
-    for (const o of dayMap.values()) {
-      sumLbs  += o.lbs;
-      sumRun  += o.run;
-      sumMaint+= o.maint;
-      adjDen  += o.cap * Math.max(0, 24 - o.maint);
-    }
-    const dayCount = dates.length || 1;
-    const avail = sumRun / (24 * dayCount);
-    const perfA = adjDen > 0 ? Math.min(1, sumLbs / adjDen) : 0;
-    const oee   = avail * perfA * QUALITY_DEFAULT;
+      const lbs  = row.pounds || 0;
+      const md   = Math.max(0, row.maint_dt_h    || 0);
+      const mhR  = Math.max(0, row.machine_hours || 0);
+      const runH = mhR;
 
-    const oeePct  = Math.round(oee * 100);
-    const avlPct  = Math.round(avail * 100);
-    const perfPct = Math.round(perfA * 100);
-    const qualPct = Math.round(QUALITY_DEFAULT * 100);
-    const pounds  = Math.round(sumLbs);
-
-    // per-machine OEE series per day (canon)
-    const seriesBy = {};
-    const machinesCanon = [...new Set(byline.map(r=>canonName(r.machine)))].filter(isAllowed).sort();
-    for (const m of machinesCanon){
-      seriesBy[m] = [];
-      for (const d of dates){
-        const o = dayMap.get(`${m}__${d}`);
-        if (!o){ seriesBy[m].push(0); continue; }
-        const a = o.run / 24;
-        const p = o.cap > 0 ? Math.min(1, o.lbs / Math.max(1, o.cap * (24 - o.maint))) : 0;
-        const v = Math.round(a * p * QUALITY_DEFAULT * 100);
-        seriesBy[m].push(isFinite(v) ? v : 0);
+      const key = `${machine}__${day}`;
+      if (!dayMap.has(key)) {
+        dayMap.set(key, {
+          machine, day,
+          lbs:0,
+          maint_h:0,
+          run_h:0,
+          sumCapRun:0, sumRunH:0,
+          cap_candidates: [],
+          mats:{}
+        });
       }
+      const d = dayMap.get(key);
+
+      d.lbs += lbs;
+      d.maint_h = Math.max(d.maint_h, md);
+      d.run_h   = Math.max(d.run_h,   runH);
+
+      if (capRow > 0) {
+        d.sumCapRun   += capRow * runH;
+        d.sumRunH     += runH;
+        d.cap_candidates.push(capRow);
+      }
+
+      const matKey = String(row.material || '').trim().toUpperCase() || 'DEFAULT';
+      d.mats[matKey] = (d.mats[matKey] || 0) + lbs;
     }
 
-    // KPIs
-    const kpiStrip=$('#kpiStrip'); kpiStrip.innerHTML='';
-    [
-      {label:'OEE', value:`${oeePct}%`, cls: classForKPI(oeePct)},
-      {label:'Availability', value:`${avlPct}%`, cls: classForKPI(avlPct)},
-      {label:'Performance (Adj)', value:`${perfPct}%`, cls: classForKPI(perfPct)},
-      {label:'Quality', value:`${qualPct}%`, cls: classForQuality(qualPct)},
-      {label:'Total Pounds', value: fmt(pounds)},
-      {label:'Missed Opp', value: '—'}
-    ].forEach(k=>{
-      const div=document.createElement('div'); div.className=`kpi ${k.cls||''}`.trim();
-      div.innerHTML=`<div class="label">${k.label}</div><div class="value">${k.value}</div>`;
-      kpiStrip.appendChild(div);
-    });
-
-    // Downtime pies placeholder (0/100)
-    drawDonut($('#donutMaint'), 0, '#ef4444', '#f59e0b');
-    $('#legendMaint').innerHTML =
-      `<div class="row"><span class="dot" style="background:#ef4444;width:12px;height:12px;border-radius:3px"></span><span class="name" style="font-weight:800">Maintenance</span><span style="margin-left:auto;color:var(--muted);font-weight:800">0%</span></div>
-       <div class="row"><span class="dot" style="background:#f59e0b;width:12px;height:12px;border-radius:3px"></span><span class="name" style="font-weight:800">Other</span><span style="margin-left:auto;color:var(--muted);font-weight:800">100%</span></div>`;
-    drawDonut($('#donutProd'), 0, '#0ea5e9', '#a78bfa');
-    $('#legendProd').innerHTML =
-      `<div class="row"><span class="dot" style="background:#0ea5e9;width:12px;height:12px;border-radius:3px"></span><span class="name" style="font-weight:800">Production</span><span style="margin-left:auto;color:var(--muted);font-weight:800">0%</span></div>
-       <div class="row"><span class="dot" style="background:#a78bfa;width:12px;height:12px;border-radius:3px"></span><span class="name" style="font-weight:800">Other</span><span style="margin-left:auto;color:var(--muted);font-weight:800">100%</span></div>`;
-
-    // Production Line Status (filtered by mappings)
-    const statusArr = (Array.isArray(prodstatus)?prodstatus:[])
-      .filter(s => isAllowed(s.name))
-      .sort((a,b)=> a.name.localeCompare(b.name));
-    const prodList=$('#prodStatusList'); prodList.innerHTML='';
-    statusArr.forEach(S=>{
-      const bg=S.limble?'#fff7cc':'#eaffea', border=S.limble?'#fde68a':'#bbf7d0';
-      const row=document.createElement('div');
-      row.style.cssText=`display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;padding:10px 12px;border-radius:12px;background:${bg};border:1px solid ${border}`;
-      row.innerHTML=`<strong>${S.name}</strong><span style="color:var(--muted);font-weight:800">${S.limble?'Limble Request':'Available'}</span>`;
-      prodList.appendChild(row);
-    });
-
-    // Line Health
-    const linesGrid=$('#linesGrid'); linesGrid.innerHTML='';
-    machinesCanon.forEach(m=>{
-      const series = seriesBy[m]||[];
-      const last = series.length ? series[series.length-1] : 0;
-      const cls = classForKPI(last);
-      const el=document.createElement('div'); el.className='line';
-      el.innerHTML=`
-        <div class="lineheader">
-          <div class="linename">${m}</div>
-          <div><span class="badge ${cls}">${cls.toUpperCase()}</span></div>
-        </div>
-        <div class="metricrow">
-          <div class="mitem"><div class="label">OEE</div><div class="mkv">${last}%</div></div>
-          <div class="mitem"><div class="label">Avail</div><div class="mkv">${avlPct}%</div></div>
-          <div class="mitem"><div class="label">Perf</div><div class="mkv">${perfPct}%</div></div>
-          <div class="mitem"><div class="label">Quality</div><div class="mkv">${Math.round(QUALITY_DEFAULT*100)}%</div></div>
-        </div>
-        <canvas class="spark" width="340" height="40"></canvas>`;
-      linesGrid.appendChild(el);
-      // sparkline
-      const ctx=el.querySelector('canvas').getContext('2d'), w=340, h=40;
-      ctx.clearRect(0,0,w,h);
-      if(series.length){
-        const min=Math.min(...series), max=Math.max(...series), pad=4;
-        const x=i=>pad+(w-2*pad)*(i/(series.length-1)), y=v=>h-pad-(h-2*pad)*((v-min)/Math.max(1,(max-min)));
-        ctx.beginPath(); ctx.moveTo(x(0),y(series[0])); for(let i=1;i<series.length;i++) ctx.lineTo(x(i),y(series[i]));
-        ctx.lineTo(w-pad,h-pad); ctx.lineTo(pad,h-pad); ctx.closePath();
-        ctx.fillStyle='rgba(37,64,143,.12)'; ctx.fill();
-        ctx.beginPath(); ctx.moveTo(x(0),y(series[0])); for(let i=1;i<series.length;i++) ctx.lineTo(x(i),y(series[i]));
-        ctx.lineWidth=2; ctx.strokeStyle='rgba(37,64,143,.9)'; ctx.stroke();
+    for (const d of dayMap.values()) {
+      let capDay = 0;
+      if (d.sumRunH > 0) {
+        capDay = d.sumCapRun / d.sumRunH;
+      } else if (d.cap_candidates.length) {
+        const arr = d.cap_candidates.slice().sort((a,b)=>a-b);
+        capDay = arr[Math.floor(arr.length/2)];
       }
+      d.cap = capDay;
+
+      const maint = d.maint_h;
+      const run   = d.run_h;
+      let prod    = Math.max(0, HOURS_PER_WEEKDAY - maint - run);
+      const over  = Math.max(0, (maint + run + prod) - HOURS_PER_WEEKDAY);
+      d.prod_h    = Math.max(0, prod - over);
+
+      d.avail    = HOURS_PER_WEEKDAY > 0 ? (run / HOURS_PER_WEEKDAY) : 0;
+      const rawDen = capDay * HOURS_PER_WEEKDAY;
+      const adjDen = capDay * Math.max(0, HOURS_PER_WEEKDAY - maint);
+      d.perfRaw  = rawDen > 0 ? (d.lbs / rawDen) : NaN;
+
+      if (run < MIN_RUN_H_FOR_ADJ) {
+        d.perfAdj = NaN;
+      } else {
+        d.perfAdj = adjDen > 0 ? (d.lbs / adjDen) : NaN;
+      }
+
+      if (Number.isFinite(d.perfRaw)) d.perfRaw = Math.min(d.perfRaw, PERF_CAP);
+      if (Number.isFinite(d.perfAdj)) d.perfAdj = Math.min(d.perfAdj, PERF_CAP);
+      
+      d.underLb = Math.max(0, capDay * run - d.lbs);
+    }
+
+    const agg = {};
+    for (const d of dayMap.values()) {
+      const m = d.machine;
+      if (!agg[m]) {
+        agg[m] = {
+          lbs:0, maint:0, prod:0, mach:0,
+          rawDen24:0, adjDen:0, runCapDen:0,
+          moM:0, moP:0, under:0,
+          sumAvail:0, nAvail:0,
+          sumPR:0, nPR:0,
+          sumPA:0, nPA:0,
+          mats:{}, daysSet:new Set()
+        };
+      }
+      const A = agg[m];
+      A.lbs      += d.lbs;
+      A.maint    += d.maint_h;
+      A.prod     += d.prod_h;
+      A.mach     += d.run_h;
+      A.rawDen24 += d.cap * HOURS_PER_WEEKDAY;
+      A.adjDen   += d.cap * Math.max(0, HOURS_PER_WEEKDAY - d.maint_h);
+      A.runCapDen+= d.cap * d.run_h;
+      A.moM      += d.cap * d.maint_h;
+      A.moP      += d.cap * d.prod_h;
+      A.under    += d.underLb;
+      A.sumAvail += (Number.isFinite(d.avail) ? d.avail : 0); A.nAvail += 1;
+      if (Number.isFinite(d.perfRaw)) { A.sumPR += d.perfRaw; A.nPR += 1; }
+      if (Number.isFinite(d.perfAdj)) { A.sumPA += d.perfAdj; A.nPA += 1; }
+      A.daysSet.add(d.day);
+
+      let dom='', best=-1; for (const [k,v] of Object.entries(d.mats)) if (v>best){ best=v; dom=k; }
+      if (dom) A.mats[dom] = (A.mats[dom] || 0) + d.lbs;
+    }
+
+    const perLine = Object.keys(agg).sort().map(machine => {
+      const A = agg[machine];
+      const days = A.daysSet.size || 0;
+
+      let domMat = '';
+      if (A.mats && Object.keys(A.mats).length) {
+        let best=-1; for (const [k,v] of Object.entries(A.mats)) if (v>best){ best=v; domMat=k; }
+      }
+
+      const availability = A.nAvail>0 ? (A.sumAvail / A.nAvail) : NaN;
+      const perfRaw      = A.nPR>0    ? (A.sumPR   / A.nPR)    : NaN;
+      const perfAdj      = A.nPA>0    ? (A.sumPA   / A.nPA)    : NaN;
+      const qual         = QUALITY_DEFAULT;
+      const oee          = (Number.isFinite(availability) && Number.isFinite(perfAdj)) ? (availability * perfAdj * qual) : NaN;
+
+      const capAvg = (A.rawDen24 > 0 && days>0) ? (A.rawDen24 / (HOURS_PER_WEEKDAY * days)) : NaN;
+      const plannedH = HOURS_PER_WEEKDAY * planDaysCount;
+      const idleDays = Math.max(0, planDaysCount - days);
+      const prodH = A.prod + HOURS_PER_WEEKDAY * idleDays;
+      const moP_idle = (Number.isFinite(capAvg) ? capAvg : 0) * HOURS_PER_WEEKDAY * idleDays;
+      const moP      = (A.moP || 0) + moP_idle;
+      const underLb  = Math.max(0, A.runCapDen - A.lbs);
+      const capPot   = (Number.isFinite(capAvg) ? capAvg : 0) * HOURS_PER_WEEKDAY * planDaysCount;
+
+      return {
+        machine, domMat,
+        lbs: A.lbs,
+        maint: A.maint,
+        prod: prodH,
+        mach: A.mach,
+        rawDen24: A.rawDen24,
+        capPot,
+        adjDen: A.adjDen,
+        runCapDen: A.runCapDen,
+        underLb,
+        moM: A.moM,
+        moP,
+        days,
+        plannedH,
+        capAvg,
+        avail: availability,
+        perfRaw,
+        perfAdj,
+        qual,
+        oee,
+        availV: A.nAvail>0, prV: A.nPR>0, paV: A.nPA>0, oeeV: A.nAvail>0 && A.nPA>0
+      };
     });
 
-    // Rank table
-    const tbody=$('#rankTable tbody'); tbody.innerHTML='';
-    machinesCanon.map(m=>{
-      const lbs = (byline||[]).filter(r=>canonName(r.machine)===m).reduce((s,r)=>s+(+r.pounds||0),0);
-      const last = (seriesBy[m]||[]).slice(-1)[0] ?? 0;
-      return {name:m, lbs, oee:last};
-    }).sort((a,b)=>b.oee-a.oee).forEach(L=>{
-      const tr=document.createElement('tr');
-      tr.innerHTML=`<td>${L.name}</td><td><strong>${L.oee}%</strong></td><td>${fmt(L.lbs)}</td><td>—</td>`;
-      tbody.appendChild(tr);
-    });
+    const totals = Object.values(agg).reduce((s, A) => {
+      s.lbs += A.lbs; s.maint += A.maint; s.prod += A.prod; s.mach += A.mach;
+      s.rawDen24 += A.rawDen24; s.adjDen += A.adjDen; s.runCapDen += A.runCapDen;
+      s.moM += A.moM; s.moP += A.moP; s.under += Math.max(0, A.runCapDen - A.lbs);
+      s.sumAvail += A.sumAvail; s.nAvail += A.nAvail;
+      s.sumPR += A.sumPR; s.nPR += A.nPR;
+      s.sumPA += A.sumPA; s.nPA += A.nPA;
+      s.plannedH += HOURS_PER_WEEKDAY * planDaysCount;
+      return s;
+    }, {lbs:0,maint:0,prod:0,mach:0,rawDen24:0,adjDen:0,runCapDen:0,moM:0,moP:0,under:0,sumAvail:0,nAvail:0,sumPR:0,nPR:0,sumPA:0,nPA:0,plannedH:0});
 
-    $('#updated').textContent = new Date().toLocaleString();
-  } finally {
-    setLoading(false);
+    const totalPlannedH = totals.plannedH;
+    const totalCapPot   = perLine.reduce((s, r) => s + (r.capPot || 0), 0);
+
+    const ovAvail   = totals.nAvail>0 ? (totals.sumAvail / totals.nAvail) : 0;
+    const ovPerfRaw = totals.nPR>0    ? (totals.sumPR    / totals.nPR)    : 0;
+    const ovPerfAdj = totals.nPA>0    ? (totals.sumPA    / totals.nPA)    : 0;
+    const ovOEE     = ovAvail * ovPerfAdj * QUALITY_DEFAULT;
+
+    const ovMdtPct = totalPlannedH > 0 ? (totals.maint / totalPlannedH) : 0;
+    const ovPdtPct = totalPlannedH > 0 ? (totals.prod  / totalPlannedH) : 0;
+
+    const ovMoM = perLine.reduce((s, r) => s + (r.moM || 0), 0);
+    const ovMoP = perLine.reduce((s, r) => s + (r.moP || 0), 0);
+
+    const ovMoM_pct = (totalCapPot > 0) ? (ovMoM / totalCapPot) : NaN;
+    const ovMoP_pct = (totalCapPot > 0) ? (ovMoP / totalCapPot) : NaN;
+
+    const ovUnderGap = Math.max(0, totals.runCapDen - totals.lbs);
+
+    document.getElementById('ov-oee').textContent = fmtPct(ovOEE, totals.nAvail>0 && totals.nPA>0);
+    document.getElementById('ov-av').textContent  = fmtPct(ovAvail, totals.nAvail>0);
+    document.getElementById('ov-pr').textContent  = fmtPct(ovPerfRaw, totals.nPR>0);
+    document.getElementById('ov-pa').textContent  = fmtPct(ovPerfAdj, totals.nPA>0);
+    document.getElementById('ov-qual').textContent= Math.round(QUALITY_DEFAULT*100) + '%';
+    document.getElementById('ov-oee-eq').textContent =
+      `OEE = ${fmtPct(ovAvail, totals.nAvail>0)} × ${fmtPct(ovPerfAdj, totals.nPA>0)} × ${Math.round(QUALITY_DEFAULT*100)}%`;
+
+    document.getElementById('ov-runh').textContent = fmtFixed(totals.mach, 1, Number.isFinite(totals.mach));
+    document.getElementById('ov-cap').textContent  = fmtInt(totalCapPot, true);
+    document.getElementById('ov-lbs').textContent  = fmtInt(totals.lbs, true);
+    document.getElementById('ov-under').textContent= fmtInt(ovUnderGap, true);
+    document.getElementById('ov-mdt').textContent      = fmtFixed(totals.maint, 1, true);
+    document.getElementById('ov-pdt').textContent      = fmtFixed(totals.prod,  1, true);
+    document.getElementById('ov-mo-mdt').textContent   = fmtInt(ovMoM, true);
+    document.getElementById('ov-mo-pdt').textContent   = fmtInt(ovMoP, true);
+    document.getElementById('ov-mo-mdt-pct').textContent = fmtPct(ovMoM_pct, Number.isFinite(ovMoM_pct));
+    document.getElementById('ov-mo-pdt-pct').textContent = fmtPct(ovMoP_pct, Number.isFinite(ovMoP_pct));
+    document.getElementById('ov-mdt-pct').textContent  = fmtPct(ovMdtPct, true);
+    document.getElementById('ov-pdt-pct').textContent  = fmtPct(ovPdtPct, true);
+
+    const setTileClass = (sel, v, thr, valid=true) => {
+      const el = document.querySelector(sel);
+      el.classList.remove('good','warn','bad');
+      if (valid && Number.isFinite(v)) el.classList.add( grade(v||0, thr) );
+    };
+    setTileClass('#tile-oee',  ovOEE,     THRESH.oee,          totals.nAvail>0 && totals.nPA>0);
+    setTileClass('#tile-av',   ovAvail,   THRESH.availability, totals.nAvail>0);
+    setTileClass('#tile-pa',   ovPerfAdj, THRESH.capacityAdj,  totals.nPA>0);
+    setTileClass('#tile-qual', QUALITY_DEFAULT, THRESH.quality, true);
+    
+    const mdtCls = classFromLowPct(ovMdtPct);
+    setTileClassBy('#tile-mdt-pct', mdtCls);
+    setTileClassBy('#tile-mdt-h',   mdtCls);
+    
+    const pdtCls = classFromLowPct(ovPdtPct);
+    setTileClassBy('#tile-pdt-pct', pdtCls);
+    setTileClassBy('#tile-pdt-h',   pdtCls);
+    
+    const moMCls = classFromLowPct(ovMoM_pct);
+    setTileClassBy('#tile-mo-mdt-pct', moMCls);
+    setTileClassBy('#tile-mo-mdt-lb',  moMCls);
+    
+    const moPCls = classFromLowPct(ovMoP_pct);
+    setTileClassBy('#tile-mo-pdt-pct', moPCls);
+    setTileClassBy('#tile-mo-pdt-lb',  moPCls);
+    
+    (function clearUnderColor(){
+      const el = document.querySelector('#tile-under');
+      if (!el) return;
+      el.classList.remove('good','warn','bad');
+    })();
+
+    // Line Tiles (unchanged – full production logic)
+    const cont = document.getElementById('lineTiles'); cont.innerHTML = '';
+    if (perLine.length === 0) {
+      document.getElementById('ltEmpty').style.display = '';
+    } else {
+      document.getElementById('ltEmpty').style.display = 'none';
+      perLine.forEach(r => {
+        const tileGrade = (r.oeeV && Number.isFinite(r.oee)) ? grade(r.oee, THRESH.oee) : 'empty';
+        const rawGrade  = (r.prV && Number.isFinite(r.perfRaw)) ? grade(r.perfRaw, THRESH.capacityAdj) : '';
+        
+        const rawForGauge = (r.prV && Number.isFinite(r.perfRaw)) ? Math.min(1, Math.max(0, r.perfRaw)) : r.perfRaw;
+        const adjForGauge = (r.paV && Number.isFinite(r.perfAdj)) ? Math.min(1, Math.max(0, r.perfAdj)) : r.perfAdj;
+
+        const adjGrade  = (r.paV && Number.isFinite(r.perfAdj)) ? grade(r.perfAdj, THRESH.capacityAdj) : '';
+        const el = document.createElement('div');
+        el.className = `lt-card ${tileGrade}`;
+        el.innerHTML = `
+          <div>
+            <div class="lt-head">
+              <div class="lt-name">${r.machine}</div>
+              <div class="lt-nameplate">Nameplate ${Number.isFinite(r.capAvg) ? Math.round(r.capAvg).toLocaleString() : '--'} lb/hr${r.domMat?` (${r.domMat})`:''}</div>
+            </div>
+            <div class="lt-badges">
+              <span class="badge maint">Maint DT ${fmtFixed(r.maint,1,true)}h</span>
+              <span class="badge prod">Prod DT ${fmtFixed(r.prod,1,true)}h</span>
+            </div>
+            <div class="lt-metrics" style="margin-top:6px">
+              <div class="${(r.oeeV && Number.isFinite(r.oee)) ? 'm' : 'm empty'}"><div class="lab">OEE</div><div class="val">${fmtPct(r.oee, r.oeeV)}</div></div>
+              <div class="${(r.availV && Number.isFinite(r.avail)) ? 'm' : 'm empty'}"><div class="lab">Availability</div><div class="val">${fmtPct(r.avail, r.availV)}</div></div>
+              <div class="${(r.prV && Number.isFinite(r.perfRaw)) ? 'm' : 'm empty'}"><div class="lab">Perf Raw</div><div class="val">${fmtPct(r.perfRaw, r.prV)}</div></div>
+              <div class="${(r.paV && Number.isFinite(r.perfAdj)) ? 'm' : 'm empty'}"><div class="lab">Perf Adj</div><div class="val">${fmtPct(r.perfAdj, r.paV)}</div></div>
+              <div class="m"><div class="lab">Quality*</div><div class="val">${Math.round(r.qual*100)}%</div></div>
+              <div class="m"><div class="lab">Pounds</div><div class="val">${fmtInt(r.lbs,true)}</div></div>
+            </div>
+          </div>
+          <div class="lt-right">
+            ${gaugeSVG(rawForGauge, 'Raw 24h', rawGrade, r.prV)}
+            ${gaugeSVG(adjForGauge, 'Adj for DT', adjGrade, r.paV)}
+          </div>`;
+        cont.appendChild(el);
+      });
+    }
+
+    // Missed Opportunity by Line (unchanged)
+    (function renderMissedTable(){
+      const table = document.getElementById('missedTbl');
+      if (!perLine.length){ showEmpty('missedTbl','missedEmpty',true); table.innerHTML=''; return; }
+      showEmpty('missedTbl','missedEmpty',false);
+      document.getElementById('moLabel').textContent = label;
+
+      const hdr = `
+        <thead>
+          <tr>
+            <th>Line</th>
+            <th>Run H</th>
+            <th>Maint DT (h)</th><th>Maint DT (%)</th>
+            <th>Prod DT (h)</th><th>Prod DT (%)</th>
+            <th>Capacity Pot. (lb)</th>
+            <th>Pounds</th>
+            <th>Under-Perf (lb)</th>
+            <th>Missed Opp (Maint, lb)</th>
+            <th>Missed Opp (Prod, lb)</th>
+            <th>Total Missed (lb)</th>
+          </tr>
+        </thead>`;
+
+      let body = '<tbody>';
+      let sumRun=0, sumMaint=0, sumProd=0, sumCap=0, sumPounds=0, sumUnder=0, sumMoM=0, sumMoP=0, sumPlanned=0;
+
+      perLine.forEach(r => {
+        const plannedH = r.plannedH || 0;
+        const mPct = plannedH > 0 ? (r.maint / plannedH) : NaN;
+        const pPct = plannedH > 0 ? (r.prod  / plannedH) : NaN;
+        const moM  = r.moM || 0;
+        const moP  = r.moP || 0;
+        const under= Math.max(0, r.runCapDen - r.lbs);
+        const tot  = moM + moP;
+
+        sumRun     += r.mach || 0;
+        sumMaint   += r.maint || 0;
+        sumProd    += r.prod  || 0;
+        sumCap     += r.capPot   || 0;
+        sumPounds  += r.lbs || 0;
+        sumUnder   += under;
+        sumMoM     += moM;
+        sumMoP     += moP;
+        sumPlanned += plannedH;
+
+        body += `
+          <tr>
+            <td class="line">${r.machine}</td>
+            <td>${fmtFixed(r.mach,1,true)}</td>
+            <td>${fmtFixed(r.maint,1,true)}</td><td>${fmtPct(mPct, Number.isFinite(mPct))}</td>
+            <td>${fmtFixed(r.prod, 1,true)}</td><td>${fmtPct(pPct, Number.isFinite(pPct))}</td>
+            <td>${fmtInt(r.capPot,true)}</td>
+            <td>${fmtInt(r.lbs,true)}</td>
+            <td>${fmtInt(under,true)}</td>
+            <td>${fmtInt(moM,true)}</td>
+            <td>${fmtInt(moP,true)}</td>
+            <td>${fmtInt(tot,true)}</td>
+          </tr>`;
+      });
+
+      const totalPctM = sumPlanned>0 ? (sumMaint/sumPlanned) : NaN;
+      const totalPctP = sumPlanned>0 ? (sumProd /sumPlanned) : NaN;
+
+      body += `
+        <tr style="font-weight:900">
+          <td class="line">TOTAL</td>
+          <td>${fmtFixed(sumRun,1,true)}</td>
+          <td>${fmtFixed(sumMaint,1,true)}</td><td>${fmtPct(totalPctM, Number.isFinite(totalPctM))}</td>
+          <td>${fmtFixed(sumProd, 1,true)}</td><td>${fmtPct(totalPctP, Number.isFinite(totalPctP))}</td>
+          <td>${fmtInt(sumCap,true)}</td>
+          <td>${fmtInt(sumPounds,true)}</td>
+          <td>${fmtInt(sumUnder,true)}</td>
+          <td>${fmtInt(sumMoM,true)}</td>
+          <td>${fmtInt(sumMoP,true)}</td>
+          <td>${fmtInt(sumMoM + sumMoP,true)}</td>
+        </tr>
+      </tbody>`;
+
+      table.innerHTML = hdr + body;
+    })();
+
+    // OEE Heatmap (unchanged)
+    (function renderHeatmapOEE(){
+      const table = document.getElementById('heat');
+      if (!byline.length){ showEmpty('heat','heatEmpty',true); table.innerHTML=''; return; }
+      showEmpty('heat','heatEmpty',false);
+
+      const datesAll = planDays.slice();
+
+      const map = new Map();
+      for (const d of dayMap.values()) {
+        if (!datesAll.includes(d.day)) continue;
+        const oee = (Number.isFinite(d.perfAdj) && Number.isFinite(d.avail)) ? (d.perfAdj * d.avail * QUALITY_DEFAULT) : NaN;
+        if (!map.has(d.machine)) map.set(d.machine, new Map());
+        if (Number.isFinite(oee)) map.get(d.machine).set(d.day, oee);
+      }
+
+      const tDays = datesAll.length;
+      if (tDays <= 20) {
+        let html = '<thead><tr><th>Line</th>'+datesAll.map(d=>`<th>${d.slice(5)}</th>`).join('')+'</tr></thead><tbody>';
+        for (const m of [...map.keys()].sort()) {
+          html += `<tr><td class="line">${m}</td>`;
+          const row = map.get(m);
+          for (const d of datesAll) {
+            const v = row.get(d);
+            const valid = Number.isFinite(v);
+            const cls = valid ? grade(v, THRESH.oee) : 'empty';
+            html += `<td class="${cls}">${fmtPct(v, valid)}</td>`;
+          }
+          html += '</tr>';
+        }
+        html += '</tbody>';
+        table.innerHTML = html;
+        document.getElementById('hmLabel').textContent = `${label} (per-date)`;
+      } else {
+        const days = ['Mon','Tue','Wed','Thu','Fri'];
+        const byLineDay = {};
+        for (const d of dayMap.values()) {
+          const wd = weekdayLocal(d.day);
+          if (!wd || wd==='Sat' || wd==='Sun') continue;
+          const m = d.machine;
+          const oee = (Number.isFinite(d.perfAdj) && Number.isFinite(d.avail)) ? (d.perfAdj * d.avail * QUALITY_DEFAULT) : NaN;
+          byLineDay[m] ??= {Mon:{sum:0,n:0}, Tue:{sum:0,n:0}, Wed:{sum:0,n:0}, Thu:{sum:0,n:0}, Fri:{sum:0,n:0}};
+          if (Number.isFinite(oee)) { byLineDay[m][wd].sum += oee; byLineDay[m][wd].n += 1; }
+        }
+        const machines = Object.keys(byLineDay).sort();
+        let html = '<thead><tr><th>Line</th>'+days.map(d=>`<th>${d}</th>`).join('')+'</tr></thead><tbody>';
+        for (const m of machines) {
+          html += `<tr><td class="line">${m}</td>`;
+          for (const d of days) {
+            const agg = byLineDay[m][d];
+            const valid = agg && agg.n > 0 && Number.isFinite(agg.sum / agg.n);
+            const v = valid ? (agg.sum / agg.n) : NaN;
+            const cls = valid ? grade(v, THRESH.oee) : 'empty';
+            html += `<td class="${cls}">${fmtPct(v, valid)}</td>`;
+          }
+          html += '</tr>';
+        }
+        html += '</tbody>';
+        table.innerHTML = html;
+        document.getElementById('hmLabel').textContent = `${label} (weekday averages)`;
+      }
+    })();
+
+    // OEE Factors Heatmap (unchanged)
+    (function renderHeatmapFactors(){
+      const table = document.getElementById('heatFactors');
+      if (!byline.length){ showEmpty('heatFactors','heat2Empty',true); table.innerHTML=''; return; }
+      showEmpty('heatFactors','heat2Empty',false);
+
+      const days = ['Mon','Tue','Wed','Thu','Fri'];
+      const aggBy = {};
+      for (const r of byline) {
+        const wd = weekdayLocal(r.src_date);
+        if (!wd || wd==='Sat' || wd==='Sun') continue;
+        const m = r.machine;
+        const cap = capacityFor(r.machine, r.material);
+        const lbs = r.pounds || 0;
+        const md  = Math.max(0, r.maint_dt_h || 0);
+        const mh  = Math.max(0, r.machine_hours || 0);
+        const availability = 24 > 0 ? (mh / 24) : 0;
+
+        let perfAdj = NaN;
+        if (mh >= MIN_RUN_H_FOR_ADJ && cap > 0) {
+          const adjDen = cap * Math.max(0, 24 - md);
+          if (adjDen > 0) perfAdj = Math.min(lbs / adjDen, PERF_CAP);
+        }
+        
+        const qual = QUALITY_DEFAULT;
+        
+        aggBy[m] ??= {};
+        aggBy[m][wd] ??= { av:{sum:0,n:0}, pa:{sum:0,n:0}, q:{sum:0,n:0} };
+        
+        if (Number.isFinite(availability)) { aggBy[m][wd].av.sum += availability; aggBy[m][wd].av.n += 1; }
+        if (Number.isFinite(perfAdj))      { aggBy[m][wd].pa.sum += perfAdj;      aggBy[m][wd].pa.n += 1; }
+        if (Number.isFinite(availability) && Number.isFinite(perfAdj)) {
+          aggBy[m][wd].q.sum += qual; aggBy[m][wd].q.n += 1;
+        }
+      }
+      const machines = Object.keys(aggBy).sort();
+      let thead =
+        '<thead><tr><th rowspan="2">Line / Factor</th>'+
+        days.map(d=>`<th colspan="3">${d}</th>`).join('')+
+        '</tr><tr>'+days.map(()=>'<th>Avail</th><th>Perf-Adj</th><th>Qual*</th>').join('')+
+        '</tr></thead>';
+      const tdFor = (row, d, key, thr) => {
+        const cell = row[d]?.[key];
+        const valid = cell && cell.n > 0 && Number.isFinite(cell.sum / cell.n);
+        const v = valid ? (cell.sum / cell.n) : NaN;
+        const cls = valid ? grade(v, THRESH.availability) : 'empty';
+        return `<td class="${cls}">${fmtPct(v, valid)}</td>`;
+      };
+      let tbody = '<tbody>';
+      for (const m of machines) {
+        const row = aggBy[m];
+        tbody += `<tr><td class="line">${m}</td>`;
+        for (const d of days) {
+          tbody += tdFor(row, d, 'av', THRESH.availability);
+          tbody += tdFor(row, d, 'pa', THRESH.capacityAdj);
+          tbody += tdFor(row, d, 'q',  THRESH.quality);
+        }
+        tbody += '</tr>';
+      }
+      tbody += '</tbody>';
+      table.innerHTML = thead + tbody;
+    })();
+
+    // Trend (unchanged)
+    (function renderTrend(){
+      const chart = document.getElementById('trendChart');
+      if (!byline.length){ chart.innerHTML=''; document.getElementById('trendEmpty').style.display=''; return; }
+      document.getElementById('trendEmpty').style.display='none';
+
+      const byDate = new Map();
+      planDays.forEach(d => byDate.set(d, { lbs:0, nameplate:0, adjcap:0 }));
+
+      for (const r of byline) {
+        const d = (r.src_date||'').slice(0,10); if (!byDate.has(d)) continue;
+        const cap = (r.nameplate_lbs_hr && r.nameplate_lbs_hr > 0) ? r.nameplate_lbs_hr : capacityFor(r.machine, r.material);
+        const lbs = r.pounds || 0;
+        const md  = (r.maint_dt_h||0);
+        const row = byDate.get(d);
+        row.lbs      += lbs;
+        row.nameplate+= cap*HOURS_PER_WEEKDAY;
+        row.adjcap   += cap*Math.max(0, HOURS_PER_WEEKDAY - md);
+      }
+
+      const dates = [...byDate.keys()].sort();
+      const pts = dates.map(d => {
+        const p = byDate.get(d);
+        return {
+          rawU: p.nameplate>0 ? (p.lbs/p.nameplate) : 0,
+          adjU: p.adjcap>0    ? (p.lbs/p.adjcap)    : 0,
+          capU: 1
+        };
+      });
+      let maxU = Math.max(0.1, ...pts.map(p => Math.max(p.rawU, p.adjU, p.capU)));
+      maxU = Math.min(Math.max(maxU*1.15, 0.3), 1.2);
+
+      const w=900,h=260,padL=50,padB=30,ch=h-padB-40;
+      const sx=i => padL + (i/Math.max(1,pts.length-1))*(w-padL-20);
+      const sy=v => 30 + ch - (Math.min(v,1.2)/maxU)*ch;
+      const toLine = arr => arr.map((p,i)=>`${sx(i)},${sy(p)}`).join(' ');
+
+      const rawPts = toLine(pts.map(p=>p.rawU));
+      const adjPts = toLine(pts.map(p=>p.adjU));
+      const capPts = toLine(pts.map(p=>p.capU));
+
+      const css = getComputedStyle(document.documentElement);
+      const warn = css.getPropertyValue('--warn-fg').trim() || '#f59e0b';
+
+      let grid=''; for(let i=0;i<=4;i++){ const y=30 + ch - (i/4)*ch;
+        const val = (maxU*(i/4))*100;
+        grid += `<line x1="${padL}" y1="${y}" x2="${w-20}" y2="${y}" stroke="#D7E0F3" stroke-width="1" opacity="0.7"/>` +
+                `<text x="${w-18}" y="${y-4}" fill="#64748b" font-size="11">${val.toFixed(0)}%</text>`;
+      }
+      const xlabels = dates.map((d,i)=>`<text x="${sx(i)}" y="${h-10}" text-anchor="middle" fill="#475569" font-size="12">${d.slice(5)}</text>`).join('');
+
+      const svg = `<svg viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg">
+        <rect x="0" y="0" width="100%" height="100%" fill="#F7F9FF"/>
+        ${grid}
+        <polyline fill="none" stroke="#0f172a" stroke-width="2" stroke-dasharray="6 5" points="${capPts}" opacity="0.6"/>
+        <polyline fill="none" stroke="${warn}" stroke-width="3" points="${adjPts}"/>
+        <polyline fill="none" stroke="#2563eb" stroke-width="3" points="${rawPts}"/>
+        ${xlabels}
+      </svg>`;
+      chart.innerHTML = svg;
+    })();
+    } finally {
+      setLoading(false);
+    }
+    lastRenderAt = Date.now();
   }
-}
 
-/* controls/timers */
-document.querySelectorAll('.segBig button').forEach(b=>{
-  b.addEventListener('click', ()=>{
-    document.querySelectorAll('.segBig button').forEach(x=>x.classList.remove('active'));
-    b.classList.add('active');
-    STATE.period = b.dataset.period;
-    renderAll();
-  });
-});
-document.getElementById('refreshSec').textContent = '60s';
-setInterval(()=>{ const c=$('#clock'); if(c) c.textContent=new Date().toLocaleTimeString(); }, 500);
-setInterval(()=>{ renderAll(); }, 60000);
+  function computeRange(sel){
+    const now = new Date(); now.setHours(0,0,0,0);
+    const y = new Date(now); y.setDate(y.getDate()-1);
+    const fmt = d => new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10);
 
-/* initial render (default Last Week) */
-renderAll();
+    const thisW = {from:startOfWeek(now), to:endOfWeek(now)};
+    const lastW = {from:new Date(startOfWeek(now)), to:new Date(endOfWeek(now))}; lastW.from.setDate(lastW.from.getDate()-7); lastW.to.setDate(lastW.to.getDate()-7);
+    const thisM = {from:startOfMonth(now), to:endOfMonth(now)};
+    const lastM = {from:startOfMonth(new Date(now.getFullYear(), now.getMonth()-1, 1)), to:endOfMonth(new Date(now.getFullYear(), now.getMonth()-1, 1))};
+    const thisQ = {from:startOfQuarter(now), to:endOfQuarter(now)};
+    const lastQ = {from:startOfQuarter(new Date(now.getFullYear(), now.getMonth()-3, 1)), to:endOfQuarter(new Date(now.getFullYear(), now.getMonth()-3, 1))};
+    const thisY = {from:new Date(now.getFullYear(),0,1), to:new Date(now.getFullYear(),11,31)};
+    const lastY = {from:new Date(now.getFullYear()-1,0,1), to:new Date(now.getFullYear()-1,11,31)};
+
+    switch(sel){
+      case 'today':     return {from:fmt(now), to:fmt(now), label:'Today'};
+      case 'yesterday': return {from:fmt(y),   to:fmt(y),   label:'Yesterday'};
+      case 'thisweek':  return {from:fmt(thisW.from), to:fmt(thisW.to), label:'This week (Mon–Sun)'};
+      case 'lastweek':  return {from:fmt(lastW.from), to:fmt(lastW.to), label:'Last week (Mon–Sun)'};
+      case 'thismonth': return {from:fmt(thisM.from), to:fmt(thisM.to), label:'This month'};
+      case 'lastmonth': return {from:fmt(lastM.from), to:fmt(lastM.to), label:'Last month'};
+      case 'thisq':     return {from:fmt(thisQ.from), to:fmt(thisQ.to), label:'This quarter'};
+      case 'lastq':     return {from:fmt(lastQ.from), to:fmt(lastQ.to), label:'Last quarter'};
+      case 'thisyear':  return {from:fmt(thisY.from), to:fmt(thisY.to), label:'This year'};
+      case 'lastyear':  return {from:fmt(lastY.from), to:fmt(lastY.to), label:'Last year'};
+      case 'last7':     { const s=new Date(now); s.setDate(s.getDate()-6); return {from:fmt(s), to:fmt(now), label:'Trailing 7 days'}; }
+      case 'last12m':   { const s=new Date(now); s.setMonth(s.getMonth()-12); return {from:fmt(s), to:fmt(now), label:'Trailing 12 months'}; }
+      case 'last30':
+      default:          { const s=new Date(now); s.setDate(s.getDate()-29); return {from:fmt(s), to:fmt(now), label:'Trailing 30 days'}; }
+    }
+  }
+
+  (async function init(){
+    const sel = document.getElementById('tf');
+    const dayPick = document.getElementById('dayPick');
+    const wkndToggle = document.getElementById('wkndToggle');
+    wkndToggle.checked = false;
+
+    restoreSelectionFromLS();
+    
+    async function goRange(){
+      const r = computeRange(sel.value || 'lastweek');
+      document.getElementById('tfLabel').textContent = `${r.from} → ${r.to}`;
+      document.getElementById('dayPick').value = '';
+      document.getElementById('dayPickLabel').textContent = '';
+      await renderForRange(r.from, r.to, r.label);
+      saveSelectionToLS();
+    }
+    async function goSingleDay(){
+      const d = dayPick.value;
+      if (!d) return;
+      document.getElementById('dayPickLabel').textContent = d;
+      document.getElementById('tfLabel').textContent = `${d} → ${d}`;
+      await renderForRange(d, d, `Specific date ${d}`);
+      saveSelectionToLS();
+    }
+
+    window.__forceRefresh__ = async () => {
+      const selNow = currentSelection();
+      setLoading(true);
+      try {
+        if (selNow.day) await goSingleDay();
+        else await goRange();
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    await loadMappings();
+    
+    sel.addEventListener('change', goRange);
+    dayPick.addEventListener('change', goSingleDay);
+    wkndToggle.addEventListener('change', goRange);
+
+    // default to Last Week on first load if nothing in LS
+    if (!localStorage.getItem('pace:prodSel')) {
+      sel.value = 'lastweek';
+    }
+
+    if (dayPick.value) await goSingleDay(); else await goRange();
+  
+    scheduleAutoRefresh(goRange, goSingleDay);
+  })();
+
+  function cssVar(name) {
+    return getComputedStyle(document.documentElement)
+      .getPropertyValue(name)
+      .trim() || name;
+  }
+
+  const MISSING = '---';
+  function gaugeSVG(pct, label, cls = '', valid = true) {
+    const has = valid && Number.isFinite(pct);
+    const p = has ? Math.max(0, Math.min(1, pct || 0)) : 0;
+    const R = 48, cx = 60, cy = 60;
+    const track  = arcPath(cx, cy, R, 180, 360, 1);
+    const endDeg = 180 + 180 * Math.max(p,0.02);
+    const band   = has ? arcPath(cx, cy, R, 180, endDeg, 1) : '';
+    const needle = has ? arcPath(cx, cy, R, 180, 180 + 180*p, 1) : '';
+    const pctLabel = has ? Math.round(p * 100) + '%' : MISSING;
+
+    const klass = `gauge ${cls || 'empty'}`;
+    return `
+      <div class="${klass}">
+        <svg viewBox="0 0 120 80" xmlns="http://www.w3.org/2000/svg" class="speedo">
+          <path d="${track}" class="track" fill="none" stroke-width="10"/>
+          ${band   ? `<path d="${band}"   class="band"   stroke="currentColor"/>` : ''}
+          ${needle ? `<path d="${needle}" class="needle" stroke="currentColor" stroke-width="10" stroke-linecap="round" fill="none"/>` : ''}
+          <text x="60" y="48" text-anchor="middle" class="pct" fill="currentColor">${pctLabel}</text>
+        </svg>
+        <div class="cap">${label}</div>
+      </div>`;
+  }
+
+  function polarToCartesian(cx, cy, r, angDeg) {
+    const a = angDeg * Math.PI / 180;
+    return { x: cx + r * Math.cos(a), y: cy + r * Math.sin(a) };
+  }
+  function arcPath(cx, cy, r, startDeg, endDeg, sweepFlag) {
+    const s = polarToCartesian(cx, cy, r, startDeg);
+    const e = polarToCartesian(cx, cy, r, endDeg);
+    const largeArc = Math.abs(endDeg - startDeg) > 180 ? 1 : 0;
+    return `M ${s.x} ${s.y} A ${r} ${r} 0 ${largeArc} ${sweepFlag} ${e.x} ${e.y}`;
+  }
 </script>
+
+<script>
+  // tooltip toggle
+  document.addEventListener('click', (e) => {
+    const info = e.target.closest('.info');
+    if (!info) return;
+    const panel = info.parentElement.querySelector('.tooltip-panel');
+    if (!panel) return;
+    panel.classList.toggle('show');
+  });
+  document.addEventListener('click', (e) => {
+    if (e.target.closest('.tooltip')) return;
+    document.querySelectorAll('.tooltip-panel.show').forEach(p=>p.classList.remove('show'));
+  });
+</script>
+
 </body>
 </html>
