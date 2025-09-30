@@ -24,7 +24,7 @@
         url('img/PRIfront.png') center/cover no-repeat fixed;
     }
 
-    /* Header like production.html */
+    /* Header (match production.html) */
     .top-border{position:fixed;top:0;left:0;width:100%;height:96px;background:var(--pri-green);z-index:10;display:flex;align-items:center;padding:0 20px}
     .top-border .logo{height:72px}
     .top-title{font-size:28px;font-weight:900;margin-left:20px;color:#0A2A12}
@@ -36,7 +36,7 @@
     /* Loading overlay spinner */
     #loading{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(255,255,255,.55);z-index:9999}
     #loading .spinner{width:64px;height:64px;border:8px solid #e5e7eb;border-top-color:var(--pri-blue);border-radius:50%;animation:spin 1s linear infinite}
-    @keyframes spin { to{ transform:rotate(360deg) } }
+    @keyframes spin{to{transform:rotate(360deg)}}
 
     .app{max-width:1920px;margin:0 auto}
     .toolbar{display:flex;justify-content:space-between;align-items:center;margin:10px 0 16px;gap:10px;flex-wrap:wrap}
@@ -62,20 +62,20 @@
     .st-downm{background:#ef4444}
     .st-downp{background:#dc2626}
 
-    /* Grid: auto-fit tiles so they scale inside container */
-    .grid{display:grid;grid-template-columns: 420px 1fr;gap:16px;align-items:stretch}
+    /* Grid + cards */
+    .grid{display:grid;grid-template-columns:420px 1fr;gap:16px;align-items:stretch}
     .card{background:var(--card);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow)}
     .card h3{margin:0;padding:12px 14px;border-bottom:1px solid var(--border);font-size:15px;letter-spacing:.3px;color:var(--muted)}
     .card .content{padding:14px}
 
-    /* Downtime pies/legend (kept visible even if zero) */
+    /* Donuts kept visible (placeholder ok) */
     .donutwrap{display:grid;grid-template-columns:1fr;gap:12px}
     .donutrow{display:grid;grid-template-columns:160px 1fr;gap:12px;align-items:center}
     .legend{display:grid;grid-template-columns:1fr 1fr;gap:8px}
     .legend .row{display:flex;align-items:center;gap:8px}
     .legend .name{max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
-    /* Line tiles responsive */
+    /* Line tiles responsive with clean scaling */
     .lines{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px}
     .line{border:1px solid var(--border);border-radius:14px;padding:12px;background:white;display:flex;flex-direction:column}
     .lineheader{display:flex;justify-content:space-between;align-items:center}
@@ -109,6 +109,7 @@
 </head>
 
 <body class="page-production">
+  <!-- Spinner -->
   <div id="loading"><div class="spinner" aria-label="Loading…"></div></div>
 
   <div class="top-border">
@@ -122,7 +123,7 @@
       <a class="tab" href="production.html">Transformation</a>
       <a class="tab active" href="pulse.html">Pulse</a>
       <a class="tab" href="admin">Admin</a>
-      <!-- innovation logo without white background, sized to header -->
+      <!-- no white box; scale to header height -->
       <img src="img/innovation-logo.png" alt="Innovation" style="height:72px;margin-left:8px;object-fit:contain"/>
     </div>
   </div>
@@ -151,13 +152,13 @@
       </div>
 
       <!-- STATUS TICKER -->
-      <div class="statusbar" id="statusBar" aria-label="Line availability and Limble status"></div>
+      <div class="statusbar" id="statusBar"></div>
 
       <!-- KPI STRIP -->
       <section class="kpis" id="kpiStrip"></section>
 
       <section class="grid">
-        <!-- Left: Downtime pies (placeholder if no data) -->
+        <!-- Left: Downtime pies (placeholder OK) -->
         <article class="card">
           <h3>Downtime Overview — Maintenance vs Production</h3>
           <div class="content donutwrap">
@@ -181,7 +182,7 @@
         </article>
       </section>
 
-      <!-- Bottom row: Production line status + Rank table -->
+      <!-- Bottom row -->
       <section class="grid" style="margin-top:16px">
         <article class="card">
           <h3>Production Line Status</h3>
@@ -217,28 +218,28 @@ const ENDPOINTS = {
   MAP       : 'mappings.json'
 };
 const HOURS_PER_DAY = 24;
-const QUALITY_DEFAULT = 0.70;
+const QUALITY_DEFAULT = 0.70;  // match production
 
-/* thresholds (Quality stricter → 70% shows BAD/red) */
-const classForKPI      = v => v>=70? 'good' : v>=50? 'warn':'bad';
-const classForQuality  = v => v>=98? 'good' : v>=85? 'warn' : 'bad';
+/* thresholds */
+const classForKPI     = v => v>=70? 'good' : v>=50? 'warn':'bad';
+const classForQuality = v => v>=98? 'good' : v>=85? 'warn' : 'bad';
+
 const $   = s => document.querySelector(s);
 const fmt = n => Number(Math.round(n||0)).toLocaleString();
-const fmtPct = v => `${Math.round((v||0))}%`;
 
+/* spinner + fetch */
 function setLoading(v){ const el=$('#loading'); if(el) el.style.display = v ? 'flex':'none'; }
 async function fetchJSON(url){
   try{ const r=await fetch(url,{cache:'no-store'}); if(!r.ok) throw new Error(r.status); return await r.json(); }
   catch(e){ console.warn('fetch failed', url, e); return null; }
 }
 
-/* timeframe helpers */
+/* timeframe */
 function startOfWeek(d){ const x=new Date(d); const day=(x.getDay()+6)%7; x.setDate(x.getDate()-day); x.setHours(0,0,0,0); return x;}
 function endOfWeek(d){ const x=startOfWeek(d); x.setDate(x.getDate()+6); return x;}
 function startOfMonth(d){ return new Date(d.getFullYear(), d.getMonth(), 1); }
 function endOfMonth(d){ return new Date(d.getFullYear(), d.getMonth()+1, 0); }
 function iso(d){ return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10); }
-
 function computeRange(sel){
   const now=new Date(); now.setHours(0,0,0,0);
   const y=new Date(now); y.setDate(y.getDate()-1);
@@ -248,19 +249,19 @@ function computeRange(sel){
   const lastM={from:startOfMonth(new Date(now.getFullYear(),now.getMonth()-1,1)),to:endOfMonth(new Date(now.getFullYear(),now.getMonth()-1,1))};
   switch(sel){
     case 'today'    : return {from:iso(now), to:iso(now)};
-    case 'yesterday': return {from:iso(y), to:iso(y)};
+    case 'yesterday': return {from:iso(y),   to:iso(y)};
     case 'week'     : return {from:iso(thisW.from), to:iso(thisW.to)};
     case 'lastweek' : return {from:iso(lastW.from), to:iso(lastW.to)};
     case 'month'    : return {from:iso(thisM.from), to:iso(thisM.to)};
     case 'lastmonth': return {from:iso(lastM.from), to:iso(lastM.to)};
-    case 'r7'       : { const s=new Date(now); s.setDate(s.getDate()-6); return {from:iso(s), to:iso(now)}; }
+    case 'r7'       : { const s=new Date(now); s.setDate(s.getDate()-6);  return {from:iso(s), to:iso(now)}; }
     case 'r30'      : { const s=new Date(now); s.setDate(s.getDate()-29); return {from:iso(s), to:iso(now)}; }
     default         : { const s=new Date(now); s.setDate(s.getDate()-29); return {from:iso(s), to:iso(now)}; }
   }
 }
 
-/* mappings.json support (same idea as production) */
-let MAPPINGS = null;
+/* mappings.json support */
+let MAPPINGS=null;
 async function loadMappings(){
   const j = await fetchJSON(`${ENDPOINTS.MAP}?ts=${Date.now()}`);
   MAPPINGS = j || { capacities_lbs_hr:{}, capacity_by_material_lbs_hr:{}, capacity_aliases:{}, material_aliases:{}, productionAssets:[] };
@@ -274,36 +275,33 @@ function capacityFor(lineName, material){
 }
 function mappedMachineNames(){
   const arr = Array.isArray(MAPPINGS?.productionAssets) ? MAPPINGS.productionAssets : [];
-  // support either {name:'Extruder 1', id:...} or strings
   return arr.map(x => (typeof x === 'string' ? x : (x?.name||'')).trim()).filter(Boolean);
 }
 
-/* simple donuts */
-function drawDonut(canvas, mainPct, mainLabel, mainColor, otherColor){
+/* donuts (placeholder) */
+function drawDonut(canvas, mainPct, mainColor, otherColor){
   const ctx = canvas.getContext('2d');
   const {width:w,height:h} = canvas; ctx.clearRect(0,0,w,h);
   const cx=w/2, cy=h/2, r=Math.min(w,h)/2-6, t=24;
-  const parts = [
-    {val:Math.max(0,Math.min(100,mainPct)), color:mainColor},
-    {val:100-Math.max(0,Math.min(100,mainPct)), color:otherColor}
-  ];
-  let start=-Math.PI/2, total=100;
+  const A = Math.max(0,Math.min(100,mainPct));
+  const parts = [{v:A,c:mainColor},{v:100-A,c:otherColor}];
+  let start=-Math.PI/2;
   parts.forEach(p=>{
-    const ang = (p.val/total)*Math.PI*2;
+    const ang = (p.v/100)*Math.PI*2;
     ctx.beginPath(); ctx.arc(cx,cy,r,start,start+ang); ctx.arc(cx,cy,r-t,start+ang,start,true); ctx.closePath();
-    ctx.fillStyle=p.color; ctx.fill(); start+=ang;
+    ctx.fillStyle=p.c; ctx.fill(); start+=ang;
   });
   ctx.fillStyle='#111'; ctx.font='800 20px system-ui'; ctx.textAlign='center'; ctx.textBaseline='middle';
-  ctx.fillText(`${Math.round(mainPct)}%`, cx, cy);
+  ctx.fillText(`${Math.round(A)}%`, cx, cy);
 }
 
-/* STATUS (reusing prodstatus approach) */
+/* prodstatus (normalized) */
 async function loadProdStatus(){
   const raw = await fetchJSON(`${ENDPOINTS.PRODSTATUS}?t=${Date.now()}`);
   if (!raw) return null;
   let rows = Array.isArray(raw?.rows) ? raw.rows : (Array.isArray(raw?.tiles) ? raw.tiles : []);
   if (Array.isArray(rows) && rows.length === 1 && rows[0] && typeof rows[0] === 'object') {
-    const k = Object.keys(rows[0])[0], v = rows[0][k];
+    const k=Object.keys(rows[0])[0], v=rows[0][k];
     if (typeof v === 'string' && v.startsWith('[')) { try{ rows = JSON.parse(v); }catch{} }
   }
   if (!Array.isArray(rows) || !rows.length) return null;
@@ -311,10 +309,10 @@ async function loadProdStatus(){
     const name = r.assetName || r.name || r.AssetName || r.machine || r.asset || 'Unknown';
     const val  = (r.assetStatus ?? r.value ?? r.valueText ?? r.statusText ?? r.status ?? r.statusID ?? '').toString().trim();
     const txt  = val.replace(/\u00A0/g,' ').toLowerCase();
-    let status = 'downp';
-    if (txt.includes('setup')) status = 'setup';
-    else if (txt.includes('maint')) status = 'downm';
-    else if (txt.includes('avail') || txt==='running' || txt==='run') status = 'available';
+    let status='downp';
+    if (txt.includes('setup')) status='setup';
+    else if (txt.includes('maint')) status='downm';
+    else if (txt.includes('avail') || txt==='running' || txt==='run') status='available';
     const limble = /limble|work ?order|wo/i.test(val);
     return {name, status, limble};
   });
@@ -328,28 +326,25 @@ async function renderAll(){
   try{
     const names = {today:'Today',yesterday:'Yesterday',week:'This Week',lastweek:'Last Week',month:'This Month',lastmonth:'Last Month',r7:'Rolling 7d',r30:'Rolling 30d'};
     $('#periodLabel').textContent = '• ' + (names[STATE.period]||'Range');
-
-    // sync button state
     document.querySelectorAll('.segBig button').forEach(b=>b.classList.toggle('active', b.dataset.period===STATE.period));
 
-    const {from,to} = computeRange(STATE.period);
-
-    // Load mappings first (for filtering + capacity)
     if (!MAPPINGS) await loadMappings();
-    const allowed = new Set(mappedMachineNames()); // if empty -> show all
+    const allow = new Set(mappedMachineNames());
 
+    const {from,to} = computeRange(STATE.period);
     const [summary, bylineRaw, prodstatus] = await Promise.all([
       fetchJSON(`${ENDPOINTS.SUMMARY}?from=${from}&to=${to}`),
       fetchJSON(`${ENDPOINTS.BY_LINE}?from=${from}&to=${to}`),
       loadProdStatus()
     ]);
 
+    // filter by mappings if provided
     const byline = (bylineRaw||[]).filter(r=>{
-      const m = r.machine; if (!m) return false;
-      return allowed.size ? allowed.has(m) : true;
+      const m=r.machine; if(!m) return false;
+      return allow.size ? allow.has(m) : true;
     });
 
-    /* === KPI source of truth: summary, else compute from by-line with capacity === */
+    // === KPI from summary, fallback to computed (capacity aware) ===
     let oeePct   = Math.round(((summary?.oee) ?? 0) * 100);
     let avlPct   = Math.round(((summary?.availability) ?? 0) * 100);
     let perfPct  = Math.round(((summary?.performanceAdj ?? summary?.performance) ?? 0) * 100);
@@ -358,40 +353,32 @@ async function renderAll(){
 
     const needFallback = !(oeePct||avlPct||perfPct||pounds);
     if (needFallback && byline.length){
-      // build per-day per-line using capacityFor (like production)
-      const dayMap = new Map(); // key: m__date
-      const dates = new Set();
-      for (const r of byline){
+      const dayMap=new Map(), dates=new Set();
+      for(const r of byline){
         const m=r.machine, d=(r.src_date||'').slice(0,10); if(!m||!d) continue;
         dates.add(d);
-        const key=`${m}__${d}`;
-        if (!dayMap.has(key)) dayMap.set(key,{lbs:0, run:0, maint:0, cap:0});
-        const o = dayMap.get(key);
-        o.lbs   += +r.pounds||0;
-        o.run    = Math.max(o.run, +r.machine_hours||0);
-        o.maint  = Math.max(o.maint, +r.maint_dt_h||0);
+        const k=`${m}__${d}`;
+        if(!dayMap.has(k)) dayMap.set(k,{lbs:0,run:0,maint:0,cap:0});
+        const o=dayMap.get(k);
+        o.lbs+= +r.pounds||0; o.run=Math.max(o.run, +r.machine_hours||0); o.maint=Math.max(o.maint, +r.maint_dt_h||0);
         const cap = capacityFor(m, r.material) || +r.nameplate_lbs_hr || 0;
         o.cap = Math.max(o.cap, cap);
       }
       let sumLbs=0,sumRun=0,sumMaint=0,adjDen=0;
-      for (const o of dayMap.values()){
-        sumLbs += o.lbs; sumRun += o.run; sumMaint += o.maint;
-        adjDen += o.cap * Math.max(0, HOURS_PER_DAY - o.maint);
+      for(const o of dayMap.values()){
+        sumLbs+=o.lbs; sumRun+=o.run; sumMaint+=o.maint;
+        adjDen+= o.cap * Math.max(0, HOURS_PER_DAY - o.maint);
       }
       const dayCount = dates.size || 1;
-      const avail = (sumRun / (HOURS_PER_DAY*dayCount)) || 0;
+      const avail = sumRun/(HOURS_PER_DAY*dayCount);
       const perfA = adjDen>0 ? Math.min(1, sumLbs/adjDen) : 0;
       const oee   = avail * perfA * QUALITY_DEFAULT;
-
-      oeePct = Math.round(oee*100);
-      avlPct = Math.round(avail*100);
-      perfPct= Math.round(perfA*100);
-      qualPct= Math.round(QUALITY_DEFAULT*100);
-      pounds = Math.round(sumLbs);
+      oeePct=Math.round(oee*100); avlPct=Math.round(avail*100); perfPct=Math.round(perfA*100);
+      qualPct=Math.round(QUALITY_DEFAULT*100); pounds=Math.round(sumLbs);
     }
 
-    // KPI strip
-    const kpiStrip = $('#kpiStrip'); kpiStrip.innerHTML='';
+    // KPIs
+    const kpiStrip=$('#kpiStrip'); kpiStrip.innerHTML='';
     [
       {label:'OEE', value:`${oeePct}%`, cls: classForKPI(oeePct)},
       {label:'Availability', value:`${avlPct}%`, cls: classForKPI(avlPct)},
@@ -401,66 +388,132 @@ async function renderAll(){
       {label:'Missed Opp', value: '—'}
     ].forEach(k=>{
       const div=document.createElement('div'); div.className=`kpi ${k.cls||''}`.trim();
-      div.innerHTML = `<div class="label">${k.label}</div><div class="value">${k.value}</div>`;
+      div.innerHTML=`<div class="label">${k.label}</div><div class="value">${k.value}</div>`;
       kpiStrip.appendChild(div);
     });
 
-    // Downtime pies: placeholder (0%) so layout is ready
-    drawDonut($('#donutMaint'), 0, 'Maintenance', '#ef4444', '#f59e0b');
+    // Downtime pies placeholder (0/100)
+    drawDonut($('#donutMaint'), 0, '#ef4444', '#f59e0b');
     $('#legendMaint').innerHTML =
-      `<div class="row"><span class="dot" style="background:#ef4444;width:12px;height:12px;border-radius:3px"></span>
-        <span class="name" style="font-weight:800">Maintenance</span>
-        <span style="margin-left:auto;color:var(--muted);font-weight:800">0%</span></div>
-       <div class="row"><span class="dot" style="background:#f59e0b;width:12px;height:12px;border-radius:3px"></span>
-        <span class="name" style="font-weight:800">Other</span>
-        <span style="margin-left:auto;color:var(--muted);font-weight:800">100%</span></div>`;
-    drawDonut($('#donutProd'), 0, 'Production', '#0ea5e9', '#a78bfa');
+      `<div class="row"><span class="dot" style="background:#ef4444;width:12px;height:12px;border-radius:3px"></span><span class="name" style="font-weight:800">Maintenance</span><span style="margin-left:auto;color:var(--muted);font-weight:800">0%</span></div>
+       <div class="row"><span class="dot" style="background:#f59e0b;width:12px;height:12px;border-radius:3px"></span><span class="name" style="font-weight:800">Other</span><span style="margin-left:auto;color:var(--muted);font-weight:800">100%</span></div>`;
+    drawDonut($('#donutProd'), 0, '#0ea5e9', '#a78bfa');
     $('#legendProd').innerHTML =
-      `<div class="row"><span class="dot" style="background:#0ea5e9;width:12px;height:12px;border-radius:3px"></span>
-        <span class="name" style="font-weight:800">Production</span>
-        <span style="margin-left:auto;color:var(--muted);font-weight:800">0%</span></div>
-       <div class="row"><span class="dot" style="background:#a78bfa;width:12px;height:12px;border-radius:3px"></span>
-        <span class="name" style="font-weight:800">Other</span>
-        <span style="margin-left:auto;color:var(--muted);font-weight:800">100%</span></div>`;
+      `<div class="row"><span class="dot" style="background:#0ea5e9;width:12px;height:12px;border-radius:3px"></span><span class="name" style="font-weight:800">Production</span><span style="margin-left:auto;color:var(--muted);font-weight:800">0%</span></div>
+       <div class="row"><span class="dot" style="background:#a78bfa;width:12px;height:12px;border-radius:3px"></span><span class="name" style="font-weight:800">Other</span><span style="margin-left:auto;color:var(--muted);font-weight:800">100%</span></div>`;
 
-    // PROD STATUS (filtered by mappings if provided)
-    const statusArrRaw = Array.isArray(prodstatus) ? prodstatus : [];
-    const statusArr = statusArrRaw.filter(s => allowed.size ? allowed.has(s.name) : true)
-                                  .sort((a,b)=>a.name.localeCompare(b.name));
-
-    const statusBar = $('#statusBar'); statusBar.innerHTML='';
-    const prodList  = $('#prodStatusList'); prodList.innerHTML='';
+    // Status (filtered by mappings)
+    const statusRaw = Array.isArray(prodstatus) ? prodstatus : [];
+    const statusArr = statusRaw.filter(s=> allow.size ? allow.has(s.name) : true)
+                               .sort((a,b)=>a.name.localeCompare(b.name));
+    const statusBar=$('#statusBar'); statusBar.innerHTML='';
+    const prodList=$('#prodStatusList'); prodList.innerHTML='';
     statusArr.forEach(S=>{
-      const dot = S.status==='available' ? 'st-available' : S.status==='setup' ? 'st-setup' : S.status==='downm' ? 'st-downm' : 'st-downp';
-      const wrench = S.limble ? '<span title="Open Limble request" style="font-weight:900">🛠️</span>' : '';
+      const dot = S.status==='available'?'st-available':S.status==='setup'?'st-setup':S.status==='downm'?'st-downm':'st-downp';
+      const wrench = S.limble? '<span title="Open Limble request" style="font-weight:900">🛠️</span>' : '';
       const chip=document.createElement('div'); chip.className='chip';
       chip.innerHTML = `<span class="dot ${dot}"></span><strong>${S.name}</strong><span style="color:var(--muted);font-weight:800">${S.status.toUpperCase()}</span>${wrench}`;
       statusBar.appendChild(chip);
 
       const row=document.createElement('div');
-      const bg = S.limble ? '#fff7cc' : '#eaffea';
-      const border = S.limble ? '#fde68a' : '#bbf7d0';
-      row.style.cssText = `display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;padding:10px 12px;border-radius:12px;background:${bg};border:1px solid ${border}`;
-      row.innerHTML = `<strong>${S.name}</strong><span style="color:var(--muted);font-weight:800">${S.limble?'Limble Request':'Available'}</span>`;
+      const bg=S.limble?'#fff7cc':'#eaffea', border=S.limble?'#fde68a':'#bbf7d0';
+      row.style.cssText=`display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;padding:10px 12px;border-radius:12px;background:${bg};border:1px solid ${border}`;
+      row.innerHTML=`<strong>${S.name}</strong><span style="color:var(--muted);font-weight:800">${S.limble?'Limble Request':'Available'}</span>`;
       prodList.appendChild(row);
     });
 
-    // Line health grid (sparkline OEE per day using capacity mapping)
-    const seriesBy = {};
-    const lastBy   = {};
-    const uniqMachines = [...new Set(byline.map(r=>r.machine).filter(Boolean))]
-      .filter(m => allowed.size ? allowed.has(m) : true)
-      .sort();
-
-    // per-day compute
-    const byKey = (m,d)=>`${m}__${d}`;
-    const dayCalc = new Map();
+    // Line tiles: compute per-day OEE series with capacity mapping (display-level)
+    const seriesBy={}, uniqMachines=[...new Set(byline.map(r=>r.machine))].filter(Boolean)
+      .filter(m => allow.size ? allow.has(m) : true).sort();
+    const byKey=(m,d)=>`${m}__${d}`, dayCalc=new Map();
     for (const r of byline){
       const m=r.machine, d=(r.src_date||'').slice(0,10); if(!m||!d) continue;
-      const key = byKey(m,d);
-      if(!dayCalc.has(key)) dayCalc.set(key,{lbs:0,run:0,maint:0,cap:0});
-      const o = dayCalc.get(key);
-      o.lbs   += +r.pounds||0;
-      o.run    = Math.max(o.run, +r.machine_hours||0);
-      o.maint  = Math.max(o.maint, +r.maint_dt_h||0);
-      const cap = capacityFor(m, r.material) || +r.nameplate_lassistant.analysis
+      const k=byKey(m,d);
+      if(!dayCalc.has(k)) dayCalc.set(k,{lbs:0,run:0,maint:0,cap:0});
+      const o=dayCalc.get(k);
+      o.lbs+= +r.pounds||0; o.run=Math.max(o.run, +r.machine_hours||0); o.maint=Math.max(o.maint, +r.maint_dt_h||0);
+      const cap=capacityFor(m, r.material) || +r.nameplate_lbs_hr || 0; o.cap=Math.max(o.cap,cap);
+    }
+    // Build series
+    const dates = [...new Set((byline||[]).map(r=>(r.src_date||'').slice(0,10)).filter(Boolean))].sort();
+    uniqMachines.forEach(m=>{
+      seriesBy[m]=[];
+      dates.forEach(d=>{
+        const o=dayCalc.get(byKey(m,d));
+        if(!o){ seriesBy[m].push(0); return; }
+        const avail=o.run/HOURS_PER_DAY;
+        const perfA = o.cap>0 ? Math.min(1, o.lbs/Math.max(1,o.cap*(HOURS_PER_DAY-o.maint))) : 0;
+        const oee=Math.round(avail*perfA*QUALITY_DEFAULT*100);
+        seriesBy[m].push(isFinite(oee)?oee:0);
+      });
+    });
+
+    const linesGrid=$('#linesGrid'); linesGrid.innerHTML='';
+    uniqMachines.forEach(m=>{
+      const series = seriesBy[m]||[];
+      const last = series.length ? series[series.length-1] : oeePct;
+      const cls = classForKPI(last);
+      const el=document.createElement('div'); el.className='line';
+      el.innerHTML=`
+        <div class="lineheader">
+          <div class="linename">${m}</div>
+          <div><span class="badge ${cls}">${cls.toUpperCase()}</span></div>
+        </div>
+        <div class="metricrow">
+          <div class="mitem"><div class="label">OEE</div><div class="mkv">${last}%</div></div>
+          <div class="mitem"><div class="label">Avail</div><div class="mkv">${avlPct}%</div></div>
+          <div class="mitem"><div class="label">Perf</div><div class="mkv">${perfPct}%</div></div>
+          <div class="mitem"><div class="label">Quality</div><div class="mkv">${Math.round(QUALITY_DEFAULT*100)}%</div></div>
+        </div>
+        <canvas class="spark" width="340" height="40"></canvas>`;
+      linesGrid.appendChild(el);
+      // sparkline
+      const ctx=el.querySelector('canvas').getContext('2d'), w=340, h=40;
+      ctx.clearRect(0,0,w,h);
+      if(series.length){
+        const min=Math.min(...series), max=Math.max(...series), pad=4;
+        const x=i=>pad+(w-2*pad)*(i/(series.length-1)), y=v=>h-pad-(h-2*pad)*((v-min)/Math.max(1,(max-min)));
+        ctx.beginPath(); ctx.moveTo(x(0),y(series[0])); for(let i=1;i<series.length;i++) ctx.lineTo(x(i),y(series[i]));
+        ctx.lineTo(w-pad,h-pad); ctx.lineTo(pad,h-pad); ctx.closePath();
+        ctx.fillStyle='rgba(37,64,143,.12)'; ctx.fill();
+        ctx.beginPath(); ctx.moveTo(x(0),y(series[0])); for(let i=1;i<series.length;i++) ctx.lineTo(x(i),y(series[i]));
+        ctx.lineWidth=2; ctx.strokeStyle='rgba(37,64,143,.9)'; ctx.stroke();
+      }
+    });
+
+    // Rank table
+    const tbody=$('#rankTable tbody'); tbody.innerHTML='';
+    uniqMachines.map(m=>{
+      const lbs = (byline||[]).filter(r=>r.machine===m).reduce((s,r)=>s+(+r.pounds||0),0);
+      const last = (seriesBy[m]||[]).slice(-1)[0] ?? oeePct;
+      return {name:m, lbs, oee:last};
+    }).sort((a,b)=>b.oee-a.oee).forEach(L=>{
+      const tr=document.createElement('tr');
+      tr.innerHTML=`<td>${L.name}</td><td><strong>${L.oee}%</strong></td><td>${fmt(L.lbs)}</td><td>—</td>`;
+      tbody.appendChild(tr);
+    });
+
+    $('#updated').textContent = new Date().toLocaleString();
+  } finally {
+    setLoading(false);
+  }
+}
+
+/* controls/timers */
+document.querySelectorAll('.segBig button').forEach(b=>{
+  b.addEventListener('click', ()=>{
+    document.querySelectorAll('.segBig button').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    STATE.period = b.dataset.period;
+    renderAll();
+  });
+});
+document.getElementById('refreshSec').textContent = '60s';
+setInterval(()=>{ const c=$('#clock'); if(c) c.textContent=new Date().toLocaleTimeString(); }, 500);
+setInterval(()=>{ renderAll(); }, 60000);
+
+/* initial render (default Last Week) */
+renderAll();
+</script>
+</body>
+</html>
