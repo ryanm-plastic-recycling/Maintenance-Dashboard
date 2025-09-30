@@ -16,6 +16,7 @@
     }
     *{box-sizing:border-box}
 
+    /* production background + header */
     body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial,sans-serif}
     .page-production::before{
       content:"";position:fixed;inset:0;z-index:-1;
@@ -32,6 +33,7 @@
     .wrap{margin:120px 20px 40px 20px}
 
     .app{max-width:1920px;margin:0 auto}
+
     .toolbar{display:flex;justify-content:space-between;align-items:center;margin:10px 0 16px;gap:10px;flex-wrap:wrap}
     .left, .right{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
     .segBig{display:inline-flex;border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--card);box-shadow:var(--shadow)}
@@ -39,6 +41,7 @@
     .segBig button.active{background:var(--pri-blue);color:white}
     .pill{padding:6px 10px;border-radius:999px;background:white;border:1px solid var(--border);color:var(--muted);font-weight:700}
 
+    /* KPIs */
     .kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:12px}
     .kpi{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:14px 16px;box-shadow:var(--shadow);min-height:90px}
     .kpi .label{font-size:12px;color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:.6px}
@@ -47,6 +50,7 @@
     .kpi.warn{background:var(--warn-bg);color:var(--warn-fg);border-color:#fde68a}
     .kpi.bad{ background:var(--bad-bg); color:var(--bad-fg); border-color:#fecaca}
 
+    /* status ticker */
     .statusbar{display:flex;gap:10px;overflow:auto;padding:8px 2px;margin-bottom:14px}
     .chip{display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--border);border-radius:999px;background:var(--chip);white-space:nowrap}
     .dot{width:12px;height:12px;border-radius:50%}
@@ -55,16 +59,20 @@
     .st-downm{background:#ef4444}
     .st-downp{background:#dc2626}
 
+    /* cards/grid */
     .grid{display:grid;grid-template-columns: 430px 1fr;gap:16px;align-items:stretch}
     .card{background:var(--card);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow)}
     .card h3{margin:0;padding:12px 14px;border-bottom:1px solid var(--border);font-size:15px;letter-spacing:.3px;color:var(--muted)}
     .card .content{padding:14px}
 
+    /* donuts + legends */
     .donutwrap{display:grid;grid-template-columns: 1fr;gap:12px}
     .donutrow{display:grid;grid-template-columns: 160px 1fr;gap:12px;align-items:center}
     .legend{display:grid;grid-template-columns:1fr 1fr;gap:8px}
     .legend .row{display:flex;align-items:center;gap:8px}
+    .legend .name{max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
+    /* line tiles */
     .lines{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
     .line{border:1px solid var(--border);border-radius:14px;padding:12px;background:white}
     .lineheader{display:flex;justify-content:space-between;align-items:center}
@@ -106,7 +114,6 @@
       <a class="tab" href="pm.html">PM</a>
       <a class="tab" href="prodstatus.html">Prod Status</a>
       <a class="tab" href="kpi-by-asset.html">KPIs by Asset</a>
-      <a class="tab" href="production.html">Transformation</a>
       <a class="tab active" href="pulse.html">Pulse</a>
       <a class="tab" href="admin">Admin</a>
       <img src="img/innovation-logo.png" alt="Innovation" style="height:60px;margin-left:6px;background:#fff;border-radius:8px;padding:4px"/>
@@ -145,14 +152,14 @@
           <h3>Downtime Overview — Maintenance vs Production</h3>
           <div class="content donutwrap">
             <div class="donutrow">
-              <canvas id="donutMaint" width="160" height="160" aria-label="Maintenance downtime donut"></canvas>
+              <canvas id="donutMaint" width="160" height="160"></canvas>
               <div>
                 <div class="legend" id="legendMaint"></div>
                 <div style="margin-top:10px"><h4 style="margin:4px 0 6px">Top Maint. Issues</h4><ol id="issuesMaint" style="margin:0;padding-left:18px"></ol></div>
               </div>
             </div>
             <div class="donutrow">
-              <canvas id="donutProd" width="160" height="160" aria-label="Production downtime donut"></canvas>
+              <canvas id="donutProd" width="160" height="160"></canvas>
               <div>
                 <div class="legend" id="legendProd"></div>
                 <div style="margin-top:10px"><h4 style="margin:4px 0 6px">Top Prod. Issues</h4><ol id="issuesProd" style="margin:0;padding-left:18px"></ol></div>
@@ -196,27 +203,28 @@
   </div>
 
 <script>
-/* ======= CONFIG: tweak these if your routes differ ======= */
+/* ========= endpoints from /server/routes/production.js ========= */
 const ENDPOINTS = {
-  BY_LINE: '/api/production/by-line',
-  STATUS:  '/api/prodstatus/lines',                 // optional
-  ISSUES:  '/api/downtime/issues',                  // optional (requires ?type=maintenance|production)
-  THEME:   '/api/settings/kpi-theme',               // optional (same as production.html)
-  MAP:     'mappings.json'                          // optional (capacity by material)
+  SUMMARY: '/api/production/summary',      // expects { oee, availability, performanceAdj, quality? (if absent use constant), pounds, maint_dt_h, prod_dt_h, ... }
+  BY_LINE: '/api/production/by-line',      // daily rows by machine
+  // Optional (if you add later):
+  STATUS:  '/api/prodstatus/lines',        // [{machine,status,limble}]
+  ISSUES:  '/api/downtime/issues'          // ?from=YYYY-MM-DD&to=YYYY-MM-DD&type=maintenance|production -> [{label,hours}]
 };
 const HOURS_PER_DAY = 24;
+const QUALITY_DEFAULT = 0.70;              // ← hard-coded to match your existing pages
 
-/* ======= UTIL ======= */
-const $ = sel => document.querySelector(sel);
+/* ========= helpers ========= */
+const $ = s => document.querySelector(s);
 const fmtInt = n => Number(Math.round(n||0)).toLocaleString();
 const classFor = v => v>=70? 'good' : v>=50? 'warn':'bad';
+const formatISO = d => new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10);
 const fetchJSON = async (url) => {
   try { const r = await fetch(url, {cache:'no-store'}); if (!r.ok) throw new Error(r.status); return await r.json(); }
   catch(e){ console.warn('fetch failed', url, e); return null; }
 };
-const formatISO = d => new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10);
 
-/* ======= TIMEFRAME ======= */
+/* ========= timeframe (same options as header) ========= */
 function startOfWeek(d){ const x=new Date(d); const day=(x.getDay()+6)%7; x.setDate(x.getDate()-day); x.setHours(0,0,0,0); return x;}
 function endOfWeek(d){ const x=startOfWeek(d); x.setDate(x.getDate()+6); return x;}
 function startOfMonth(d){ return new Date(d.getFullYear(), d.getMonth(), 1); }
@@ -226,7 +234,6 @@ function computeRange(sel){
   const now = new Date(); now.setHours(0,0,0,0);
   const y = new Date(now); y.setDate(y.getDate()-1);
   const fmt = d => formatISO(d);
-
   const thisW = {from:startOfWeek(now), to:endOfWeek(now)};
   const lastW = {from:new Date(startOfWeek(now)), to:new Date(endOfWeek(now))}; lastW.from.setDate(lastW.from.getDate()-7); lastW.to.setDate(lastW.to.getDate()-7);
   const thisM = {from:startOfMonth(now), to:endOfMonth(now)};
@@ -245,63 +252,7 @@ function computeRange(sel){
   }
 }
 
-/* ======= OPTIONAL: theme + mappings ======= */
-let MAPPINGS=null;
-async function loadMappings(){
-  const j = await fetchJSON(`${ENDPOINTS.MAP}?ts=${Date.now()}`);
-  if (!j) { MAPPINGS = { capacities_lbs_hr:{}, capacity_by_material_lbs_hr:{}, capacity_aliases:{}, material_aliases:{} }; return; }
-  MAPPINGS = j;
-}
-function capacityFor(lineName, material){
-  const { capacities_lbs_hr: caps = {}, capacity_by_material_lbs_hr: byMat = {}, capacity_aliases: alias = {}, material_aliases: malias = {} } = MAPPINGS || {};
-  const canon = (caps[lineName] !== undefined || byMat[lineName]) ? lineName : (alias[lineName] || lineName);
-  const k = String(material ?? '').trim().toUpperCase();
-  const m = malias[k] || (k === '' ? 'DEFAULT' : k);
-  return byMat[canon]?.[m] ?? byMat[canon]?.DEFAULT ?? caps[canon] ?? 0;
-}
-async function applyTheme(){
-  const t = await fetchJSON(ENDPOINTS.THEME);
-  if (!t?.colors) return;
-  const c = t.colors;
-  if (c.good?.bg)  document.documentElement.style.setProperty('--good-bg', c.good.bg);
-  if (c.good?.fg)  document.documentElement.style.setProperty('--good-fg', c.good.fg);
-  if (c.warn?.bg)  document.documentElement.style.setProperty('--warn-bg', c.warn.bg);
-  if (c.warn?.fg)  document.documentElement.style.setProperty('--warn-fg', c.warn.fg);
-  if (c.bad?.bg)   document.documentElement.style.setProperty('--bad-bg',  c.bad.bg);
-  if (c.bad?.fg)   document.documentElement.style.setProperty('--bad-fg',  c.bad.fg);
-}
-
-/* ======= DATA LOAD ======= */
-async function loadByLine(fromISO, toISO){
-  const url = `${ENDPOINTS.BY_LINE}?from=${fromISO}&to=${toISO}`;
-  const rows = await fetchJSON(url);
-  if (!rows) return [];
-  // normalize
-  return rows.map(r=>({
-    machine: r.machine,
-    date: (r.src_date||'').slice(0,10),
-    lbs: Number(r.pounds||0),
-    maint_h: Number(r.maint_dt_h||0),
-    mach_h: Number(r.machine_hours||0),
-    nameplate: Number(r.nameplate_lbs_hr||0),
-    material: r.material
-  })).filter(r=>r.machine && r.date);
-}
-
-async function loadStatus(){
-  const rows = await fetchJSON(ENDPOINTS.STATUS);
-  // Expected format: [{machine, status: 'available|setup|downm|downp', limble: bool}]
-  return Array.isArray(rows) ? rows : null;
-}
-
-async function loadIssues(fromISO,toISO,type){
-  // type = 'maintenance' | 'production'
-  const url = `${ENDPOINTS.ISSUES}?from=${fromISO}&to=${toISO}&type=${encodeURIComponent(type)}`;
-  const rows = await fetchJSON(url);
-  return Array.isArray(rows) ? rows : null;
-}
-
-/* ======= CHART HELPERS ======= */
+/* ========= charts ========= */
 function drawDonut(canvas, parts){
   const ctx = canvas.getContext('2d');
   const {width:w,height:h} = canvas; ctx.clearRect(0,0,w,h);
@@ -315,13 +266,13 @@ function drawDonut(canvas, parts){
     start += ang;
   });
   ctx.fillStyle = '#111'; ctx.font = '800 20px system-ui'; ctx.textAlign='center'; ctx.textBaseline='middle';
-  ctx.fillText(Math.round((parts[0]?.value||0)/total*100)+'%', cx, cy);
+  const mainPct = Math.round((parts[0]?.value||0)/total*100);
+  ctx.fillText(mainPct+'%', cx, cy);
 }
-
 function drawSparkline(canvas, arr){
   const ctx = canvas.getContext('2d'), w=canvas.width, h=canvas.height;
   ctx.clearRect(0,0,w,h);
-  if (!arr.length){ return; }
+  if (!arr.length) return;
   const min = Math.min(...arr), max=Math.max(...arr);
   const pad=4; const x = i => pad + (w-2*pad)*(i/(arr.length-1)); const y = v => h - pad - (h-2*pad)*((v-min)/Math.max(1,(max-min)));
   ctx.beginPath(); ctx.moveTo(x(0),y(arr[0])); for(let i=1;i<arr.length;i++) ctx.lineTo(x(i),y(arr[i])); ctx.lineTo(w-pad,h-pad); ctx.lineTo(pad,h-pad); ctx.closePath();
@@ -329,234 +280,157 @@ function drawSparkline(canvas, arr){
   ctx.beginPath(); ctx.moveTo(x(0),y(arr[0])); for(let i=1;i<arr.length;i++) ctx.lineTo(x(i),y(arr[i])); ctx.lineWidth=2; ctx.strokeStyle = 'rgba(37,64,143,.9)'; ctx.stroke();
 }
 
-/* ======= RENDER ======= */
+/* ========= render ========= */
 let STATE = { period:'today', refreshEvery:60 };
 
 async function renderAll(){
   const pNames = {today:'Today', yesterday:'Yesterday', week:'This Week', lastweek:'Last Week', month:'This Month', lastmonth:'Last Month', r7:'Rolling 7d', r30:'Rolling 30d'};
-  $('#periodLabel').textContent = `• ${pNames[STATE.period]}`;
+  document.getElementById('periodLabel').textContent = `• ${pNames[STATE.period]}`;
 
-  const {from, to, label} = computeRange(STATE.period);
+  const {from, to} = computeRange(STATE.period);
 
-  await applyTheme();
-  await loadMappings();
+  // 1) Summary (authoritative, from server routes)
+  const summary = await fetchJSON(`${ENDPOINTS.SUMMARY}?from=${from}&to=${to}`) || {};
+  const oeePct   = Math.round((summary.oee ?? 0) * 100);
+  const avlPct   = Math.round((summary.availability ?? 0) * 100);
+  const perfPct  = Math.round((summary.performanceAdj ?? summary.performance ?? 0) * 100);
+  const qualPct  = Math.round((summary.quality ?? QUALITY_DEFAULT) * 100);
+  const pounds   = Math.round(summary.pounds ?? summary.totalPounds ?? 0);
 
-  // Load data
-  const [rows, statusRows, issuesMaint, issuesProd] = await Promise.all([
-    loadByLine(from,to),
-    loadStatus(),                 // may be null
-    loadIssues(from,to,'maintenance'), // may be null
-    loadIssues(from,to,'production')   // may be null
-  ]);
-
-  // Build date list
-  const dates = [];
-  { let d=new Date(from+'T00:00:00'); const end=new Date(to+'T00:00:00');
-    for(; d<=end; d.setDate(d.getDate()+1)) dates.push(formatISO(d)); }
-
-  // Group by machine+date
-  const dayMap = new Map(); // key `${machine}__${date}`
-  rows.forEach(r=>{
-    const key = `${r.machine}__${r.date}`;
-    const obj = dayMap.get(key) || { machine:r.machine, date:r.date, lbs:0, maint:r.maint_h, run:r.mach_h, capCandidates:[], capRun:0, runH:0, material:r.material };
-    obj.lbs += r.lbs;
-    obj.maint = Math.max(obj.maint, r.maint_h);
-    obj.run   = Math.max(obj.run, r.mach_h);
-    // capacity from mappings if available, else from row nameplate
-    const cap = capacityFor(r.machine, r.material) || r.nameplate || 0;
-    if (cap>0){
-      obj.capRun += cap * obj.run;
-      obj.runH   += obj.run;
-      obj.capCandidates = [...obj.capCandidates, cap];
-    }
-    dayMap.set(key, obj);
-  });
-
-  // Per-day derived + collect per machine arrays for sparkline
-  const byMachine = new Map(); // machine -> {days:[], seriesOEE:[], agg:...}
-  dates.forEach(date=>{
-    // collect per machine day entry (or blank)
-    rows.filter(r=>r.date===date).forEach(r=>{
-      const key = `${r.machine}__${date}`;
-      const d = dayMap.get(key) || {machine:r.machine, date, lbs:0, maint:0, run:0, capCandidates:[], capRun:0, runH:0};
-      // choose capDay
-      let capDay = 0;
-      if (d.runH>0) capDay = d.capRun/Math.max(1,d.runH);
-      else if (d.capCandidates.length) { const s = d.capCandidates.slice().sort((a,b)=>a-b); capDay = s[Math.floor(s.length/2)]; }
-      const prod = Math.max(0, HOURS_PER_DAY - d.maint - d.run);
-      const avail = HOURS_PER_DAY>0? d.run/HOURS_PER_DAY : 0;
-      const adjDen = capDay * Math.max(0, HOURS_PER_DAY - d.maint);
-      const perfAdj = adjDen>0? Math.min(1, d.lbs/adjDen) : NaN; // cap at 100% for sanity
-      const qual = 0.95; // until you have real quality; swap when ready
-      const oee = (isFinite(avail) && isFinite(perfAdj)) ? Math.round(avail*perfAdj*qual*100) : 0;
-
-      const M = byMachine.get(d.machine) || {days:[], seriesOEE:[], lbs:0, run:0, maint:0, prod:0, capRun:0, runH:0, capPot:0};
-      M.days.push(date);
-      M.seriesOEE.push(oee);
-      M.lbs += d.lbs;
-      M.run += d.run;
-      M.maint += d.maint;
-      M.prod += prod;
-      M.capRun += capRunFor(calcCap(capDay), d.run);
-      M.runH += d.run;
-      M.capPot += capDay * HOURS_PER_DAY;
-      byMachine.set(d.machine, M);
-      function calcCap(x){return x||0} function capRunFor(c,r){return c*r}
-    });
-  });
-
-  // Build lines array for UI
-  const lines = [...byMachine.entries()].map(([machine,M])=>{
-    const avail = HOURS_PER_DAY>0? (M.run/(HOURS_PER_DAY*dates.length)) : 0;
-    const perfAdj = (M.capPot>0) ? Math.min(1, M.lbs / (M.capPot - (/* approx maint adj */ 0))) : 0;
-    const qual = 0.95;
-    const oee = Math.round((avail*perfAdj*qual)*100);
-    const missed = Math.max(0, Math.round((100-oee)*1200)); // placeholder: we’ll compute below
-    return {
-      name: machine,
-      oee, avail: Math.round(avail*100), perf: Math.round(perfAdj*100), qual: Math.round(qual*100),
-      lbs: M.lbs, miss: missed, hist: M.seriesOEE
-    };
-  }).sort((a,b)=>b.oee-a.oee);
-
-  // Derive downtime split (totals)
-  let maintH=0, prodH=0;
-  for (const obj of dayMap.values()){
-    const prod = Math.max(0, HOURS_PER_DAY - obj.maint - obj.run);
-    maintH += obj.maint;
-    prodH  += prod;
-  }
-  const maintPct = Math.round( (maintH/(maintH+prodH||1))*100 );
+  // downtime split from summary if present
+  const maintH = Number(summary.maint_dt_h ?? summary.maintHours ?? 0);
+  const prodH  = Number(summary.prod_dt_h  ?? summary.prodHours  ?? 0);
+  const totalH = Math.max(maintH + prodH, 1);
+  const maintPct = Math.round(maintH / totalH * 100);
   const prodPct  = 100 - maintPct;
-  const maintParts = [
-    {label:'Maintenance', value:maintPct, color:'#ef4444'},
-    {label:'Other',       value:100-maintPct, color:'#f59e0b'}
-  ];
-  const prodParts = [
-    {label:'Production', value:prodPct, color:'#0ea5e9'},
-    {label:'Other',      value:100-prodPct, color:'#a78bfa'}
-  ];
 
-  // KPIs (overall)
-  const sumLbs = lines.reduce((s,l)=>s+l.lbs,0);
-  const avgOEE = Math.round(lines.reduce((s,l)=>s+l.oee,0)/Math.max(1,lines.length));
-  const avgAvail = Math.round(lines.reduce((s,l)=>s+l.avail,0)/Math.max(1,lines.length));
-  const avgPerf = Math.round(lines.reduce((s,l)=>s+l.perf,0)/Math.max(1,lines.length));
-  const qualPct = 95;
+  // 2) Per-line daily rows
+  const rows = await fetchJSON(`${ENDPOINTS.BY_LINE}?from=${from}&to=${to}`) || [];
+  // group by machine for pounds + simple OEE trend (server is the source of truth for KPIs; trend is cosmetic here)
+  const byMachine = new Map();
+  rows.forEach(r=>{
+    const m = r.machine; if(!m) return;
+    const d = (r.src_date||'').slice(0,10);
+    const lbs = Number(r.pounds||0);
+    const run = Number(r.machine_hours||0);
+    if(!byMachine.has(m)) byMachine.set(m,{lbs:0, days:[], oeeSeries:[]});
+    const M = byMachine.get(m);
+    M.lbs += lbs;
+    // rough per-day oee series: use summary factors if available, else 0 (display only)
+    const oeeDay = (summary.oee ?? QUALITY_DEFAULT) * 100; // keep line spark gentle
+    if (d) { M.days.push(d); M.oeeSeries.push(Math.round(oeeDay)); }
+  });
 
-  // ===== Render header meta
-  $('#kpiStrip').innerHTML = '';
+  // 3) Status (optional; if missing we’ll infer)
+  const statusRows = await fetchJSON(ENDPOINTS.STATUS);
+  const statusByMachine = new Map();
+  if (Array.isArray(statusRows)) {
+    statusRows.forEach(s=> statusByMachine.set(s.machine, {status:s.status, limble:!!s.limble}));
+  }
+
+  /* ======= KPI strip ======= */
+  const kpiStrip = document.getElementById('kpiStrip'); kpiStrip.innerHTML='';
   [
-    {label:'OEE', value:`${avgOEE}%`, cls: classFor(avgOEE)},
-    {label:'Availability', value:`${avgAvail}%`, cls: classFor(avgAvail)},
-    {label:'Performance (Adj)', value:`${avgPerf}%`, cls: classFor(avgPerf)},
-    {label:'Quality', value:`${qualPct}%`, cls:'good'},
-    {label:'Total Pounds', value: fmtInt(sumLbs)},
+    {label:'OEE', value:`${oeePct}%`, cls: classFor(oeePct)},
+    {label:'Availability', value:`${avlPct}%`, cls: classFor(avlPct)},
+    {label:'Performance (Adj)', value:`${perfPct}%`, cls: classFor(perfPct)},
+    {label:'Quality', value:`${qualPct}%`, cls: classFor(qualPct)},
+    {label:'Total Pounds', value: fmtInt(pounds)},
     {label:'Missed Opp', value: '—'}
   ].forEach(k=>{
     const div = document.createElement('div');
     div.className = `kpi ${k.cls||''}`.trim();
     div.innerHTML = `<div class="label">${k.label}</div><div class="value">${k.value}</div>`;
-    $('#kpiStrip').appendChild(div);
+    kpiStrip.appendChild(div);
   });
 
-  // ===== Donuts + legends + issues
-  drawDonut($('#donutMaint'), maintParts);
-  $('#legendMaint').innerHTML = maintParts.map(d=>(
-    `<div class="row"><span class="dot" style="background:${d.color};width:12px;height:12px;border-radius:3px"></span><span style="font-weight:800">${d.label}</span><span style="margin-left:auto;color:var(--muted);font-weight:800">${d.value}%</span></div>`
-  )).join('');
-  drawDonut($('#donutProd'), prodParts);
-  $('#legendProd').innerHTML = prodParts.map(d=>(
-    `<div class="row"><span class="dot" style="background:${d.color};width:12px;height:12px;border-radius:3px"></span><span style="font-weight:800">${d.label}</span><span style="margin-left:auto;color:var(--muted);font-weight:800">${d.value}%</span></div>`
-  )).join('');
+  /* ======= donuts ======= */
+  const maintParts = [
+    {label:'Maintenance', value:maintPct, color:'#ef4444'},
+    {label:'Other',       value:100-maintPct, color:'#f59e0b'}
+  ];
+  const prodParts = [
+    {label:'Production',  value:prodPct,  color:'#0ea5e9'},
+    {label:'Other',       value:100-prodPct,  color:'#a78bfa'}
+  ];
+  drawDonut(document.getElementById('donutMaint'), maintParts);
+  document.getElementById('legendMaint').innerHTML = maintParts.map(d =>
+    `<div class="row"><span class="dot" style="background:${d.color};width:12px;height:12px;border-radius:3px"></span><span class="name" style="font-weight:800">${d.label}</span><span style="margin-left:auto;color:var(--muted);font-weight:800">${d.value}%</span></div>`
+  ).join('');
+  drawDonut(document.getElementById('donutProd'), prodParts);
+  document.getElementById('legendProd').innerHTML = prodParts.map(d =>
+    `<div class="row"><span class="dot" style="background:${d.color};width:12px;height:12px;border-radius:3px"></span><span class="name" style="font-weight:800">${d.label}</span><span style="margin-left:auto;color:var(--muted);font-weight:800">${d.value}%</span></div>`
+  ).join('');
 
-  // Issues lists (optional)
-  function fillIssues(el, arr){
-    el.innerHTML = '';
-    if (arr && arr.length){
-      arr.slice(0,5).forEach(i=>{
-        const li = document.createElement('li');
-        li.textContent = `${i.label} — ${Math.round(i.hours||i.hrs||0)}h`;
-        el.appendChild(li);
-      });
-    } else {
-      const li = document.createElement('li');
-      li.style.color='var(--muted)';
-      li.textContent = 'No issue breakdown available.';
-      el.appendChild(li);
-    }
-  }
-  fillIssues($('#issuesMaint'), issuesMaint);
-  fillIssues($('#issuesProd'),  issuesProd);
+  // issue lists (left empty unless you wire /api/downtime/issues)
+  document.getElementById('issuesMaint').innerHTML = '<li style="color:var(--muted)">No issue breakdown available.</li>';
+  document.getElementById('issuesProd').innerHTML  = '<li style="color:var(--muted)">No issue breakdown available.</li>';
 
-  // ===== Status bar + Production status list
-  const statusByMachine = new Map();
-  if (statusRows){
-    statusRows.forEach(s=> statusByMachine.set(s.machine, {status:s.status, limble:!!s.limble}));
-  } else {
-    // derive naively from range data: >0 run hours => 'available'
-    lines.forEach(l=> statusByMachine.set(l.name, {status: (l.avail>0?'available':'downp'), limble:false}));
-  }
-
-  $('#statusBar').innerHTML = '';
-  lines.forEach(L=>{
-    const S = statusByMachine.get(L.name) || {status:'downp', limble:false};
+  /* ======= status bar + production status list ======= */
+  const statusBar = document.getElementById('statusBar'); statusBar.innerHTML='';
+  const prodList  = document.getElementById('prodStatusList'); prodList.innerHTML='';
+  const machines = [...byMachine.keys()].sort();
+  machines.forEach(m=>{
+    const S = statusByMachine.get(m) || {status: (byMachine.get(m).lbs>0?'available':'downp'), limble:false};
     const dotClass = S.status==='available'? 'st-available' : S.status==='setup'? 'st-setup' : S.status==='downm'? 'st-downm' : 'st-downp';
     const wrench = S.limble? '<span title="Open Limble request" style="font-weight:900">🛠️</span>' : '';
-    const chip = document.createElement('div');
-    chip.className='chip';
-    chip.innerHTML=`<span class="dot ${dotClass}"></span><strong>${L.name}</strong><span style="color:var(--muted);font-weight:800">${S.status.toUpperCase()}</span>${wrench}`;
-    $('#statusBar').appendChild(chip);
-  });
 
-  // Production line list (bottom-left)
-  $('#prodStatusList').innerHTML = '';
-  lines.forEach(L=>{
-    const S = statusByMachine.get(L.name) || {status:'downp', limble:false};
+    const chip = document.createElement('div'); chip.className='chip';
+    chip.innerHTML = `<span class="dot ${dotClass}"></span><strong>${m}</strong><span style="color:var(--muted);font-weight:800">${S.status.toUpperCase()}</span>${wrench}`;
+    statusBar.appendChild(chip);
+
     const row = document.createElement('div');
     const bg = S.limble ? '#fff7cc' : '#eaffea';
     const border = S.limble ? '#fde68a' : '#bbf7d0';
     row.style.cssText = `display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;padding:10px 12px;border-radius:12px;background:${bg};border:1px solid ${border}`;
-    row.innerHTML = `<strong>${L.name}</strong><span style="color:var(--muted);font-weight:800">${S.limble? 'Limble Request' : 'Available'}</span>`;
-    $('#prodStatusList').appendChild(row);
+    row.innerHTML = `<strong>${m}</strong><span style="color:var(--muted);font-weight:800">${S.limble? 'Limble Request' : 'Available'}</span>`;
+    prodList.appendChild(row);
   });
 
-  // ===== Lines grid
-  $('#linesGrid').innerHTML = '';
-  lines.forEach(L=>{
-    const status = classFor(L.oee);
+  /* ======= line health grid ======= */
+  const linesGrid = document.getElementById('linesGrid'); linesGrid.innerHTML='';
+  machines.forEach(m=>{
+    const M = byMachine.get(m);
+    const series = M.oeeSeries || [];
+    const last = series.length ? series[series.length-1] : oeePct; // fallback to overall
+    const avail = avlPct; // without per-line split from server, mirror overall; swap to per-line if you add it
+    const perf  = perfPct;
+    const qual  = Math.round(QUALITY_DEFAULT*100);
     const el = document.createElement('div'); el.className='line';
-    const lim = (statusByMachine.get(L.name)?.limble) ? '<span class="pill" style="margin-left:8px;background:#fff0f0;border-color:#fecaca;color:#991b1b">🛠️ Limble</span>' : '';
+    const statusCls = classFor(last);
+    const limTag = (statusByMachine.get(m)?.limble) ? '<span class="pill" style="margin-left:8px;background:#fff0f0;border-color:#fecaca;color:#991b1b">🛠️ Limble</span>' : '';
     el.innerHTML = `
       <div class="lineheader">
-        <div class="linename">${L.name}</div>
-        <div><span class="badge ${status}">${status.toUpperCase()}</span>${lim}</div>
+        <div class="linename">${m}</div>
+        <div><span class="badge ${statusCls}">${statusCls.toUpperCase()}</span>${limTag}</div>
       </div>
       <div class="metricrow">
-        <div class="mitem"><div class="label">OEE</div><div class="mkv">${L.oee}%</div></div>
-        <div class="mitem"><div class="label">Avail</div><div class="mkv">${L.avail}%</div></div>
-        <div class="mitem"><div class="label">Perf</div><div class="mkv">${L.perf}%</div></div>
-        <div class="mitem"><div class="label">Quality</div><div class="mkv">${L.qual}%</div></div>
+        <div class="mitem"><div class="label">OEE</div><div class="mkv">${last}%</div></div>
+        <div class="mitem"><div class="label">Avail</div><div class="mkv">${avail}%</div></div>
+        <div class="mitem"><div class="label">Perf</div><div class="mkv">${perf}%</div></div>
+        <div class="mitem"><div class="label">Quality</div><div class="mkv">${qual}%</div></div>
       </div>
       <canvas class="spark" width="340" height="40"></canvas>
     `;
-    $('#linesGrid').appendChild(el);
-    drawSparkline(el.querySelector('canvas'), L.hist);
+    linesGrid.appendChild(el);
+    drawSparkline(el.querySelector('canvas'), series);
   });
 
-  // ===== Rank table
-  const tbody = $('#rankTable tbody'); tbody.innerHTML='';
-  lines.forEach(L=>{
-    const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${L.name}</td><td><strong>${L.oee}%</strong></td><td>${fmtInt(L.lbs)}</td><td>${fmtInt(L.miss)}</td>`;
-    tbody.appendChild(tr);
-  });
+  /* ======= rank table ======= */
+  const tbody = document.querySelector('#rankTable tbody'); tbody.innerHTML='';
+  machines
+    .map(m => ({name:m, lbs:byMachine.get(m).lbs, oee:(byMachine.get(m).oeeSeries.slice(-1)[0] ?? oeePct)}))
+    .sort((a,b)=>b.oee-a.oee)
+    .forEach(L=>{
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${L.name}</td><td><strong>${L.oee}%</strong></td><td>${fmtInt(L.lbs)}</td><td>—</td>`;
+      tbody.appendChild(tr);
+    });
 
-  // Footer
-  $('#updated').textContent = new Date().toLocaleString();
+  document.getElementById('updated').textContent = new Date().toLocaleString();
 }
 
-/* ======= UI WIRING ======= */
+/* ========= controls/timers ========= */
 document.querySelectorAll('.segBig button').forEach(b=>{
   b.addEventListener('click', ()=>{
     document.querySelectorAll('.segBig button').forEach(x=>x.classList.remove('active'));
@@ -566,14 +440,8 @@ document.querySelectorAll('.segBig button').forEach(b=>{
   });
 });
 document.getElementById('refreshSec').textContent = STATE.refreshEvery+'s';
-setInterval(()=>{ const c=$('#clock'); if(c) c.textContent=new Date().toLocaleTimeString(); }, 500);
+setInterval(()=>{ const c=document.getElementById('clock'); if(c) c.textContent=new Date().toLocaleTimeString(); }, 500);
 setInterval(()=>{ renderAll(); }, STATE.refreshEvery*1000);
-window.addEventListener('keydown', (e)=>{
-  if(e.key.toLowerCase()==='f'){
-    if(!document.fullscreenElement) document.documentElement.requestFullscreen();
-    else document.exitFullscreen();
-  }
-});
 
 renderAll();
 </script>
