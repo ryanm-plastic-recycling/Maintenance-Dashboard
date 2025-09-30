@@ -404,7 +404,6 @@ async function renderAll(){
     const pounds  = Math.round(sumLbs);
 
     // per-machine series (OEE per day)
-    const seriesBy = {};
     dates.forEach(d => {
       // collect machines that had any record that day
       const todaysMachines = [...new Set((byline||[]).filter(r => (r.src_date||'').slice(0,10)===d)
