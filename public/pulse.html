@@ -351,18 +351,15 @@ async function renderAll(){
     document.querySelectorAll('.segBig button').forEach(b=>b.classList.toggle('active', b.dataset.period===STATE.period));
 
     if (!MAPPINGS) await loadMappings();
-    // build allow list (canonical)
     const allow = new Set(mappedMachineNames().map(canonName));
-    const canon = canonName;
-    
-    // keep if: productionAssets is empty OR the machine is in allow OR it looks like an extruder
-    const isAllowed = (m) => {
-      if (!allow.size) return true;                         // no allow-list → show all
-      if (allow.has(canon(m))) return true;                 // explicitly allowed
-      return /^extruder\b/i.test(canon(m));                 // fallback: include Extruder 1–7
-    };
-    
-    // when selecting rows:
+    const isAllowed = (m) => allow.size ? allow.has(canonName(m)) : true;
+
+    const {from,to} = computeRange(STATE.period);
+    const [bylineRaw, prodstatus] = await Promise.all([
+      fetchJSON(`${ENDPOINTS.BY_LINE}?from=${from}&to=${to}`),
+      loadProdStatus()
+    ]);
+
     const byline = (bylineRaw || []).filter(r => r.machine && isAllowed(r.machine));
 
     /* === Compute KPIs from by-line (production pipeline) === */
