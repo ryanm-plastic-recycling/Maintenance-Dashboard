@@ -351,15 +351,65 @@ async function renderAll(){
     document.querySelectorAll('.segBig button').forEach(b=>b.classList.toggle('active', b.dataset.period===STATE.period));
 
     if (!MAPPINGS) await loadMappings();
-    const allow = new Set(mappedMachineNames().map(canonName));
-    const isAllowed = (m) => allow.size ? allow.has(canonName(m)) : true;
 
+    // Build a reverse alias map that supports BOTH shapes:
+    // - canonical -> [aliases]
+    // - alias -> canonical
+    function buildAliasResolver() {
+      const a = (MAPPINGS?.capacity_aliases) || {};
+      const rev = new Map();
+      // canonical -> [aliases]
+      Object.keys(a).forEach(k => {
+        const val = a[k];
+        if (Array.isArray(val)) {
+          const canon = String(k).trim();
+          rev.set(canon, canon);
+          val.forEach(alias => rev.set(String(alias).trim(), canon));
+        } else {
+          // alias -> canonical
+          const alias = String(k).trim();
+          const canon = String(val).trim();
+          rev.set(canon, canon);
+          rev.set(alias, canon);
+        }
+      });
+      // also self-map productionAssets
+      (MAPPINGS?.productionAssets || []).forEach(x=>{
+        const n = (typeof x==='string'? x : (x?.name||'')).trim();
+        if (n && !rev.has(n)) rev.set(n, n);
+      });
+      return rev;
+    }
+    
+    const revMap = buildAliasResolver();
+    const canon = (name) => revMap.get(String(name||'').trim()) || String(name||'').trim();
+    
+    // Expand the allow-list to include BOTH the productionAssets names AND every alias
+    // that resolves to the same canonical, so “Extrusion Line E1” and “Extruder 1” match.
+    const allow = new Set();
+    (mappedMachineNames()).forEach(n => {
+      const c = canon(n);
+      allow.add(c);          // canonical form
+      allow.add(n);          // original entry
+      // include all other aliases that map to the same canonical
+      for (const [k,v] of revMap.entries()) if (v === c) allow.add(k);
+    });
+    
+    // Final allow check:
+    // - If no productionAssets configured, show all.
+    // - else allow if canonical OR original name is present in the expanded allow-set.
+    const isAllowed = (m) => {
+      if (!allow.size) return true;
+      const c = canon(m);
+      return allow.has(c) || allow.has(String(m||'').trim());
+    };
+    
     const {from,to} = computeRange(STATE.period);
     const [bylineRaw, prodstatus] = await Promise.all([
       fetchJSON(`${ENDPOINTS.BY_LINE}?from=${from}&to=${to}`),
       loadProdStatus()
     ]);
-
+    
     const byline = (bylineRaw || []).filter(r => r.machine && isAllowed(r.machine));
 
     /* === Compute KPIs from by-line (production pipeline) === */
