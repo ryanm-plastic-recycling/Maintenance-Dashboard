@@ -280,13 +280,13 @@ function aliasToCanonMap() {
   });
   return rev;
 }
-function canonName(name) {
+function canonPulse(name) {
   const n = String(name||'').trim();
   const rev = aliasToCanonMap();
   return rev.get(n) || n;
 }
 function capacityFor(lineName, material){
-  const canonLine = canonName(lineName);
+  const canonLine = canonPulse(lineName);
   const { capacities_lbs_hr: caps = {}, capacity_by_material_lbs_hr: byMat = {}, material_aliases: malias = {} } = MAPPINGS || {};
   const matKey = String(material ?? '').trim().toUpperCase();
   const matCanon = malias[matKey] || (matKey || 'DEFAULT');
@@ -342,7 +342,40 @@ async function loadProdStatus(){
 
 /* ===== render ===== */
 let STATE = { period:'lastweek', refreshEvery:60 };
+  
+// ==== PULSE hard-coded lineup (canonical) + aliases ====
+const PULSE_LINES_CANON = [
+  "Extruder 1","Extruder 2","Extruder 3","Extruder 4",
+  "Extruder 5","Extruder 6","Extruder 7",
+  "Extruder New Single","Extruder New Twin",
+  "Extruder NGR" // optional; remove if you don't want it
+];
 
+// Accept any of these labels and normalize to the canonical names above
+const PULSE_LINE_ALIASES = {
+  "Extruder 1": ["Extrusion Line E1","E1","E-1","PRI-R-L01","E-01"],
+  "Extruder 2": ["Extrusion Line E2","E2","E-2","PRI-R-L02","E-02"],
+  "Extruder 3": ["Extrusion Line E3","E3","E-3","PRI-R-L03","E-03"],
+  "Extruder 4": ["Extrusion Line E4","E4","E-4","PRI-R-L04","E-04"],
+  "Extruder 5": ["Extrusion Line E5","E5","E-5","PRI-R-L05","E-05"],
+  "Extruder 6": ["Extrusion Line E6","E6","E-6","PRI-R-L06","E-06"],
+  "Extruder 7": ["Extrusion Line E7","E7","E-7","PRI-R-L07","E-07"],
+
+  "Extruder New Single": ["New Extrusion Line NL1","NL1","New Single"],
+  "Extruder New Twin":   ["New Extrusion Line NL2","NL2","New Twin"],
+
+  "Extruder NGR": ["NGR"]
+};
+
+// Build a local alias->canonical map (prioritized over mappings.json)
+const PULSE_ALIAS_REV = (() => {
+  const m = new Map();
+  for (const canon of PULSE_LINES_CANON) {
+    m.set(canon, canon);
+    (PULSE_LINE_ALIASES[canon] || []).forEach(a => m.set(String(a).trim(), canon));
+  }
+  return m;
+  
 async function renderAll(){
   setLoading(true);
   try{
@@ -350,75 +383,31 @@ async function renderAll(){
     $('#periodLabel').textContent = '• ' + (names[STATE.period]||'Range');
     document.querySelectorAll('.segBig button').forEach(b=>b.classList.toggle('active', b.dataset.period===STATE.period));
 
-    if (!MAPPINGS) await loadMappings();
+  if (!MAPPINGS) await loadMappings(); // fine to keep
+  
+  // HARD-CODED allow-list for Pulse (canonical)
+  const ALLOW_CANON = new Set(PULSE_LINES_CANON);
+  
+  // Allow if the machine canonicalizes to one of the Pulse lines
+  const isAllowed = (m) => ALLOW_CANON.has(canonPulse(m));
+  
+  const {from,to} = computeRange(STATE.period);
+  const [bylineRaw, prodstatus] = await Promise.all([
+    fetchJSON(`${ENDPOINTS.BY_LINE}?from=${from}&to=${to}`),
+    loadProdStatus()
+  ]);
+  
+  // Keep only Pulse lines (by aliases or canonical), nothing else
+  const byline = (bylineRaw || []).filter(r => r.machine && isAllowed(r.machine));
 
-    // Build a reverse alias map that supports BOTH shapes:
-    // - canonical -> [aliases]
-    // - alias -> canonical
-    function buildAliasResolver() {
-      const a = (MAPPINGS?.capacity_aliases) || {};
-      const rev = new Map();
-      // canonical -> [aliases]
-      Object.keys(a).forEach(k => {
-        const val = a[k];
-        if (Array.isArray(val)) {
-          const canon = String(k).trim();
-          rev.set(canon, canon);
-          val.forEach(alias => rev.set(String(alias).trim(), canon));
-        } else {
-          // alias -> canonical
-          const alias = String(k).trim();
-          const canon = String(val).trim();
-          rev.set(canon, canon);
-          rev.set(alias, canon);
-        }
-      });
-      // also self-map productionAssets
-      (MAPPINGS?.productionAssets || []).forEach(x=>{
-        const n = (typeof x==='string'? x : (x?.name||'')).trim();
-        if (n && !rev.has(n)) rev.set(n, n);
-      });
-      return rev;
-    }
     
-    const revMap = buildAliasResolver();
-    const canon = (name) => revMap.get(String(name||'').trim()) || String(name||'').trim();
-    
-    // Expand the allow-list to include BOTH the productionAssets names AND every alias
-    // that resolves to the same canonical, so “Extrusion Line E1” and “Extruder 1” match.
-    const allow = new Set();
-    (mappedMachineNames()).forEach(n => {
-      const c = canon(n);
-      allow.add(c);          // canonical form
-      allow.add(n);          // original entry
-      // include all other aliases that map to the same canonical
-      for (const [k,v] of revMap.entries()) if (v === c) allow.add(k);
-    });
-    
-    // Final allow check:
-    // - If no productionAssets configured, show all.
-    // - else allow if canonical OR original name is present in the expanded allow-set.
-    const isAllowed = (m) => {
-      if (!allow.size) return true;
-      const c = canon(m);
-      return allow.has(c) || allow.has(String(m||'').trim());
-    };
-    
-    const {from,to} = computeRange(STATE.period);
-    const [bylineRaw, prodstatus] = await Promise.all([
-      fetchJSON(`${ENDPOINTS.BY_LINE}?from=${from}&to=${to}`),
-      loadProdStatus()
-    ]);
-    
-    const byline = (bylineRaw || []).filter(r => r.machine && isAllowed(r.machine));
-
     /* === Compute KPIs from by-line (production pipeline) === */
     const dates = [...new Set(byline.map(r => (r.src_date||'').slice(0,10)).filter(Boolean))].sort();
 
     // per-day per-machine map (canon)
     const dayMap = new Map(); // key: `${canon(machine)}__${date}` -> {lbs, run, maint, cap}
     for (const r of byline) {
-      const mCanon = canonName(r.machine);
+      const mCanon = canonPulse(r.machine);
       const d = (r.src_date || '').slice(0,10);
       if (!mCanon || !d) continue;
       const k = `${mCanon}__${d}`;
@@ -452,7 +441,7 @@ async function renderAll(){
 
     // per-machine OEE series per day (canon)
     const seriesBy = {};
-    const machinesCanon = [...new Set(byline.map(r=>canonName(r.machine)))].filter(isAllowed).sort();
+    const machinesCanon = [...new Set(byline.map(r=>canonPulse(r.machine)))].filter(isAllowed).sort();
     for (const m of machinesCanon){
       seriesBy[m] = [];
       for (const d of dates){
@@ -540,7 +529,7 @@ async function renderAll(){
     // Rank table
     const tbody=$('#rankTable tbody'); tbody.innerHTML='';
     machinesCanon.map(m=>{
-      const lbs = (byline||[]).filter(r=>canonName(r.machine)===m).reduce((s,r)=>s+(+r.pounds||0),0);
+      const lbs = (byline||[]).filter(r=>canonPulse(r.machine)===m).reduce((s,r)=>s+(+r.pounds||0),0);
       const last = (seriesBy[m]||[]).slice(-1)[0] ?? 0;
       return {name:m, lbs, oee:last};
     }).sort((a,b)=>b.oee-a.oee).forEach(L=>{
