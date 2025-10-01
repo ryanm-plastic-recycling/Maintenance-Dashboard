@@ -375,7 +375,17 @@ const PULSE_ALIAS_REV = (() => {
     (PULSE_LINE_ALIASES[canon] || []).forEach(a => m.set(String(a).trim(), canon));
   }
   return m;
-  
+  })();
+
+  // Pulse canonicalizer: prefer Pulse alias map; fall back to mappings.json aliases
+function canonPulse(name) {
+  const n = String(name || '').trim();
+  if (PULSE_ALIAS_REV.has(n)) return PULSE_ALIAS_REV.get(n);
+  // fallback to mappings (supports both alias->canon and canon->[aliases])
+  const rev = aliasToCanonMap();
+  return rev.get(n) || n;
+}
+
 async function renderAll(){
   setLoading(true);
   try{
@@ -399,7 +409,6 @@ async function renderAll(){
   
   // Keep only Pulse lines (by aliases or canonical), nothing else
   const byline = (bylineRaw || []).filter(r => r.machine && isAllowed(r.machine));
-
     
     /* === Compute KPIs from by-line (production pipeline) === */
     const dates = [...new Set(byline.map(r => (r.src_date||'').slice(0,10)).filter(Boolean))].sort();
