@@ -565,14 +565,18 @@
         const moP      = (A.moP || 0) + moP_idle;
         const underLb  = Math.max(0, A.runCapDen - A.lbs);
         const capPot   = (Number.isFinite(capAvg) ? capAvg : 0) * HOURS_PER_WEEKDAY * planDaysCount;
-
+        const mPct = plannedH > 0 ? (A.maint / plannedH) : NaN;
+        const pPct = plannedH > 0 ? (prodH  / plannedH) : NaN;
+        
         return {
           machine, domMat,
           lbs: A.lbs, maint: A.maint, prod: prodH, mach: A.mach,
           rawDen24: A.rawDen24, capPot, adjDen: A.adjDen, runCapDen: A.runCapDen, underLb,
           moM: A.moM, moP, days, plannedH, capAvg,
           avail: availability, perfRaw, perfAdj, qual, oee,
-          availV: A.nAvail>0, prV: A.nPR>0, paV: A.nPA>0, oeeV: A.nAvail>0 && A.nPA>0
+          availV: A.nAvail>0, prV: A.nPR>0, paV: A.nPA>0, oeeV: A.nAvail>0 && A.nPA>0,
+          // NEW:
+          mPct, pPct
         };
       });
 
