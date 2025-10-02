@@ -613,7 +613,7 @@
         `<div class="row"><span class="dot" style="background:${maintParts[0].color}"></span><div class="name">Maint DT</div><div class="val">${fmtPct(ovMdtPct,true)}</div></div>
          <div class="row"><span class="dot" style="background:${maintParts[1].color}"></span><div class="name">Other</div><div class="val">${fmtPct(Math.max(0,1-(ovMdtPct||0)),true)}</div></div>`;
       const prodParts = [
-        {name:'Prod DT', value: ovPdtPct || 0, color: '#7c5e10'},
+        {name:'Prod DT', value: ovPdtPct || 0, color: '#7f1d1d'},
         {name:'Other Time', value: Math.max(0, 1-(ovPdtPct||0)), color: '#d1d5db'}
       ];
       drawDonut(document.getElementById('donutProd'), prodParts);
