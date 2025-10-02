@@ -13,6 +13,11 @@
       --bad-bg:#fee2e2;   --bad-fg:#7f1d1d;
       --shadow: 0 10px 25px rgba(0,0,0,.08);
       --chip:#f7fafc;
+
+      /* NEW: keep header/line-OEE the same size via one var */
+      --tile-head-fs: 18px;
+      --rank-fs: 18px; /* bigger rank table */
+      --status-fs: 18px; /* bigger prod status rows */
     }
     *{box-sizing:border-box}
 
@@ -24,7 +29,7 @@
         url('img/PRIfront.png') center/cover no-repeat fixed;
     }
 
-    /* Header (match production.html) */
+    /* Header */
     .top-border{position:fixed;top:0;left:0;width:100%;height:96px;background:var(--pri-green);z-index:10;display:flex;align-items:center;padding:0 20px}
     .top-border .logo{height:72px}
     .top-title{font-size:28px;font-weight:900;margin-left:20px;color:#0A2A12}
@@ -65,7 +70,7 @@
     /* Grid + cards */
     .grid{display:grid;grid-template-columns:420px 1fr;gap:16px;align-items:stretch}
     .card{background:var(--card);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow)}
-    .card h3{margin:0;padding:12px 14px;border-bottom:1px solid var(--border);font-size:15px;letter-spacing:.3px;color:var(--muted)}
+    .card h3{margin:0;padding:12px 14px;border-bottom:1px solid var(--border);font-size:var(--tile-head-fs);letter-spacing:.3px;color:var(--muted)}
     .card .content{padding:14px}
 
     /* Donuts */
@@ -85,14 +90,30 @@
     .badge.good{background:var(--good-bg);color:var(--good-fg);border:1px solid #bbf7d0}
     .badge.warn{background:var(--warn-bg);color:var(--warn-fg);border:1px solid #fde68a}
     .badge.bad{ background:var(--bad-bg); color:var(--bad-fg); border:1px solid #fecaca}
+
+    /* NEW: make the OEE badge number same size as tile header */
+    .oee-badge{font-size:var(--tile-head-fs); line-height:1; padding:6px 10px}
+
     .metricrow{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:8px}
     .mitem{background:#f7fafc;border:1px solid var(--border);border-radius:10px;padding:8px;min-width:0}
     .mitem .mkv{font-size:22px;font-weight:900}
     .spark{width:100%;height:40px;margin-top:6px}
 
-    table{width:100%;border-collapse:collapse;font-size:14px}
-    th,td{padding:10px;border-bottom:1px dashed var(--border)}
-    th{text-align:left;color:var(--muted);font-weight:900}
+    /* Rank table bigger font */
+    #rankTable {font-size: var(--rank-fs);}
+    #rankTable th, #rankTable td {padding:12px}
+
+    /* Production Line Status like prodstatus.html (big, simple rows) */
+    .ps-list{display:flex;flex-direction:column;gap:10px}
+    .ps-item{
+      display:flex;align-items:center;gap:10px;
+      font-weight:900;border:1px solid var(--border);border-radius:12px;
+      background:white;padding:10px 12px;font-size:var(--status-fs)
+    }
+    .ps-item.good{background:var(--good-bg); color:var(--good-fg); border-color:#bbf7d0}
+    .ps-item.warn{background:var(--warn-bg); color:var(--warn-fg); border-color:#fde68a}
+    .ps-item.bad{ background:var(--bad-bg);  color:var(--bad-fg);  border-color:#fecaca}
+    .ps-item .name{min-width:140px}
 
     footer{display:flex;justify-content:space-between;align-items:center;margin-top:12px;color:var(--muted)}
     .clock{font-variant-numeric:tabular-nums;font-weight:900}
@@ -101,10 +122,10 @@
       .app{max-width:2560px}
       .kpi .value{font-size:46px}
       .kpi .label, .badge{font-size:16px}
-      .spark{height:54px}
       .lines{gap:18px}
       .line{padding:16px}
-      table{font-size:18px}
+      #rankTable {font-size: 20px;}
+      .ps-item {font-size: 20px;}
     }
   </style>
 </head>
@@ -154,8 +175,28 @@
       <!-- KPI STRIP -->
       <section class="kpis" id="kpiStrip"></section>
 
+      <!-- TOP GRID (SWAPPED): Left = Production Line Status, Right = Line Health -->
       <section class="grid">
-        <!-- Left: Downtime pies -->
+        <!-- Left: Production Line Status (moved up) -->
+        <article class="card">
+          <h3>Production Line Status</h3>
+          <div class="content">
+            <div class="ps-list" id="prodStatusList"></div>
+          </div>
+        </article>
+
+        <!-- Right: Line health -->
+        <article class="card">
+          <h3>Line Health (OEE / Avail / Perf / Quality)</h3>
+          <div class="content">
+            <div class="lines" id="linesGrid"></div>
+          </div>
+        </article>
+      </section>
+
+      <!-- BOTTOM GRID (SWAPPED): Left = Downtime pies, Right = Rank -->
+      <section class="grid" style="margin-top:16px">
+        <!-- Left: Downtime pies (moved down) -->
         <article class="card">
           <h3>Downtime Overview — Maintenance vs Production</h3>
           <div class="content donutwrap">
@@ -170,21 +211,7 @@
           </div>
         </article>
 
-        <!-- Right: Line health -->
-        <article class="card">
-          <h3>Line Health (OEE / Avail / Perf / Quality)</h3>
-          <div class="content">
-            <div class="lines" id="linesGrid"></div>
-          </div>
-        </article>
-      </section>
-
-      <!-- Bottom row -->
-      <section class="grid" style="margin-top:16px">
-        <article class="card">
-          <h3>Production Line Status</h3>
-          <div class="content" id="prodStatusList"></div>
-        </article>
+        <!-- Right: Rank -->
         <article class="card">
           <h3>Lines Ranked by OEE & Missed Opportunity</h3>
           <div class="content">
@@ -207,12 +234,12 @@
   </div>
 
 <script>
-  // ====== CONFIG / CONSTANTS (match production.html logic) ======
+  // ====== CONFIG / CONSTANTS ======
   const REFRESH_MS = 10 * 60 * 1000; // 10 minutes
   const QUALITY_DEFAULT = 0.70;
   const PERF_CAP = 1.00;
   const MIN_RUN_H_FOR_ADJ = 0.75;
-  const HOURS_PER_WEEKDAY = 24; // your current planning baseline
+  const HOURS_PER_WEEKDAY = 24;
   const THRESH = {
     capacityAdj: { good: 0.80, warn: 0.60 },
     oee:         { good: 0.50, warn: 0.25 },
@@ -306,27 +333,6 @@
     const largeArc = Math.abs(endDeg - startDeg) > 180 ? 1 : 0;
     return `M ${s.x} ${s.y} A ${r} ${r} 0 ${largeArc} ${sweepFlag} ${e.x} ${e.y}`;
   }
-  function gaugeSVG(pct, label, cls = '', valid = true) {
-    const has = valid && Number.isFinite(pct);
-    const p = has ? Math.max(0, Math.min(1, pct || 0)) : 0;
-    const R = 48, cx = 60, cy = 60;
-    const track  = arcPath(cx, cy, R, 180, 360, 1);
-    const endDeg = 180 + 180 * Math.max(p, 0.02);
-    const band   = has ? arcPath(cx, cy, R, 180, endDeg, 1) : '';
-    const needle = has ? arcPath(cx, cy, R, 180, 180 + 180*p, 1) : '';
-    const pctLabel = has ? Math.round(p * 100) + '%' : MISSING;
-    const klass = `gauge ${cls || 'empty'}`;
-    return `
-      <div class="${klass}">
-        <svg viewBox="0 0 120 80" xmlns="http://www.w3.org/2000/svg" class="speedo">
-          <path d="${track}" class="track" fill="none" stroke="#D7E0F3" stroke-width="10"/>
-          ${band   ? `<path d="${band}"   class="band"   stroke="currentColor" fill="none" stroke-width="10" stroke-linecap="round"/>` : ''}
-          ${needle ? `<path d="${needle}" class="needle" stroke="currentColor" stroke-width="10" stroke-linecap="round" fill="none"/>` : ''}
-          <text x="60" y="48" text-anchor="middle" class="pct" fill="currentColor" style="font-weight:900">${pctLabel}</text>
-        </svg>
-        <div class="cap" style="text-align:center;font-weight:800">${label}</div>
-      </div>`;
-  }
 
   // ====== DONUT (no library) ======
   function drawDonut(canvas, parts){
@@ -347,7 +353,6 @@
       ctx.fill();
       start += ang;
     }
-    // hole
     ctx.globalCompositeOperation = 'destination-out';
     ctx.beginPath();
     ctx.arc(cx,cy,r*0.62,0,Math.PI*2);
@@ -355,7 +360,54 @@
     ctx.globalCompositeOperation = 'source-over';
   }
 
-  // ====== CORE RENDERER (range) ======
+  // ====== PROD STATUS LOADER (match prodstatus.html behavior) ======
+  async function loadProdStatus(){
+    // Try likely endpoints used by prodstatus.html
+    const tryEndpoints = [
+      '/api/prodstatus',
+      '/api/production/status',
+      '/api/lines/status'
+    ];
+    for (const url of tryEndpoints){
+      try{
+        const r = await fetch(url, {cache:'no-store'});
+        if (r.ok){
+          const data = await r.json();
+          // Normalize a few common shapes into {machine, status, level}
+          const norm = [];
+          for (const row of (Array.isArray(data)?data:(data?.lines||[]))){
+            const machine = row.machine || row.line || row.name || '';
+            const status  = (row.status || row.state || row.text || '').toString();
+            // map status → level used for coloring
+            const s = status.toLowerCase();
+            const level = s.includes('avail')||s.includes('run')?'good'
+                        : s.includes('setup')||s.includes('change')?'warn'
+                        : 'bad';
+            if (machine) norm.push({machine, status, level});
+          }
+          if (norm.length) return norm;
+        }
+      }catch{}
+    }
+    // Fallback: caller will pass perLine so we can derive from Availability
+    return null;
+  }
+
+  // Derive status when endpoint not available
+  function deriveStatusFrom(perLine){
+    return perLine.map(r=>{
+      let status = 'Down';
+      let level = 'bad';
+      if (Number.isFinite(r.avail)){
+        if (r.avail >= 0.75){ status = 'Available'; level='good'; }
+        else if (r.avail >= 0.05){ status='Setup'; level='warn'; }
+        else { status='Down'; level='bad'; }
+      }
+      return {machine: r.machine, status, level};
+    });
+  }
+
+  // ====== CORE RENDERER ======
   async function renderForRange(fromISO, toISO, label){
     setLoading(true);
     try{
@@ -369,20 +421,20 @@
 
       const byline = (bylineRaw || []).filter(r => r.machine && r.machine.startsWith('Extruder'));
 
-      // consolidate to machine-days
+      // calendar (weekdays only by default)
       const planDays = [];
       {
         const from = new Date(fromISO+'T00:00:00');
         const to   = new Date(toISO+'T00:00:00');
         for (let d=new Date(from); d<=to; d.setDate(d.getDate()+1)) {
+          const wd = d.getDay(); // 0=Sun 6=Sat
           const iso = new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10);
-          // weekdays only (4k TV dashboard—noise reduction). Change if you want weekends.
-          const wd = d.getDay();
           if (wd !== 0 && wd !== 6) planDays.push(iso);
         }
       }
       const planDaysCount = planDays.length;
 
+      // consolidate to machine-days
       const dayMap = new Map(); // key: `${machine}__${YYYY-MM-DD}`
       for (const row of byline){
         const machine = row.machine;
@@ -405,11 +457,7 @@
         d.maint_h = Math.max(d.maint_h, md);
         d.run_h   = Math.max(d.run_h,   runH);
 
-        if (capRow > 0) {
-          d.sumCapRun += capRow * runH;
-          d.sumRunH   += runH;
-          d.cap_candidates.push(capRow);
-        }
+        if (capRow > 0) { d.sumCapRun += capRow * runH; d.sumRunH += runH; d.cap_candidates.push(capRow); }
         const matKey = String(row.material || '').trim().toUpperCase() || 'DEFAULT';
         d.mats[matKey] = (d.mats[matKey] || 0) + lbs;
       }
@@ -469,12 +517,12 @@
         const qual         = QUALITY_DEFAULT;
         const oee          = (Number.isFinite(availability) && Number.isFinite(perfAdj)) ? (availability * perfAdj * qual) : NaN;
 
-        const capAvg = (A.rawDen24 > 0 && days>0) ? (A.rawDen24 / (HOURS_PER_WEEKDAY * days)) : NaN;
+        const capAvg   = (A.rawDen24 > 0 && days>0) ? (A.rawDen24 / (HOURS_PER_WEEKDAY * days)) : NaN;
         const plannedH = HOURS_PER_WEEKDAY * planDaysCount;
         const idleDays = Math.max(0, planDaysCount - days);
-        const prodH = A.prod + HOURS_PER_WEEKDAY * idleDays;
+        const prodH    = A.prod + HOURS_PER_WEEKDAY * idleDays;
         const moP_idle = (Number.isFinite(capAvg) ? capAvg : 0) * HOURS_PER_WEEKDAY * idleDays;
-        const moP = (A.moP || 0) + moP_idle;
+        const moP      = (A.moP || 0) + moP_idle;
         const underLb  = Math.max(0, A.runCapDen - A.lbs);
         const capPot   = (Number.isFinite(capAvg) ? capAvg : 0) * HOURS_PER_WEEKDAY * planDaysCount;
 
@@ -503,82 +551,54 @@
       const totalPlannedH = totals.plannedH;
       const totalCapPot   = perLine.reduce((s, r) => s + (r.capPot || 0), 0);
       const ovAvail   = totals.nAvail>0 ? (totals.sumAvail / totals.nAvail) : 0;
-      const ovPerfRaw = totals.nPR>0    ? (totals.sumPR    / totals.nPR)    : 0;
       const ovPerfAdj = totals.nPA>0    ? (totals.sumPA    / totals.nPA)    : 0;
       const ovOEE     = ovAvail * ovPerfAdj * QUALITY_DEFAULT;
-      const ovMdtPct = totalPlannedH > 0 ? (totals.maint / totalPlannedH) : 0;
-      const ovPdtPct = totalPlannedH > 0 ? (totals.prod  / totalPlannedH) : 0;
-      const ovMoM = perLine.reduce((s, r) => s + (r.moM || 0), 0);
-      const ovMoP = perLine.reduce((s, r) => s + (r.moP || 0), 0);
+      const ovMdtPct  = totalPlannedH > 0 ? (totals.maint / totalPlannedH) : 0;
+      const ovPdtPct  = totalPlannedH > 0 ? (totals.prod  / totalPlannedH) : 0;
+      const ovMoM     = perLine.reduce((s, r) => s + (r.moM || 0), 0);
+      const ovMoP     = perLine.reduce((s, r) => s + (r.moP || 0), 0);
       const ovMoM_pct = (totalCapPot > 0) ? (ovMoM / totalCapPot) : NaN;
       const ovMoP_pct = (totalCapPot > 0) ? (ovMoP / totalCapPot) : NaN;
-      const ovUnderGap = Math.max(0, totals.runCapDen - totals.lbs);
 
-      // ====== Render KPI strip ======
+      // ====== KPI strip ======
       const kpis = [
-        {id:'oee',     label:'OEE',              val:fmtPct(ovOEE, totals.nAvail>0 && totals.nPA>0), cls:grade(ovOEE, THRESH.oee),                  show:true},
-        {id:'avail',   label:'Availability',     val:fmtPct(ovAvail, totals.nAvail>0),                   cls:grade(ovAvail, THRESH.availability), show:true},
-        {id:'perf',    label:'Perf (Adj)',       val:fmtPct(ovPerfAdj, totals.nPA>0),                    cls:grade(ovPerfAdj, THRESH.capacityAdj), show:true},
-        {id:'qual',    label:'Quality*',         val:Math.round(QUALITY_DEFAULT*100)+'%',                cls:grade(QUALITY_DEFAULT, THRESH.quality), show:true},
-        //{id:'runh',    label:'Run Hours',        val:fmtFixed(totals.mach,1,true),                       cls:'', show:true},
-        {id:'cap',     label:'Capacity Potential (lb)', val:fmtInt(totalCapPot,true),                    cls:'', show:true},
-        {id:'lbs',     label:'Pounds',           val:fmtInt(totals.lbs,true),                            cls:'', show:true},
-        //{id:'under',   label:'Under-Perf (lb)',  val:fmtInt(ovUnderGap,true),                            cls:'', show:true},
-        //{id:'mdt',     label:'Maint DT (h)',     val:fmtFixed(totals.maint,1,true),                      cls:'', show:true},
-        //{id:'mdtPct',  label:'Maint DT (%)',     val:fmtPct(ovMdtPct,true),                              cls:(ovMdtPct<=0.10?'good':ovMdtPct<=0.20?'warn':'bad'), show:true},
-        //{id:'pdt',     label:'Prod DT (h)',      val:fmtFixed(totals.prod,1,true),                       cls:'', show:true},
-        //{id:'pdtPct',  label:'Prod DT (%)',      val:fmtPct(ovPdtPct,true),                              cls:(ovPdtPct<=0.10?'good':ovPdtPct<=0.20?'warn':'bad'), show:true},
-        //{id:'moMlb',   label:'Missed Opp (Maint, lb)', val:fmtInt(ovMoM,true),                           cls:(ovMoM_pct<=0.10?'good':ovMoM_pct<=0.20?'warn':'bad'), show:true},
-        //{id:'moMpc',   label:'Missed Opp (Maint, %)',  val:fmtPct(ovMoM_pct, Number.isFinite(ovMoM_pct)),cls:(ovMoM_pct<=0.10?'good':ovMoM_pct<=0.20?'warn':'bad'), show:true},
-        //{id:'moPlb',   label:'Missed Opp (Prod, lb)',  val:fmtInt(ovMoP,true),                           cls:(ovMoP_pct<=0.10?'good':ovMoP_pct<=0.20?'warn':'bad'), show:true},
-        //{id:'moPpc',   label:'Missed Opp (Prod, %)',   val:fmtPct(ovMoP_pct, Number.isFinite(ovMoP_pct)),cls:(ovMoP_pct<=0.10?'good':ovMoP_pct<=0.20?'warn':'bad'), show:true},
+        {id:'oee',   label:'OEE',        val:fmtPct(ovOEE, totals.nAvail>0 && totals.nPA>0), cls:grade(ovOEE, THRESH.oee),                  show:true},
+        {id:'avail', label:'Availability',val:fmtPct(ovAvail, totals.nAvail>0),              cls:grade(ovAvail, THRESH.availability), show:true},
+        {id:'perf',  label:'Perf (Adj)',  val:fmtPct(ovPerfAdj, totals.nPA>0),               cls:grade(ovPerfAdj, THRESH.capacityAdj), show:true},
+        {id:'qual',  label:'Quality*',    val:Math.round(QUALITY_DEFAULT*100)+'%',           cls:grade(QUALITY_DEFAULT, THRESH.quality), show:true},
+        {id:'cap',   label:'Capacity Potential (lb)', val:fmtInt(totalCapPot,true),          cls:'', show:true},
+        {id:'lbs',   label:'Pounds',      val:fmtInt(totals.lbs,true),                       cls:'', show:true},
       ];
-      const kpiStrip = document.getElementById('kpiStrip');
-      kpiStrip.innerHTML = kpis.filter(k=>k.show).map(k=>`
+      document.getElementById('kpiStrip').innerHTML = kpis.filter(k=>k.show).map(k=>`
         <div class="kpi ${k.cls}">
           <div class="label">${k.label}</div>
           <div class="value">${k.val}</div>
         </div>`).join('');
 
-      // ====== Donuts (top-left) ======
-      const maintParts = [
-        {name:'Maint DT', value: ovMdtPct || 0, color: cssVar('--bad-fg') || '#7f1d1d'},
-        {name:'Other Time', value: Math.max(0, 1-(ovMdtPct||0)), color: '#d1d5db'}
-      ];
+      // ====== Donuts ======
+      const maintParts = [{name:'Maint DT', value: ovMdtPct || 0, color: cssVar('--bad-fg') || '#7f1d1d'}];
       drawDonut(document.getElementById('donutMaint'), maintParts);
       document.getElementById('legendMaint').innerHTML =
-        `<div class="row"><span class="dot" style="background:${maintParts[0].color}"></span><div class="name">Maint DT</div><div class="val">${fmtPct(ovMdtPct,true)}</div></div>
-         `; //<div class="row"><span class="dot" style="background:${maintParts[1].color}"></span><div class="name">Other Time</div><div class="val">${fmtPct(Math.max(0,1-(ovMdtPct||0)),true)}</div></div>
-      const prodParts = [
-        {name:'Prod DT', value: ovPdtPct || 0, color: cssVar('--warn-fg') || '#7c5e10'},
-        {name:'Other Time', value: Math.max(0, 1-(ovPdtPct||0)), color: '#d1d5db'}
-      ];
+        `<div class="row"><span class="dot" style="background:${maintParts[0].color}"></span><div class="name">Maint DT</div><div class="val">${fmtPct(ovMdtPct,true)}</div></div>`;
+      const prodParts = [{name:'Prod DT', value: ovPdtPct || 0, color: cssVar('--warn-fg') || '#7c5e10'}];
       drawDonut(document.getElementById('donutProd'), prodParts);
       document.getElementById('legendProd').innerHTML =
-        `<div class="row"><span class="dot" style="background:${prodParts[0].color}"></span><div class="name">Prod DT</div><div class="val">${fmtPct(ovPdtPct,true)}</div></div>
-         `; //<div class="row"><span class="dot" style="background:${prodParts[1].color}"></span><div class="name">Other Time</div><div class="val">${fmtPct(Math.max(0,1-(ovPdtPct||0)),true)}</div></div>
+        `<div class="row"><span class="dot" style="background:${prodParts[0].color}"></span><div class="name">Prod DT</div><div class="val">${fmtPct(ovPdtPct,true)}</div></div>`;
 
       // ====== Line Health tiles ======
       const linesGrid = document.getElementById('linesGrid');
       linesGrid.innerHTML = '';
       perLine.forEach(r=>{
         const oeeCls  = (r.oeeV && Number.isFinite(r.oee)) ? grade(r.oee, THRESH.oee) : '';
-        const availCls= (r.availV && Number.isFinite(r.avail)) ? grade(r.avail, THRESH.availability) : '';
-        const paCls   = (r.paV && Number.isFinite(r.perfAdj)) ? grade(r.perfAdj, THRESH.capacityAdj) : '';
-        //const rawForGauge = (r.prV && Number.isFinite(r.perfRaw)) ? Math.min(1, Math.max(0, r.perfRaw)) : r.perfRaw;
-        //const adjForGauge = (r.paV && Number.isFinite(r.perfAdj)) ? Math.min(1, Math.max(0, r.perfAdj)) : r.perfAdj;
-        //Include the following to have gauges below before Maint DT
-        //<div style="display:flex;gap:12px;margin-top:8px;align-items:flex-end">
-              //<div class="${(r.prV && Number.isFinite(r.perfRaw))?'badge '+grade(r.perfRaw, THRESH.capacityAdj):'badge'}" style="flex:1">${gaugeSVG(rawForGauge,'Raw 24h', '', r.prV)}</div>
-              //<div class="${(r.paV && Number.isFinite(r.perfAdj))?'badge '+paCls:'badge'}" style="flex:1">${gaugeSVG(adjForGauge,'Adj for DT', '', r.paV)}</div>
-            //</div>
         const html = `
           <div class="line">
             <div class="lineheader">
               <div class="linename">${r.machine}</div>
-              <div class="badge ${oeeCls}">OEE ${fmtPct(r.oee, r.oeeV)}</div>
+              <div class="badge ${oeeCls} oee-badge">OEE ${fmtPct(r.oee, r.oeeV)}</div>
             </div>
-            <div style="margin-top:6px;color:#64748b;font-weight:800">Nameplate ${Number.isFinite(r.capAvg)?Math.round(r.capAvg).toLocaleString():'--'} lb/hr${r.domMat?` (${r.domMat})`:''}</div>
+            <div style="margin-top:6px;color:#64748b;font-weight:800">
+              Nameplate ${Number.isFinite(r.capAvg)?Math.round(r.capAvg).toLocaleString():'--'} lb/hr${r.domMat?` (${r.domMat})`:''}
+            </div>
             <div class="metricrow">
               <div class="mitem"><div class="label">Avail</div><div class="mkv">${fmtPct(r.avail, r.availV)}</div></div>
               <div class="mitem"><div class="label">Perf-Adj</div><div class="mkv">${fmtPct(r.perfAdj, r.paV)}</div></div>
@@ -593,17 +613,26 @@
         const el = document.createElement('div'); el.innerHTML = html; linesGrid.appendChild(el.firstElementChild);
       });
 
-      // ====== Production Line Status (simple) ======
-      const status = document.getElementById('prodStatusList');
-      status.innerHTML = perLine.map(r=>{
-        const cls = (r.oeeV && Number.isFinite(r.oee)) ? grade(r.oee, THRESH.oee) : '';
-        return `<div class="chip"><span class="dot ${cls==='good'?'st-available':cls==='warn'?'st-setup':'st-downp'}"></span>${r.machine}</div>`;
-      }).join('');
+      // ====== Production Line Status (like prodstatus.html) ======
+      let liveStatus = await loadProdStatus();
+      if (!liveStatus) liveStatus = deriveStatusFrom(perLine);
+
+      const statusEl = document.getElementById('prodStatusList');
+      statusEl.innerHTML = liveStatus
+        .sort((a,b)=>a.machine.localeCompare(b.machine))
+        .map(s => {
+          const cls = s.level==='good'?'good':s.level==='warn'?'warn':'bad';
+          // Render as: Extruder # – Available
+          const text = `${s.machine} – ${s.status}`;
+          return `<div class="ps-item ${cls}">
+                    <span class="dot" style="background:currentColor;width:12px;height:12px;border-radius:50%"></span>
+                    <span class="name">${text}</span>
+                  </div>`;
+        }).join('');
 
       // ====== Rank table ======
       const tbody = document.querySelector('#rankTable tbody');
       const ranked = perLine.slice().sort((a,b)=>{
-        // primary: lower missed total first? The header says "by OEE & Missed Opportunity" — show strongest OEE first, tie-break by missed opp ascending
         const moA = (a.moM||0)+(a.moP||0);
         const moB = (b.moM||0)+(b.moP||0);
         if (Number.isFinite(b.oee) && Number.isFinite(a.oee) && b.oee!==a.oee) return b.oee - a.oee;
@@ -619,7 +648,6 @@
         </tr>`;
       }).join('');
 
-      // updated stamp
       document.getElementById('updated').textContent = new Date().toLocaleString();
 
     } finally {
@@ -633,35 +661,28 @@
     if (refreshTimer) clearTimeout(refreshTimer);
     refreshTimer = setTimeout(async ()=>{ await run(); scheduleAutoRefresh(run); }, REFRESH_MS);
   }
-
   function currentPeriod(){
     const btn = document.querySelector('#tfButtons button.active');
     return btn?.dataset.period || 'last30';
   }
-
   async function runForActivePeriod(){
     const sel = currentPeriod();
     const r = computeRange(sel);
     await renderForRange(r.from, r.to, r.label);
   }
-
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden) {
       const age = Date.now() - lastRenderAt;
       if (age > REFRESH_MS * 0.9) runForActivePeriod();
     }
   });
-
   document.addEventListener('DOMContentLoaded', async () => {
-    // Fullscreen hint
     document.addEventListener('keydown', (e)=>{
       if (e.key.toLowerCase()==='f') {
         if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(()=>{});
         else document.exitFullscreen().catch(()=>{});
       }
     });
-
-    // timeframe buttons
     document.querySelectorAll('#tfButtons button').forEach(b=>{
       b.addEventListener('click', async ()=>{
         document.querySelectorAll('#tfButtons button').forEach(x=>x.classList.remove('active'));
@@ -669,8 +690,6 @@
         await runForActivePeriod();
       });
     });
-
-    // live clock
     function tickClock(){
       const el = document.getElementById('clock');
       if (el) el.textContent = new Date().toLocaleString();
