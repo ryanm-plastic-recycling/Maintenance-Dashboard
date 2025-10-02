@@ -323,6 +323,12 @@
   }
 
   // ====== SMALL HELPERS ======
+  function lowClassFromPct(p){
+  if (!Number.isFinite(p)) return '';
+  // good <= 10%, warn <= 20%, else bad (tune if you like)
+  return (p <= 0.10) ? 'good' : (p <= 0.20) ? 'warn' : 'bad';
+}
+
   function cssVar(name) {
     return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || name;
   }
