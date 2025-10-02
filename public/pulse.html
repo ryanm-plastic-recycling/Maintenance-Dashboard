@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>PRI Pulse</title>
+  <title>PRI Pulse (Accessible)</title>
   <style>
     :root{
       --pri-blue:#25408F; --pri-green:#92D050;
@@ -15,13 +15,14 @@
       --chip:#f7fafc;
 
       /* sizing */
-      --tile-head-fs: 26px;
-      --rank-fs: 18px;
-      --status-fs: 18px;
+      --tile-head-fs: 30px;    /* ⬆ from 26px */
+      --rank-fs: 20px;         /* ⬆ from 18px */
+      --status-fs: 20px;       /* ⬆ from 18px */
     }
     *{box-sizing:border-box}
 
-    body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial,sans-serif}
+    /* ====== Global readability boost ====== */
+    body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial,sans-serif;font-weight:800;font-size:18px}
     .page-production::before{
       content:"";position:fixed;inset:0;z-index:-1;
       background:
@@ -31,9 +32,9 @@
 
     .top-border{position:fixed;top:0;left:0;width:100%;height:96px;background:var(--pri-green);z-index:10;display:flex;align-items:center;padding:0 20px}
     .top-border .logo{height:72px}
-    .top-title{font-size:36px;font-weight:900;margin-left:20px;color:#0A2A12}
+    .top-title{font-size:38px;font-weight:900;margin-left:20px;color:#0A2A12}
     .tabs{margin-left:auto;display:flex;gap:8px;align-items:center}
-    .tab{background:#ffffffd9;padding:8px 12px;border-radius:10px;text-decoration:none;color:#0A2A12;font-weight:700}
+    .tab{background:#ffffffd9;padding:8px 12px;border-radius:10px;text-decoration:none;color:#0A2A12;font-weight:800}
     .tab.active{background:#fff}
     .wrap{margin:120px 20px 40px 20px}
 
@@ -45,20 +46,23 @@
     .toolbar{display:flex;justify-content:space-between;align-items:center;margin:10px 0 16px;gap:10px;flex-wrap:wrap}
     .left,.right{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
     .segBig{display:inline-flex;border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--card);box-shadow:var(--shadow)}
-    .segBig button{border:0;background:transparent;padding:8px 12px;font-weight:700;color:var(--muted);cursor:pointer}
+    .segBig button{border:0;background:transparent;padding:10px 14px;font-weight:900;color:var(--muted);cursor:pointer;font-size:18px}
     .segBig button.active{background:var(--pri-blue);color:white}
-    .pill{padding:6px 10px;border-radius:999px;background:white;border:1px solid var(--border);color:var(--muted);font-weight:700}
+    .pill{padding:8px 12px;border-radius:999px;background:white;border:1px solid var(--border);color:var(--muted);font-weight:900;font-size:16px}
 
+    /* ====== KPI Strip ====== */
     .kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:12px}
-    .kpi{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:14px 16px;box-shadow:var(--shadow);min-height:90px}
-    .kpi .label{font-size:16px;color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:.6px}
-    .kpi .value{font-size:32px;font-weight:900;margin-top:6px}
+    .kpi{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px 18px;box-shadow:var(--shadow);min-height:100px}
+    .kpi .label{font-size:20px;color:var(--muted);font-weight:900;text-transform:uppercase;letter-spacing:.6px}
+    .kpi .value{font-size:40px;font-weight:900;margin-top:8px}
     .kpi.good{background:var(--good-bg);color:var(--good-fg);border-color:#bbf7d0}
     .kpi.warn{background:var(--warn-bg);color:var(--warn-fg);border-color:#fde68a}
-    .kpi.bad{ background:var(--bad-bg); color:var(--bad-fg); border-color:#fecaca}
+    /* Red tile contrast fix */
+    .kpi.bad{ background: var(--bad-bg); color:#fff; border-color:#fecaca }
+    .kpi.bad .label, .kpi.bad .value{ color:#fff !important }
 
     .statusbar{display:flex;gap:10px;overflow:auto;padding:8px 2px;margin-bottom:14px}
-    .chip{display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--border);border-radius:999px;background:var(--chip);white-space:nowrap}
+    .chip{display:flex;align-items:center;gap:8px;padding:10px 12px;border:1px solid var(--border);border-radius:999px;background:var(--chip);white-space:nowrap;font-weight:900}
     .dot{width:12px;height:12px;border-radius:50%}
     .st-available{background:#16a34a}
     .st-setup{background:#f59e0b}
@@ -67,62 +71,57 @@
 
     .grid{display:grid;grid-template-columns:420px 1fr;gap:16px;align-items:stretch}
     .card{background:var(--card);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow)}
-    .card h3{margin:0;padding:12px 14px;border-bottom:1px solid var(--border);font-size:var(--tile-head-fs);letter-spacing:.3px;color:var(--muted)}
-    .card .content{padding:14px}
+    .card h3{margin:0;padding:12px 14px;border-bottom:1px solid var(--border);font-size:var(--tile-head-fs);letter-spacing:.3px;color:var(--muted);font-weight:900}
+    .card .content{padding:16px}
 
     .donutwrap{display:grid;grid-template-columns:1fr;gap:12px}
     .donutrow{display:grid;grid-template-columns:160px 1fr;gap:12px;align-items:center}
-    .legend{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+    .legend{display:grid;grid-template-columns:1fr 1fr;gap:8px;font-weight:900}
     .legend .row{display:flex;align-items:center;gap:8px}
     .legend .dot{width:12px;height:12px;border-radius:50%}
-    .legend .name{max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .legend .name{max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
     .lines{display:grid;grid-template-columns:repeat(auto-fit,minmax(520px,1fr));gap:12px}
-    .line{border:1px solid var(--border);border-radius:14px;padding:12px;background:white;display:flex;flex-direction:column}
+    .line{border:1px solid var(--border);border-radius:14px;padding:14px;background:white;display:flex;flex-direction:column}
     .lineheader{display:flex;justify-content:space-between;align-items:center}
-    .linename{font-weight:900}
-    .badge{font-size:24px;font-weight:900;padding:4px 8px;border-radius:999px}
+    .linename{font-weight:900;font-size:20px}
+    .badge{font-size:26px;font-weight:900;padding:6px 10px;border-radius:999px}
     .badge.good{background:var(--good-bg);color:var(--good-fg);border:1px solid #bbf7d0}
     .badge.warn{background:var(--warn-bg);color:var(--warn-fg);border:1px solid #fde68a}
-    .badge.bad{ background:var(--bad-bg); color:var(--bad-fg); border:1px solid #fecaca}
-    .oee-badge{font-size:var(--tile-head-fs); line-height:1; padding:6px 10px}
+    /* Red badge contrast fix */
+    .badge.bad{ background:var(--bad-bg); color:#fff; border:1px solid #fecaca }
+    .oee-badge{font-size:var(--tile-head-fs); line-height:1; padding:8px 12px}
 
-    .metricrow{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:8px}
-    .mitem{background:#f7fafc;border:1px solid var(--border);border-radius:10px;padding:8px;min-width:0}
-    .mitem .mkv{font-size:28px;font-weight:900}
+    .metricrow{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:8px}
+    .mitem{background:#f7fafc;border:1px solid var(--border);border-radius:10px;padding:10px;min-width:0}
+    .mitem .label{font-weight:900;color:var(--muted)}
+    .mitem .mkv{font-size:30px;font-weight:900}
     .spark{width:100%;height:40px;margin-top:6px}
 
     #rankTable {font-size: var(--rank-fs);}
-    #rankTable th, #rankTable td {padding:12px}
-    
-    /* Rank table alignment + totals styling */
+    #rankTable th, #rankTable td {padding:14px}
     #rankTable { table-layout: fixed; width: 100%; }
     #rankTable th { text-align: center; }
     #rankTable td.left { text-align: left; }
     #rankTable td.pct  { text-align: center; font-variant-numeric: tabular-nums; }
     #rankTable td.num  { text-align: right;  font-variant-numeric: tabular-nums; }
-    
-    #rankTable tfoot td {
-      font-weight: 900;
-      border-top: 2px solid var(--border);
-      background: #fafbff;
-    }
+    #rankTable tfoot td { font-weight: 900; border-top: 2px solid var(--border); background: #fafbff; }
 
     /* Production Line Status table */
-    #status-table { width:100%; border-collapse:collapse; font-size:var(--status-fs) }
-    #status-table th, #status-table td { padding:12px; border-bottom:1px dashed var(--border) }
+    #status-table { width:100%; border-collapse:collapse; font-size:var(--status-fs); font-weight:800 }
+    #status-table th, #status-table td { padding:14px; border-bottom:1px dashed var(--border) }
     #status-table thead th { background:#25408F; color:#fff; text-align:left }
 
-    footer{display:flex;justify-content:space-between;align-items:center;margin-top:12px;color:var(--muted)}
+    footer{display:flex;justify-content:space-between;align-items:center;margin-top:12px;color:var(--muted);font-weight:900}
     .clock{font-variant-numeric:tabular-nums;font-weight:900}
 
     @media (min-width:2560px){
       .app{max-width:2560px}
       .kpi .value{font-size:46px}
-      .kpi .label, .badge{font-size:18px}
+      .kpi .label, .badge{font-size:20px}
       .lines{gap:18px}
       .line{padding:16px}
-      #rankTable {font-size: 20px;}
+      #rankTable {font-size: 22px;}
     }
   </style>
 </head>
@@ -132,7 +131,7 @@
 
   <div class="top-border">
     <img src="img/pri-logo.png" alt="PRI Logo" class="logo" />
-    <div class="top-title">PRI Pulse <span id="periodLabel" style="font-size:16px;font-weight:800;margin-left:8px;color:#0A2A12"></span></div>
+    <div class="top-title">PRI Pulse <span id="periodLabel" style="font-size:18px;font-weight:900;margin-left:8px;color:#0A2A12"></span></div>
     <div class="tabs">
       <a class="tab" href="index.html">Work Orders</a>
       <a class="tab" href="pm.html">PM</a>
