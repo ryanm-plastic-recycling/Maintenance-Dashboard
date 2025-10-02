@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>PACE – Production Analysis & Capacity Explorer</title>
+  <title>PACE – Production Analysis & Capacity Explorer (Accessible)</title>
   <style>
     :root{
       --pri-blue:#25408F; --pri-green:#92D050;
@@ -15,105 +15,62 @@
       --bad-bg:#fee2e2;   --bad-fg:#7f1d1d;
     }
     /* Production page background (softened for readability) */
-    .page-production {
-      position: relative;
-      background-color: var(--bg);
-    }
+    .page-production { position: relative; background-color: var(--bg); }
     .page-production::before {
-      content: "";
-      position: fixed;
-      inset: 0;
-      z-index: -1;
-      background:
-        linear-gradient(to bottom, rgba(255,255,255,.75), rgba(255,255,255,.85)),
-        url('img/PRIfront.png') center / cover no-repeat fixed;
+      content: ""; position: fixed; inset: 0; z-index: -1;
+      background: linear-gradient(to bottom, rgba(255,255,255,.75), rgba(255,255,255,.85)), url('img/PRIfront.png') center / cover no-repeat fixed;
     }
 
     *{box-sizing:border-box}
-    body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,Segoe UI,Arial,sans-serif}
+    /* ==== Accessibility bump: bigger + bolder base font ==== */
+    body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,Segoe UI,Arial,sans-serif;font-weight:800;font-size:18px}
 
     .top-border{position:fixed;top:0;left:0;width:100%;height:96px;background:var(--pri-green);z-index:10;display:flex;align-items:center;padding:0 20px}
     .top-border .logo{height:72px}
-    .top-title{font-size:28px;font-weight:900;margin-left:20px;color:#0A2A12}
+    .top-title{font-size:32px;font-weight:900;margin-left:20px;color:#0A2A12}
     .tabs{margin-left:auto;display:flex;gap:8px}
-    .tab{background:#ffffffd9;padding:8px 12px;border-radius:10px;text-decoration:none;color:#0A2A12;font-weight:700}
+    .tab{background:#ffffffd9;padding:8px 12px;border-radius:10px;text-decoration:none;color:#0A2A12;font-weight:800}
     .tab.active{background:#fff}
 
     .wrap{margin:120px 20px 40px 20px}
     .controls{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin:0 0 16px}
-    .meta-range{color:var(--muted);font-size:13px}
-    .select{appearance:none;border:1px solid var(--border);background:#fff;border-radius:10px;padding:8px 12px;font-weight:600}
+    .meta-range{color:var(--muted);font-size:15px;font-weight:800}
+    .select{appearance:none;border:1px solid var(--border);background:#fff;border-radius:10px;padding:10px 14px;font-weight:800}
     .divider{height:24px;width:1px;background:var(--border)}
     
     /* ---- loading overlay ---- */
-    #loading {
-      position: fixed;
-      inset: 0;
-      display: none;                 /* toggled by JS */
-      align-items: center;
-      justify-content: center;
-      background: rgba(255,255,255,.55);
-      z-index: 9999;
-    }
-    #loading .spinner {
-      width: 64px; height: 64px;
-      border: 8px solid #e5e7eb;
-      border-top-color: var(--pri-blue);
-      border-radius: 50%;
-      animation: spin 1s linear infinite;
-    }
+    #loading { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(255,255,255,.55); z-index: 9999; }
+    #loading .spinner { width: 64px; height: 64px; border: 8px solid #e5e7eb; border-top-color: var(--pri-blue); border-radius: 50%; animation: spin 1s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-top:6px}
+    /* ==== KPI tiles (bigger & bold) ==== */
+    .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-top:6px}
     .tile{background:var(--card);padding:14px;border-radius:12px;box-shadow:0 2px 4px rgba(0,0,0,.08);border:1px solid var(--border);text-align:center;min-height:84px}
-    .tile .lab{font-size:12px;color:#000;text-transform:uppercase;letter-spacing:.3px}
-    .tile .val{font-size:22px;font-weight:900;margin-top:6px}
+    .tile .lab{font-size:16px;color:#000;text-transform:uppercase;letter-spacing:.3px;font-weight:900}
+    .tile .val{font-size:32px;font-weight:900;margin-top:6px}
     .tile.good { background: var(--good-bg); color: var(--good-fg); }
     .tile.warn { background: var(--warn-bg); color: var(--warn-fg); }
-    .tile.bad  { background: var(--bad-bg);  color: var(--bad-fg);  }
+    /* Red tile contrast fix */
+    .tile.bad  { background: var(--bad-bg);  color: #fff; }
+    .tile.bad .lab, .tile.bad .val, .tile.bad .tiny { color:#fff !important; }
 
-    /* tiny info bubble + tooltip (local copy for production.html) */
-    .info{
-      display:inline-flex;align-items:center;justify-content:center;
-      width:16px;height:16px;margin-left:6px;border-radius:50%;
-      font-size:11px;line-height:1;cursor:pointer;user-select:none;
-      background:#25408F;color:#fff;font-weight:700;
-    }
+    /* tiny info bubble + tooltip */
+    .info{ display:inline-flex;align-items:center;justify-content:center; width:16px;height:16px;margin-left:6px;border-radius:50%; font-size:11px;line-height:1;cursor:pointer;user-select:none; background:#25408F;color:#fff;font-weight:700; }
     .tooltip{position:relative;display:inline-block;vertical-align:middle}
-    .tooltip .tooltip-panel{
-      position:absolute;z-index:10000;
-      bottom: calc(100% + 8px);   /* ⬅️ open UP */
-      top: auto;                  /* ⬅️ override */
-      left:50%;transform:translate(-50%,4px);
-      min-width:220px;max-width:340px;padding:10px 12px;border-radius:8px;
-      box-shadow:0 6px 18px rgba(0,0,0,.15);background:#111;color:#fff;
-      font-size:.9rem;line-height:1.3;opacity:0;pointer-events:none;transition:.15s ease;
-    }
-    .tooltip:hover .tooltip-panel,
-    .tooltip:focus-within .tooltip-panel,
-    .tooltip .tooltip-panel.show{opacity:1;pointer-events:auto;transform:translate(-50%,-2px)}
-    /* .tooltip .tooltip-panel b{color:#fff} */
-    .tooltip .tooltip-panel::after{
-      content:"";position:absolute;
-      top:100%; left:50%; margin-left:-6px;   /* arrow points DOWN from panel */
-      border-width:6px;border-style:solid;
-      border-color:#111 transparent transparent transparent;
-    }
+    .tooltip .tooltip-panel{ position:absolute;z-index:10000; bottom: calc(100% + 8px); top: auto; left:50%;transform:translate(-50%,4px); min-width:220px;max-width:340px;padding:10px 12px;border-radius:8px; box-shadow:0 6px 18px rgba(0,0,0,.15);background:#111;color:#fff; font-size:1rem;line-height:1.35;opacity:0;pointer-events:none;transition:.15s ease; }
+    .tooltip:hover .tooltip-panel, .tooltip:focus-within .tooltip-panel, .tooltip .tooltip-panel.show{opacity:1;pointer-events:auto;transform:translate(-50%,-2px)}
+    .tooltip .tooltip-panel::after{ content:"";position:absolute; top:100%; left:50%; margin-left:-6px; border-width:6px;border-style:solid; border-color:#111 transparent transparent transparent; }
     
-    .kpis-rowA .tile.big { min-height: 104px; }
-    .kpis-rowA .tile.big .val { font-size: 28px; }
-    .tiny { font-size: 11px; color: var(--muted); margin-top: 6px; font-weight: 700; }
-    .op{
-      background:#e9e9e9 ;border:1px solid var(--border);
-      border-radius:12px;display:flex;align-items:center;justify-content:center;
-      font-weight:900;font-size:40px;min-height:104px
-    }
+    .kpis-rowA .tile.big { min-height: 112px; }
+    .kpis-rowA .tile.big .val { font-size: 40px; }
+    .tiny { font-size: 12px; color: var(--muted); margin-top: 6px; font-weight: 900; }
+    .op{ background:#e9e9e9 ;border:1px solid var(--border); border-radius:12px;display:flex;align-items:center;justify-content:center; font-weight:900;font-size:40px;min-height:104px }
 
     .section-gap{margin-top:28px}
 
     .card{background:var(--card);border-radius:12px;border:1px solid var(--border);box-shadow:0 2px 6px rgba(0,0,0,.08);padding:12px}
-    .card h3{margin:0 0 8px;font-size:18px;color:var(--pri-blue);display:flex;gap:8px;align-items:center}
-    .card .sub{font-size:12px;color:var(--muted);font-weight:600}
+    .card h3{margin:0 0 8px;font-size:20px;color:var(--pri-blue);display:flex;gap:8px;align-items:center}
+    .card .sub{font-size:14px;color:var(--muted);font-weight:800}
 
     .line-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px}
     .lt-card{background:#fff;border:1px solid var(--border);border-radius:12px;padding:12px;display:grid;grid-template-columns:1fr 140px;gap:10px;border-left-width:6px}
@@ -123,44 +80,50 @@
     .lt-card.empty { border-left-color:#cbd5e1; }
     .lt-head{display:flex;align-items:baseline;justify-content:space-between}
     .lt-name{font-weight:900}
-    .lt-nameplate{font-size:12px;color:var(--muted)}
+    .lt-nameplate{font-size:14px;color:var(--muted);font-weight:800}
     .lt-badges{display:flex;gap:6px;margin-top:6px}
-    .badge{padding:2px 8px;border-radius:999px;font-size:12px;font-weight:800;border:1px solid #0001}
+    .badge{padding:4px 10px;border-radius:999px;font-size:14px;font-weight:900;border:1px solid #0001}
     .badge.maint{background:#FEE8A6;color:#3B2F0A}
     .badge.prod {background:#DBE6FF;color:#0D246F}
     .lt-metrics{display:grid;grid-template-columns:repeat(2,1fr);gap:6px}
-    .m{background:#f7fafc;border:1px solid var(--border);border-radius:10px;padding:8px;text-align:center}
-    .m .lab{font-size:11px;color:var(--muted)}
-    .m .val{font-weight:900}
+    .m{background:#f7fafc;border:1px solid var(--border);border-radius:10px;padding:10px;text-align:center}
+    .m .lab{font-size:13px;color:var(--muted);font-weight:900}
+    .m .val{font-weight:900;font-size:20px}
     .m.good { background: var(--good-bg); }
     .m.warn { background: var(--warn-bg); }
-    .m.bad  { background: var(--bad-bg);  }
+    .m.bad  { background: var(--bad-bg); color:#fff; }
     .m.empty { background:#f1f5f9; color:#94a3b8; border-color:#e2e8f0; }
 
     .speedo{width:120px;height:78px}
     .gauge .track { stroke: #e5e7eb; }
-    .gauge .pct { font-size: 18px; font-weight: 800; }
-    .gauge .cap{font-size:11px;color:var(--muted);text-align:center;margin-top:-6px}
+    .gauge .pct { font-size: 18px; font-weight: 900; }
+    .gauge .cap{font-size:12px;color:var(--muted);text-align:center;margin-top:-6px;font-weight:900}
     .gauge .band { opacity:.25; stroke-width:10; fill:none }
     .gauge.good { color: var(--good-fg); }
     .gauge.warn { color: var(--warn-fg); }
-    .gauge.bad  { color: var(--bad-fg);  }
-    .gauge.empty{ color: var(--muted);   }
+    .gauge.bad  { color: var(--bad-fg); }
+    .gauge.empty{ color: var(--muted); }
 
-    table{width:100%;border-collapse:collapse;margin-top:6px}
-    th,td{padding:8px;border-bottom:1px solid #E1E9F8;text-align:center}
-    th{background:var(--pri-blue);color:#fff;font-size:13px;position:sticky;top:0}
-    td.line{text-align:left;font-weight:700}
+    /* ==== Tables (bigger) ==== */
+    table{width:100%;border-collapse:collapse;margin-top:6px;font-size:16px}
+    th,td{padding:10px;border-bottom:1px solid #E1E9F8;text-align:center;font-weight:800}
+    th{background:var(--pri-blue);color:#fff;font-size:18px;position:sticky;top:0}
+    td.line{text-align:left;font-weight:900}
+
+    /* Heatmaps: color + white text on red cells */
     #heat td.good, #heatFactors td.good { background: var(--good-bg); }
     #heat td.warn, #heatFactors td.warn { background: var(--warn-bg); }
-    #heat td.bad,  #heatFactors td.bad  { background: var(--bad-bg); }
+    #heat td.bad,  #heatFactors td.bad  { background: var(--bad-bg); color:#fff !important; }
     #heat td.empty, #heatFactors td.empty { background:#f1f5f9 !important; color:#94a3b8 !important; }
+
+    /* Boost heatmap readability further */
+    #heat th, #heat td, #heatFactors th, #heatFactors td { font-size:18px; padding:12px }
 
     .chart-section{margin-top:16px}
     .chart-container{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:10px}
     .chart{background:linear-gradient(180deg,#F7F9FF,#EEF3FF);border:1px solid var(--border);border-radius:10px;padding:6px}
     .chart svg{width:100%;height:260px;display:block}
-    .legend{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-top:8px;font-size:12px;color:#334155}
+    .legend{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-top:8px;font-size:14px;color:#334155;font-weight:900}
     .sw{display:inline-block;width:14px;height:4px;border-radius:2px;margin-right:6px}
     .sw.raw{background:#2563eb}
     .sw.adj{background:var(--warn-fg)}
@@ -171,21 +134,15 @@
   
     /* ensure SVG inherits the container's semantic color */
     .gauge svg { color: inherit; }
-    
-    /* belt-and-suspenders: set color on both the container AND the svg */
     .gauge.good,  .gauge.good  svg  { color: var(--good-fg); }
     .gauge.warn,  .gauge.warn  svg  { color: var(--warn-fg); }
-    .gauge.bad,   .gauge.bad   svg  { color: var(--bad-fg);  }
-    .gauge.empty, .gauge.empty svg  { color: var(--muted);   }
-    .gauge .track { stroke: currentColor; }   /* optional: color the track too */
-    
-    /* Force gauge colors without relying on currentColor inheritance */
+    .gauge.bad,   .gauge.bad   svg  { color: var(--bad-fg); }
+    .gauge.empty, .gauge.empty svg  { color: var(--muted); }
+    .gauge .track { stroke: currentColor; }
     .gauge.good  .band, .gauge.good  .needle { stroke: var(--good-fg) !important; }
     .gauge.warn  .band, .gauge.warn  .needle { stroke: var(--warn-fg) !important; }
     .gauge.bad   .band, .gauge.bad   .needle { stroke: var(--bad-fg)  !important; }
     .gauge.empty .band, .gauge.empty .needle { stroke: var(--muted)   !important; }
-    
-    /* (optional) color the track too; remove if you like it gray */
     .gauge.good  .track { stroke: color-mix(in srgb, var(--good-fg) 30%, #e5e7eb) !important; }
     .gauge.warn  .track { stroke: color-mix(in srgb, var(--warn-fg) 30%, #e5e7eb) !important; }
     .gauge.bad   .track { stroke: color-mix(in srgb, var(--bad-fg)  30%, #e5e7eb) !important; }
@@ -205,7 +162,6 @@
       <a class="tab" href="kpi-by-asset.html">KPIs by Asset</a>
       <a class="tab active" href="#">PACE</a>
       <a class="tab" href="pulse.html">Pulse</a>
-      <a class="tab" href="meeting.html">Meeting</a>
       <a class="tab" href="admin">Admin</a>
       <img src="img/innovation-logo.png" alt="Innovation" style="height:72px;margin-left:8px;object-fit:contain"/>
     </div>
@@ -233,15 +189,11 @@
       <span class="meta-range">Pick date:</span>
       <input id="dayPick" type="date" class="select" />
       <span id="dayPickLabel" class="meta-range"></span>
-            <!-- Include Weekends toggle + note -->
       <span class="divider"></span>
-      <label style="display:flex;align-items:center;gap:6px;font-weight:600">
-        <input type="checkbox" id="wkndToggle">
-        Include Weekends
+      <label style="display:flex;align-items:center;gap:6px;font-weight:800">
+        <input type="checkbox" id="wkndToggle"> Include Weekends
       </label>
-      <span id="weekendNote" class="meta-range" style="display:none">
-        (Note: Maintenance downtime is weekday-only)
-      </span>
+      <span id="weekendNote" class="meta-range" style="display:none">(Note: Maintenance downtime is weekday-only)</span>
     </div>
     
     <div class="controls">
@@ -254,7 +206,6 @@
 
      <!-- Row A: OEE = AVAIL × PERF(Adj) × QUAL -->
       <div class="kpis kpis-rowA">
-        <!-- tile-oee -->
         <div class="tile big" id="tile-oee">
           <div class="lab">OEE
             <span class="tooltip"><span class="info" tabindex="0">i</span>
@@ -266,214 +217,84 @@
           <div class="val" id="ov-oee">--%</div>
           <div class="tiny" id="ov-oee-eq"></div>
         </div>
-      
         <div class="op">=</div>
-      
-        <!-- tile-av -->
         <div class="tile big" id="tile-av">
-          <div class="lab">Availability
-            <span class="tooltip"><span class="info" tabindex="0">i</span>
-              <span class="tooltip-panel"><b>Availability</b><br>
-                Run Hours / Planned Hours. Planned Hours are 24h per selected day (weekdays by default).
-              </span>
-            </span>
-          </div>
+          <div class="lab">Availability</div>
           <div class="val" id="ov-av">--%</div>
         </div>
-      
         <div class="op">×</div>
-      
-        <!-- tile-pa -->
         <div class="tile big" id="tile-pa">
-          <div class="lab">Performance (Adj)
-            <span class="tooltip"><span class="info" tabindex="0">i</span>
-              <span class="tooltip-panel"><b>Performance (Adjusted)</b><br>
-                Pounds ÷ (Capacity × (24 − Maint&nbsp;DT)). Uses nameplate/material mapping per day.
-              </span>
-            </span>
-          </div>
+          <div class="lab">Performance (Adj)</div>
           <div class="val" id="ov-pa">--%</div>
         </div>
-      
         <div class="op">×</div>
-      
-        <!-- tile-qual -->
         <div class="tile big" id="tile-qual">
-          <div class="lab">Quality*
-            <span class="tooltip"><span class="info" tabindex="0">i</span>
-              <span class="tooltip-panel"><b>Quality (assumed)</b><br>
-                Temporary constant (70%) until lab data is integrated.
-              </span>
-            </span>
-          </div>
+          <div class="lab">Quality*</div>
           <div class="val" id="ov-qual">70%</div>
         </div>
       </div>
       
       <!-- Row B: throughput chain -->
       <div class="kpis kpis-rowB">
-        <!-- Run Hours -->
         <div class="tile">
-          <div class="lab">Run Hours
-            <span class="tooltip"><span class="info" tabindex="0">i</span>
-              <span class="tooltip-panel"><b>Run Hours</b><br>
-                Reported machine runtime from production entries (no front-end backfill).
-              </span>
-            </span>
-          </div>
+          <div class="lab">Run Hours</div>
           <div class="val" id="ov-runh">--</div>
         </div>
-      
-        <!-- tile-pr -->
         <div class="tile" id="tile-pr">
-          <div class="lab">Performance (Raw 24h)
-            <span class="tooltip"><span class="info" tabindex="0">i</span>
-              <span class="tooltip-panel"><b>Performance (Raw)</b><br>
-                Pounds ÷ (Capacity × 24). Not adjusted for maintenance downtime.
-              </span>
-            </span>
-          </div>
+          <div class="lab">Performance (Raw 24h)</div>
           <div class="val" id="ov-pr">--%</div>
         </div>
-      
-        <!-- Capacity Potential (lb) -->
         <div class="tile">
-          <div class="lab">Capacity Potential (lb)
-            <span class="tooltip"><span class="info" tabindex="0">i</span>
-              <span class="tooltip-panel"><b>Capacity Potential</b><br>
-                Nameplate capacity across the selected calendar (24h/day); per line uses material mapping and includes idle weekdays.
-              </span>
-            </span>
-          </div>
+          <div class="lab">Capacity Potential (lb)</div>
           <div class="val" id="ov-cap">--</div>
         </div>
-      
-        <!-- Total Pounds -->
         <div class="tile">
-          <div class="lab">Total Pounds
-            <span class="tooltip"><span class="info" tabindex="0">i</span>
-              <span class="tooltip-panel"><b>Total Pounds</b><br>
-                Sum of all reported pounds in range (filtered to lines shown).
-              </span>
-            </span>
-          </div>
+          <div class="lab">Total Pounds</div>
           <div class="val" id="ov-lbs">--</div>
         </div>
-      
-        <!-- tile-under -->
         <div class="tile" id="tile-under">
-          <div class="lab">Under-Perf Gap (lb)
-            <span class="tooltip"><span class="info" tabindex="0">i</span>
-              <span class="tooltip-panel"><b>Under-performance Gap</b><br>
-                (Capacity × Run Hours) − Pounds. “Lost” pounds while running.
-              </span>
-            </span>
-          </div>
+          <div class="lab">Under-Perf Gap (lb)</div>
           <div class="val" id="ov-under">--</div>
         </div>
       </div>
       
       <!-- Row C: DT & missed-op -->
       <div class="kpis kpis-rowC">
-        <!-- Maint DT (h) -->
         <div class="tile" id="tile-mdt-h">
-          <div class="lab">Maint DT (h)
-            <span class="tooltip"><span class="info" tabindex="0">i</span>
-              <span class="tooltip-panel"><b>Maintenance Downtime</b><br>
-                Limble downtime sliced back over weekdays to the occurrence days, capped at 24h per machine-day.
-              </span>
-            </span>
-          </div>
+          <div class="lab">Maint DT (h)</div>
           <div class="val" id="ov-mdt">--</div>
         </div>
-      
-        <!-- tile-mdt-pct -->
         <div class="tile" id="tile-mdt-pct">
-          <div class="lab">Maint DT (%)
-            <span class="tooltip"><span class="info" tabindex="0">i</span>
-              <span class="tooltip-panel"><b>Maintenance DT %</b><br>
-                Maint&nbsp;DT ÷ Planned Hours. Lower is better.
-              </span>
-            </span>
-          </div>
+          <div class="lab">Maint DT (%)</div>
           <div class="val" id="ov-mdt-pct">--%</div>
         </div>
-      
-        <!-- Prod DT (h) -->
         <div class="tile" id="tile-pdt-h">
-          <div class="lab">Prod DT (h)
-            <span class="tooltip"><span class="info" tabindex="0">i</span>
-              <span class="tooltip-panel"><b>Production Downtime</b><br>
-                Remaining hours from the 24h budget after Run and Maint DT (includes idle weekdays).
-              </span>
-            </span>
-          </div>
+          <div class="lab">Prod DT (h)</div>
           <div class="val" id="ov-pdt">--</div>
         </div>
-      
-        <!-- tile-pdt-pct -->
         <div class="tile" id="tile-pdt-pct">
-          <div class="lab">Prod DT (%)
-            <span class="tooltip"><span class="info" tabindex="0">i</span>
-              <span class="tooltip-panel"><b>Production DT %</b><br>
-                Prod&nbsp;DT ÷ Planned Hours. Lower is better.
-              </span>
-            </span>
-          </div>
+          <div class="lab">Prod DT (%)</div>
           <div class="val" id="ov-pdt-pct">--%</div>
         </div>
-      
-        <!-- Missed Opp (Maint, lb) -->
         <div class="tile" id="tile-mo-mdt-lb">
-          <div class="lab">Missed Opp (Maint, lb)
-            <span class="tooltip"><span class="info" tabindex="0">i</span>
-              <span class="tooltip-panel"><b>Missed Opportunity (Maint)</b><br>
-                Capacity × Maint&nbsp;DT, summed over lines and/or days.
-              </span>
-            </span>
-          </div>
+          <div class="lab">Missed Opp (Maint, lb)</div>
           <div class="val" id="ov-mo-mdt">--</div>
         </div>
-      
-        <!-- Missed Opp (Prod, lb) -->
         <div class="tile" id="tile-mo-pdt-lb">
-          <div class="lab">Missed Opp (Prod, lb)
-            <span class="tooltip"><span class="info" tabindex="0">i</span>
-              <span class="tooltip-panel"><b>Missed Opportunity (Prod)</b><br>
-                Capacity × Prod&nbsp;DT, including idle weekdays.
-              </span>
-            </span>
-          </div>
+          <div class="lab">Missed Opp (Prod, lb)</div>
           <div class="val" id="ov-mo-pdt">--</div>
         </div>
-      
-        <!-- tile-mo-mdt-pct -->
         <div class="tile" id="tile-mo-mdt-pct">
-          <div class="lab">Missed Opp (Maint, %)
-            <span class="tooltip"><span class="info" tabindex="0">i</span>
-              <span class="tooltip-panel"><b>Missed Opp Maint %</b><br>
-                Missed-Maint (lb) ÷ Capacity Potential (lb).
-              </span>
-            </span>
-          </div>
+          <div class="lab">Missed Opp (Maint, %)</div>
           <div class="val" id="ov-mo-mdt-pct">--%</div>
         </div>
-      
-        <!-- tile-mo-pdt-pct -->
         <div class="tile" id="tile-mo-pdt-pct">
-          <div class="lab">Missed Opp (Prod, %)
-            <span class="tooltip"><span class="info" tabindex="0">i</span>
-              <span class="tooltip-panel"><b>Missed Opp Prod %</b><br>
-                Missed-Prod (lb) ÷ Capacity Potential (lb).
-              </span>
-            </span>
-          </div>
+          <div class="lab">Missed Opp (Prod, %)</div>
           <div class="val" id="ov-mo-pdt-pct">--%</div>
         </div>
       </div>
     </section>
     
-    <!-- Next Sections -->
     <!-- Heatmaps -->
     <section class="section-gap">
       <div class="card">
