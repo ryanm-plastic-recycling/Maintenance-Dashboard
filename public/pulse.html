@@ -8,7 +8,7 @@
     :root{
       --pri-blue:#25408F; --pri-green:#92D050;
       --bg:#E9EDF5; --card:#FBFCFE; --ink:#0F172A; --muted:#475569; --border:#D7E0F3;
-      --good-bg:#dcfce7;  --good-fg:#065f46;
+      --good-bg:#dcfce7;  --good-fg:#10B981;
       --warn-bg:#fef9c3;  --warn-fg:#7c5e10;
       --bad-bg:#fee2e2;   --bad-fg:#7f1d1d;
       --shadow: 0 10px 25px rgba(0,0,0,.08);
@@ -110,7 +110,7 @@
       font-weight:900;border:1px solid var(--border);border-radius:12px;
       background:white;padding:10px 12px;font-size:var(--status-fs)
     }
-    .ps-item.good{background:var(--good-bg); color:var(--good-fg); border-color:#0AAC00}
+    .ps-item.good{background:var(--good-bg); color:var(--good-fg); border-color:#10B981}
     .ps-item.warn{background:var(--warn-bg); color:var(--warn-fg); border-color:#7c5e10}
     .ps-item.bad{ background:var(--bad-bg);  color:var(--bad-fg);  border-color:#7f1d1d}
     .ps-item .name{min-width:140px}
@@ -459,7 +459,7 @@
       .sort((a,b) => a.name.localeCompare(b.name))
       .forEach(S=>{
         const isLimble = !!S.limble;
-        const bg     = isLimble ? '#7c5e10' : '#0AAC00';     // yellow vs green
+        const bg     = isLimble ? '#7c5e10' : '#10B981';     // yellow vs green
         const border = isLimble ? '#fde68a' : '#bbf7d0';
         const label  = isLimble ? 'Limble Request' : 'Available';
   
