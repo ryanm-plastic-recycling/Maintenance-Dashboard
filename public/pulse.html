@@ -582,16 +582,24 @@
           <div class="value">${k.val}</div>
         </div>`).join('');
 
-      // Donuts
-      const maintParts = [{name:'Maint DT', value: ovMdtPct || 0, color: cssVar('--bad-fg') || '#7f1d1d'}];
+      // ====== Donuts (top-left) ======
+      const maintParts = [
+        {name:'Maint DT', value: ovMdtPct || 0, color: cssVar('--bad-fg') || '#7f1d1d'},
+        {name:'Other Time', value: Math.max(0, 1-(ovMdtPct||0)), color: '#d1d5db'}
+      ];
       drawDonut(document.getElementById('donutMaint'), maintParts);
       document.getElementById('legendMaint').innerHTML =
-        `<div class="row"><span class="dot" style="background:${maintParts[0].color}"></span><div class="name">Maint DT</div><div class="val">${fmtPct(ovMdtPct,true)}</div></div>`;
-      const prodParts = [{name:'Prod DT', value: ovPdtPct || 0, color: cssVar('--warn-fg') || '#7c5e10'}];
+        `<div class="row"><span class="dot" style="background:${maintParts[0].color}"></span><div class="name">Maint DT</div><div class="val">${fmtPct(ovMdtPct,true)}</div></div>
+         <div class="row"><span class="dot" style="background:${maintParts[1].color}"></span><div class="name">Other</div><div class="val">${fmtPct(Math.max(0,1-(ovMdtPct||0)),true)}</div></div>`;
+      const prodParts = [
+        {name:'Prod DT', value: ovPdtPct || 0, color: cssVar('--warn-fg') || '#7c5e10'},
+        {name:'Other Time', value: Math.max(0, 1-(ovPdtPct||0)), color: '#d1d5db'}
+      ];
       drawDonut(document.getElementById('donutProd'), prodParts);
       document.getElementById('legendProd').innerHTML =
-        `<div class="row"><span class="dot" style="background:${prodParts[0].color}"></span><div class="name">Prod DT</div><div class="val">${fmtPct(ovPdtPct,true)}</div></div>`;
-
+        `<div class="row"><span class="dot" style="background:${prodParts[0].color}"></span><div class="name">Prod DT</div><div class="val">${fmtPct(ovPdtPct,true)}</div></div>
+         <div class="row"><span class="dot" style="background:${prodParts[1].color}"></span><div class="name">Other</div><div class="val">${fmtPct(Math.max(0,1-(ovPdtPct||0)),true)}</div></div>`;
+      
       // Line tiles
       const linesGrid = document.getElementById('linesGrid');
       linesGrid.innerHTML = '';
