@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>KPIs by Asset</title>
+  <title>Maintenance KPIs by Asset</title>
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="css/style.css">
     <script src="burnin.js" defer></script>
@@ -79,7 +79,7 @@
     <button id="toggle-rotation">Pause Rotation</button>
   </div>
   <div class="container">
-    <h1>Asset KPIs <small id="last-refresh" style="font-weight:normal;font-size:0.8rem;color:#555;"></small></h1>
+    <h1>Maintenance Asset KPIs <small id="last-refresh" style="font-weight:normal;font-size:0.8rem;color:#555;"></small></h1>
     <div class="tabs">
       <a href="/index.html">Work Orders</a>
       <a href="/pm.html">PM Work Orders</a>
@@ -89,11 +89,11 @@
       <a href="/pulse.html">Pulse</a>
       <a href="/admin">Admin</a>
     </div>
-    <h2>All Assets — True Overall</h2>
+    <h2>All Assets — True Overall for Maintenance</h2>
       <div id="true-overall-row" class="true-overall-row">
         <div class="kpi-tile" id="tile-downtime">
           <div class="label">
-            Downtime %
+            Maintenance Downtime %
             <span class="tooltip">
               <span class="info" tabindex="0" aria-label="About Downtime %">i</span>
               <span class="tooltip-panel">
@@ -189,7 +189,7 @@
           <th>Asset Name</th>
           
           <th>
-            Downtime Hrs
+            Maint Downtime
             <span class="tooltip">
               <span class="info" tabindex="0" aria-label="About Downtime Hours">i</span>
               <span class="tooltip-panel">
@@ -199,7 +199,7 @@
           </th>
       
           <th class="col-int">
-            Open Count
+            Open WO Count
             <span class="tooltip">
               <span class="info" tabindex="0" aria-label="About Open Count">i</span>
               <span class="tooltip-panel">
@@ -209,7 +209,7 @@
           </th>
       
           <th class="col-int" data-testid="col-unplanned-count">
-            Unplanned Count
+            Unplanned WO Count
             <span class="tooltip">
               <span class="info" tabindex="0" aria-label="About Unplanned Count">i</span>
               <span class="tooltip-panel">
@@ -219,7 +219,7 @@
           </th>
       
           <th class="col-int" data-testid="col-failure-events">
-            Failure Events
+            Failure WO Count
             <span class="tooltip">
               <span class="info" tabindex="0" aria-label="About Failure Events">i</span>
               <span class="tooltip-panel">
@@ -229,7 +229,7 @@
           </th>
       
           <th>
-            Downtime %
+            Maint Downtime
             <span class="tooltip">
               <span class="info" tabindex="0" aria-label="About Downtime %">i</span>
               <span class="tooltip-panel">
