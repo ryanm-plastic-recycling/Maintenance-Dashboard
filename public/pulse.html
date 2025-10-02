@@ -636,6 +636,8 @@
       linesGrid.innerHTML = '';
       perLine.forEach(r=>{
         const oeeCls  = (r.oeeV && Number.isFinite(r.oee)) ? grade(r.oee, THRESH.oee) : '';
+        const mCls = lowClassFromPct(r.mPct);
+        const pCls = lowClassFromPct(r.pPct);
         const html = `
           <div class="line">
             <div class="lineheader">
@@ -652,8 +654,12 @@
               <div class="mitem"><div class="label">Pounds</div><div class="mkv">${fmtInt(r.lbs,true)}</div></div>
             </div>
             <div style="display:flex;gap:16px;margin-top:8px">
-              <span class="badge warn">Maint DT ${fmtFixed(r.maint,1,true)}h</span>
-              <span class="badge bad">Prod DT ${fmtFixed(r.prod,1,true)}h</span>
+              <span class="badge ${mCls}">
+                Maint DT ${fmtFixed(r.maint,1,true)}h (${fmtPct(r.mPct, Number.isFinite(r.mPct))})
+              </span>
+              <span class="badge ${pCls}">
+                Prod DT ${fmtFixed(r.prod,1,true)}h (${fmtPct(r.pPct, Number.isFinite(r.pPct))})
+              </span>
             </div>
           </div>`;
         const el = document.createElement('div'); el.innerHTML = html; linesGrid.appendChild(el.firstElementChild);
