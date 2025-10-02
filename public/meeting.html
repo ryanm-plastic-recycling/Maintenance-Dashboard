@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PACE – Ops View (1080p)</title>
+  <style>
+    :root{
+      --pri-blue:#25408F; --pri-green:#92D050;
+      --bg:#E9EDF5; --card:#FBFCFE; --ink:#0F172A; --muted:#475569; --border:#D7E0F3;
+      --good-bg:#dcfce7;  --good-fg:#065f46;
+      --warn-bg:#fef9c3;  --warn-fg:#7c5e10;
+      --bad-bg:#fee2e2;   --bad-fg:#7f1d1d;
+      --shadow: 0 10px 25px rgba(0,0,0,.08);
+    }
+
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,Segoe UI,Arial,sans-serif}
+
+    .page-production::before{
+      content:"";position:fixed;inset:0;z-index:-1;
+      background:
+        linear-gradient(to bottom, rgba(255,255,255,.75), rgba(255,255,255,.85)),
+        url('img/PRIfront.png') center/cover no-repeat fixed;
+    }
+
+    .top-border{position:fixed;top:0;left:0;width:100%;height:96px;background:var(--pri-green);z-index:10;display:flex;align-items:center;padding:0 20px}
+    .top-border .logo{height:72px}
+    .top-title{font-size:28px;font-weight:900;margin-left:20px;color:#0A2A12}
+    .tabs{margin-left:auto;display:flex;gap:8px}
+    .tab{background:#ffffffd9;padding:8px 12px;border-radius:10px;text-decoration:none;color:#0A2A12;font-weight:700}
+    .tab.active{background:#fff}
+
+    .wrap{margin:120px 20px 40px 20px}
+    .app{max-width:1920px;margin:0 auto}
+
+    /* Controls (1080p-friendly): timeframe + weekends only */
+    .controls{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin:0 0 14px}
+    .meta-range{color:var(--muted);font-size:13px}
+    .select{appearance:none;border:1px solid var(--border);background:#fff;border-radius:10px;padding:8px 12px;font-weight:700}
+    .divider{height:22px;width:1px;background:var(--border)}
+
+    /* Loading */
+    #loading{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(255,255,255,.55);z-index:9999}
+    #loading .spinner{width:64px;height:64px;border:8px solid #e5e7eb;border-top-color:var(--pri-blue);border-radius:50%;animation:spin 1s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+
+    /* KPI tiles (Rows A–C) */
+    .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-top:6px}
+    .tile{background:var(--card);padding:14px;border-radius:12px;box-shadow:0 2px 4px rgba(0,0,0,.08);border:1px solid var(--border);text-align:center;min-height:84px}
+    .tile .lab{font-size:12px;color:#000;text-transform:uppercase;letter-spacing:.3px}
+    .tile .val{font-size:22px;font-weight:900;margin-top:6px}
+    .tile.good { background: var(--good-bg); color: var(--good-fg); }
+    .tile.warn { background: var(--warn-bg); color: var(--warn-fg); }
+    .tile.bad  { background: var(--bad-bg);  color: var(--bad-fg);  }
+    .kpis-rowA .tile.big { min-height: 104px; }
+    .kpis-rowA .tile.big .val { font-size: 28px; }
+    .op{background:#e9e9e9 ;border:1px solid var(--border);border-radius:12px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:40px;min-height:104px}
+    .tiny { font-size: 11px; color: var(--muted); margin-top: 6px; font-weight: 700; }
+
+    /* Cards / sections */
+    .section-gap{margin-top:22px}
+    .card{background:var(--card);border-radius:12px;border:1px solid var(--border);box-shadow:0 2px 6px rgba(0,0,0,.08);padding:12px}
+    .card h3{margin:0 0 8px;font-size:18px;color:var(--pri-blue);display:flex;gap:8px;align-items:center}
+    .card .sub{font-size:12px;color:var(--muted);font-weight:600}
+
+    table{width:100%;border-collapse:collapse;margin-top:6px}
+    th,td{padding:8px;border-bottom:1px solid #E1E9F8;text-align:center}
+    th{background:var(--pri-blue);color:#fff;font-size:13px;position:sticky;top:0}
+    td.line{text-align:left;font-weight:700}
+    #heatFactors td.good { background: var(--good-bg); }
+    #heatFactors td.warn { background: var(--warn-bg); }
+    #heatFactors td.bad  { background: var(--bad-bg); }
+    #heatFactors td.empty { background:#f1f5f9 !important; color:#94a3b8 !important; }
+    .empty{padding:12px;color:#64748b;border:1px dashed #cbd5e1;border-radius:10px;background:#f8fafc;margin-top:6px;text-align:center}
+
+    /* 2-column lower grid for 1080p */
+    .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+
+    /* Prod status table (from pulse.html) */
+    #status-table { width:100%; border-collapse:collapse }
+    #status-table th, #status-table td { padding:10px; border-bottom:1px dashed var(--border) }
+    #status-table thead th { background:#25408F; color:#fff; text-align:left }
+
+    /* Tooltip (local small) */
+    .info{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;margin-left:6px;border-radius:50%;font-size:11px;line-height:1;cursor:pointer;user-select:none;background:#25408F;color:#fff;font-weight:700}
+    .tooltip{position:relative;display:inline-block;vertical-align:middle}
+    .tooltip .tooltip-panel{position:absolute;z-index:10000;bottom: calc(100% + 8px);top: auto;left:50%;transform:translate(-50%,4px);min-width:220px;max-width:340px;padding:10px 12px;border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,.15);background:#111;color:#fff;font-size:.9rem;line-height:1.3;opacity:0;pointer-events:none;transition:.15s ease}
+    .tooltip:hover .tooltip-panel,.tooltip:focus-within .tooltip-panel,.tooltip .tooltip-panel.show{opacity:1;pointer-events:auto;transform:translate(-50%,-2px)}
+    .tooltip .tooltip-panel::after{content:"";position:absolute;top:100%; left:50%; margin-left:-6px;border-width:6px;border-style:solid;border-color:#111 transparent transparent transparent}
+  </style>
+</head>
+<body class="page-production">
+  <div id="loading"><div class="spinner" aria-label="Loading…"></div></div>
+
+  <div class="top-border">
+    <img src="img/pri-logo.png" alt="PRI Logo" class="logo" />
+    <div class="top-title">PACE – Ops View (1080p)</div>
+    <div class="tabs">
+      <a class="tab" href="index.html">Work Orders</a>
+      <a class="tab" href="pm.html">PM</a>
+      <a class="tab" href="prodstatus.html">Prod Status</a>
+      <a class="tab" href="kpi-by-asset.html">KPIs by Asset</a>
+      <a class="tab" href="production.html">PACE</a>
+      <a class="tab" href="pulse.html">Pulse</a>
+      <a class="tab active" href="#">Ops 1080</a>
+      <a class="tab" href="admin">Admin</a>
+      <img src="img/innovation-logo.png" alt="Innovation" style="height:72px;margin-left:8px;object-fit:contain"/>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <div class="app">
+
+      <!-- === Controls: timeframe + weekend toggle only === -->
+      <div class="controls">
+        <span class="meta-range">Timeframe:</span>
+        <select id="tf" class="select">
+          <option value="today">Today</option>
+          <option value="yesterday">Yesterday</option>
+          <option value="thisweek">This week (Mon–Sun)</option>
+          <option value="lastweek">Last week (Mon–Sun)</option>
+          <option value="thismonth">This month</option>
+          <option value="lastmonth" selected>Last month</option>
+          <option value="thisq">This quarter</option>
+          <option value="lastq">Last quarter</option>
+          <option value="thisyear">This year</option>
+          <option value="lastyear">Last year</option>
+          <option value="last7">Trailing 7 days</option>
+          <option value="last30">Trailing 30 days</option>
+          <option value="last12m">Trailing 12 months</option>
+        </select>
+        <span class="divider"></span>
+        <label style="display:flex;align-items:center;gap:6px;font-weight:700">
+          <input type="checkbox" id="wkndToggle"> Include Weekends
+        </label>
+        <span id="tfLabel" class="meta-range" style="margin-left:auto"></span>
+      </div>
+
+      <!-- === Overall KPI Rows A–C (unchanged logic, 1080p layout) === -->
+      <section>
+        <h2>Overall KPIs <span class="sub" id="rangeLabel"></span></h2>
+        <!-- Row A: OEE equation -->
+        <div class="kpis kpis-rowA">
+          <div class="tile big" id="tile-oee">
+            <div class="lab">OEE
+              <span class="tooltip"><span class="info" tabindex="0">i</span>
+                <span class="tooltip-panel"><b>Overall Equipment Effectiveness</b><br>OEE = Availability × Performance (Adj) × Quality.</span>
+              </span>
+            </div>
+            <div class="val" id="ov-oee">--%</div>
+            <div class="tiny" id="ov-oee-eq"></div>
+          </div>
+          <div class="op">=</div>
+          <div class="tile big" id="tile-av">
+            <div class="lab">Availability</div>
+            <div class="val" id="ov-av">--%</div>
+          </div>
+          <div class="op">×</div>
+          <div class="tile big" id="tile-pa">
+            <div class="lab">Performance (Adj)</div>
+            <div class="val" id="ov-pa">--%</div>
+          </div>
+          <div class="op">×</div>
+          <div class="tile big" id="tile-qual">
+            <div class="lab">Quality*</div>
+            <div class="val" id="ov-qual">70%</div>
+          </div>
+        </div>
+
+        <!-- Row B: throughput chain -->
+        <div class="kpis kpis-rowB">
+          <div class="tile"><div class="lab">Run Hours</div><div class="val" id="ov-runh">--</div></div>
+          <div class="tile" id="tile-pr"><div class="lab">Performance (Raw 24h)</div><div class="val" id="ov-pr">--%</div></div>
+          <div class="tile"><div class="lab">Capacity Potential (lb)</div><div class="val" id="ov-cap">--</div></div>
+          <div class="tile"><div class="lab">Total Pounds</div><div class="val" id="ov-lbs">--</div></div>
+          <div class="tile" id="tile-under"><div class="lab">Under-Perf Gap (lb)</div><div class="val" id="ov-under">--</div></div>
+        </div>
+
+        <!-- Row C: DT & Missed -->
+        <div class="kpis kpis-rowC">
+          <div class="tile" id="tile-mdt-h"><div class="lab">Maint DT (h)</div><div class="val" id="ov-mdt">--</div></div>
+          <div class="tile" id="tile-mdt-pct"><div class="lab">Maint DT (%)</div><div class="val" id="ov-mdt-pct">--%</div></div>
+          <div class="tile" id="tile-pdt-h"><div class="lab">Prod DT (h)</div><div class="val" id="ov-pdt">--</div></div>
+          <div class="tile" id="tile-pdt-pct"><div class="lab">Prod DT (%)</div><div class="val" id="ov-pdt-pct">--%</div></div>
+          <div class="tile" id="tile-mo-mdt-lb"><div class="lab">Missed Opp (Maint, lb)</div><div class="val" id="ov-mo-mdt">--</div></div>
+          <div class="tile" id="tile-mo-pdt-lb"><div class="lab">Missed Opp (Prod, lb)</div><div class="val" id="ov-mo-pdt">--</div></div>
+          <div class="tile" id="tile-mo-mdt-pct"><div class="lab">Missed Opp (Maint, %)</div><div class="val" id="ov-mo-mdt-pct">--%</div></div>
+          <div class="tile" id="tile-mo-pdt-pct"><div class="lab">Missed Opp (Prod, %)</div><div class="val" id="ov-mo-pdt-pct">--%</div></div>
+        </div>
+      </section>
+
+      <!-- === OEE FACTORS HEATMAP (full width) === -->
+      <section class="section-gap">
+        <div class="card">
+          <h3>OEE Factors Heatmap (Availability / Performance-Adj / Quality) <span class="sub" id="hm2Label"></span></h3>
+          <table id="heatFactors"></table>
+          <div id="heat2Empty" class="empty" style="display:none">No data for selected range.</div>
+        </div>
+      </section>
+
+      <!-- === Bottom: 2 columns === -->
+      <section class="section-gap grid2">
+        <div class="card">
+          <h3>CURRENT Line Status</h3>
+          <div>
+            <table id="status-table">
+              <thead><tr><th>Asset Name</th><th>Asset Status</th></tr></thead>
+              <tbody id="status-data"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>Missed Opportunity by Line (trimmed) <span class="sub" id="moLabel"></span></h3>
+          <table id="missedTbl"></table>
+          <div id="missedEmpty" class="empty" style="display:none">No data for selected range.</div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+
+<script>
+  // ====== CONFIG / CONSTANTS ======
+  const REFRESH_MS = 10 * 60 * 1000; // 10 minutes
+  let refreshTimer = null; let lastRenderAt = 0;
+  const QUALITY_DEFAULT = 0.70;
+  const PERF_CAP = 1.00;            // clamp extreme days
+  const MIN_RUN_H_FOR_ADJ = 0.75;   // ignore adj when runtime is tiny
+  const HOURS_PER_WEEKDAY = 24;     // selected-calendar baseline
+
+  const THRESH = {
+    capacityAdj: { good: 0.80, warn: 0.60 },
+    oee:         { good: 0.50, warn: 0.25 },
+    availability:{ good: 0.80, warn: 0.60 },
+    quality:     { good: 0.98, warn: 0.85 }
+  };
+  const grade  = (v, {good, warn}) => (v >= good ? 'good' : v >= warn ? 'warn' : 'bad');
+  const MISSING = '---';
+  const fmtPct = (v, valid=true) => (valid && Number.isFinite(v)) ? (Math.round(v*100) + '%') : MISSING;
+  const fmtFixed = (v, digits=1, valid=true) => (valid && Number.isFinite(v)) ? v.toFixed(digits) : MISSING;
+  const fmtInt = (v, valid=true) => (valid && Number.isFinite(v)) ? Number(Math.round(v)).toLocaleString() : MISSING;
+  const _WDAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const weekdayLocal = v => { if (!v) return null; const s=(typeof v==='string')?v.slice(0,10):v.toISOString().slice(0,10); const [Y,M,D]=s.split('-').map(Number); const dt=new Date(Y,M-1,D); return isNaN(dt)?null:_WDAYS[dt.getDay()]; };
+
+  function setLoading(v){ try{ const el = document.getElementById('loading'); if (el) el.style.display = v ? 'flex' : 'none'; }catch{} }
+
+  // ====== TIMEFRAME / WEEKENDS ======
+  function startOfWeek(d){ const x=new Date(d); const day=(x.getDay()+6)%7; x.setDate(x.getDate()-day); x.setHours(0,0,0,0); return x;}
+  function endOfWeek(d){ const x=startOfWeek(d); x.setDate(x.getDate()+6); return x;}
+  function startOfMonth(d){ return new Date(d.getFullYear(), d.getMonth(), 1); }
+  function endOfMonth(d){ return new Date(d.getFullYear(), d.getMonth()+1, 0); }
+  function startOfQuarter(d){ return new Date(d.getFullYear(), Math.floor(d.getMonth()/3)*3, 1); }
+  function endOfQuarter(d){ const s=startOfQuarter(d); return new Date(s.getFullYear(), s.getMonth()+3, 0); }
+
+  function computeRange(sel){
+    const now = new Date(); now.setHours(0,0,0,0);
+    const y = new Date(now); y.setDate(y.getDate()-1);
+    const fmt = d => new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10);
+    const thisW = {from:startOfWeek(now), to:endOfWeek(now)};
+    const lastW = {from:new Date(startOfWeek(now)), to:new Date(endOfWeek(now))}; lastW.from.setDate(lastW.from.getDate()-7); lastW.to.setDate(lastW.to.getDate()-7);
+    const thisM = {from:startOfMonth(now), to:endOfMonth(now)};
+    const lastM = {from:startOfMonth(new Date(now.getFullYear(), now.getMonth()-1, 1)), to:endOfMonth(new Date(now.getFullYear(), now.getMonth()-1, 1))};
+    const thisQ = {from:startOfQuarter(now), to:endOfQuarter(now)};
+    const lastQ = {from:startOfQuarter(new Date(now.getFullYear(), now.getMonth()-3, 1)), to:endOfQuarter(new Date(now.getFullYear(), now.getMonth()-3, 1))};
+    const thisY = {from:new Date(now.getFullYear(),0,1), to:new Date(now.getFullYear(),11,31)};
+    const lastY = {from:new Date(now.getFullYear()-1,0,1), to:new Date(now.getFullYear()-1,11,31)};
+    switch(sel){
+      case 'today':     return {from:fmt(now), to:fmt(now), label:'Today'};
+      case 'yesterday': return {from:fmt(y),   to:fmt(y),   label:'Yesterday'};
+      case 'thisweek':  return {from:fmt(thisW.from), to:fmt(thisW.to), label:'This week (Mon–Sun)'};
+      case 'lastweek':  return {from:fmt(lastW.from), to:fmt(lastW.to), label:'Last week (Mon–Sun)'};
+      case 'thismonth': return {from:fmt(thisM.from), to:fmt(thisM.to), label:'This month'};
+      case 'lastmonth': return {from:fmt(lastM.from), to:fmt(lastM.to), label:'Last month'};
+      case 'thisq':     return {from:fmt(thisQ.from), to:fmt(thisQ.to), label:'This quarter'};
+      case 'lastq':     return {from:fmt(lastQ.from), to:fmt(lastQ.to), label:'Last quarter'};
+      case 'thisyear':  return {from:fmt(thisY.from), to:fmt(thisY.to), label:'This year'};
+      case 'lastyear':  return {from:fmt(lastY.from), to:fmt(lastY.to), label:'Last year'};
+      case 'last7':     { const s=new Date(now); s.setDate(s.getDate()-6); return {from:fmt(s), to:fmt(now), label:'Trailing 7 days'}; }
+      case 'last12m':   { const s=new Date(now); s.setMonth(s.getMonth()-12); return {from:fmt(s), to:fmt(now), label:'Trailing 12 months'}; }
+      case 'last30':
+      default:          { const s=new Date(now); s.setDate(s.getDate()-29); return {from:fmt(s), to:fmt(now), label:'Trailing 30 days'}; }
+    }
+  }
+</script>
+<script>
+  // ====== MAPPINGS / CAPACITY ======
+  let MAPPINGS;
+  async function loadMappings(){
+    try {
+      MAPPINGS = await (await fetch(`mappings.json?ts=${Date.now()}`, {cache:'no-store'})).json();
+    } catch {
+      console.warn('mappings.json not found; using empty defaults');
+      MAPPINGS = { capacities_lbs_hr:{}, capacity_by_material_lbs_hr:{}, capacity_aliases:{}, material_aliases:{}, statusColorMapping:{}, statusTextMapping:{}, productionAssets:[] };
+    }
+  }
+  function capacityFor(lineName, material){
+    const { capacities_lbs_hr: caps = {}, capacity_by_material_lbs_hr: byMat = {}, capacity_aliases: alias = {}, material_aliases: malias = {} } = MAPPINGS || {};
+    const canon = (caps[lineName] !== undefined || byMat[lineName]) ? lineName : (alias[lineName] || lineName);
+    const k = String(material ?? '').trim().toUpperCase();
+    const m = malias[k] || (k === '' ? 'DEFAULT' : k);
+    return byMat[canon]?.[m] ?? byMat[canon]?.DEFAULT ?? caps[canon] ?? 0;
+  }
+  async function loadThemeAndApply() {
+    try {
+      const t = await fetch('/api/settings/kpi-theme').then(r=>r.json());
+      const c = t?.colors || {};
+      if (c.good?.bg)  document.documentElement.style.setProperty('--good-bg', c.good.bg);
+      if (c.good?.fg)  document.documentElement.style.setProperty('--good-fg', c.good.fg);
+      if (c.warn?.bg)  document.documentElement.style.setProperty('--warn-bg', c.warn.bg);
+      if (c.warn?.fg)  document.documentElement.style.setProperty('--warn-fg', c.warn.fg);
+      if (c.bad?.bg)   document.documentElement.style.setProperty('--bad-bg',  c.bad.bg);
+      if (c.bad?.fg)   document.documentElement.style.setProperty('--bad-fg',  c.bad.fg);
+    } catch {}
+  }
+</script>
+<script>
+  // ====== PROD STATUS (same API as pulse.html) ======
+  async function getProdStatusRows(){
+    try{
+      const res = await fetch('/api/workorders/prodstatus?t=' + Date.now(), { cache:'no-store' });
+      if (!res.ok) return [];
+      let data = await res.json();
+      let rows = Array.isArray(data?.rows) ? data.rows : (Array.isArray(data?.tiles) ? data.tiles : []);
+      if (Array.isArray(rows) && rows.length === 1 && rows[0] && typeof rows[0] === 'object'){
+        const k = Object.keys(rows[0])[0];
+        const v = k && rows[0][k];
+        if (typeof v === 'string' && v.trim().startsWith('[')) {
+          try { rows = JSON.parse(v); } catch {}
+        }
+      }
+      return rows || [];
+    }catch{ return []; }
+  }
+  function renderStatusTable(rows){
+    const tbody = document.getElementById('status-data'); if (!tbody) return; tbody.innerHTML = '';
+    const colorMap = MAPPINGS?.statusColorMapping || {}; const textMap  = MAPPINGS?.statusTextMapping  || {}; const assets = Array.isArray(MAPPINGS?.productionAssets) ? MAPPINGS.productionAssets : [];
+    const toText = (raw) => { const v=(raw??'N/A'); if (typeof v === 'number' || (/^\d+$/).test(String(v).trim())) { return (textMap[String(v)] || String(v)).replace(/\u00A0/g, ' ').trim(); } return String(v).replace(/\u00A0/g, ' ').trim(); };
+    const colorFor = (txt) => { const idFromText = Object.keys(textMap).find(k => (textMap[k]||'').toString().toLowerCase() === txt.toLowerCase()); const keyForColor = idFromText || txt; return colorMap[keyForColor] || '#fff'; };
+
+    if (assets.length > 0) {
+      const byId = (id) => rows.find(r => String(r.assetID) === String(id)) || {};
+      assets.slice().sort((a,b)=> String(a.name).localeCompare(String(b.name))).forEach(item=>{
+        const entry = byId(item.id);
+        const raw = entry.assetStatus ?? entry.value ?? entry.valueText ?? entry.statusText ?? entry.status ?? entry.statusID ?? 'N/A';
+        const text = toText(raw); const bg = colorFor(text);
+        const tr = document.createElement('tr'); tr.style.backgroundColor = bg; tr.style.color = (/^(#d64550|red|#118dff|blue)$/i.test(String(bg))) ? '#fff' : '#000';
+        tr.innerHTML = `<td>${item.name}</td><td>${text}</td>`; tbody.appendChild(tr);
+      });
+      return;
+    }
+
+    const guessName = (r) => r.assetName || r.name || r.machine || r.line || r.asset || '';
+    const guessRaw  = (r) => r.assetStatus ?? r.value ?? r.valueText ?? r.statusText ?? r.status ?? r.statusID ?? 'N/A';
+    const list = rows.map(r => ({ name: guessName(r), text: toText(guessRaw(r)) })).filter(r => r.name);
+    if (list.length === 0){ const tr=document.createElement('tr'); tr.innerHTML = `<td colspan="2" style="color:#7f1d1d;font-weight:800">No status rows found. Check /api/workorders/prodstatus and mappings.productionAssets.</td>`; tbody.appendChild(tr); return; }
+    list.sort((a,b)=> a.name.localeCompare(b.name)).forEach(({name, text})=>{
+      const bg = colorFor(text); const tr = document.createElement('tr'); tr.style.backgroundColor = bg; tr.style.color = (/^(#d64550|red|#118dff|blue)$/i.test(String(bg))) ? '#fff' : '#000'; tr.innerHTML = `<td>${name}</td><td>${text}</td>`; tbody.appendChild(tr);
+    });
+  }
+  async function loadAndRenderStatusTable(){ if (!MAPPINGS) { try { await loadMappings(); } catch {} } const rows = await getProdStatusRows(); renderStatusTable(rows); }
+</script>
+<script>
+  // ====== CORE RENDERER (range) ======
+  function classFromLowPct(pct){ if (!Number.isFinite(pct)) return ''; return (pct <= 0.10) ? 'good' : (pct <= 0.20) ? 'warn' : 'bad'; }
+  function setTileClassBy(sel, cls) { const el = document.querySelector(sel); if (!el) return; el.classList.remove('good','warn','bad'); if (cls) el.classList.add(cls); }
+
+  async function renderForRange(fromISO, toISO, label){
+    setLoading(true);
+    try{
+      await loadThemeAndApply();
+      document.getElementById('rangeLabel').textContent = `(${label})`;
+      document.getElementById('hm2Label').textContent   = label;
+      document.getElementById('moLabel').textContent    = label;
+
+      // Build calendar respecting weekend toggle
+      const fromD = new Date(fromISO + 'T00:00:00'); const toD = new Date(toISO + 'T00:00:00');
+      const weekdays = []; const alldays = [];
+      for (let d = new Date(fromD); d <= toD; d.setDate(d.getDate()+1)){
+        const wd = d.getDay(); const iso = new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10);
+        alldays.push(iso); if (wd !== 0 && wd !== 6) weekdays.push(iso);
+      }
+      const includeWeekends = document.getElementById('wkndToggle')?.checked === true;
+      const planDays = includeWeekends ? alldays : weekdays;
+      const planDaysCount = planDays.length;
+
+      // Fetch data
+      const [summaryRaw, bylineRaw] = await Promise.all([
+        fetch(`/api/production/summary?from=${fromISO}&to=${toISO}`).then(r=>r.json()).catch(()=>null),
+        fetch(`/api/production/by-line?from=${fromISO}&to=${toISO}`).then(r=>r.json()).catch(()=>[])
+      ]);
+      const byline = (bylineRaw || []).filter(r => r.machine && r.machine.startsWith('Extruder'));
+
+      // Machine-day consolidation
+      const dayMap = new Map();
+      for (const row of byline){
+        const machine = row.machine; const day = (row.src_date||'').slice(0,10);
+        if (!machine || !day || !planDays.includes(day)) continue;
+        const capRow = capacityFor(row.machine, row.material);
+        const lbs = row.pounds || 0; const md = Math.max(0, row.maint_dt_h||0); const mhR = Math.max(0, row.machine_hours||0); const runH = mhR;
+        const key = `${machine}__${day}`;
+        if (!dayMap.has(key)) dayMap.set(key, {machine, day, lbs:0, maint_h:0, run_h:0, sumCapRun:0, sumRunH:0, cap_candidates:[], mats:{}});
+        const d = dayMap.get(key);
+        d.lbs += lbs; d.maint_h = Math.max(d.maint_h, md); d.run_h = Math.max(d.run_h, runH);
+        if (capRow > 0){ d.sumCapRun += capRow*runH; d.sumRunH += runH; d.cap_candidates.push(capRow); }
+        const matKey = String(row.material || '').trim().toUpperCase() || 'DEFAULT'; d.mats[matKey] = (d.mats[matKey] || 0) + lbs;
+      }
+      for (const d of dayMap.values()){
+        let capDay = 0; if (d.sumRunH > 0) capDay = d.sumCapRun / d.sumRunH; else if (d.cap_candidates.length){ const arr=d.cap_candidates.slice().sort((a,b)=>a-b); capDay = arr[Math.floor(arr.length/2)]; }
+        d.cap = capDay; const maint=d.maint_h, run=d.run_h; let prod=Math.max(0, HOURS_PER_WEEKDAY - maint - run); const over=Math.max(0,(maint+run+prod)-HOURS_PER_WEEKDAY); d.prod_h = Math.max(0, prod - over);
+        d.avail = HOURS_PER_WEEKDAY ? (run/HOURS_PER_WEEKDAY) : 0;
+        const rawDen=capDay*HOURS_PER_WEEKDAY; const adjDen=capDay*Math.max(0,HOURS_PER_WEEKDAY-maint);
+        d.perfRaw = rawDen>0 ? (d.lbs/rawDen) : NaN; d.perfAdj = (run>=MIN_RUN_H_FOR_ADJ && adjDen>0) ? Math.min(d.lbs/adjDen, PERF_CAP) : NaN;
+        if (Number.isFinite(d.perfRaw)) d.perfRaw = Math.min(d.perfRaw, PERF_CAP);
+        d.underLb = Math.max(0, capDay * run - d.lbs);
+      }
+
+      // Aggregate per line
+      const agg = {};
+      for (const d of dayMap.values()){
+        const m=d.machine; if (!agg[m]) agg[m] = { lbs:0, maint:0, prod:0, mach:0, rawDen24:0, adjDen:0, runCapDen:0, moM:0, moP:0, under:0, sumAvail:0,nAvail:0,sumPR:0,nPR:0,sumPA:0,nPA:0, mats:{}, daysSet:new Set() };
+        const A=agg[m]; A.lbs+=d.lbs; A.maint+=d.maint_h; A.prod+=d.prod_h; A.mach+=d.run_h; A.rawDen24+=d.cap*HOURS_PER_WEEKDAY; A.adjDen+=d.cap*Math.max(0,HOURS_PER_WEEKDAY-d.maint_h); A.runCapDen+=d.cap*d.run_h; A.moM+=d.cap*d.maint_h; A.moP+=d.cap*d.prod_h; A.under+=d.underLb; A.sumAvail+=(Number.isFinite(d.avail)?d.avail:0); A.nAvail+=1; if (Number.isFinite(d.perfRaw)){A.sumPR+=d.perfRaw; A.nPR+=1;} if (Number.isFinite(d.perfAdj)){A.sumPA+=d.perfAdj; A.nPA+=1;} A.daysSet.add(d.day);
+        let dom='', best=-1; for (const [k,v] of Object.entries(d.mats)) if (v>best){ best=v; dom=k; } if (dom) A.mats[dom] = (A.mats[dom] || 0) + d.lbs;
+      }
+
+      const perLine = Object.keys(agg).sort().map(machine => {
+        const A = agg[machine]; const days = A.daysSet.size || 0;
+        let domMat=''; if (A.mats && Object.keys(A.mats).length){ let best=-1; for (const [k,v] of Object.entries(A.mats)) if (v>best){ best=v; domMat=k; } }
+        const availability = A.nAvail>0 ? (A.sumAvail / A.nAvail) : NaN; const perfRaw = A.nPR>0 ? (A.sumPR/A.nPR) : NaN; const perfAdj = A.nPA>0 ? (A.sumPA/A.nPA) : NaN; const qual=QUALITY_DEFAULT; const oee = (Number.isFinite(availability) && Number.isFinite(perfAdj)) ? (availability * perfAdj * qual) : NaN;
+        const capAvg = (A.rawDen24>0 && days>0) ? (A.rawDen24 / (HOURS_PER_WEEKDAY * days)) : NaN; const plannedH = HOURS_PER_WEEKDAY * planDaysCount; const idleDays=Math.max(0, planDaysCount - days);
+        const prodH = A.prod + HOURS_PER_WEEKDAY * idleDays; const moP_idle = (Number.isFinite(capAvg)?capAvg:0)*HOURS_PER_WEEKDAY*idleDays; const moP = (A.moP||0) + moP_idle; const underLb=Math.max(0, A.runCapDen - A.lbs); const capPot=(Number.isFinite(capAvg)?capAvg:0)*HOURS_PER_WEEKDAY*planDaysCount;
+        return { machine, domMat, lbs:A.lbs, maint:A.maint, prod:prodH, mach:A.mach, rawDen24:A.rawDen24, capPot, adjDen:A.adjDen, runCapDen:A.runCapDen, underLb, moM:A.moM, moP, days, plannedH, capAvg, avail:availability, perfRaw, perfAdj, qual, oee, availV:A.nAvail>0, prV:A.nPR>0, paV:A.nPA>0, oeeV:A.nAvail>0 && A.nPA>0 };
+      });
+
+      // Totals (overall)
+      const totals = Object.values(agg).reduce((s, A) => { s.lbs+=A.lbs; s.maint+=A.maint; s.prod+=A.prod; s.mach+=A.mach; s.rawDen24+=A.rawDen24; s.adjDen+=A.adjDen; s.runCapDen+=A.runCapDen; s.moM+=A.moM; s.moP+=A.moP; s.under+=Math.max(0, A.runCapDen - A.lbs); s.sumAvail+=A.sumAvail; s.nAvail+=A.nAvail; s.sumPR+=A.sumPR; s.nPR+=A.nPR; s.sumPA+=A.sumPA; s.nPA+=A.nPA; s.plannedH += HOURS_PER_WEEKDAY * planDaysCount; return s; }, {lbs:0,maint:0,prod:0,mach:0,rawDen24:0,adjDen:0,runCapDen:0,moM:0,moP:0,under:0,sumAvail:0,nAvail:0,sumPR:0,nPR:0,sumPA:0,nPA:0,plannedH:0});
+      const totalCapPot = perLine.reduce((s, r) => s + (r.capPot || 0), 0);
+      const ovAvail = totals.nAvail>0 ? (totals.sumAvail / totals.nAvail) : 0; const ovPerfRaw = totals.nPR>0 ? (totals.sumPR / totals.nPR) : 0; const ovPerfAdj = totals.nPA>0 ? (totals.sumPA / totals.nPA) : 0; const ovOEE = ovAvail * ovPerfAdj * QUALITY_DEFAULT;
+      const ovMdtPct = totals.plannedH>0 ? (totals.maint / totals.plannedH) : 0; const ovPdtPct = totals.plannedH>0 ? (totals.prod / totals.plannedH) : 0; const ovMoM = perLine.reduce((s,r)=>s+(r.moM||0),0); const ovMoP = perLine.reduce((s,r)=>s+(r.moP||0),0); const ovMoM_pct = totalCapPot>0 ? (ovMoM/totalCapPot) : NaN; const ovMoP_pct = totalCapPot>0 ? (ovMoP/totalCapPot) : NaN; const ovUnderGap=Math.max(0, totals.runCapDen - totals.lbs);
+
+      // Bind KPI values + coloring
+      document.getElementById('ov-oee').textContent = fmtPct(ovOEE, totals.nAvail>0 && totals.nPA>0);
+      document.getElementById('ov-av').textContent  = fmtPct(ovAvail, totals.nAvail>0);
+      document.getElementById('ov-pr').textContent  = fmtPct(ovPerfRaw, totals.nPR>0);
+      document.getElementById('ov-pa').textContent  = fmtPct(ovPerfAdj, totals.nPA>0);
+      document.getElementById('ov-qual').textContent= Math.round(QUALITY_DEFAULT*100)+'%';
+      document.getElementById('ov-oee-eq').textContent = `OEE = ${fmtPct(ovAvail, totals.nAvail>0)} × ${fmtPct(ovPerfAdj, totals.nPA>0)} × ${Math.round(QUALITY_DEFAULT*100)}%`;
+      document.getElementById('ov-runh').textContent = fmtFixed(totals.mach,1,true);
+      document.getElementById('ov-cap').textContent  = fmtInt(totalCapPot,true);
+      document.getElementById('ov-lbs').textContent  = fmtInt(totals.lbs,true);
+      document.getElementById('ov-under').textContent= fmtInt(ovUnderGap,true);
+      document.getElementById('ov-mdt').textContent  = fmtFixed(totals.maint,1,true);
+      document.getElementById('ov-pdt').textContent  = fmtFixed(totals.prod,1,true);
+      document.getElementById('ov-mo-mdt').textContent = fmtInt(ovMoM,true);
+      document.getElementById('ov-mo-pdt').textContent = fmtInt(ovMoP,true);
+      document.getElementById('ov-mo-mdt-pct').textContent = fmtPct(ovMoM_pct, Number.isFinite(ovMoM_pct));
+      document.getElementById('ov-mo-pdt-pct').textContent = fmtPct(ovMoP_pct, Number.isFinite(ovMoP_pct));
+      document.getElementById('ov-mdt-pct').textContent  = fmtPct(ovMdtPct,true);
+      document.getElementById('ov-pdt-pct').textContent  = fmtPct(ovPdtPct,true);
+
+      const setTileClass = (sel, v, thr, valid=true) => { const el = document.querySelector(sel); el.classList.remove('good','warn','bad'); if (valid && Number.isFinite(v)) el.classList.add( grade(v||0, thr) ); };
+      setTileClass('#tile-oee',  ovOEE,     THRESH.oee,          totals.nAvail>0 && totals.nPA>0);
+      setTileClass('#tile-av',   ovAvail,   THRESH.availability, totals.nAvail>0);
+      setTileClass('#tile-pa',   ovPerfAdj, THRESH.capacityAdj,  totals.nPA>0);
+      setTileClass('#tile-qual', QUALITY_DEFAULT, THRESH.quality, true);
+
+      const mdtCls = classFromLowPct(ovMdtPct); setTileClassBy('#tile-mdt-pct', mdtCls); setTileClassBy('#tile-mdt-h', mdtCls);
+      const pdtCls = classFromLowPct(ovPdtPct); setTileClassBy('#tile-pdt-pct', pdtCls); setTileClassBy('#tile-pdt-h', pdtCls);
+      const moMCls = classFromLowPct(ovMoM_pct); setTileClassBy('#tile-mo-mdt-pct', moMCls); setTileClassBy('#tile-mo-mdt-lb', moMCls);
+      const moPCls = classFromLowPct(ovMoP_pct); setTileClassBy('#tile-mo-pdt-pct', moPCls); setTileClassBy('#tile-mo-pdt-lb', moPCls);
+      // remove color from Under tile
+      (function(){ const el=document.querySelector('#tile-under'); if (el) el.classList.remove('good','warn','bad'); })();
+
+      // === Heatmap: Factors (weekday averages only) ===
+      (function renderHeatmapFactors(){
+        const table = document.getElementById('heatFactors');
+        if (!byline.length){ table.innerHTML=''; document.getElementById('heat2Empty').style.display=''; return; }
+        document.getElementById('heat2Empty').style.display='none';
+        const days=['Mon','Tue','Wed','Thu','Fri'];
+        const aggBy = {};
+        for (const r of byline){
+          const wd = weekdayLocal(r.src_date); if (!wd || wd==='Sat' || wd==='Sun') continue;
+          const m = r.machine; const cap = capacityFor(r.machine, r.material); const lbs=r.pounds||0; const md=Math.max(0, r.maint_dt_h||0); const mh=Math.max(0, r.machine_hours||0);
+          const availability = 24>0 ? (mh/24) : 0; let perfAdj = NaN; if (mh>=MIN_RUN_H_FOR_ADJ && cap>0){ const adjDen = cap*Math.max(0,24-md); if (adjDen>0) perfAdj = Math.min(lbs/adjDen, PERF_CAP); }
+          const qual=QUALITY_DEFAULT; aggBy[m] ??= {}; aggBy[m][wd] ??= { av:{sum:0,n:0}, pa:{sum:0,n:0}, q:{sum:0,n:0} };
+          if (Number.isFinite(availability)){ aggBy[m][wd].av.sum += availability; aggBy[m][wd].av.n += 1; }
+          if (Number.isFinite(perfAdj)){ aggBy[m][wd].pa.sum += perfAdj; aggBy[m][wd].pa.n += 1; }
+          if (Number.isFinite(availability) && Number.isFinite(perfAdj)){ aggBy[m][wd].q.sum += qual; aggBy[m][wd].q.n += 1; }
+        }
+        const machines = Object.keys(aggBy).sort();
+        let thead = '<thead><tr><th rowspan="2">Line / Factor</th>'+days.map(d=>`<th colspan="3">${d}</th>`).join('')+'</tr><tr>'+days.map(()=>'<th>Avail</th><th>Perf-Adj</th><th>Qual*</th>').join('')+'</tr></thead>';
+        const tdFor = (row, d, key, thr) => { const cell=row[d]?.[key]; const valid=cell && cell.n>0 && Number.isFinite(cell.sum/cell.n); const v=valid?(cell.sum/cell.n):NaN; const cls=valid?grade(v,thr):'empty'; return `<td class="${cls}">${fmtPct(v,valid)}</td>`; };
+        let tbody='<tbody>';
+        for (const m of machines){ const row=aggBy[m]; tbody += `<tr><td class="line">${m}</td>`; for (const d of days){ tbody += tdFor(row,d,'av',THRESH.availability) + tdFor(row,d,'pa',THRESH.capacityAdj) + tdFor(row,d,'q',THRESH.quality); } tbody+='</tr>'; }
+        tbody+='</tbody>'; table.innerHTML = thead + tbody;
+      })();
+
+      // === Missed Opportunity (trimmed) ===
+      (function renderMissedTable(){
+        const table = document.getElementById('missedTbl');
+        if (!perLine.length){ table.innerHTML=''; document.getElementById('missedEmpty').style.display=''; return; }
+        document.getElementById('missedEmpty').style.display='none';
+        const hdr = `<thead><tr>
+            <th>Line</th>
+            <th>Maint DT %</th>
+            <th>Prod DT %</th>
+            <th>Capacity Pot (lb)</th>
+            <th>Pounds</th>
+            <th>Total Missed (lb)</th>
+          </tr></thead>`;
+        let body = '<tbody>';
+        let sumCap=0,sumPounds=0,sumMissed=0; let sumPlanned=0, sumMaint=0, sumProd=0;
+        perLine.forEach(r=>{
+          const plannedH=r.plannedH||0; const mPct = plannedH>0 ? (r.maint/plannedH) : NaN; const pPct = plannedH>0 ? (r.prod/plannedH) : NaN;
+          const totalMissed = Math.max(0,(r.capPot||0) - (r.lbs||0));
+          sumCap += (r.capPot||0); sumPounds += (r.lbs||0); sumMissed += totalMissed; sumPlanned += plannedH; sumMaint += (r.maint||0); sumProd += (r.prod||0);
+          body += `<tr>
+            <td class="line">${r.machine}</td>
+            <td>${fmtPct(mPct, Number.isFinite(mPct))}</td>
+            <td>${fmtPct(pPct, Number.isFinite(pPct))}</td>
+            <td>${fmtInt(r.capPot,true)}</td>
+            <td>${fmtInt(r.lbs,true)}</td>
+            <td>${fmtInt(totalMissed,true)}</td>
+          </tr>`;
+        });
+        const totalPctM = sumPlanned>0 ? (sumMaint/sumPlanned) : NaN; const totalPctP = sumPlanned>0 ? (sumProd/sumPlanned) : NaN;
+        body += `<tr style="font-weight:900">
+          <td class="line">TOTAL</td>
+          <td>${fmtPct(totalPctM, Number.isFinite(totalPctM))}</td>
+          <td>${fmtPct(totalPctP, Number.isFinite(totalPctP))}</td>
+          <td>${fmtInt(sumCap,true)}</td>
+          <td>${fmtInt(sumPounds,true)}</td>
+          <td>${fmtInt(sumMissed,true)}</td>
+        </tr></tbody>`;
+        table.innerHTML = hdr + body;
+      })();
+
+      // === Live prod status (left column) ===
+      await loadAndRenderStatusTable();
+
+      // Update selection label
+      document.getElementById('tfLabel').textContent = `${fromISO} → ${toISO}`;
+
+    } finally { setLoading(false); lastRenderAt = Date.now(); }
+  }
+</script>
+<script>
+  // ====== UI wiring & periodic refresh ======
+  function scheduleAutoRefresh(run){ if (refreshTimer) clearTimeout(refreshTimer); refreshTimer = setTimeout(async ()=>{ await run(); scheduleAutoRefresh(run); }, REFRESH_MS); }
+  function currentSelection(){ return { tf: document.getElementById('tf')?.value || 'last30', wknd: !!document.getElementById('wkndToggle')?.checked }; }
+  function saveSelectionToLS(){ localStorage.setItem('pace:opsSel', JSON.stringify(currentSelection())); }
+  function restoreSelectionFromLS(){ try{ const s=JSON.parse(localStorage.getItem('pace:opsSel')||'{}'); if (s.tf) document.getElementById('tf').value = s.tf; if (typeof s.wknd==='boolean') document.getElementById('wkndToggle').checked = s.wknd; }catch{} }
+
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) { const age = Date.now() - lastRenderAt; if (age > REFRESH_MS * 0.9) runForActivePeriod(); } });
+
+  async function runForActivePeriod(){ const sel=document.getElementById('tf').value; const r=computeRange(sel); await renderForRange(r.from, r.to, r.label); saveSelectionToLS(); }
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    await loadMappings();
+    restoreSelectionFromLS();
+    document.getElementById('tf').addEventListener('change', runForActivePeriod);
+    document.getElementById('wkndToggle').addEventListener('change', runForActivePeriod);
+    await runForActivePeriod();
+    scheduleAutoRefresh(runForActivePeriod);
+  });
+
+  // Tooltip toggle
+  document.addEventListener('click', (e) => { const info = e.target.closest('.info'); if (!info) return; const panel = info.parentElement.querySelector('.tooltip-panel'); if (!panel) return; panel.classList.toggle('show'); });
+  document.addEventListener('click', (e) => { if (e.target.closest('.tooltip')) return; document.querySelectorAll('.tooltip-panel.show').forEach(p=>p.classList.remove('show')); });
+</script>
+</body>
+</html>
