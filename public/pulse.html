@@ -525,12 +525,12 @@
         {id:'lbs',     label:'Pounds',           val:fmtInt(totals.lbs,true),                            cls:'', show:true},
         //{id:'under',   label:'Under-Perf (lb)',  val:fmtInt(ovUnderGap,true),                            cls:'', show:true},
         //{id:'mdt',     label:'Maint DT (h)',     val:fmtFixed(totals.maint,1,true),                      cls:'', show:true},
-        {id:'mdtPct',  label:'Maint DT (%)',     val:fmtPct(ovMdtPct,true),                              cls:(ovMdtPct<=0.10?'good':ovMdtPct<=0.20?'warn':'bad'), show:true},
+        //{id:'mdtPct',  label:'Maint DT (%)',     val:fmtPct(ovMdtPct,true),                              cls:(ovMdtPct<=0.10?'good':ovMdtPct<=0.20?'warn':'bad'), show:true},
         //{id:'pdt',     label:'Prod DT (h)',      val:fmtFixed(totals.prod,1,true),                       cls:'', show:true},
-        {id:'pdtPct',  label:'Prod DT (%)',      val:fmtPct(ovPdtPct,true),                              cls:(ovPdtPct<=0.10?'good':ovPdtPct<=0.20?'warn':'bad'), show:true},
-        {id:'moMlb',   label:'Missed Opp (Maint, lb)', val:fmtInt(ovMoM,true),                           cls:(ovMoM_pct<=0.10?'good':ovMoM_pct<=0.20?'warn':'bad'), show:true},
+        //{id:'pdtPct',  label:'Prod DT (%)',      val:fmtPct(ovPdtPct,true),                              cls:(ovPdtPct<=0.10?'good':ovPdtPct<=0.20?'warn':'bad'), show:true},
+        //{id:'moMlb',   label:'Missed Opp (Maint, lb)', val:fmtInt(ovMoM,true),                           cls:(ovMoM_pct<=0.10?'good':ovMoM_pct<=0.20?'warn':'bad'), show:true},
         //{id:'moMpc',   label:'Missed Opp (Maint, %)',  val:fmtPct(ovMoM_pct, Number.isFinite(ovMoM_pct)),cls:(ovMoM_pct<=0.10?'good':ovMoM_pct<=0.20?'warn':'bad'), show:true},
-        {id:'moPlb',   label:'Missed Opp (Prod, lb)',  val:fmtInt(ovMoP,true),                           cls:(ovMoP_pct<=0.10?'good':ovMoP_pct<=0.20?'warn':'bad'), show:true},
+        //{id:'moPlb',   label:'Missed Opp (Prod, lb)',  val:fmtInt(ovMoP,true),                           cls:(ovMoP_pct<=0.10?'good':ovMoP_pct<=0.20?'warn':'bad'), show:true},
         //{id:'moPpc',   label:'Missed Opp (Prod, %)',   val:fmtPct(ovMoP_pct, Number.isFinite(ovMoP_pct)),cls:(ovMoP_pct<=0.10?'good':ovMoP_pct<=0.20?'warn':'bad'), show:true},
       ];
       const kpiStrip = document.getElementById('kpiStrip');
@@ -565,8 +565,13 @@
         const oeeCls  = (r.oeeV && Number.isFinite(r.oee)) ? grade(r.oee, THRESH.oee) : '';
         const availCls= (r.availV && Number.isFinite(r.avail)) ? grade(r.avail, THRESH.availability) : '';
         const paCls   = (r.paV && Number.isFinite(r.perfAdj)) ? grade(r.perfAdj, THRESH.capacityAdj) : '';
-        const rawForGauge = (r.prV && Number.isFinite(r.perfRaw)) ? Math.min(1, Math.max(0, r.perfRaw)) : r.perfRaw;
-        const adjForGauge = (r.paV && Number.isFinite(r.perfAdj)) ? Math.min(1, Math.max(0, r.perfAdj)) : r.perfAdj;
+        //const rawForGauge = (r.prV && Number.isFinite(r.perfRaw)) ? Math.min(1, Math.max(0, r.perfRaw)) : r.perfRaw;
+        //const adjForGauge = (r.paV && Number.isFinite(r.perfAdj)) ? Math.min(1, Math.max(0, r.perfAdj)) : r.perfAdj;
+        //Include the following to have gauges below before Maint DT
+        //<div style="display:flex;gap:12px;margin-top:8px;align-items:flex-end">
+              //<div class="${(r.prV && Number.isFinite(r.perfRaw))?'badge '+grade(r.perfRaw, THRESH.capacityAdj):'badge'}" style="flex:1">${gaugeSVG(rawForGauge,'Raw 24h', '', r.prV)}</div>
+              //<div class="${(r.paV && Number.isFinite(r.perfAdj))?'badge '+paCls:'badge'}" style="flex:1">${gaugeSVG(adjForGauge,'Adj for DT', '', r.paV)}</div>
+            //</div>
         const html = `
           <div class="line">
             <div class="lineheader">
@@ -580,11 +585,7 @@
               <div class="mitem"><div class="label">Quality*</div><div class="mkv">${Math.round(r.qual*100)}%</div></div>
               <div class="mitem"><div class="label">Pounds</div><div class="mkv">${fmtInt(r.lbs,true)}</div></div>
             </div>
-            <div style="display:flex;gap:12px;margin-top:8px;align-items:flex-end">
-              <div class="${(r.prV && Number.isFinite(r.perfRaw))?'badge '+grade(r.perfRaw, THRESH.capacityAdj):'badge'}" style="flex:1">${gaugeSVG(rawForGauge,'Raw 24h', '', r.prV)}</div>
-              <div class="${(r.paV && Number.isFinite(r.perfAdj))?'badge '+paCls:'badge'}" style="flex:1">${gaugeSVG(adjForGauge,'Adj for DT', '', r.paV)}</div>
-            </div>
-            <div style="display:flex;gap:8px;margin-top:8px">
+            <div style="display:flex;gap:12px;margin-top:8px">
               <span class="badge warn">Maint DT ${fmtFixed(r.maint,1,true)}h</span>
               <span class="badge bad">Prod DT ${fmtFixed(r.prod,1,true)}h</span>
             </div>
