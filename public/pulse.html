@@ -407,6 +407,76 @@
     });
   }
 
+  // Fetch what prodstatus.html uses (normalize a few shapes)
+  async function fetchProdStatusRaw(){
+    const tryEndpoints = ['/api/prodstatus','/api/production/status','/api/lines/status'];
+    for (const url of tryEndpoints){
+      try{
+        const r = await fetch(url, {cache:'no-store'});
+        if (!r.ok) continue;
+        const data = await r.json();
+        // Normalize into {name, limble:boolean, status:string}
+        const rows = Array.isArray(data) ? data : (data?.lines || data?.items || []);
+        if (!Array.isArray(rows)) continue;
+  
+        return rows.map(x=>{
+          const name   = x.name || x.machine || x.line || '';
+          const status = (x.status || x.state || x.text || '').toString();
+          // Heuristic: if backend flags "limble" or status mentions it
+          const limble = Boolean(x.limble) || /limble/i.test(status);
+          return { name, status, limble };
+        }).filter(r=>r.name);
+      }catch{}
+    }
+    return null; // let caller decide fallback
+  }
+  
+  // Allow only mapped/known lines (like prodstatus.html did)
+  function isAllowed(lineName){
+    const n = String(lineName||'').trim();
+    if (!n) return false;
+    // Common: Extruder lines only
+    if (/^extruder\s*\d+/i.test(n)) return true;
+  
+    // Use mappings.json if available
+    const caps = MAPPINGS?.capacities_lbs_hr || {};
+    const alias = MAPPINGS?.capacity_aliases || {};
+    if (n in caps) return true;
+    // If alias points to a canonical present in caps
+    const canon = alias[n];
+    if (canon && (canon in caps)) return true;
+  
+    return false;
+  }
+  
+  // Render the prodstatus table rows into #prodStatusList
+  function renderProdStatusList(statusArray){
+    const container = document.getElementById('prodStatusList');
+    container.innerHTML = '';
+  
+    statusArray
+      .filter(s => isAllowed(s.name))
+      .sort((a,b) => a.name.localeCompare(b.name))
+      .forEach(S=>{
+        const isLimble = !!S.limble;
+        const bg     = isLimble ? '#fff7cc' : '#eaffea';     // yellow vs green
+        const border = isLimble ? '#fde68a' : '#bbf7d0';
+        const label  = isLimble ? 'Limble Request' : 'Available';
+  
+        const row = document.createElement('div');
+        row.style.cssText = `
+          display:flex;align-items:center;justify-content:space-between;
+          margin-bottom:8px;padding:10px 12px;border-radius:12px;
+          background:${bg};border:1px solid ${border};font-weight:900;font-size:var(--status-fs)
+        `;
+        row.innerHTML = `
+          <strong>${S.name}</strong>
+          <span style="color:var(--muted);font-weight:800">${label}</span>
+        `;
+        container.appendChild(row);
+      });
+  }
+
   // ====== CORE RENDERER ======
   async function renderForRange(fromISO, toISO, label){
     setLoading(true);
@@ -613,22 +683,20 @@
         const el = document.createElement('div'); el.innerHTML = html; linesGrid.appendChild(el.firstElementChild);
       });
 
-      // ====== Production Line Status (like prodstatus.html) ======
-      let liveStatus = await loadProdStatus();
-      if (!liveStatus) liveStatus = deriveStatusFrom(perLine);
-
-      const statusEl = document.getElementById('prodStatusList');
-      statusEl.innerHTML = liveStatus
-        .sort((a,b)=>a.machine.localeCompare(b.machine))
-        .map(s => {
-          const cls = s.level==='good'?'good':s.level==='warn'?'warn':'bad';
-          // Render as: Extruder # – Available
-          const text = `${s.machine} – ${s.status}`;
-          return `<div class="ps-item ${cls}">
-                    <span class="dot" style="background:currentColor;width:12px;height:12px;border-radius:50%"></span>
-                    <span class="name">${text}</span>
-                  </div>`;
-        }).join('');
+      // ====== Production Line Status (mimic prodstatus.html table) ======
+      let prodstatus = await fetchProdStatusRaw();
+      if (!prodstatus) {
+        // Fallback: synthesize status from perLine availability
+        prodstatus = (perLine || []).map(r=>{
+          const avail = Number.isFinite(r.avail) ? r.avail : 0;
+          return {
+            name: r.machine,
+            limble: false,
+            status: (avail >= 0.75) ? 'Available' : (avail >= 0.05 ? 'Setup' : 'Down')
+          };
+        });
+      }
+      renderProdStatusList(prodstatus);
 
       // ====== Rank table ======
       const tbody = document.querySelector('#rankTable tbody');
