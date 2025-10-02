@@ -72,6 +72,9 @@
     #heatFactors td.warn { background: var(--warn-bg); }
     #heatFactors td.bad  { background: var(--bad-bg); color:#fff !important; }
     #heatFactors td.empty { background:#f1f5f9 !important; color:#94a3b8 !important; }
+    #heatFactors th, #heatFactors td { padding: 12px; }
+    #heatFactors th, #heatFactors td { padding: 12px; }
+
     .empty{padding:12px;color:#64748b;border:1px dashed #cbd5e1;border-radius:10px;background:#f8fafc;margin-top:6px;text-align:center}
 
     /* 2-column lower grid for 1080p */
@@ -479,21 +482,72 @@
         document.getElementById('heat2Empty').style.display='none';
         const days=['Mon','Tue','Wed','Thu','Fri'];
         const aggBy = {};
-        for (const r of byline){
-          const wd = weekdayLocal(r.src_date); if (!wd || wd==='Sat' || wd==='Sun') continue;
-          const m = r.machine; const cap = capacityFor(r.machine, r.material); const lbs=r.pounds||0; const md=Math.max(0, r.maint_dt_h||0); const mh=Math.max(0, r.machine_hours||0);
-          const availability = 24>0 ? (mh/24) : 0; let perfAdj = NaN; if (mh>=MIN_RUN_H_FOR_ADJ && cap>0){ const adjDen = cap*Math.max(0,24-md); if (adjDen>0) perfAdj = Math.min(lbs/adjDen, PERF_CAP); }
-          const qual=QUALITY_DEFAULT; aggBy[m] ??= {}; aggBy[m][wd] ??= { av:{sum:0,n:0}, pa:{sum:0,n:0}, q:{sum:0,n:0} };
-          if (Number.isFinite(availability)){ aggBy[m][wd].av.sum += availability; aggBy[m][wd].av.n += 1; }
-          if (Number.isFinite(perfAdj)){ aggBy[m][wd].pa.sum += perfAdj; aggBy[m][wd].pa.n += 1; }
-          if (Number.isFinite(availability) && Number.isFinite(perfAdj)){ aggBy[m][wd].q.sum += qual; aggBy[m][wd].q.n += 1; }
+        for (const r of byline) {
+          const wd = weekdayLocal(r.src_date);
+          if (!wd || wd==='Sat' || wd==='Sun') continue;
+        
+          const m   = r.machine;
+          const cap = capacityFor(r.machine, r.material);
+          const lbs = r.pounds || 0;
+          const md  = Math.max(0, r.maint_dt_h || 0);
+          const mh  = Math.max(0, r.machine_hours || 0);
+        
+          const availability = 24 > 0 ? (mh / 24) : 0;
+        
+          let perfAdj = NaN;
+          if (mh >= MIN_RUN_H_FOR_ADJ && cap > 0) {
+            const adjDen = cap * Math.max(0, 24 - md);
+            if (adjDen > 0) perfAdj = Math.min(lbs / adjDen, PERF_CAP);
+          }
+        
+          const qual = QUALITY_DEFAULT;
+        
+          aggBy[m] ??= {};
+          //                 vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv  add 'o'
+          aggBy[m][wd] ??= { av:{sum:0,n:0}, pa:{sum:0,n:0}, q:{sum:0,n:0}, o:{sum:0,n:0} };
+        
+          if (Number.isFinite(availability)) { aggBy[m][wd].av.sum += availability; aggBy[m][wd].av.n += 1; }
+          if (Number.isFinite(perfAdj))      { aggBy[m][wd].pa.sum += perfAdj;      aggBy[m][wd].pa.n += 1; }
+        
+          // Only count quality & OEE when both factors exist (same as before for q)
+          if (Number.isFinite(availability) && Number.isFinite(perfAdj)) {
+            aggBy[m][wd].q.sum += qual; aggBy[m][wd].q.n += 1;
+        
+            const oee = availability * perfAdj * qual;
+            if (Number.isFinite(oee)) { aggBy[m][wd].o.sum += oee; aggBy[m][wd].o.n += 1; }
+          }
         }
         const machines = Object.keys(aggBy).sort();
-        let thead = '<thead><tr><th rowspan="2">Line / Factor</th>'+days.map(d=>`<th colspan="3">${d}</th>`).join('')+'</tr><tr>'+days.map(()=>'<th>Avail</th><th>Perf-Adj</th><th>Qual*</th>').join('')+'</tr></thead>';
-        const tdFor = (row, d, key, thr) => { const cell=row[d]?.[key]; const valid=cell && cell.n>0 && Number.isFinite(cell.sum/cell.n); const v=valid?(cell.sum/cell.n):NaN; const cls=valid?grade(v,thr):'empty'; return `<td class="${cls}">${fmtPct(v,valid)}</td>`; };
-        let tbody='<tbody>';
-        for (const m of machines){ const row=aggBy[m]; tbody += `<tr><td class="line">${m}</td>`; for (const d of days){ tbody += tdFor(row,d,'av',THRESH.availability) + tdFor(row,d,'pa',THRESH.capacityAdj) + tdFor(row,d,'q',THRESH.quality); } tbody+='</tr>'; }
-        tbody+='</tbody>'; table.innerHTML = thead + tbody;
+        let thead =
+          '<thead><tr><th rowspan="2">Line / Factor</th>' +
+          days.map(d=>`<th colspan="4">${d}</th>`).join('') +
+          '</tr><tr>' +
+          days.map(()=>'<th>Avail</th><th>Perf-Adj</th><th>Qual*</th><th>OEE</th>').join('') +
+          '</tr></thead>';
+
+        const tdFor = (row, d, key, thr) => {
+        const cell = row[d]?.[key];
+        const valid = cell && cell.n > 0 && Number.isFinite(cell.sum / cell.n);
+        const v = valid ? (cell.sum / cell.n) : NaN;
+        const cls = valid ? grade(v, thr) : 'empty';
+        return `<td class="${cls}">${fmtPct(v, valid)}</td>`;
+      };
+      
+      let tbody = '<tbody>';
+      for (const m of machines) {
+        const row = aggBy[m];
+        tbody += `<tr><td class="line">${m}</td>`;
+        for (const d of days) {
+          tbody += tdFor(row, d, 'av', THRESH.availability);
+          tbody += tdFor(row, d, 'pa', THRESH.capacityAdj);
+          tbody += tdFor(row, d, 'q',  THRESH.quality);
+          //           ^^^^^^^^^^^^^^ add this line using OEE thresholds
+          tbody += tdFor(row, d, 'o',  THRESH.oee);
+        }
+        tbody += '</tr>';
+      }
+      tbody += '</tbody>';
+      table.innerHTML = thead + tbody;
       })();
 
       // === Missed Opportunity (trimmed) ===
