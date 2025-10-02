@@ -613,22 +613,18 @@
         const el = document.createElement('div'); el.innerHTML = html; linesGrid.appendChild(el.firstElementChild);
       });
 
-      // ====== Production Line Status (like prodstatus.html) ======
-      let liveStatus = await loadProdStatus();
-      if (!liveStatus) liveStatus = deriveStatusFrom(perLine);
-
-      const statusEl = document.getElementById('prodStatusList');
-      statusEl.innerHTML = liveStatus
-        .sort((a,b)=>a.machine.localeCompare(b.machine))
-        .map(s => {
-          const cls = s.level==='good'?'good':s.level==='warn'?'warn':'bad';
-          // Render as: Extruder # – Available
-          const text = `${s.machine} – ${s.status}`;
-          return `<div class="ps-item ${cls}">
-                    <span class="dot" style="background:currentColor;width:12px;height:12px;border-radius:50%"></span>
-                    <span class="name">${text}</span>
-                  </div>`;
-        }).join('');
+      // Production Line Status (filtered by mappings)
+    const statusArr = (Array.isArray(prodstatus)?prodstatus:[])
+      .filter(s => isAllowed(s.name))
+      .sort((a,b)=> a.name.localeCompare(b.name));
+    const prodList=$('#prodStatusList'); prodList.innerHTML='';
+    statusArr.forEach(S=>{
+      const bg=S.limble?'#fff7cc':'#eaffea', border=S.limble?'#fde68a':'#bbf7d0';
+      const row=document.createElement('div');
+      row.style.cssText=`display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;padding:10px 12px;border-radius:12px;background:${bg};border:1px solid ${border}`;
+      row.innerHTML=`<strong>${S.name}</strong><span style="color:var(--muted);font-weight:800">${S.limble?'Limble Request':'Available'}</span>`;
+      prodList.appendChild(row);
+    });
 
       // ====== Rank table ======
       const tbody = document.querySelector('#rankTable tbody');
