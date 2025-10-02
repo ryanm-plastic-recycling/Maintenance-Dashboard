@@ -14,10 +14,10 @@
       --shadow: 0 10px 25px rgba(0,0,0,.08);
       --chip:#f7fafc;
 
-      /* NEW: keep header/line-OEE the same size via one var */
+      /* sizing */
       --tile-head-fs: 18px;
-      --rank-fs: 18px; /* bigger rank table */
-      --status-fs: 18px; /* bigger prod status rows */
+      --rank-fs: 18px;
+      --status-fs: 18px;
     }
     *{box-sizing:border-box}
 
@@ -29,7 +29,6 @@
         url('img/PRIfront.png') center/cover no-repeat fixed;
     }
 
-    /* Header */
     .top-border{position:fixed;top:0;left:0;width:100%;height:96px;background:var(--pri-green);z-index:10;display:flex;align-items:center;padding:0 20px}
     .top-border .logo{height:72px}
     .top-title{font-size:28px;font-weight:900;margin-left:20px;color:#0A2A12}
@@ -38,7 +37,6 @@
     .tab.active{background:#fff}
     .wrap{margin:120px 20px 40px 20px}
 
-    /* Loading overlay spinner */
     #loading{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(255,255,255,.55);z-index:9999}
     #loading .spinner{width:64px;height:64px;border:8px solid #e5e7eb;border-top-color:var(--pri-blue);border-radius:50%;animation:spin 1s linear infinite}
     @keyframes spin{to{transform:rotate(360deg)}}
@@ -67,13 +65,11 @@
     .st-downm{background:#ef4444}
     .st-downp{background:#dc2626}
 
-    /* Grid + cards */
     .grid{display:grid;grid-template-columns:420px 1fr;gap:16px;align-items:stretch}
     .card{background:var(--card);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow)}
     .card h3{margin:0;padding:12px 14px;border-bottom:1px solid var(--border);font-size:var(--tile-head-fs);letter-spacing:.3px;color:var(--muted)}
     .card .content{padding:14px}
 
-    /* Donuts */
     .donutwrap{display:grid;grid-template-columns:1fr;gap:12px}
     .donutrow{display:grid;grid-template-columns:160px 1fr;gap:12px;align-items:center}
     .legend{display:grid;grid-template-columns:1fr 1fr;gap:8px}
@@ -81,7 +77,6 @@
     .legend .dot{width:12px;height:12px;border-radius:50%}
     .legend .name{max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
-    /* Line tiles */
     .lines{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px}
     .line{border:1px solid var(--border);border-radius:14px;padding:12px;background:white;display:flex;flex-direction:column}
     .lineheader{display:flex;justify-content:space-between;align-items:center}
@@ -90,8 +85,6 @@
     .badge.good{background:var(--good-bg);color:var(--good-fg);border:1px solid #bbf7d0}
     .badge.warn{background:var(--warn-bg);color:var(--warn-fg);border:1px solid #fde68a}
     .badge.bad{ background:var(--bad-bg); color:var(--bad-fg); border:1px solid #fecaca}
-
-    /* NEW: make the OEE badge number same size as tile header */
     .oee-badge{font-size:var(--tile-head-fs); line-height:1; padding:6px 10px}
 
     .metricrow{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:8px}
@@ -99,26 +92,13 @@
     .mitem .mkv{font-size:22px;font-weight:900}
     .spark{width:100%;height:40px;margin-top:6px}
 
-    /* Rank table bigger font */
     #rankTable {font-size: var(--rank-fs);}
     #rankTable th, #rankTable td {padding:12px}
 
-    /* Production Line Status - v2 */
+    /* Production Line Status table */
     #status-table { width:100%; border-collapse:collapse; font-size:var(--status-fs) }
     #status-table th, #status-table td { padding:12px; border-bottom:1px dashed var(--border) }
     #status-table thead th { background:#25408F; color:#fff; text-align:left }
-
-    /* Production Line Status like prodstatus.html (big, simple rows) */
-    .ps-list{display:flex;flex-direction:column;gap:10px}
-    .ps-item{
-      display:flex;align-items:center;gap:10px;
-      font-weight:900;border:1px solid var(--border);border-radius:12px;
-      background:white;padding:10px 12px;font-size:var(--status-fs)
-    }
-    .ps-item.good{background:var(--good-bg); color:var(--good-fg); border-color:#10B981}
-    .ps-item.warn{background:var(--warn-bg); color:var(--warn-fg); border-color:#7c5e10}
-    .ps-item.bad{ background:var(--bad-bg);  color:var(--bad-fg);  border-color:#7f1d1d}
-    .ps-item .name{min-width:140px}
 
     footer{display:flex;justify-content:space-between;align-items:center;margin-top:12px;color:var(--muted)}
     .clock{font-variant-numeric:tabular-nums;font-weight:900}
@@ -130,13 +110,11 @@
       .lines{gap:18px}
       .line{padding:16px}
       #rankTable {font-size: 20px;}
-      .ps-item {font-size: 20px;}
     }
   </style>
 </head>
 
 <body class="page-production">
-  <!-- Spinner -->
   <div id="loading"><div class="spinner" aria-label="Loading…"></div></div>
 
   <div class="top-border">
@@ -180,22 +158,20 @@
       <!-- KPI STRIP -->
       <section class="kpis" id="kpiStrip"></section>
 
-      <!-- TOP GRID (SWAPPED): Left = Production Line Status, Right = Line Health -->
+      <!-- TOP GRID: Left = Production Line Status, Right = Line Health -->
       <section class="grid">
-        <!-- Left: Production Line Status (moved up) -->
         <article class="card">
-        <h3>CURRENT Line Status</h3>
-        <div class="content">
-          <table id="status-table" class="status-table">
-            <thead>
-              <tr><th>Asset Name</th><th>Asset Status</th></tr>
-            </thead>
-            <tbody id="status-data"></tbody>
-          </table>
-        </div>
-      </article>
+          <h3>CURRENT Line Status</h3>
+          <div class="content">
+            <table id="status-table" class="status-table">
+              <thead>
+                <tr><th>Asset Name</th><th>Asset Status</th></tr>
+              </thead>
+              <tbody id="status-data"></tbody>
+            </table>
+          </div>
+        </article>
 
-        <!-- Right: Line health -->
         <article class="card">
           <h3>Line Health (OEE / Avail / Perf / Quality)</h3>
           <div class="content">
@@ -204,9 +180,8 @@
         </article>
       </section>
 
-      <!-- BOTTOM GRID (SWAPPED): Left = Downtime pies, Right = Rank -->
+      <!-- BOTTOM GRID: Left = Donuts, Right = Rank -->
       <section class="grid" style="margin-top:16px">
-        <!-- Left: Downtime pies (moved down) -->
         <article class="card">
           <h3>Downtime Overview — Maintenance vs Production</h3>
           <div class="content donutwrap">
@@ -221,7 +196,6 @@
           </div>
         </article>
 
-        <!-- Right: Rank -->
         <article class="card">
           <h3>Lines Ranked by OEE & Missed Opportunity</h3>
           <div class="content">
@@ -329,9 +303,7 @@
 
   // ====== SMALL HELPERS ======
   function cssVar(name) {
-    return getComputedStyle(document.documentElement)
-      .getPropertyValue(name)
-      .trim() || name;
+    return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || name;
   }
   function polarToCartesian(cx, cy, r, angDeg) {
     const a = angDeg * Math.PI / 180;
@@ -370,124 +342,7 @@
     ctx.globalCompositeOperation = 'source-over';
   }
 
-  // ====== PROD STATUS LOADER (match prodstatus.html behavior) ======
-  async function loadProdStatus(){
-    // Try likely endpoints used by prodstatus.html
-    const tryEndpoints = [
-      '/api/prodstatus',
-      '/api/production/status',
-      '/api/lines/status'
-    ];
-    for (const url of tryEndpoints){
-      try{
-        const r = await fetch(url, {cache:'no-store'});
-        if (r.ok){
-          const data = await r.json();
-          // Normalize a few common shapes into {machine, status, level}
-          const norm = [];
-          for (const row of (Array.isArray(data)?data:(data?.lines||[]))){
-            const machine = row.machine || row.line || row.name || '';
-            const status  = (row.status || row.state || row.text || '').toString();
-            // map status → level used for coloring
-            const s = status.toLowerCase();
-            const level = s.includes('avail')||s.includes('run')?'good'
-                        : s.includes('setup')||s.includes('change')?'warn'
-                        : 'bad';
-            if (machine) norm.push({machine, status, level});
-          }
-          if (norm.length) return norm;
-        }
-      }catch{}
-    }
-    // Fallback: caller will pass perLine so we can derive from Availability
-    return null;
-  }
-
-  // Derive status when endpoint not available
-  function deriveStatusFrom(perLine){
-    return perLine.map(r=>{
-      let status = 'Down';
-      let level = 'bad';
-      if (Number.isFinite(r.avail)){
-        if (r.avail >= 0.75){ status = 'Available'; level='good'; }
-        else if (r.avail >= 0.05){ status='Setup'; level='warn'; }
-        else { status='Down'; level='bad'; }
-      }
-      return {machine: r.machine, status, level};
-    });
-  }
-
-  // Fetch what prodstatus.html uses (normalize a few shapes)
-  async function fetchProdStatusRaw(){
-    const tryEndpoints = ['/api/prodstatus','/api/production/status','/api/lines/status'];
-    for (const url of tryEndpoints){
-      try{
-        const r = await fetch(url, {cache:'no-store'});
-        if (!r.ok) continue;
-        const data = await r.json();
-        // Normalize into {name, limble:boolean, status:string}
-        const rows = Array.isArray(data) ? data : (data?.lines || data?.items || []);
-        if (!Array.isArray(rows)) continue;
-  
-        return rows.map(x=>{
-          const name   = x.name || x.machine || x.line || '';
-          const status = (x.status || x.state || x.text || '').toString();
-          // Heuristic: if backend flags "limble" or status mentions it
-          const limble = Boolean(x.limble) || /limble/i.test(status);
-          return { name, status, limble };
-        }).filter(r=>r.name);
-      }catch{}
-    }
-    return null; // let caller decide fallback
-  }
-  
-  // Allow only mapped/known lines (like prodstatus.html did)
-  function isAllowed(lineName){
-    const n = String(lineName||'').trim();
-    if (!n) return false;
-    // Common: Extruder lines only
-    if (/^extruder\s*\d+/i.test(n)) return true;
-  
-    // Use mappings.json if available
-    const caps = MAPPINGS?.capacities_lbs_hr || {};
-    const alias = MAPPINGS?.capacity_aliases || {};
-    if (n in caps) return true;
-    // If alias points to a canonical present in caps
-    const canon = alias[n];
-    if (canon && (canon in caps)) return true;
-  
-    return false;
-  }
-  
-  // Render the prodstatus table rows into #prodStatusList
-  function renderProdStatusList(statusArray){
-    const container = document.getElementById('prodStatusList');
-    container.innerHTML = '';
-  
-    statusArray
-      .filter(s => isAllowed(s.name))
-      .sort((a,b) => a.name.localeCompare(b.name))
-      .forEach(S=>{
-        const isLimble = !!S.limble;
-        const bg     = isLimble ? '#7c5e10' : '#10B981';     // yellow vs green
-        const border = isLimble ? '#fde68a' : '#bbf7d0';
-        const label  = isLimble ? 'Limble Request' : 'Available';
-  
-        const row = document.createElement('div');
-        row.style.cssText = `
-          display:flex;align-items:center;justify-content:space-between;
-          margin-bottom:8px;padding:10px 12px;border-radius:12px;
-          background:${bg};border:1px solid ${border};font-weight:900;font-size:var(--status-fs)
-        `;
-        row.innerHTML = `
-          <strong>${S.name}</strong>
-          <span style="color:var(--muted);font-weight:800">${label}</span>
-        `;
-        container.appendChild(row);
-      });
-  }
-  
-  // Pull the same source prodstatus.html uses
+  // ====== PROD STATUS (same data as prodstatus.html) ======
   async function getProdStatusRows(){
     try{
       const res = await fetch('/api/workorders/prodstatus?t=' + Date.now(), { cache:'no-store' });
@@ -495,8 +350,7 @@
       let data = await res.json();
       let rows = Array.isArray(data?.rows) ? data.rows
               : (Array.isArray(data?.tiles) ? data.tiles : []);
-  
-      // SQL wrapper normalizer (same as prodstatus.html)
+      // SQL wrapper normalizer
       if (Array.isArray(rows) && rows.length === 1 && rows[0] && typeof rows[0] === 'object'){
         const k = Object.keys(rows[0])[0];
         const v = k && rows[0][k];
@@ -509,59 +363,77 @@
       return [];
     }
   }
-  
-  // Render into the Pulse table using mappings.json just like prodstatus.html
+
   function renderStatusTable(rows){
     const tbody = document.getElementById('status-data');
     if (!tbody) return;
     tbody.innerHTML = '';
-  
+
     const colorMap = MAPPINGS?.statusColorMapping || {};
     const textMap  = MAPPINGS?.statusTextMapping  || {};
     const assets   = Array.isArray(MAPPINGS?.productionAssets) ? MAPPINGS.productionAssets : [];
-  
-    const findRow = (id) => rows.find(r => String(r.assetID) === String(id)) || {};
-  
-    assets
-      .slice()
-      .sort((a,b)=> String(a.name).localeCompare(String(b.name)))
-      .forEach(item=>{
-        const entry = findRow(item.id);
-  
-        // Mirror prodstatus.html’s status resolution
+
+    const toText = (raw) => {
+      const v = (raw ?? 'N/A');
+      if (typeof v === 'number' || (/^\d+$/).test(String(v).trim())) {
+        return (textMap[String(v)] || String(v)).replace(/\u00A0/g, ' ').trim();
+      }
+      return String(v).replace(/\u00A0/g, ' ').trim();
+    };
+    const colorFor = (txt) => {
+      const idFromText = Object.keys(textMap).find(k => (textMap[k]||'').toString().toLowerCase() === txt.toLowerCase());
+      const keyForColor = idFromText || txt;
+      return colorMap[keyForColor] || '#fff';
+    };
+
+    if (assets.length > 0) {
+      const byId = (id) => rows.find(r => String(r.assetID) === String(id)) || {};
+      assets.slice().sort((a,b)=> String(a.name).localeCompare(String(b.name))).forEach(item=>{
+        const entry = byId(item.id);
         const raw =
           entry.assetStatus ?? entry.value ?? entry.valueText ??
           entry.statusText  ?? entry.status ?? entry.statusID ?? 'N/A';
-  
-        // Map numeric codes via statusTextMapping; otherwise use text as-is
-        let text;
-        if (typeof raw === 'number' || (/^\d+$/).test(String(raw).trim())) {
-          text = textMap[String(raw)] || String(raw);
-        } else {
-          text = String(raw);
-        }
-        text = text.replace(/\u00A0/g, ' ').trim();
-  
-        // Choose color: id mapping has priority, else status text
-        const idFromText   = Object.keys(textMap).find(k => (textMap[k]||'').toString().toLowerCase() === text.toLowerCase());
-        const keyForColor  = idFromText || text;
-        const bg           = colorMap[keyForColor] || '#fff';
-  
+        const text = toText(raw);
+        const bg   = colorFor(text);
+
         const tr = document.createElement('tr');
         tr.style.backgroundColor = bg;
-  
-        // readable foreground on strong bg
-        const bgl = String(bg).toLowerCase();
-        let fg = '#000';
-        if (bgl==='#d64550' || bgl==='red' || bgl==='#118dff' || bgl==='blue') fg='#fff';
-        tr.style.color = fg;
-  
+        tr.style.color = (/^(#d64550|red|#118dff|blue)$/i.test(String(bg))) ? '#fff' : '#000';
         tr.innerHTML = `<td>${item.name}</td><td>${text}</td>`;
         tbody.appendChild(tr);
       });
+      return;
+    }
+
+    // Fallback: no productionAssets in mappings → render everything we can find
+    const guessName = (r) => r.assetName || r.name || r.machine || r.line || r.asset || '';
+    const guessRaw  = (r) => r.assetStatus ?? r.value ?? r.valueText ?? r.statusText ?? r.status ?? r.statusID ?? 'N/A';
+    const list = rows.map(r => ({ name: guessName(r), text: toText(guessRaw(r)) })).filter(r => r.name);
+
+    if (list.length === 0) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td colspan="2" style="color:#7f1d1d;font-weight:800">No status rows found. Check /api/workorders/prodstatus and mappings.productionAssets.</td>`;
+      tbody.appendChild(tr);
+      return;
+    }
+
+    list.sort((a,b)=> a.name.localeCompare(b.name)).forEach(({name, text})=>{
+      const bg = colorFor(text);
+      const tr = document.createElement('tr');
+      tr.style.backgroundColor = bg;
+      tr.style.color = (/^(#d64550|red|#118dff|blue)$/i.test(String(bg))) ? '#fff' : '#000';
+      tr.innerHTML = `<td>${name}</td><td>${text}</td>`;
+      tbody.appendChild(tr);
+    });
   }
-  
-  // ====== CORE RENDERER ======
+
+  async function loadAndRenderStatusTable(){
+    if (!MAPPINGS) { try { await loadMappings(); } catch {} }
+    const rows = await getProdStatusRows();
+    renderStatusTable(rows);
+  }
+
+  // ====== CORE RENDERER (range) ======
   async function renderForRange(fromISO, toISO, label){
     setLoading(true);
     try{
@@ -575,13 +447,11 @@
 
       const byline = (bylineRaw || []).filter(r => r.machine && r.machine.startsWith('Extruder'));
 
-      // calendar (weekdays only by default)
+      // build calendar (weekdays only)
       const planDays = [];
-      {
-        const from = new Date(fromISO+'T00:00:00');
-        const to   = new Date(toISO+'T00:00:00');
+      { const from = new Date(fromISO+'T00:00:00'); const to=new Date(toISO+'T00:00:00');
         for (let d=new Date(from); d<=to; d.setDate(d.getDate()+1)) {
-          const wd = d.getDay(); // 0=Sun 6=Sat
+          const wd = d.getDay();
           const iso = new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10);
           if (wd !== 0 && wd !== 6) planDays.push(iso);
         }
@@ -589,12 +459,11 @@
       const planDaysCount = planDays.length;
 
       // consolidate to machine-days
-      const dayMap = new Map(); // key: `${machine}__${YYYY-MM-DD}`
+      const dayMap = new Map();
       for (const row of byline){
         const machine = row.machine;
         const day = (row.src_date||'').slice(0,10);
-        if (!machine || !day) continue;
-        if (!planDays.includes(day)) continue;
+        if (!machine || !day || !planDays.includes(day)) continue;
 
         const capRow = capacityFor(row.machine, row.material);
         const lbs  = row.pounds || 0;
@@ -603,14 +472,11 @@
         const runH = mhR;
 
         const key = `${machine}__${day}`;
-        if (!dayMap.has(key)) {
-          dayMap.set(key, {machine, day, lbs:0, maint_h:0, run_h:0, sumCapRun:0, sumRunH:0, cap_candidates:[], mats:{}});
-        }
+        if (!dayMap.has(key)) dayMap.set(key, {machine, day, lbs:0, maint_h:0, run_h:0, sumCapRun:0, sumRunH:0, cap_candidates:[], mats:{}});
         const d = dayMap.get(key);
         d.lbs += lbs;
         d.maint_h = Math.max(d.maint_h, md);
         d.run_h   = Math.max(d.run_h,   runH);
-
         if (capRow > 0) { d.sumCapRun += capRow * runH; d.sumRunH += runH; d.cap_candidates.push(capRow); }
         const matKey = String(row.material || '').trim().toUpperCase() || 'DEFAULT';
         d.mats[matKey] = (d.mats[matKey] || 0) + lbs;
@@ -619,24 +485,18 @@
       for (const d of dayMap.values()) {
         let capDay = 0;
         if (d.sumRunH > 0) capDay = d.sumCapRun / d.sumRunH;
-        else if (d.cap_candidates.length) {
-          const arr = d.cap_candidates.slice().sort((a,b)=>a-b);
-          capDay = arr[Math.floor(arr.length/2)];
-        }
+        else if (d.cap_candidates.length) { const arr = d.cap_candidates.slice().sort((a,b)=>a-b); capDay = arr[Math.floor(arr.length/2)]; }
         d.cap = capDay;
-
         const run = d.run_h, maint = d.maint_h;
         let prod = Math.max(0, HOURS_PER_WEEKDAY - maint - run);
         const over = Math.max(0, (maint + run + prod) - HOURS_PER_WEEKDAY);
         d.prod_h = Math.max(0, prod - over);
-
         d.avail    = HOURS_PER_WEEKDAY ? (run / HOURS_PER_WEEKDAY) : 0;
         const rawDen = capDay * HOURS_PER_WEEKDAY;
         const adjDen = capDay * Math.max(0, HOURS_PER_WEEKDAY - maint);
         d.perfRaw  = rawDen > 0 ? (d.lbs / rawDen) : NaN;
-        if (run < MIN_RUN_H_FOR_ADJ) d.perfAdj = NaN; else d.perfAdj = adjDen > 0 ? (d.lbs / adjDen) : NaN;
+        d.perfAdj  = (run >= MIN_RUN_H_FOR_ADJ && adjDen > 0) ? Math.min(d.lbs / adjDen, PERF_CAP) : NaN;
         if (Number.isFinite(d.perfRaw)) d.perfRaw = Math.min(d.perfRaw, PERF_CAP);
-        if (Number.isFinite(d.perfAdj)) d.perfAdj = Math.min(d.perfAdj, PERF_CAP);
         d.underLb = Math.max(0, capDay * run - d.lbs);
       }
 
@@ -670,7 +530,6 @@
         const perfAdj      = A.nPA>0    ? (A.sumPA   / A.nPA)    : NaN;
         const qual         = QUALITY_DEFAULT;
         const oee          = (Number.isFinite(availability) && Number.isFinite(perfAdj)) ? (availability * perfAdj * qual) : NaN;
-
         const capAvg   = (A.rawDen24 > 0 && days>0) ? (A.rawDen24 / (HOURS_PER_WEEKDAY * days)) : NaN;
         const plannedH = HOURS_PER_WEEKDAY * planDaysCount;
         const idleDays = Math.max(0, planDaysCount - days);
@@ -702,19 +561,13 @@
         return s;
       }, {lbs:0,maint:0,prod:0,mach:0,rawDen24:0,adjDen:0,runCapDen:0,moM:0,moP:0,under:0,sumAvail:0,nAvail:0,sumPR:0,nPR:0,sumPA:0,nPA:0,plannedH:0});
 
-      const totalPlannedH = totals.plannedH;
       const totalCapPot   = perLine.reduce((s, r) => s + (r.capPot || 0), 0);
       const ovAvail   = totals.nAvail>0 ? (totals.sumAvail / totals.nAvail) : 0;
       const ovPerfAdj = totals.nPA>0    ? (totals.sumPA    / totals.nPA)    : 0;
       const ovOEE     = ovAvail * ovPerfAdj * QUALITY_DEFAULT;
-      const ovMdtPct  = totalPlannedH > 0 ? (totals.maint / totalPlannedH) : 0;
-      const ovPdtPct  = totalPlannedH > 0 ? (totals.prod  / totalPlannedH) : 0;
-      const ovMoM     = perLine.reduce((s, r) => s + (r.moM || 0), 0);
-      const ovMoP     = perLine.reduce((s, r) => s + (r.moP || 0), 0);
-      const ovMoM_pct = (totalCapPot > 0) ? (ovMoM / totalCapPot) : NaN;
-      const ovMoP_pct = (totalCapPot > 0) ? (ovMoP / totalCapPot) : NaN;
+      const ovMdtPct  = totals.plannedH > 0 ? (totals.maint / totals.plannedH) : 0;
+      const ovPdtPct  = totals.plannedH > 0 ? (totals.prod  / totals.plannedH) : 0;
 
-      // ====== KPI strip ======
       const kpis = [
         {id:'oee',   label:'OEE',        val:fmtPct(ovOEE, totals.nAvail>0 && totals.nPA>0), cls:grade(ovOEE, THRESH.oee),                  show:true},
         {id:'avail', label:'Availability',val:fmtPct(ovAvail, totals.nAvail>0),              cls:grade(ovAvail, THRESH.availability), show:true},
@@ -729,7 +582,7 @@
           <div class="value">${k.val}</div>
         </div>`).join('');
 
-      // ====== Donuts ======
+      // Donuts
       const maintParts = [{name:'Maint DT', value: ovMdtPct || 0, color: cssVar('--bad-fg') || '#7f1d1d'}];
       drawDonut(document.getElementById('donutMaint'), maintParts);
       document.getElementById('legendMaint').innerHTML =
@@ -739,7 +592,7 @@
       document.getElementById('legendProd').innerHTML =
         `<div class="row"><span class="dot" style="background:${prodParts[0].color}"></span><div class="name">Prod DT</div><div class="val">${fmtPct(ovPdtPct,true)}</div></div>`;
 
-      // ====== Line Health tiles ======
+      // Line tiles
       const linesGrid = document.getElementById('linesGrid');
       linesGrid.innerHTML = '';
       perLine.forEach(r=>{
@@ -767,7 +620,7 @@
         const el = document.createElement('div'); el.innerHTML = html; linesGrid.appendChild(el.firstElementChild);
       });
 
-      // ====== Rank table ======
+      // Rank table
       const tbody = document.querySelector('#rankTable tbody');
       const ranked = perLine.slice().sort((a,b)=>{
         const moA = (a.moM||0)+(a.moP||0);
@@ -784,6 +637,9 @@
           <td>${fmtInt(totMiss,true)}</td>
         </tr>`;
       }).join('');
+
+      // Also update the live prod status table now
+      await loadAndRenderStatusTable();
 
       document.getElementById('updated').textContent = new Date().toLocaleString();
 
@@ -807,19 +663,24 @@
     const r = computeRange(sel);
     await renderForRange(r.from, r.to, r.label);
   }
+
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden) {
       const age = Date.now() - lastRenderAt;
       if (age > REFRESH_MS * 0.9) runForActivePeriod();
     }
   });
+
   document.addEventListener('DOMContentLoaded', async () => {
+    // Fullscreen toggle
     document.addEventListener('keydown', (e)=>{
       if (e.key.toLowerCase()==='f') {
         if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(()=>{});
         else document.exitFullscreen().catch(()=>{});
       }
     });
+
+    // timeframe buttons
     document.querySelectorAll('#tfButtons button').forEach(b=>{
       b.addEventListener('click', async ()=>{
         document.querySelectorAll('#tfButtons button').forEach(x=>x.classList.remove('active'));
@@ -828,18 +689,21 @@
       });
     });
 
-    // === Production Line Status table (exactly like prodstatus.html) ===
-    const psRows = await getProdStatusRows();
-    renderStatusTable(psRows);
-
-    // === Clock ===
+    // Clock
     function tickClock(){
       const el = document.getElementById('clock');
       if (el) el.textContent = new Date().toLocaleString();
     }
     setInterval(tickClock, 1000); tickClock();
 
+    // Load mappings first (needed for productionAssets + status maps)
     await loadMappings();
+
+    // Initial status render + 60s auto-refresh (independent of the big 10m refresh)
+    await loadAndRenderStatusTable();
+    setInterval(loadAndRenderStatusTable, 60_000);
+
+    // First KPI/tiles render + 10m auto-refresh
     await runForActivePeriod();
     scheduleAutoRefresh(runForActivePeriod);
   });
