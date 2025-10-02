@@ -103,6 +103,11 @@
     #rankTable {font-size: var(--rank-fs);}
     #rankTable th, #rankTable td {padding:12px}
 
+    /* Production Line Status - v2 */
+    #status-table { width:100%; border-collapse:collapse; font-size:var(--status-fs) }
+    #status-table th, #status-table td { padding:12px; border-bottom:1px dashed var(--border) }
+    #status-table thead th { background:#25408F; color:#fff; text-align:left }
+
     /* Production Line Status like prodstatus.html (big, simple rows) */
     .ps-list{display:flex;flex-direction:column;gap:10px}
     .ps-item{
@@ -179,11 +184,16 @@
       <section class="grid">
         <!-- Left: Production Line Status (moved up) -->
         <article class="card">
-          <h3>CURRENT Line Status</h3>
-          <div class="content">
-            <div class="ps-list" id="prodStatusList"></div>
-          </div>
-        </article>
+        <h3>CURRENT Line Status</h3>
+        <div class="content">
+          <table id="status-table" class="status-table">
+            <thead>
+              <tr><th>Asset Name</th><th>Asset Status</th></tr>
+            </thead>
+            <tbody id="status-data"></tbody>
+          </table>
+        </div>
+      </article>
 
         <!-- Right: Line health -->
         <article class="card">
@@ -476,7 +486,81 @@
         container.appendChild(row);
       });
   }
-
+  
+  // Pull the same source prodstatus.html uses
+  async function getProdStatusRows(){
+    try{
+      const res = await fetch('/api/workorders/prodstatus?t=' + Date.now(), { cache:'no-store' });
+      if (!res.ok) return [];
+      let data = await res.json();
+      let rows = Array.isArray(data?.rows) ? data.rows
+              : (Array.isArray(data?.tiles) ? data.tiles : []);
+  
+      // SQL wrapper normalizer (same as prodstatus.html)
+      if (Array.isArray(rows) && rows.length === 1 && rows[0] && typeof rows[0] === 'object'){
+        const k = Object.keys(rows[0])[0];
+        const v = k && rows[0][k];
+        if (typeof v === 'string' && v.trim().startsWith('[')) {
+          try { rows = JSON.parse(v); } catch {}
+        }
+      }
+      return rows || [];
+    }catch{
+      return [];
+    }
+  }
+  
+  // Render into the Pulse table using mappings.json just like prodstatus.html
+  function renderStatusTable(rows){
+    const tbody = document.getElementById('status-data');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+  
+    const colorMap = MAPPINGS?.statusColorMapping || {};
+    const textMap  = MAPPINGS?.statusTextMapping  || {};
+    const assets   = Array.isArray(MAPPINGS?.productionAssets) ? MAPPINGS.productionAssets : [];
+  
+    const findRow = (id) => rows.find(r => String(r.assetID) === String(id)) || {};
+  
+    assets
+      .slice()
+      .sort((a,b)=> String(a.name).localeCompare(String(b.name)))
+      .forEach(item=>{
+        const entry = findRow(item.id);
+  
+        // Mirror prodstatus.html’s status resolution
+        const raw =
+          entry.assetStatus ?? entry.value ?? entry.valueText ??
+          entry.statusText  ?? entry.status ?? entry.statusID ?? 'N/A';
+  
+        // Map numeric codes via statusTextMapping; otherwise use text as-is
+        let text;
+        if (typeof raw === 'number' || (/^\d+$/).test(String(raw).trim())) {
+          text = textMap[String(raw)] || String(raw);
+        } else {
+          text = String(raw);
+        }
+        text = text.replace(/\u00A0/g, ' ').trim();
+  
+        // Choose color: id mapping has priority, else status text
+        const idFromText   = Object.keys(textMap).find(k => (textMap[k]||'').toString().toLowerCase() === text.toLowerCase());
+        const keyForColor  = idFromText || text;
+        const bg           = colorMap[keyForColor] || '#fff';
+  
+        const tr = document.createElement('tr');
+        tr.style.backgroundColor = bg;
+  
+        // readable foreground on strong bg
+        const bgl = String(bg).toLowerCase();
+        let fg = '#000';
+        if (bgl==='#d64550' || bgl==='red' || bgl==='#118dff' || bgl==='blue') fg='#fff';
+        tr.style.color = fg;
+  
+        tr.innerHTML = `<td>${item.name}</td><td>${text}</td>`;
+        tbody.appendChild(tr);
+      });
+  }
+  
   // ====== CORE RENDERER ======
   async function renderForRange(fromISO, toISO, label){
     setLoading(true);
@@ -683,21 +767,6 @@
         const el = document.createElement('div'); el.innerHTML = html; linesGrid.appendChild(el.firstElementChild);
       });
 
-      // ====== Production Line Status (mimic prodstatus.html table) ======
-      let prodstatus = await fetchProdStatusRaw();
-      if (!prodstatus) {
-        // Fallback: synthesize status from perLine availability
-        prodstatus = (perLine || []).map(r=>{
-          const avail = Number.isFinite(r.avail) ? r.avail : 0;
-          return {
-            name: r.machine,
-            limble: false,
-            status: (avail >= 0.75) ? 'Available' : (avail >= 0.05 ? 'Setup' : 'Down')
-          };
-        });
-      }
-      renderProdStatusList(prodstatus);
-
       // ====== Rank table ======
       const tbody = document.querySelector('#rankTable tbody');
       const ranked = perLine.slice().sort((a,b)=>{
@@ -758,6 +827,12 @@
         await runForActivePeriod();
       });
     });
+
+    // === Production Line Status table (exactly like prodstatus.html) ===
+    const psRows = await getProdStatusRows();
+    renderStatusTable(psRows);
+
+    // === Clock ===
     function tickClock(){
       const el = document.getElementById('clock');
       if (el) el.textContent = new Date().toLocaleString();
