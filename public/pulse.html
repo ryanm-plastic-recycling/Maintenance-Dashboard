@@ -520,18 +520,18 @@
         {id:'avail',   label:'Availability',     val:fmtPct(ovAvail, totals.nAvail>0),                   cls:grade(ovAvail, THRESH.availability), show:true},
         {id:'perf',    label:'Perf (Adj)',       val:fmtPct(ovPerfAdj, totals.nPA>0),                    cls:grade(ovPerfAdj, THRESH.capacityAdj), show:true},
         {id:'qual',    label:'Quality*',         val:Math.round(QUALITY_DEFAULT*100)+'%',                cls:grade(QUALITY_DEFAULT, THRESH.quality), show:true},
-        {id:'runh',    label:'Run Hours',        val:fmtFixed(totals.mach,1,true),                       cls:'', show:true},
+        //{id:'runh',    label:'Run Hours',        val:fmtFixed(totals.mach,1,true),                       cls:'', show:true},
         {id:'cap',     label:'Capacity Potential (lb)', val:fmtInt(totalCapPot,true),                    cls:'', show:true},
         {id:'lbs',     label:'Pounds',           val:fmtInt(totals.lbs,true),                            cls:'', show:true},
-        {id:'under',   label:'Under-Perf (lb)',  val:fmtInt(ovUnderGap,true),                            cls:'', show:true},
-        {id:'mdt',     label:'Maint DT (h)',     val:fmtFixed(totals.maint,1,true),                      cls:'', show:true},
+        //{id:'under',   label:'Under-Perf (lb)',  val:fmtInt(ovUnderGap,true),                            cls:'', show:true},
+        //{id:'mdt',     label:'Maint DT (h)',     val:fmtFixed(totals.maint,1,true),                      cls:'', show:true},
         {id:'mdtPct',  label:'Maint DT (%)',     val:fmtPct(ovMdtPct,true),                              cls:(ovMdtPct<=0.10?'good':ovMdtPct<=0.20?'warn':'bad'), show:true},
-        {id:'pdt',     label:'Prod DT (h)',      val:fmtFixed(totals.prod,1,true),                       cls:'', show:true},
+        //{id:'pdt',     label:'Prod DT (h)',      val:fmtFixed(totals.prod,1,true),                       cls:'', show:true},
         {id:'pdtPct',  label:'Prod DT (%)',      val:fmtPct(ovPdtPct,true),                              cls:(ovPdtPct<=0.10?'good':ovPdtPct<=0.20?'warn':'bad'), show:true},
         {id:'moMlb',   label:'Missed Opp (Maint, lb)', val:fmtInt(ovMoM,true),                           cls:(ovMoM_pct<=0.10?'good':ovMoM_pct<=0.20?'warn':'bad'), show:true},
-        {id:'moMpc',   label:'Missed Opp (Maint, %)',  val:fmtPct(ovMoM_pct, Number.isFinite(ovMoM_pct)),cls:(ovMoM_pct<=0.10?'good':ovMoM_pct<=0.20?'warn':'bad'), show:true},
+        //{id:'moMpc',   label:'Missed Opp (Maint, %)',  val:fmtPct(ovMoM_pct, Number.isFinite(ovMoM_pct)),cls:(ovMoM_pct<=0.10?'good':ovMoM_pct<=0.20?'warn':'bad'), show:true},
         {id:'moPlb',   label:'Missed Opp (Prod, lb)',  val:fmtInt(ovMoP,true),                           cls:(ovMoP_pct<=0.10?'good':ovMoP_pct<=0.20?'warn':'bad'), show:true},
-        {id:'moPpc',   label:'Missed Opp (Prod, %)',   val:fmtPct(ovMoP_pct, Number.isFinite(ovMoP_pct)),cls:(ovMoP_pct<=0.10?'good':ovMoP_pct<=0.20?'warn':'bad'), show:true},
+        //{id:'moPpc',   label:'Missed Opp (Prod, %)',   val:fmtPct(ovMoP_pct, Number.isFinite(ovMoP_pct)),cls:(ovMoP_pct<=0.10?'good':ovMoP_pct<=0.20?'warn':'bad'), show:true},
       ];
       const kpiStrip = document.getElementById('kpiStrip');
       kpiStrip.innerHTML = kpis.filter(k=>k.show).map(k=>`
@@ -596,7 +596,7 @@
       const status = document.getElementById('prodStatusList');
       status.innerHTML = perLine.map(r=>{
         const cls = (r.oeeV && Number.isFinite(r.oee)) ? grade(r.oee, THRESH.oee) : '';
-        return `<div class="chip"><span class="dot ${cls==='good'?'st-available':cls==='warn'?'st-setup':'st-downp'}"></span>${r.machine}: OEE ${fmtPct(r.oee,r.oeeV)} · Av ${fmtPct(r.avail,r.availV)} · PerfAdj ${fmtPct(r.perfAdj,r.paV)} · ${fmtInt(r.lbs,true)} lb</div>`;
+        return `<div class="chip"><span class="dot ${cls==='good'?'st-available':cls==='warn'?'st-setup':'st-downp'}"></span>${r.machine}</div>`;
       }).join('');
 
       // ====== Rank table ======
