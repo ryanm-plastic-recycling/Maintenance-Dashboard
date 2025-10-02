@@ -228,13 +228,11 @@
         <option value="last30">Trailing 30 days</option>
         <option value="last12m">Trailing 12 months</option>
       </select>
-      <span id="tfLabel" class="meta-range"></span>
       <span class="divider"></span>
       <span class="meta-range">Pick date:</span>
       <input id="dayPick" type="date" class="select" />
       <span id="dayPickLabel" class="meta-range"></span>
-
-      <!-- Include Weekends toggle + note -->
+            <!-- Include Weekends toggle + note -->
       <span class="divider"></span>
       <label style="display:flex;align-items:center;gap:6px;font-weight:600">
         <input type="checkbox" id="wkndToggle">
@@ -244,6 +242,7 @@
         (Note: Maintenance downtime is weekday-only)
       </span>
     </div>
+    <span id="tfLabel" class="meta-range">Current Date Selection:</span>
 
     <section>
       <h2>Overall KPIs <span class="sub" id="rangeLabel"></span></h2>
