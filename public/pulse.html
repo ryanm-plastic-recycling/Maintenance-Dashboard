@@ -74,7 +74,7 @@
     .legend{display:grid;grid-template-columns:1fr 1fr;gap:8px}
     .legend .row{display:flex;align-items:center;gap:8px}
     .legend .dot{width:12px;height:12px;border-radius:50%}
-    .legend .name{max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .legend .name{max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
     /* Line tiles */
     .lines{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px}
@@ -585,7 +585,7 @@
               <div class="mitem"><div class="label">Quality*</div><div class="mkv">${Math.round(r.qual*100)}%</div></div>
               <div class="mitem"><div class="label">Pounds</div><div class="mkv">${fmtInt(r.lbs,true)}</div></div>
             </div>
-            <div style="display:flex;gap:12px;margin-top:8px">
+            <div style="display:flex;gap:16px;margin-top:8px">
               <span class="badge warn">Maint DT ${fmtFixed(r.maint,1,true)}h</span>
               <span class="badge bad">Prod DT ${fmtFixed(r.prod,1,true)}h</span>
             </div>
