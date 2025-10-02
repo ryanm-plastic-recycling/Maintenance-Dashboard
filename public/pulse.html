@@ -94,6 +94,19 @@
 
     #rankTable {font-size: var(--rank-fs);}
     #rankTable th, #rankTable td {padding:12px}
+    
+    /* Rank table alignment + totals styling */
+    #rankTable { table-layout: fixed; width: 100%; }
+    #rankTable th { text-align: center; }
+    #rankTable td.left { text-align: left; }
+    #rankTable td.pct  { text-align: center; font-variant-numeric: tabular-nums; }
+    #rankTable td.num  { text-align: right;  font-variant-numeric: tabular-nums; }
+    
+    #rankTable tfoot td {
+      font-weight: 900;
+      border-top: 2px solid var(--border);
+      background: #fafbff;
+    }
 
     /* Production Line Status table */
     #status-table { width:100%; border-collapse:collapse; font-size:var(--status-fs) }
@@ -201,9 +214,17 @@
           <div class="content">
             <table id="rankTable">
               <thead>
-                <tr><th style="width:28%">Line</th><th style="width:14%">OEE %</th><th style="width:22%">Pounds</th><th>Missed Opp (lb)</th></tr>
+                <tr>
+                  <th style="width:28%">Line</th>
+                  <th style="width:14%">OEE %</th>
+                  <th style="width:22%">Pounds</th>
+                  <th>Missed Opp (lb)</th>
+                </tr>
               </thead>
               <tbody></tbody>
+              <tfoot>
+                <tr id="rankTotals"></tr>
+              </tfoot>
             </table>
           </div>
         </article>
@@ -628,23 +649,43 @@
         const el = document.createElement('div'); el.innerHTML = html; linesGrid.appendChild(el.firstElementChild);
       });
 
-      // Rank table
-      const tbody = document.querySelector('#rankTable tbody');
-      const ranked = perLine.slice().sort((a,b)=>{
-        const moA = (a.moM||0)+(a.moP||0);
-        const moB = (b.moM||0)+(b.moP||0);
-        if (Number.isFinite(b.oee) && Number.isFinite(a.oee) && b.oee!==a.oee) return b.oee - a.oee;
-        return moA - moB;
-      });
-      tbody.innerHTML = ranked.map(r=>{
-        const totMiss = (r.moM||0)+(r.moP||0);
-        return `<tr>
-          <td>${r.machine}</td>
-          <td>${fmtPct(r.oee, r.oeeV)}</td>
-          <td>${fmtInt(r.lbs,true)}</td>
-          <td>${fmtInt(totMiss,true)}</td>
-        </tr>`;
-      }).join('');
+      // ====== Rank table ======
+      {
+        const tbody = document.querySelector('#rankTable tbody');
+        const tfootRow = document.getElementById('rankTotals');
+      
+        const ranked = perLine.slice().sort((a,b)=>{
+          const moA = (a.moM||0)+(a.moP||0);
+          const moB = (b.moM||0)+(b.moP||0);
+          if (Number.isFinite(b.oee) && Number.isFinite(a.oee) && b.oee!==a.oee) return b.oee - a.oee;
+          return moA - moB;
+        });
+      
+        let sumPounds = 0;
+        let sumMissed = 0;
+      
+        const rowsHtml = ranked.map(r=>{
+          const totMiss = (r.moM||0) + (r.moP||0);
+          sumPounds += (r.lbs||0);
+          sumMissed += totMiss;
+          return `<tr>
+            <td class="left">${r.machine}</td>
+            <td class="pct">${fmtPct(r.oee, r.oeeV)}</td>
+            <td class="num">${fmtInt(r.lbs,true)}</td>
+            <td class="num">${fmtInt(totMiss,true)}</td>
+          </tr>`;
+        }).join('');
+      
+        tbody.innerHTML = rowsHtml;
+      
+        // totals row
+        tfootRow.innerHTML = `
+          <td class="left">TOTAL</td>
+          <td class="pct">—</td>
+          <td class="num">${fmtInt(sumPounds, true)}</td>
+          <td class="num">${fmtInt(sumMissed, true)}</td>
+        `;
+      }
 
       // Also update the live prod status table now
       await loadAndRenderStatusTable();
