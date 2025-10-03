@@ -451,6 +451,56 @@ export default function productionRoutes(poolPromise) {
     } catch (e) { next(e); }
   });
 
+// helper — canonicalize using mappings
+function canonReason(raw, mappings) {
+  const aliases = (mappings && mappings.downtime_reason_aliases) || {};
+  const s = (raw || '').toString().trim().toUpperCase();
+  if (!s) return 'OTHER';
+  // exact match first
+  if (aliases[s]) return aliases[s];
+  // optional loose heuristics – uncomment if you want contains-style
+   for (const [k, v] of Object.entries(aliases)) {
+     if (s.includes(k)) return v;
+   }
+  return 'OTHER';
+}
+
+// 1) Make sure loadLineDayRows returns reason_downtime and prod_dt_h
+//    Example shape per row: { src_date, machine, prod_dt_h, maint_dt_h, reason_downtime, ... }
+
+// 2) New endpoint that aggregates prod DT by canonical reason over a date range
+r.get('/production/dt-reasons', async (req, res, next) => {
+  try {
+    const pool = await poolPromise;
+    if (!pool) return res.json({ reasons: [], range: null });
+
+    const from = (req.query.from || '2000-01-01').slice(0, 10);
+    const to   = (req.query.to   || '2100-01-01').slice(0, 10);
+
+    const rows = await loadLineDayRows(pool, from, to); // must include reason_downtime
+    const map = {};
+    for (const r of rows) {
+      const hours = Number(r.prod_dt_h) || 0; // production downtime hours only
+      if (hours <= 0) continue;
+      const cat = canonReason(r.reason_downtime, mappings);
+      map[cat] = (map[cat] || 0) + hours;
+    }
+
+    // stable ordering via buckets
+    const buckets = (mappings && mappings.downtime_reason_buckets) || [];
+    const result = Object.entries(map)
+      .sort((a,b) => {
+        const ia = Math.max(0, buckets.indexOf(a[0])); 
+        const ib = Math.max(0, buckets.indexOf(b[0]));
+        return (ia === -1 && ib !== -1) ? 1 : (ib === -1 && ia !== -1) ? -1
+             : (ia !== ib) ? ia - ib : (b[1] - a[1]);
+      })
+      .map(([reason, hours]) => ({ reason, hours }));
+
+    res.json({ reasons: result, range: { startISO: from, endISO: to }});
+  } catch (e) { next(e); }
+});
+
   // --- diagnostics: capacity lookup ---------------------------------
 r.get('/production/cap-check', requireAdmin, (req, res) => {
   try {
