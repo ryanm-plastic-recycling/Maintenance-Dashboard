@@ -795,9 +795,9 @@ function capacityFor(lineName, material){
       const availability = A.nAvail>0 ? (A.sumAvail / A.nAvail) : NaN;
       const perfRaw      = A.nPR>0    ? (A.sumPR   / A.nPR)    : NaN;
       const perfAdj      = A.nPA>0    ? (A.sumPA   / A.nPA)    : NaN;
-      const perfRun      = a.runCapDen > 0 ? (a.lbs / a.runCapDen) : NaN;
+      const perfRun      = A.nPA > 0 ? (A.sumPA / A.nPA) : NaN;
       const qual         = QUALITY_DEFAULT;
-      const oee          = (Number.isFinite(availability) && Number.isFinite(perfRun)) ? (availability * perfRun * qual) : NaN;
+      const oee          = (Number.isFinite(availability) && Number.isFinite(perfAdj)) ? (availability * perfAdj * qual) : NaN;
 
       // avg capacity over days it ran
       const capAvg = (A.rawDen24 > 0 && days>0) ? (A.rawDen24 / (HOURS_PER_WEEKDAY * days)) : NaN;
