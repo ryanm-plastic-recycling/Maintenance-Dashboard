@@ -207,6 +207,7 @@
 
      <!-- Row A: OEE = AVAIL × PERF(Adj) × QUAL -->
       <div class="kpis kpis-rowA">
+        <!-- tile-oee -->
         <div class="tile big" id="tile-oee">
           <div class="lab">OEE
             <span class="tooltip"><span class="info" tabindex="0">i</span>
@@ -218,79 +219,208 @@
           <div class="val" id="ov-oee">--%</div>
           <div class="tiny" id="ov-oee-eq"></div>
         </div>
+      
         <div class="op">=</div>
+      
+        <!-- tile-av -->
         <div class="tile big" id="tile-av">
-          <div class="lab">Availability</div>
+          <div class="lab">Availability
+            <span class="tooltip"><span class="info" tabindex="0">i</span>
+              <span class="tooltip-panel"><b>Availability</b><br>
+                Run Hours / Planned Hours. Planned Hours are 24h per selected day (weekdays by default).
+              </span>
+            </span>
+          </div>
           <div class="val" id="ov-av">--%</div>
         </div>
+      
         <div class="op">×</div>
+      
+        <!-- tile-pa -->
         <div class="tile big" id="tile-pa">
-          <div class="lab">Performance (Adj)</div>
+          <div class="lab">Performance (Adj)
+            <span class="tooltip"><span class="info" tabindex="0">i</span>
+              <span class="tooltip-panel"><b>Performance (Adjusted)</b><br>
+                Pounds ÷ (Capacity × (24 − Maint&nbsp;DT)). Uses nameplate/material mapping per day.
+              </span>
+            </span>
+          </div>
           <div class="val" id="ov-pa">--%</div>
         </div>
+      
         <div class="op">×</div>
+      
+        <!-- tile-qual -->
         <div class="tile big" id="tile-qual">
-          <div class="lab">Quality*</div>
+          <div class="lab">Quality*
+            <span class="tooltip"><span class="info" tabindex="0">i</span>
+              <span class="tooltip-panel"><b>Quality (assumed)</b><br>
+                Temporary constant (70%) until lab data is integrated.
+              </span>
+            </span>
+          </div>
           <div class="val" id="ov-qual">70%</div>
         </div>
       </div>
       
       <!-- Row B: throughput chain -->
       <div class="kpis kpis-rowB">
+        <!-- Run Hours -->
         <div class="tile">
-          <div class="lab">Run Hours</div>
+          <div class="lab">Run Hours
+            <span class="tooltip"><span class="info" tabindex="0">i</span>
+              <span class="tooltip-panel"><b>Run Hours</b><br>
+                Reported machine runtime from production entries (no front-end backfill).
+              </span>
+            </span>
+          </div>
           <div class="val" id="ov-runh">--</div>
         </div>
+      
+        <!-- tile-pr -->
         <div class="tile" id="tile-pr">
-          <div class="lab">Performance (Raw 24h)</div>
+          <div class="lab">Performance (Raw 24h)
+            <span class="tooltip"><span class="info" tabindex="0">i</span>
+              <span class="tooltip-panel"><b>Performance (Raw)</b><br>
+                Pounds ÷ (Capacity × 24). Not adjusted for maintenance downtime.
+              </span>
+            </span>
+          </div>
           <div class="val" id="ov-pr">--%</div>
         </div>
+      
+        <!-- Capacity Potential (lb) -->
         <div class="tile">
-          <div class="lab">Capacity Potential (lb)</div>
+          <div class="lab">Capacity Potential (lb)
+            <span class="tooltip"><span class="info" tabindex="0">i</span>
+              <span class="tooltip-panel"><b>Capacity Potential</b><br>
+                Nameplate capacity across the selected calendar (24h/day); per line uses material mapping and includes idle weekdays.
+              </span>
+            </span>
+          </div>
           <div class="val" id="ov-cap">--</div>
         </div>
+      
+        <!-- Total Pounds -->
         <div class="tile">
-          <div class="lab">Total Pounds</div>
+          <div class="lab">Total Pounds
+            <span class="tooltip"><span class="info" tabindex="0">i</span>
+              <span class="tooltip-panel"><b>Total Pounds</b><br>
+                Sum of all reported pounds in range (filtered to lines shown).
+              </span>
+            </span>
+          </div>
           <div class="val" id="ov-lbs">--</div>
         </div>
+      
+        <!-- tile-under -->
         <div class="tile" id="tile-under">
-          <div class="lab">Under-Perf Gap (lb)</div>
+          <div class="lab">Under-Perf Gap (lb)
+            <span class="tooltip"><span class="info" tabindex="0">i</span>
+              <span class="tooltip-panel"><b>Under-performance Gap</b><br>
+                (Capacity × Run Hours) − Pounds. “Lost” pounds while running.
+              </span>
+            </span>
+          </div>
           <div class="val" id="ov-under">--</div>
         </div>
       </div>
       
       <!-- Row C: DT & missed-op -->
       <div class="kpis kpis-rowC">
+        <!-- Maint DT (h) -->
         <div class="tile" id="tile-mdt-h">
-          <div class="lab">Maint DT (h)</div>
+          <div class="lab">Maint DT (h)
+            <span class="tooltip"><span class="info" tabindex="0">i</span>
+              <span class="tooltip-panel"><b>Maintenance Downtime</b><br>
+                Limble downtime sliced back over weekdays to the occurrence days, capped at 24h per machine-day.
+              </span>
+            </span>
+          </div>
           <div class="val" id="ov-mdt">--</div>
         </div>
+      
+        <!-- tile-mdt-pct -->
         <div class="tile" id="tile-mdt-pct">
-          <div class="lab">Maint DT (%)</div>
+          <div class="lab">Maint DT (%)
+            <span class="tooltip"><span class="info" tabindex="0">i</span>
+              <span class="tooltip-panel"><b>Maintenance DT %</b><br>
+                Maint&nbsp;DT ÷ Planned Hours. Lower is better.
+              </span>
+            </span>
+          </div>
           <div class="val" id="ov-mdt-pct">--%</div>
         </div>
+      
+        <!-- Prod DT (h) -->
         <div class="tile" id="tile-pdt-h">
-          <div class="lab">Prod DT (h)</div>
+          <div class="lab">Prod DT (h)
+            <span class="tooltip"><span class="info" tabindex="0">i</span>
+              <span class="tooltip-panel"><b>Production Downtime</b><br>
+                Remaining hours from the 24h budget after Run and Maint DT (includes idle weekdays).
+              </span>
+            </span>
+          </div>
           <div class="val" id="ov-pdt">--</div>
         </div>
+      
+        <!-- tile-pdt-pct -->
         <div class="tile" id="tile-pdt-pct">
-          <div class="lab">Prod DT (%)</div>
+          <div class="lab">Prod DT (%)
+            <span class="tooltip"><span class="info" tabindex="0">i</span>
+              <span class="tooltip-panel"><b>Production DT %</b><br>
+                Prod&nbsp;DT ÷ Planned Hours. Lower is better.
+              </span>
+            </span>
+          </div>
           <div class="val" id="ov-pdt-pct">--%</div>
         </div>
+      
+        <!-- Missed Opp (Maint, lb) -->
         <div class="tile" id="tile-mo-mdt-lb">
-          <div class="lab">Missed Opp (Maint, lb)</div>
+          <div class="lab">Missed Opp (Maint, lb)
+            <span class="tooltip"><span class="info" tabindex="0">i</span>
+              <span class="tooltip-panel"><b>Missed Opportunity (Maint)</b><br>
+                Capacity × Maint&nbsp;DT, summed over lines and/or days.
+              </span>
+            </span>
+          </div>
           <div class="val" id="ov-mo-mdt">--</div>
         </div>
+      
+        <!-- Missed Opp (Prod, lb) -->
         <div class="tile" id="tile-mo-pdt-lb">
-          <div class="lab">Missed Opp (Prod, lb)</div>
+          <div class="lab">Missed Opp (Prod, lb)
+            <span class="tooltip"><span class="info" tabindex="0">i</span>
+              <span class="tooltip-panel"><b>Missed Opportunity (Prod)</b><br>
+                Capacity × Prod&nbsp;DT, including idle weekdays.
+              </span>
+            </span>
+          </div>
           <div class="val" id="ov-mo-pdt">--</div>
         </div>
+      
+        <!-- tile-mo-mdt-pct -->
         <div class="tile" id="tile-mo-mdt-pct">
-          <div class="lab">Missed Opp (Maint, %)</div>
+          <div class="lab">Missed Opp (Maint, %)
+            <span class="tooltip"><span class="info" tabindex="0">i</span>
+              <span class="tooltip-panel"><b>Missed Opp Maint %</b><br>
+                Missed-Maint (lb) ÷ Capacity Potential (lb).
+              </span>
+            </span>
+          </div>
           <div class="val" id="ov-mo-mdt-pct">--%</div>
         </div>
+      
+        <!-- tile-mo-pdt-pct -->
         <div class="tile" id="tile-mo-pdt-pct">
-          <div class="lab">Missed Opp (Prod, %)</div>
+          <div class="lab">Missed Opp (Prod, %)
+            <span class="tooltip"><span class="info" tabindex="0">i</span>
+              <span class="tooltip-panel"><b>Missed Opp Prod %</b><br>
+                Missed-Prod (lb) ÷ Capacity Potential (lb).
+              </span>
+            </span>
+          </div>
           <div class="val" id="ov-mo-pdt-pct">--%</div>
         </div>
       </div>
