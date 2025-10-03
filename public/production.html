@@ -130,6 +130,9 @@
     .sw.cap{background:#0f172a;opacity:.6}
     .cap-dash{border-bottom:2px dashed #0f172a; width:14px; height:0; display:inline-block; margin-right:6px; opacity:.6}
 
+    .flex{display:flex}
+    .subcard{background:#fff;border:1px solid var(--border);border-radius:12px;padding:12px}
+
     .empty{padding:12px;color:#64748b;border:1px dashed #cbd5e1;border-radius:10px;background:#f8fafc;margin-top:6px;text-align:center}
   </style>
 </head>
@@ -615,7 +618,6 @@ function getPalette(){
   return p;
 }
 
-function fmtPct(n){ return (n*100).toFixed(1) + '%'; }
 function fmtH(n){ return (n||0).toFixed(1) + ' h'; }
 
 </script>
