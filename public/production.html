@@ -168,6 +168,7 @@
         <option value="last7">Trailing 7 days</option>
         <option value="last30">Trailing 30 days</option>
         <option value="last12m">Trailing 12 months</option>
+        <option value="custom">—</option>
       </select>
       <span class="divider"></span>
       <span class="meta-range">Pick date:</span>
@@ -1249,6 +1250,8 @@ function capacityFor(lineName, material){
     async function goSingleDay(){
       const d = dayPick.value;
       if (!d) return;
+      // ⬇️ make the timeframe look blank since we’re using a specific date
+      sel.value = 'custom';
       document.getElementById('dayPickLabel').textContent = d;
       document.getElementById('tfLabel').textContent = `${d} → ${d}`;
       await renderForRange(d, d, `Specific date ${d}`);
