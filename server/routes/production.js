@@ -196,10 +196,11 @@ function aggregateByDate(rows) {
     .sort((a,b)=>a[0].localeCompare(b[0]))
     .map(([src_date, agg]) => {
       const availability = agg.plannedHours > 0 ? agg.runHours / agg.plannedHours : 0;
+      const perfRun      = agg.runCapacity  > 0 ? agg.pounds  / agg.runCapacity : 0;
       const perfRaw      = agg.rawCapacity  > 0 ? agg.pounds  / agg.rawCapacity  : 0;
       const perfAdj      = agg.adjCapacity  > 0 ? agg.pounds  / agg.adjCapacity  : 0;
       const quality      = QUALITY_DEFAULT;
-      const oee          = availability * perfAdj * quality;
+      const oee     = availability * perfRun * quality;
       return {
         src_date,
         pounds: agg.pounds,
