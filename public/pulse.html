@@ -217,7 +217,7 @@
                 <tr>
                   <th style="width:28%">Line</th>
                   <th style="width:14%">OEE %</th>
-                  <th style="width:22%">Pounds</th>
+                  <th style="width:22%">Pounds Produced</th>
                   <th>Missed Opp (lb)</th>
                 </tr>
               </thead>
@@ -601,7 +601,7 @@
         {id:'prun',  label:'Performance Adj',     val:fmtPct(ovPerfRun, totals.nPRun>0),               cls:grade(ovPerfRun, THRESH.capacityAdj), show:true},
         {id:'qual',  label:'Quality*',       val:Math.round(QUALITY_DEFAULT*100)+'%',             cls:grade(QUALITY_DEFAULT, THRESH.quality), show:true},
         {id:'cap',   label:'Capacity Potential (lb)', val:fmtInt(totalCapPot,true),                cls:'', show:true},
-        {id:'lbs',   label:'Pounds',         val:fmtInt(totals.lbs,true),                         cls:'', show:true},
+        {id:'lbs',   label:'Pounds Produced',         val:fmtInt(totals.lbs,true),                         cls:'', show:true},
       ];
       document.getElementById('kpiStrip').innerHTML = kpis.filter(k=>k.show).map(k=>`
         <div class="kpi ${k.cls}">
