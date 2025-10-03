@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <title>Work Order Breakdown</title>
+    <title>Live Production Line Status</title>
     <link rel="stylesheet" href="style.css">
     <script src="burnin.js"></script>
     <style>
@@ -248,7 +248,7 @@
     </div>
     <div class="container">
         <div id="alert-container" class="alert-container"></div>
-        <h1>Production Status <small id="last-refresh-status" style="font-weight:normal;font-size:0.8rem;color:#555;"></small></h1>
+        <h1>LIVE Production Line Status <small id="last-refresh-status" style="font-weight:normal;font-size:0.8rem;color:#555;"></small></h1>
         <div class="tabs">
             <a href="/index.html">Work Orders</a>
             <a href="/pm.html">PM Work Orders</a>
@@ -261,7 +261,7 @@
 
         <table id="status-table" class="status-table">
           <thead>
-            <tr><th>Asset Name</th><th>Asset Status</th></tr>
+            <tr><th>Asset Name</th><th>Current Status</th></tr>
           </thead>
           <tbody id="status-data"></tbody>
         </table>
