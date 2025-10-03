@@ -408,8 +408,8 @@
       "EPP": 1450, 
       "EPS": 1250, 
       "HIPS": 2510, 
-      "PP": 1100, 
-      "PS": 1600, 
+      "PP": 1200, 
+      "PS": 1800, 
       "PS/PP": 830 
     },
     "Extruder 2": { 
@@ -417,7 +417,7 @@
       "CD": 1725, 
       "CRY": 2100, 
       "EPS": 1700, 
-      "HIPS": 2190 
+      "HIPS": 2300 
     },
     "Extruder 3": { 
       "DEFAULT": 1970, 
@@ -430,16 +430,16 @@
     "Extruder 4": { 
       "DEFAULT": 2130, 
       "ABS": 1890, 
-      "CRY": 1930, 
+      "CRY": 2200, 
       "HDPE": 2530, 
-      "HIPS": 2135, 
-      "PP": 2370 
+      "HIPS": 2200, 
+      "PP": 2300 
     },
     "Extruder 5": { 
       "DEFAULT": 2550, 
       "HDPE": 2040, 
-      "HIPS": 2140, 
-      "PP": 2550, 
+      "HIPS": 2200, 
+      "PP": 2500, 
       "PPTF": 2820 
     },
     "Extruder 6": { 
@@ -453,14 +453,14 @@
       "PP": 2360 
     },
     "Extruder New Single": { 
-      "DEFAULT": 4110, 
-      "PP": 4110, 
-      "PPTF": 4140 
+      "DEFAULT": 7000, 
+      "PP": 4500, 
+      "PPTF": 5000 
     },
     "Extruder New Twin": { 
-      "DEFAULT": 4110, 
-      "PP": 4080, 
-      "PPTF": 4790 
+      "DEFAULT": 5000, 
+      "PP": 4500, 
+      "PPTF": 5000 
     }
   },
    "material_aliases": {
