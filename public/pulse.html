@@ -89,7 +89,7 @@
     .badge.good{background:var(--good-bg);color:var(--good-fg);border:1px solid #bbf7d0}
     .badge.warn{background:var(--warn-bg);color:var(--warn-fg);border:1px solid #fde68a}
     /* Red badge contrast fix */
-    .badge.bad{ background:var(--bad-bg); color:#fff; border:1px solid #fecaca }
+    .badge.bad{ background: var(--bad-bg); color:#fff; border:1px solid #fecaca }
     .oee-badge{font-size:var(--tile-head-fs); line-height:1; padding:8px 12px}
 
     .metricrow{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:8px}
@@ -324,11 +324,9 @@
 
   // ====== SMALL HELPERS ======
   function lowClassFromPct(p){
-  if (!Number.isFinite(p)) return '';
-  // good <= 10%, warn <= 20%, else bad (tune if you like)
-  return (p <= 0.10) ? 'good' : (p <= 0.20) ? 'warn' : 'bad';
-}
-
+    if (!Number.isFinite(p)) return '';
+    return (p <= 0.10) ? 'good' : (p <= 0.20) ? 'warn' : 'bad';
+  }
   function cssVar(name) {
     return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || name;
   }
@@ -520,29 +518,27 @@
         d.prod_h = Math.max(0, prod - over);
         d.avail    = HOURS_PER_WEEKDAY ? (run / HOURS_PER_WEEKDAY) : 0;
         const rawDen = capDay * HOURS_PER_WEEKDAY;
-        const adjDen = capDay * Math.max(0, HOURS_PER_WEEKDAY - maint);
-        d.perfRaw  = rawDen > 0 ? (d.lbs / rawDen) : NaN;
-        d.perfAdj  = (run >= MIN_RUN_H_FOR_ADJ && adjDen > 0) ? Math.min(d.lbs / adjDen, PERF_CAP) : NaN;
-        if (Number.isFinite(d.perfRaw)) d.perfRaw = Math.min(d.perfRaw, PERF_CAP);
-        d.underLb = Math.max(0, capDay * run - d.lbs);
+        const runDen = capDay * run;
+        d.perfRaw  = rawDen > 0 ? Math.min(d.lbs / rawDen, PERF_CAP) : NaN;
+        d.perfRun  = (run >= MIN_RUN_H_FOR_ADJ && runDen > 0) ? Math.min(d.lbs / runDen, PERF_CAP) : NaN;
+        d.underLb  = Math.max(0, capDay * run - d.lbs);
       }
 
       // aggregate per line
       const agg = {};
       for (const d of dayMap.values()){
         const m = d.machine;
-        if (!agg[m]) agg[m] = { lbs:0, maint:0, prod:0, mach:0, rawDen24:0, adjDen:0, runCapDen:0, moM:0, moP:0, under:0, sumAvail:0,nAvail:0,sumPR:0,nPR:0,sumPA:0,nPA:0, mats:{}, daysSet:new Set() };
+        if (!agg[m]) agg[m] = { lbs:0, maint:0, prod:0, mach:0, rawDen24:0, runCapDen:0, moM:0, moP:0, under:0, sumAvail:0,nAvail:0,sumPR:0,nPR:0,sumPRun:0,nPRun:0, mats:{}, daysSet:new Set() };
         const A = agg[m];
         A.lbs += d.lbs; A.maint += d.maint_h; A.prod += d.prod_h; A.mach += d.run_h;
         A.rawDen24 += d.cap * HOURS_PER_WEEKDAY;
-        A.adjDen   += d.cap * Math.max(0, HOURS_PER_WEEKDAY - d.maint_h);
         A.runCapDen+= d.cap * d.run_h;
         A.moM      += d.cap * d.maint_h;
         A.moP      += d.cap * d.prod_h;
         A.under    += d.underLb;
         A.sumAvail += (Number.isFinite(d.avail)?d.avail:0); A.nAvail+=1;
-        if (Number.isFinite(d.perfRaw)) { A.sumPR += d.perfRaw; A.nPR += 1; }
-        if (Number.isFinite(d.perfAdj)) { A.sumPA += d.perfAdj; A.nPA += 1; }
+        if (Number.isFinite(d.perfRaw)) { A.sumPR   += d.perfRaw; A.nPR   += 1; }
+        if (Number.isFinite(d.perfRun)) { A.sumPRun += d.perfRun; A.nPRun += 1; }
         A.daysSet.add(d.day);
         let dom='', best=-1; for (const [k,v] of Object.entries(d.mats)) if (v>best){ best=v; dom=k; }
         if (dom) A.mats[dom] = (A.mats[dom] || 0) + d.lbs;
@@ -554,9 +550,9 @@
         let domMat = ''; if (A.mats && Object.keys(A.mats).length) { let best=-1; for (const [k,v] of Object.entries(A.mats)) if (v>best){ best=v; domMat=k; } }
         const availability = A.nAvail>0 ? (A.sumAvail / A.nAvail) : NaN;
         const perfRaw      = A.nPR>0    ? (A.sumPR   / A.nPR)    : NaN;
-        const perfAdj      = A.nPA>0    ? (A.sumPA   / A.nPA)    : NaN;
+        const perfRun      = A.nPRun>0  ? (A.sumPRun / A.nPRun)  : NaN;
         const qual         = QUALITY_DEFAULT;
-        const oee          = (Number.isFinite(availability) && Number.isFinite(perfAdj)) ? (availability * perfAdj * qual) : NaN;
+        const oee          = (Number.isFinite(availability) && Number.isFinite(perfRun)) ? (availability * perfRun * qual) : NaN;
         const capAvg   = (A.rawDen24 > 0 && days>0) ? (A.rawDen24 / (HOURS_PER_WEEKDAY * days)) : NaN;
         const plannedH = HOURS_PER_WEEKDAY * planDaysCount;
         const idleDays = Math.max(0, planDaysCount - days);
@@ -571,11 +567,10 @@
         return {
           machine, domMat,
           lbs: A.lbs, maint: A.maint, prod: prodH, mach: A.mach,
-          rawDen24: A.rawDen24, capPot, adjDen: A.adjDen, runCapDen: A.runCapDen, underLb,
+          rawDen24: A.rawDen24, capPot, runCapDen: A.runCapDen, underLb,
           moM: A.moM, moP, days, plannedH, capAvg,
-          avail: availability, perfRaw, perfAdj, qual, oee,
-          availV: A.nAvail>0, prV: A.nPR>0, paV: A.nPA>0, oeeV: A.nAvail>0 && A.nPA>0,
-          // NEW:
+          avail: availability, perfRaw, perfRun, qual, oee,
+          availV: A.nAvail>0, prV: A.nPR>0, prunV: A.nPRun>0, oeeV: A.nAvail>0 && A.nPRun>0,
           mPct, pPct
         };
       });
@@ -583,29 +578,30 @@
       // totals
       const totals = Object.values(agg).reduce((s, A) => {
         s.lbs += A.lbs; s.maint += A.maint; s.prod += A.prod; s.mach += A.mach;
-        s.rawDen24 += A.rawDen24; s.adjDen += A.adjDen; s.runCapDen += A.runCapDen;
+        s.rawDen24 += A.rawDen24; s.runCapDen += A.runCapDen;
         s.moM += A.moM; s.moP += A.moP; s.under += Math.max(0, A.runCapDen - A.lbs);
         s.sumAvail += A.sumAvail; s.nAvail += A.nAvail;
         s.sumPR += A.sumPR; s.nPR += A.nPR;
-        s.sumPA += A.sumPA; s.nPA += A.nPA;
+        s.sumPRun += A.sumPRun; s.nPRun += A.nPRun;
         s.plannedH += HOURS_PER_WEEKDAY * planDaysCount;
         return s;
-      }, {lbs:0,maint:0,prod:0,mach:0,rawDen24:0,adjDen:0,runCapDen:0,moM:0,moP:0,under:0,sumAvail:0,nAvail:0,sumPR:0,nPR:0,sumPA:0,nPA:0,plannedH:0});
+      }, {lbs:0,maint:0,prod:0,mach:0,rawDen24:0,runCapDen:0,moM:0,moP:0,under:0,sumAvail:0,nAvail:0,sumPR:0,nPR:0,sumPRun:0,nPRun:0,plannedH:0});
 
       const totalCapPot   = perLine.reduce((s, r) => s + (r.capPot || 0), 0);
       const ovAvail   = totals.nAvail>0 ? (totals.sumAvail / totals.nAvail) : 0;
-      const ovPerfAdj = totals.nPA>0    ? (totals.sumPA    / totals.nPA)    : 0;
-      const ovOEE     = ovAvail * ovPerfAdj * QUALITY_DEFAULT;
+      const ovPerfRaw = totals.nPR>0    ? (totals.sumPR    / totals.nPR)    : 0;
+      const ovPerfRun = totals.nPRun>0  ? (totals.sumPRun  / totals.nPRun)  : 0;
+      const ovOEE     = ovAvail * ovPerfRun * QUALITY_DEFAULT;
       const ovMdtPct  = totals.plannedH > 0 ? (totals.maint / totals.plannedH) : 0;
       const ovPdtPct  = totals.plannedH > 0 ? (totals.prod  / totals.plannedH) : 0;
 
       const kpis = [
-        {id:'oee',   label:'OEE',        val:fmtPct(ovOEE, totals.nAvail>0 && totals.nPA>0), cls:grade(ovOEE, THRESH.oee),                  show:true},
-        {id:'avail', label:'Availability',val:fmtPct(ovAvail, totals.nAvail>0),              cls:grade(ovAvail, THRESH.availability), show:true},
-        {id:'perf',  label:'Perf (Adj)',  val:fmtPct(ovPerfAdj, totals.nPA>0),               cls:grade(ovPerfAdj, THRESH.capacityAdj), show:true},
-        {id:'qual',  label:'Quality*',    val:Math.round(QUALITY_DEFAULT*100)+'%',           cls:grade(QUALITY_DEFAULT, THRESH.quality), show:true},
-        {id:'cap',   label:'Capacity Potential (lb)', val:fmtInt(totalCapPot,true),          cls:'', show:true},
-        {id:'lbs',   label:'Pounds',      val:fmtInt(totals.lbs,true),                       cls:'', show:true},
+        {id:'oee',   label:'OEE',            val:fmtPct(ovOEE, totals.nAvail>0 && totals.nPRun>0), cls:grade(ovOEE, THRESH.oee),                  show:true},
+        {id:'avail', label:'Availability',   val:fmtPct(ovAvail, totals.nAvail>0),                cls:grade(ovAvail, THRESH.availability), show:true},
+        {id:'prun',  label:'Perf (Run)',     val:fmtPct(ovPerfRun, totals.nPRun>0),               cls:grade(ovPerfRun, THRESH.capacityAdj), show:true},
+        {id:'qual',  label:'Quality*',       val:Math.round(QUALITY_DEFAULT*100)+'%',             cls:grade(QUALITY_DEFAULT, THRESH.quality), show:true},
+        {id:'cap',   label:'Capacity Potential (lb)', val:fmtInt(totalCapPot,true),                cls:'', show:true},
+        {id:'lbs',   label:'Pounds',         val:fmtInt(totals.lbs,true),                         cls:'', show:true},
       ];
       document.getElementById('kpiStrip').innerHTML = kpis.filter(k=>k.show).map(k=>`
         <div class="kpi ${k.cls}">
@@ -649,7 +645,7 @@
             </div>
             <div class="metricrow">
               <div class="mitem"><div class="label">Avail</div><div class="mkv">${fmtPct(r.avail, r.availV)}</div></div>
-              <div class="mitem"><div class="label">Perf-Adj</div><div class="mkv">${fmtPct(r.perfAdj, r.paV)}</div></div>
+              <div class="mitem"><div class="label">Perf-Run</div><div class="mkv">${fmtPct(r.perfRun, r.prunV)}</div></div>
               <div class="mitem"><div class="label">Quality*</div><div class="mkv">${Math.round(r.qual*100)}%</div></div>
               <div class="mitem"><div class="label">Pounds</div><div class="mkv">${fmtInt(r.lbs,true)}</div></div>
             </div>
