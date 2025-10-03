@@ -264,13 +264,13 @@ async function upsertProductionFacts(pool, records){
      WHERE src_date IS NULL
         OR TRY_CONVERT(date, src_date) IS NULL
    `);
-  // normalize text Shift -> shift_n when possible
-  await pool.request().query(`
-    UPDATE dbo.production_staging
-    SET shift_n = TRY_CONVERT(int, LTRIM(RTRIM(shift)))
-    WHERE (shift_n IS NULL)
-      AND TRY_CONVERT(int, LTRIM(RTRIM(shift))) IS NOT NULL;
-  `);
+  // normalize text Shift -> shift_n when possible - This created dry ingest failues due to shift_n
+  //await pool.request().query(`
+    //UPDATE dbo.production_staging
+    //SET shift_n = TRY_CONVERT(int, LTRIM(RTRIM(shift)))
+    //WHERE (shift_n IS NULL)
+      //AND TRY_CONVERT(int, LTRIM(RTRIM(shift))) IS NOT NULL;
+  //`);
  // OPTIONAL: drop rows that have date/machine but *no* production signal at all
 await pool.request().query(`
   DELETE ps
