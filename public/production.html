@@ -241,7 +241,7 @@
           <div class="lab">Performance (Adj)
             <span class="tooltip"><span class="info" tabindex="0">i</span>
               <span class="tooltip-panel"><b>Performance (Adjusted)</b><br>
-                Pounds ÷ (Capacity × (24 − Maint&nbsp;DT - Prod&nbsp;DT)). Uses nameplate/material mapping per day.
+                Pounds ÷ (Capacity × (24 − Maint&nbsp;DT)). Uses nameplate/material mapping per day.
               </span>
             </span>
           </div>
@@ -282,7 +282,7 @@
           <div class="lab">Performance (Raw 24h)
             <span class="tooltip"><span class="info" tabindex="0">i</span>
               <span class="tooltip-panel"><b>Performance (Raw)</b><br>
-                Pounds ÷ (Capacity × 24). Not adjusted for maintenance or production downtime.
+                Pounds ÷ (Capacity × 24). Not adjusted for maintenance downtime.
               </span>
             </span>
           </div>
@@ -795,7 +795,6 @@ function capacityFor(lineName, material){
       const availability = A.nAvail>0 ? (A.sumAvail / A.nAvail) : NaN;
       const perfRaw      = A.nPR>0    ? (A.sumPR   / A.nPR)    : NaN;
       const perfAdj      = A.nPA>0    ? (A.sumPA   / A.nPA)    : NaN;
-      const perfRun      = A.nPA > 0 ? (A.sumPA / A.nPA) : NaN;
       const qual         = QUALITY_DEFAULT;
       const oee          = (Number.isFinite(availability) && Number.isFinite(perfAdj)) ? (availability * perfAdj * qual) : NaN;
 
@@ -864,8 +863,7 @@ function capacityFor(lineName, material){
     const ovAvail   = totals.nAvail>0 ? (totals.sumAvail / totals.nAvail) : 0;
     const ovPerfRaw = totals.nPR>0    ? (totals.sumPR    / totals.nPR)    : 0;
     const ovPerfAdj = totals.nPA>0    ? (totals.sumPA    / totals.nPA)    : 0;
-    const ovPerfRun = totals.runCapDen > 0 ? (totals.lbs / totals.runCapDen) : 0;
-    const ovOEE     = ovAvail * ovPerfRun * QUALITY_DEFAULT;
+    const ovOEE     = ovAvail * ovPerfAdj * QUALITY_DEFAULT;
 
     const ovMdtPct = totalPlannedH > 0 ? (totals.maint / totalPlannedH) : 0;
     const ovPdtPct = totalPlannedH > 0 ? (totals.prod  / totalPlannedH) : 0;
@@ -1084,7 +1082,7 @@ function capacityFor(lineName, material){
       const map = new Map(); // machine -> Map(date -> oee)
       for (const d of dayMap.values()) {
         if (!datesAll.includes(d.day)) continue;
-        const oee = (Number.isFinite(d.perfRun) && Number.isFinite(d.avail)) ? (d.perfRun * d.avail * QUALITY_DEFAULT) : NaN;
+        const oee = (Number.isFinite(d.perfAdj) && Number.isFinite(d.avail)) ? (d.perfAdj * d.avail * QUALITY_DEFAULT) : NaN;
         if (!map.has(d.machine)) map.set(d.machine, new Map());
         if (Number.isFinite(oee)) map.get(d.machine).set(d.day, oee);
       }
@@ -1113,7 +1111,7 @@ function capacityFor(lineName, material){
           const wd = weekdayLocal(d.day);
           if (!wd || wd==='Sat' || wd==='Sun') continue;
           const m = d.machine;
-          const oee = (Number.isFinite(d.perfRun) && Number.isFinite(d.avail)) ? (d.perfRun * d.avail * QUALITY_DEFAULT) : NaN;
+          const oee = (Number.isFinite(d.perfAdj) && Number.isFinite(d.avail)) ? (d.perfAdj * d.avail * QUALITY_DEFAULT) : NaN;
           byLineDay[m] ??= {Mon:{sum:0,n:0}, Tue:{sum:0,n:0}, Wed:{sum:0,n:0}, Thu:{sum:0,n:0}, Fri:{sum:0,n:0}};
           if (Number.isFinite(oee)) { byLineDay[m][wd].sum += oee; byLineDay[m][wd].n += 1; }
         }
