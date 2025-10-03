@@ -598,7 +598,7 @@
       const kpis = [
         {id:'oee',   label:'OEE',            val:fmtPct(ovOEE, totals.nAvail>0 && totals.nPRun>0), cls:grade(ovOEE, THRESH.oee),                  show:true},
         {id:'avail', label:'Availability',   val:fmtPct(ovAvail, totals.nAvail>0),                cls:grade(ovAvail, THRESH.availability), show:true},
-        {id:'prun',  label:'Perf (Run)',     val:fmtPct(ovPerfRun, totals.nPRun>0),               cls:grade(ovPerfRun, THRESH.capacityAdj), show:true},
+        {id:'prun',  label:'Performance Adj',     val:fmtPct(ovPerfRun, totals.nPRun>0),               cls:grade(ovPerfRun, THRESH.capacityAdj), show:true},
         {id:'qual',  label:'Quality*',       val:Math.round(QUALITY_DEFAULT*100)+'%',             cls:grade(QUALITY_DEFAULT, THRESH.quality), show:true},
         {id:'cap',   label:'Capacity Potential (lb)', val:fmtInt(totalCapPot,true),                cls:'', show:true},
         {id:'lbs',   label:'Pounds',         val:fmtInt(totals.lbs,true),                         cls:'', show:true},
