@@ -456,48 +456,43 @@ function canonReason(raw, mappings) {
   const aliases = (mappings && mappings.downtime_reason_aliases) || {};
   const s = (raw || '').toString().trim().toUpperCase();
   if (!s) return 'OTHER';
-  // exact match first
   if (aliases[s]) return aliases[s];
-  // optional loose heuristics – uncomment if you want contains-style
-   for (const [k, v] of Object.entries(aliases)) {
-     if (s.includes(k)) return v;
-   }
+  // contains-based match for messy free text
+  for (const [k, v] of Object.entries(aliases)) {
+    if (s.includes(k)) return v;
+  }
   return 'OTHER';
 }
 
-// 1) Make sure loadLineDayRows returns reason_downtime and prod_dt_h
-//    Example shape per row: { src_date, machine, prod_dt_h, maint_dt_h, reason_downtime, ... }
-
-// 2) New endpoint that aggregates prod DT by canonical reason over a date range
+// GET /api/production/dt-reasons?from=YYYY-MM-DD&to=YYYY-MM-DD&kind=prod|maint
 r.get('/production/dt-reasons', async (req, res, next) => {
   try {
     const pool = await poolPromise;
-    if (!pool) return res.json({ reasons: [], range: null });
-
     const from = (req.query.from || '2000-01-01').slice(0, 10);
     const to   = (req.query.to   || '2100-01-01').slice(0, 10);
+    const kind = (req.query.kind || 'prod').toLowerCase(); // 'prod' or 'maint'
 
-    const rows = await loadLineDayRows(pool, from, to); // must include reason_downtime
-    const map = {};
+    const rows = await loadLineDayRows(pool, from, to); // must include { prod_dt_h, maint_dt_h, reason_downtime, ... }
+
+    const bucket = {};
     for (const r of rows) {
-      const hours = Number(r.prod_dt_h) || 0; // production downtime hours only
+      const hours = Number(kind === 'maint' ? r.maint_dt_h : r.prod_dt_h) || 0;
       if (hours <= 0) continue;
-      const cat = canonReason(r.reason_downtime, mappings);
-      map[cat] = (map[cat] || 0) + hours;
+      const reason = canonReason(r.reason_downtime, mappings);
+      bucket[reason] = (bucket[reason] || 0) + hours;
     }
 
-    // stable ordering via buckets
     const buckets = (mappings && mappings.downtime_reason_buckets) || [];
-    const result = Object.entries(map)
-      .sort((a,b) => {
-        const ia = Math.max(0, buckets.indexOf(a[0])); 
-        const ib = Math.max(0, buckets.indexOf(b[0]));
-        return (ia === -1 && ib !== -1) ? 1 : (ib === -1 && ia !== -1) ? -1
-             : (ia !== ib) ? ia - ib : (b[1] - a[1]);
-      })
+    const result = Object.entries(bucket)
+      .sort((a, b) => b[1] - a[1]) // sort by hours desc
       .map(([reason, hours]) => ({ reason, hours }));
 
-    res.json({ reasons: result, range: { startISO: from, endISO: to }});
+    res.json({
+      kind,
+      reasons: result,
+      range: { startISO: from, endISO: to },
+      buckets
+    });
   } catch (e) { next(e); }
 });
 
