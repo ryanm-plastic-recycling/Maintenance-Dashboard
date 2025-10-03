@@ -451,6 +451,44 @@
         <div id="trendEmpty" class="empty" style="display:none">No data for selected range.</div>
       </div>
     </section>
+
+    <section class="card" style="margin-top:24px">
+    <h2 style="margin:0 0 12px">Downtime – Reasons & Attribution <span id="dtReasonsRange" class="sub"></span></h2>
+  
+    <div class="flex" style="gap:24px; align-items:flex-start; flex-wrap:wrap">
+      <!-- Donut column -->
+      <div style="flex: 1 1 520px; min-width:520px">
+        <div style="display:flex; gap:24px; flex-wrap:wrap">
+          <!-- Production DT donut -->
+          <div class="subcard" style="flex:1 1 360px; min-width:360px">
+            <h3 style="margin:8px 0 6px">Production Downtime by Reason</h3>
+            <div id="prodDtDonut" class="chart"></div>
+            <div id="prodDtEmpty" class="empty" style="display:none">No production downtime reasons in range.</div>
+          </div>
+  
+          <!-- Maintenance DT donut (placeholder until reasons exist) -->
+          <div class="subcard" style="flex:1 1 360px; min-width:360px">
+            <h3 style="margin:8px 0 6px">Maintenance Downtime by Reason</h3>
+            <div id="maintDtDonut" class="chart"></div>
+            <div id="maintDtEmpty" class="empty" style="display:none">No maintenance downtime reasons in range.</div>
+          </div>
+        </div>
+      </div>
+  
+      <!-- Legend column -->
+      <div style="flex: 1 1 420px; min-width:420px">
+        <div class="subcard">
+          <h3 style="margin:8px 0 6px">Top 10 Reasons (Production)</h3>
+          <div id="prodDtLegend"></div>
+        </div>
+        <div class="subcard" style="margin-top:16px">
+          <h3 style="margin:8px 0 6px">Top 10 Reasons (Maintenance)</h3>
+          <div id="maintDtLegend"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
   </div>
 
 <script>
@@ -555,6 +593,31 @@ function capacityFor(lineName, material){
     if (!Number.isFinite(pct)) return '';
     return (pct <= 0.10) ? 'good' : (pct <= 0.20) ? 'warn' : 'bad';
   }
+
+  function donutPath(cx, cy, rOuter, rInner, startAngle, endAngle){
+  const toXY = (a, r) => ({ x: cx + r*Math.cos(a), y: cy + r*Math.sin(a) });
+  const sO = toXY(startAngle, rOuter), eO = toXY(endAngle, rOuter);
+  const sI = toXY(endAngle, rInner),  eI = toXY(startAngle, rInner);
+  const largeArc = (endAngle - startAngle) > Math.PI ? 1 : 0;
+  return `M ${sO.x} ${sO.y} A ${rOuter} ${rOuter} 0 ${largeArc} 1 ${eO.x} ${eO.y} L ${sI.x} ${sI.y} A ${rInner} ${rInner} 0 ${largeArc} 0 ${eI.x} ${eI.y} Z`;
+}
+
+function getPalette(){
+  const styles = getComputedStyle(document.documentElement);
+  const p = [
+    styles.getPropertyValue('--good-fg').trim() || '#10B981',
+    styles.getPropertyValue('--warn-fg').trim() || '#7c5e10',
+    styles.getPropertyValue('--bad-fg').trim()  || '#7f1d1d',
+    '#2563eb','#9333ea','#ef4444','#22c55e','#eab308','#06b6d4','#64748b'
+  ];
+  // extend to 20 to be safe
+  while (p.length < 20) p.push('#' + Math.floor(Math.random()*0xffffff).toString(16).padStart(6,'0'));
+  return p;
+}
+
+function fmtPct(n){ return (n*100).toFixed(1) + '%'; }
+function fmtH(n){ return (n||0).toFixed(1) + ' h'; }
+
 </script>
 <script>
   const THRESH = {
@@ -631,6 +694,8 @@ function capacityFor(lineName, material){
         fetch(`/api/production/by-line?from=${fromISO}&to=${toISO}`).then(r=>r.json()).catch(()=>[])
       ]);
 
+      await renderDowntimeReasonsSection(fromISO, toISO);
+     
       const byline = (bylineRaw || []).filter(r => r.machine && r.machine.startsWith('Extruder'));
 
       // -------- Machine-day consolidation --------
@@ -1326,6 +1391,84 @@ function capacityFor(lineName, material){
     const largeArc = Math.abs(endDeg - startDeg) > 180 ? 1 : 0;
     return `M ${s.x} ${s.y} A ${r} ${r} 0 ${largeArc} ${sweepFlag} ${e.x} ${e.y}`;
   }
+
+  async function renderDowntimeReasonsSection(fromISO, toISO){
+  document.getElementById('dtReasonsRange').textContent = `(${fromISO} → ${toISO})`;
+
+  // fetch both in parallel
+  const [prodRes, maintRes] = await Promise.all([
+    fetch(`/api/production/dt-reasons?kind=prod&from=${fromISO}&to=${toISO}`).then(r=>r.json()),
+    fetch(`/api/production/dt-reasons?kind=maint&from=${fromISO}&to=${toISO}`).then(r=>r.json())
+  ]);
+
+  drawDonutAndLegend(prodRes, 'prodDtDonut', 'prodDtEmpty', 'prodDtLegend');
+  drawDonutAndLegend(maintRes, 'maintDtDonut', 'maintDtEmpty', 'maintDtLegend');
+}
+
+function drawDonutAndLegend(payload, donutId, emptyId, legendId){
+  const cont  = document.getElementById(donutId);
+  const empty = document.getElementById(emptyId);
+  const legend= document.getElementById(legendId);
+  cont.innerHTML = ''; legend.innerHTML = '';
+
+  const rows = (payload && payload.reasons) ? payload.reasons.slice() : [];
+  const total = rows.reduce((s,r)=>s + (r.hours||0), 0);
+
+  if (!rows.length || total <= 0){
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+
+  // Top-10 for legend; donut uses all (still fine)
+  const top10 = rows.slice().sort((a,b)=>b.hours-a.hours).slice(0,10);
+  const palette = getPalette();
+
+  // Donut
+  const W = 420, H = 280, cx = W/2, cy = H/2, ro = 110, ri = 75;
+  let a0 = -Math.PI/2;
+  const svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+
+  const parts = rows.map((r, i) => {
+    const frac = (r.hours||0) / total;
+    const a1 = a0 + frac * Math.PI * 2;
+    const d  = donutPath(cx, cy, ro, ri, a0, a1);
+    const color = palette[i % palette.length];
+    a0 = a1;
+    return { d, color, r };
+  });
+
+  svg.innerHTML = parts.map(p => `<path d="${p.d}" fill="${p.color}" opacity="0.95"></path>`).join('')
+    + `<text x="${cx}" y="${cy-6}" text-anchor="middle" dominant-baseline="baseline" font-size="14" fill="#475569">${fmtH(total)}</text>`
+    + `<text x="${cx}" y="${cy+14}" text-anchor="middle" dominant-baseline="hanging" font-size="12" fill="#64748b">Total</text>`;
+  cont.appendChild(svg);
+
+  // Legend (top 10)
+  const legendList = document.createElement('div');
+  legendList.style.display = 'grid';
+  legendList.style.gridTemplateColumns = '1fr auto auto';
+  legendList.style.rowGap = '6px';
+  legendList.style.columnGap = '12px';
+
+  top10.forEach((item, idx) => {
+    const color = palette[idx % palette.length];
+    const pct = total > 0 ? item.hours / total : 0;
+
+    const sw = document.createElement('div');
+    sw.innerHTML = `<span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${color};margin-right:8px;vertical-align:middle"></span>` +
+                   `<span title="${item.reason}">${item.reason}</span>`;
+
+    const h = document.createElement('div'); h.style.textAlign = 'right'; h.textContent = fmtH(item.hours);
+    const p = document.createElement('div'); p.style.textAlign = 'right'; p.textContent = fmtPct(pct);
+
+    legendList.appendChild(sw);
+    legendList.appendChild(h);
+    legendList.appendChild(p);
+  });
+
+  legend.appendChild(legendList);
+}
 </script>
 <script>
   // tooltip toggling (click / tap)
