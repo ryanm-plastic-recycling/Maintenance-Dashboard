@@ -108,6 +108,9 @@ const ISO_WEEKDAY = new Set([1, 2, 3, 4, 5]); // Monday = 1 .. Sunday = 7
 function canonLine(machine) {
   if (!machine) return '';
   const raw = machine.trim();
+  // Map "Extrusion Line E{n}" → "Extruder {n}"
+  const m = /^Extrusion\s+Line\s+E(\d)$/i.exec(raw);
+  if (m) return `Extruder ${m[1]}`;
   if (
     Object.prototype.hasOwnProperty.call(capacityByLine, raw) ||
     Object.prototype.hasOwnProperty.call(capacityByMaterial, raw)
