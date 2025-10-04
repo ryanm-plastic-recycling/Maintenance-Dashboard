@@ -452,14 +452,50 @@ export default function productionRoutes(poolPromise) {
   });
 
 // helper: canon aliases with contains-pass (unchanged)
+function normalizeReason(raw){
+  const s = (raw ?? '').toString().toUpperCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')   // strip accents
+    .replace(/[^A-Z0-9]+/g, ' ')                       // non-words -> space
+    .replace(/\s+/g, ' ')                              // collapse spaces
+    .trim();
+  return s;
+}
+
 function canonReason(raw, mappings) {
-  const aliases = (mappings && mappings.downtime_reason_aliases) || {};
-  const s = (raw || '').toString().trim().toUpperCase();
+  const s = normalizeReason(raw);
   if (!s) return 'OTHER';
+
+  const aliases = mappings?.downtime_reason_aliases || {};
+  const regexes = mappings?.downtime_reason_aliases_regex || [];
+  const kwMap   = mappings?.downtime_reason_keywords || {};
+
+  // 1) Exact alias
   if (aliases[s]) return aliases[s];
-  for (const [k, v] of Object.entries(aliases)) {
-    if (s.includes(k)) return v;
+
+  // 2) Regex aliases (ordered)
+  for (const r of regexes) {
+    try {
+      const re = new RegExp(r.pattern, r.flags || 'i');
+      if (re.test(s)) return r.to;
+    } catch {}
   }
+
+  // 3) Keyword bag (any token hit maps)
+  //    kwMap example: { "STAFFING": ["EMPLO", "OPERATOR", "NO CREW"], ... }
+  for (const [to, words] of Object.entries(kwMap)) {
+    for (const w of words) {
+      if (s.includes(w)) return to;
+    }
+  }
+
+  // 4) Final heuristics (broad substrings)
+  if (s.includes('EMPLOY') || s.includes('OPERATOR') || s.includes('NO CREW') || s.includes('NO STAFF')) return 'STAFFING';
+  if (s.includes('MATERIAL') || s.includes('MATL') || s.includes('RESIN') || s.includes('SUPPLY'))        return 'MATERIAL';
+  if (s.includes('CHANGEOVER') || s.includes('CHANGE OVER') || s.includes('COLOR') || s.includes('SETUP') || s.includes('STARTUP')) return 'CHANGEOVER';
+  if (s.includes('QUALITY') || s.includes('CONTAM') || s.includes('HOLD') || s.includes('SCRAP') || s.includes('REWORK')) return 'QUALITY';
+  if (s.includes('POWER') || s.includes('UTILITY') || s.includes('OUTAGE')) return 'UTILITY';
+  if (s.includes('ETTLINGER') || s.includes('CUTTER') || s.includes('DIE FACE')) return 'MAINTENANCE';
+
   return 'OTHER';
 }
 
