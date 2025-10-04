@@ -521,9 +521,9 @@
     { "pattern": "\\bCONTAM(INATION)?\\b", "to": "QUALITY" },
     { "pattern": "\\bQUALITY\\s+HOLD\\b", "to": "QUALITY" },
     { "pattern": "\\bPOWER\\s+OUTAGE\\b", "to": "UTILITY" },
-    { "pattern": "\\bETTLINGER\\b", "to": "MAINTENANCE" },
-    { "pattern": "\\bDIE\\s*FACE\\b", "to": "MAINTENANCE" },
-    { "pattern": "\\bCUTTER\\s*HEAD\\b", "to": "MAINTENANCE" }
+    { "pattern": "\\bETTLINGER\\b", "to": "ETTLINGER" },
+    { "pattern": "\\bDIE\\s*FACE\\b", "to": "DIE FACE" },
+    { "pattern": "\\bCUTTER\\s*HEAD\\b", "to": "CUTTER HEAD" }
   ],
   "downtime_reason_keywords": {
     "STAFFING":   ["EMPLOY", "OPERATOR", "NO CREW", "NO STAFF"],
@@ -531,6 +531,9 @@
     "CHANGEOVER": ["CHANGEOVER", "CHANGE OVER", "STARTUP", "SETUP", "COLOR"],
     "QUALITY":    ["QUALITY", "CONTAM", "HOLD", "SCRAP", "REWORK"],
     "UTILITY":    ["POWER", "UTILITY", "OUTAGE"],
-    "MAINTENANCE":["ETTLINGER", "CUTTER", "DIE FACE", "BREAKDOWN", "PM"]
+    "ETTLINGER":    ["ETTLINGER"],
+    "CUTTER":    ["CUTTER"],
+    "DIE FACE":    ["DIE FACE"],
+    "MAINTENANCE":["BREAKDOWN", "PM"]
   }
 }
