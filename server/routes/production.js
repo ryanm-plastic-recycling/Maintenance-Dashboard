@@ -451,49 +451,129 @@ export default function productionRoutes(poolPromise) {
     } catch (e) { next(e); }
   });
 
-// helper — canonicalize using mappings
+// helper: canon aliases with contains-pass (unchanged)
 function canonReason(raw, mappings) {
   const aliases = (mappings && mappings.downtime_reason_aliases) || {};
   const s = (raw || '').toString().trim().toUpperCase();
   if (!s) return 'OTHER';
   if (aliases[s]) return aliases[s];
-  // contains-based match for messy free text
   for (const [k, v] of Object.entries(aliases)) {
     if (s.includes(k)) return v;
   }
   return 'OTHER';
 }
 
-// GET /api/production/dt-reasons?from=YYYY-MM-DD&to=YYYY-MM-DD&kind=prod|maint
+// Optional behavior flag in mappings.json:
+// { "downtime_reason_allocation": "equal" }  // or "by_count"
+function allocationModeFrom(m) {
+  const mode = (m && m.downtime_reason_allocation) || 'equal';
+  return mode === 'by_count' ? 'by_count' : 'equal';
+}
+
 r.get('/production/dt-reasons', async (req, res, next) => {
   try {
     const pool = await poolPromise;
-    const from = (req.query.from || '2000-01-01').slice(0, 10);
-    const to   = (req.query.to   || '2100-01-01').slice(0, 10);
-    const kind = (req.query.kind || 'prod').toLowerCase(); // 'prod' or 'maint'
+    const from = (req.query.from || '2000-01-01').slice(0,10);
+    const to   = (req.query.to   || '2100-01-01').slice(0,10);
+    const kind = (req.query.kind || 'prod').toLowerCase();
+    const weekdaysOnly = String(req.query.weekdaysOnly || '0') === '1';
 
-    const rows = await loadLineDayRows(pool, from, to); // must include { prod_dt_h, maint_dt_h, reason_downtime, ... }
+    const isWeekday = (iso) => {
+      const [Y,M,D] = iso.split('-').map(Number);
+      const d = new Date(Y, M-1, D);
+      const wd = d.getDay();
+      return wd !== 0 && wd !== 6;
+    };
 
-    const bucket = {};
-    for (const r of rows) {
-      const hours = Number(kind === 'maint' ? r.maint_dt_h : r.prod_dt_h) || 0;
-      if (hours <= 0) continue;
-      const reason = canonReason(r.reason_downtime, mappings);
-      bucket[reason] = (bucket[reason] || 0) + hours;
+    // 1) Load machine-day facts (must include src_date, machine, machine_hours, maint_dt_h)
+    const facts = await loadLineDayRows(pool, from, to);
+
+    // 2) Load raw reasons FROM STAGING (ignore down_time_hours entirely)
+    const { recordset: rawReasons } = await pool.request().query(`
+      SELECT
+        CONVERT(char(10), TRY_CONVERT(date, src_date), 23) AS src_date,
+        LTRIM(RTRIM(machine)) AS machine,
+        LTRIM(RTRIM(reason_downtime)) AS reason_downtime
+      FROM dbo.production_staging
+      WHERE TRY_CONVERT(date, src_date) BETWEEN '${from}' AND '${to}'
+        AND machine IS NOT NULL AND LTRIM(RTRIM(machine)) <> ''
+        AND reason_downtime IS NOT NULL AND LTRIM(RTRIM(reason_downtime)) <> ''
+    `);
+
+    // 3) Build a per-day index of reasons (dedup per machine-day)
+    const perDayReasons = new Map(); // key: machine__date -> Map(canonReason -> count)
+    for (const r of rawReasons) {
+      const day = (r.src_date || '').slice(0,10);
+      const m = r.machine;
+      if (!day || !m) continue;
+      if (weekdaysOnly && !isWeekday(day)) continue;
+
+      const canon = canonReason(r.reason_downtime, mappings);
+      const k = `${m}__${day}`;
+      if (!perDayReasons.has(k)) perDayReasons.set(k, new Map());
+      const bag = perDayReasons.get(k);
+      bag.set(canon, (bag.get(canon) || 0) + 1); // count appearances (for by_count mode)
     }
 
-    const buckets = (mappings && mappings.downtime_reason_buckets) || [];
-    const result = Object.entries(bucket)
-      .sort((a, b) => b[1] - a[1]) // sort by hours desc
-      .map(([reason, hours]) => ({ reason, hours }));
+    // 4) Allocate
+    const mode = allocationModeFrom(mappings);
+    const add = (acc, reason, h) => { acc[reason] = (acc[reason] || 0) + h; };
+    const bucketsProd = {};   // prod reasons allocation
+    const bucketsMaint = {};  // maint (placeholder)
 
-    res.json({
-      kind,
-      reasons: result,
-      range: { startISO: from, endISO: to },
-      buckets
-    });
-  } catch (e) { next(e); }
+    for (const f of facts) {
+      const day = (f.src_date || '').slice(0,10);
+      const m = f.machine;
+      if (!day || !m) continue;
+      if (weekdaysOnly && !isWeekday(day)) continue;
+
+      const runH   = Number(f.machine_hours) || 0;
+      const maintH = Number(f.maint_dt_h)    || 0;
+
+      // residual production DT (clamped 0..24)
+      let resid = 24 - runH - maintH;
+      if (!Number.isFinite(resid) || resid < 0) resid = 0;
+      if (resid > 24) resid = 24;
+
+      // maintenance hours (until you track maint reasons, drop into OTHER)
+      if (maintH > 0) add(bucketsMaint, 'OTHER', maintH);
+
+      // allocate production residual using reasons present that day
+      if (resid > 0) {
+        const bag = perDayReasons.get(`${m}__${day}`);
+        if (!bag || bag.size === 0) {
+          add(bucketsProd, 'OTHER', resid);
+        } else {
+          if (mode === 'equal') {
+            const share = resid / bag.size;
+            for (const r of bag.keys()) add(bucketsProd, r, share);
+          } else { // by_count
+            let tot = 0; for (const c of bag.values()) tot += c;
+            if (tot <= 0) { add(bucketsProd, 'OTHER', resid); }
+            else {
+              for (const [r, c] of bag.entries()) add(bucketsProd, r, resid * (c / tot));
+            }
+          }
+        }
+      }
+    }
+
+    if (kind === 'maint') {
+      const reasons = Object.entries(bucketsMaint)
+        .sort((a,b)=>b[1]-a[1])
+        .map(([reason, hours]) => ({ reason, hours }));
+      return res.json({ kind, reasons, range: { startISO: from, endISO: to }, buckets: (mappings && mappings.downtime_reason_buckets) || [] });
+    }
+
+    // prod
+    const reasons = Object.entries(bucketsProd)
+      .sort((a,b)=>b[1]-a[1])
+      .map(([reason, hours]) => ({ reason, hours }));
+    res.json({ kind, reasons, range: { startISO: from, endISO: to }, buckets: (mappings && mappings.downtime_reason_buckets) || [] });
+
+  } catch (e) {
+    next(e);
+  }
 });
 
   // --- diagnostics: capacity lookup ---------------------------------
