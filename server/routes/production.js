@@ -497,7 +497,7 @@ function canonReason(raw, mappings) {
   if (s.includes('ETTLINGER')) return 'ETTLINGER';
   if (s.includes('CUTTER HEAD')) return 'CUTTER HEAD';
   if (s.includes('DIE FACE')) return 'DIE FACE';
-  f (s.includes('STARTUP')) return 'STARTUP';
+  if (s.includes('STARTUP')) return 'STARTUP';
 
   return 'OTHER';
 }
