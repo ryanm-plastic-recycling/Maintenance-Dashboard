@@ -23,6 +23,7 @@ try {
   const raw = fs.readFileSync(MAPPINGS_PATH, 'utf8');
   const parsed = JSON.parse(raw);
   mappings = {
+    ...parsed,
     capacities_lbs_hr: parsed.capacities_lbs_hr || {},
     capacity_by_material_lbs_hr: parsed.capacity_by_material_lbs_hr || {},
     capacity_aliases: parsed.capacity_aliases || {},
@@ -574,12 +575,18 @@ r.get('/production/dt-reasons', async (req, res, next) => {
       const m = r.machine;
       if (!day || !m) continue;
       if (weekdaysOnly && !isWeekday(day)) continue;
-
-      const canon = canonReason(r.reason_downtime, mappings);
-      const k = `${m}__${day}`;
+    const k = `${m}__${day}`;
       if (!perDayReasons.has(k)) perDayReasons.set(k, new Map());
       const bag = perDayReasons.get(k);
-      bag.set(canon, (bag.get(canon) || 0) + 1); // count appearances (for by_count mode)
+    
+      const raw = String(r.reason_downtime ?? '');
+      const parts = raw.split(SEP).filter(x => String(x).trim() !== '');
+      // If nothing splits, still classify once (gives UNSTATED when blank)
+      const list = parts.length ? parts : [raw];
+      for (const p of list) {
+        const cat = canonReason(p);              // <-- no mappings arg
+        bag.set(cat, (bag.get(cat) || 0) + 1);   // by_count support
+      }     
     }
 
     // 4) Allocate
@@ -609,7 +616,6 @@ r.get('/production/dt-reasons', async (req, res, next) => {
       if (resid > 0) {
         const bag = perDayReasons.get(`${m}__${day}`);
         if (!bag || bag.size === 0) {
-          add(bucketsProd, 'UNSTATED', resid);
         } else {
           if (mode === 'equal') {
             const share = resid / bag.size;
