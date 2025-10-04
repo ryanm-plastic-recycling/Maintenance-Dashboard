@@ -10,7 +10,64 @@ const QUALITY_DEFAULT = 0.70;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const MAPPINGS_PATH = path.join(__dirname, '..', '..', 'public', 'mappings.json');
-const SEP = /\s*[/,;|]\s*/; // split "No material / lack of employees", "A;B", "A|B"
+// --- reason canonicalization helpers (must come before we build ALIAS/REGEX/KW) ---
+const SEP = /\s*[/,;|]\s*/; // split multi-reasons
+
+function normalizeReason(raw){
+  return (raw ?? '').toString().toUpperCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/[^A-Z0-9]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function buildAliasIndex(mappings){
+  const exact = new Map();
+  const contains = [];
+  const src = mappings?.downtime_reason_aliases || {};
+  for (const [k,v] of Object.entries(src)) {
+    const nk = normalizeReason(k);
+    exact.set(nk, v);
+    contains.push([nk, v]);
+  }
+  contains.sort((a,b)=> b[0].length - a[0].length); // longest needle first
+  return { exact, contains };
+}
+
+function getRegexList(mappings){
+  const out = [];
+  for (const r of (mappings?.downtime_reason_aliases_regex || [])) {
+    try { out.push({ re: new RegExp(r.pattern, r.flags || 'i'), to: r.to }); } catch {}
+  }
+  return out;
+}
+
+function getKeywordMap(mappings){
+  const out = {};
+  for (const [to, arr] of Object.entries(mappings?.downtime_reason_keywords || {})) {
+    out[to] = (arr || []).map(normalizeReason);
+  }
+  return out;
+}
+
+function canonReason(raw){
+  if (raw == null || String(raw).trim() === '') return 'UNSTATED';
+  const sNorm = normalizeReason(raw);
+  const sRawU = (raw ?? '').toString().toUpperCase();
+  if (ALIAS.exact.has(sNorm)) return ALIAS.exact.get(sNorm);
+  for (const { re, to } of REGEX) { if (re.test(sRawU)) return to; }
+  for (const [to, words] of Object.entries(KW)) { for (const w of words) { if (sNorm.includes(w)) return to; } }
+  for (const [needle, to] of ALIAS.contains) { if (needle && sNorm.includes(needle)) return to; }
+  if (sNorm.includes('EMPLOY') || sNorm.includes('OPERATOR') || sNorm.includes('NO CREW') || sNorm.includes('NO STAFF') || sNorm.includes('NOT ENOUGH') || sNorm.includes('LACK OF')) return 'STAFFING';
+  if (sNorm.includes('NO MATERIAL') || sNorm.includes('RAN OUT MATERIAL') || sNorm.includes('MATL') || sNorm.includes('RESIN') || sNorm.includes('SUPPLY')) return 'MATERIAL';
+  if (sNorm.includes('CHANGEOVER') || sNorm.includes('CHANGE OVER') || sNorm.includes('COLOR') || sNorm.includes('SETUP') || sNorm.includes('STARTUP')) return 'CHANGEOVER';
+  if (sNorm.includes('QUALITY') || sNorm.includes('CONTAM') || sNorm.includes('HOLD') || sNorm.includes('SCRAP') || sNorm.includes('REWORK')) return 'QUALITY';
+  if (sNorm.includes('POWER') || sNorm.includes('UTILITY') || sNorm.includes('OUTAGE')) return 'UTILITY';
+  if (sNorm.includes('ETTLINGER')) return 'ETTLINGER';
+  if (sNorm.includes('CUTTER HEAD')) return 'CUTTER HEAD';
+  if (sNorm.includes('DIE FACE')) return 'DIE FACE';
+  return 'UNSTATED';
+}
 
 const DEFAULT_MAPPINGS = {
   capacities_lbs_hr: {},
@@ -456,82 +513,6 @@ export default function productionRoutes(poolPromise) {
       });
     } catch (e) { next(e); }
   });
-
-// helper: canon aliases with contains-pass (unchanged)
-function normalizeReason(raw){
-  const s = (raw ?? '').toString().toUpperCase()
-    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')   // strip accents
-    .replace(/[^A-Z0-9]+/g, ' ')                       // non-words -> space
-    .replace(/\s+/g, ' ')                              // collapse spaces
-    .trim();
-  return s;
-}
-
-  // Build a normalized alias map + an ordered "contains" list (longest first)
-function buildAliasIndex(mappings){
-  const exact = new Map();
-  const contains = [];
-  const src = mappings?.downtime_reason_aliases || {};
-  for (const [k,v] of Object.entries(src)) {
-    const nk = normalizeReason(k);      // "NO MATERIAL" -> "NO MATERIAL"
-    exact.set(nk, v);
-    contains.push([nk, v]);             // contains fallback
-  }
-  contains.sort((a,b)=> b[0].length - a[0].length); // longest needle first
-  return { exact, contains };
-}
-
-function getRegexList(mappings){
-  const out = [];
-  for (const r of (mappings?.downtime_reason_aliases_regex || [])) {
-    try { out.push({ re: new RegExp(r.pattern, r.flags || 'i'), to: r.to }); } catch {}
-  }
-  return out;
-}
-
-function getKeywordMap(mappings){
-  const out = {};
-  for (const [to, arr] of Object.entries(mappings?.downtime_reason_keywords || {})) {
-    out[to] = (arr || []).map(normalizeReason);
-  }
-  return out;
-}
-
-function canonReason(raw){
-  if (raw == null || String(raw).trim() === '') return 'UNSTATED';
-
-  const sNorm = normalizeReason(raw);
-  const sRawU = (raw ?? '').toString().toUpperCase();
-
-  // 1) Exact alias first (normalized)
-  if (ALIAS.exact.has(sNorm)) return ALIAS.exact.get(sNorm);
-
-  // 2) Regex aliases (good for typos/variants)
-  for (const { re, to } of REGEX) { if (re.test(sRawU)) return to; }
-
-  // 3) Keyword bag
-  for (const [to, words] of Object.entries(KW)) {
-    for (const w of words) { if (sNorm.includes(w)) return to; }
-  }
-
-  // 4) Alias "contains" fallback (normalized, longest needles first)
-  for (const [needle, to] of ALIAS.contains) {
-    if (needle && sNorm.includes(needle)) return to;
-  }
-
-  // 5) Last-ditch heuristics (keep tight)
-  if (sNorm.includes('EMPLOY') || sNorm.includes('OPERATOR') || sNorm.includes('NO CREW') || sNorm.includes('NO STAFF') || sNorm.includes('NOT ENOUGH') || sNorm.includes('LACK OF')) return 'STAFFING';
-  if (sNorm.includes('NO MATERIAL') || sNorm.includes('RAN OUT MATERIAL') || sNorm.includes('MATL') || sNorm.includes('RESIN') || sNorm.includes('SUPPLY')) return 'MATERIAL';
-  if (sNorm.includes('CHANGEOVER') || sNorm.includes('CHANGE OVER') || sNorm.includes('COLOR') || sNorm.includes('SETUP') || sNorm.includes('STARTUP')) return 'CHANGEOVER';
-  if (sNorm.includes('QUALITY') || sNorm.includes('CONTAM') || sNorm.includes('HOLD') || sNorm.includes('SCRAP') || sNorm.includes('REWORK')) return 'QUALITY';
-  if (sNorm.includes('POWER') || sNorm.includes('UTILITY') || sNorm.includes('OUTAGE')) return 'UTILITY';
-  if (sNorm.includes('ETTLINGER')) return 'ETTLINGER';
-  if (sNorm.includes('CUTTER HEAD')) return 'CUTTER HEAD';
-  if (sNorm.includes('DIE FACE')) return 'DIE FACE';
-
-  return 'UNSTATED'; // <- be consistent with your buckets
-}
-
 
 // Optional behavior flag in mappings.json:
 // { "downtime_reason_allocation": "equal" }  // or "by_count"
