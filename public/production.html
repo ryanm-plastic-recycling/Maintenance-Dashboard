@@ -1403,6 +1403,8 @@ function fmtH(n){ return (n||0).toFixed(1) + ' h'; }
       fetch(`/api/production/dt-reasons?kind=prod&from=${fromISO}&to=${toISO}&weekdaysOnly=${wq}`).then(r=>r.json()),
       fetch(`/api/production/dt-reasons?kind=maint&from=${fromISO}&to=${toISO}&weekdaysOnly=${wq}`).then(r=>r.json())
     ]);
+   drawDonutAndLegend(prodRes,  'prodDtDonut',  'prodDtEmpty',  'prodDtLegend');
+   drawDonutAndLegend(maintRes, 'maintDtDonut', 'maintDtEmpty', 'maintDtLegend');
   }
 
 function drawDonutAndLegend(payload, donutId, emptyId, legendId){
