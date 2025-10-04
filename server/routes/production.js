@@ -564,38 +564,6 @@ r.get('/production/dt-reasons', async (req, res, next) => {
       agg.maintSum += maint;
       perDayFacts.set(k, agg);
     }
-// ===== DEBUG (temporary) ============================================================================================================================================
-if (req.query.debug === '1') {
-  // A) Show how many machine-days we have from facts vs reasons (after canon + allow + weekday filter)
-  const factsKeys   = [...perDayFacts.keys()];
-  const reasonsKeys = [...perDayReasons.keys()];
-  console.log('[dt-reasons][debug] perDayFacts:', factsKeys.length, 'perDayReasons:', reasonsKeys.length);
-
-  // B) List a few mismatched machine-day keys (keys present in facts but missing reasons)
-  const missing = factsKeys.filter(k => !perDayReasons.has(k)).slice(0, 20);
-  console.log('[dt-reasons][debug] sample missing reason bags (mC__YYYY-MM-DD):', missing);
-
-  // C) Top raw reason strings in this request (to confirm we are actually seeing text)
-  const topRaw = {};
-  for (const r of rawReasons) {
-    const s = String(r.reason_downtime || '').trim().toUpperCase();
-    topRaw[s] = (topRaw[s] || 0) + 1;
-  }
-  console.log('[dt-reasons][debug] top raw reasons:', Object.entries(topRaw).sort((a,b)=>b[1]-a[1]).slice(0,20));
-
-  // D) Confirm alias tables are loaded
-  console.log('[dt-reasons][debug] alias sizes:', {
-    aliasExact: ALIAS.exact.size,
-    aliasContains: ALIAS.contains.length,
-    regex: REGEX.length,
-    kw: Object.keys(KW).length
-  });
-
-  // E) Quick canon sample for common cases
-  const samples = ['LACK OF EMPLOYEES','ETTLINGER POWER OFF','DRYER REPAIR','NO MATERIAL'];
-  console.log('[dt-reasons][debug] canon samples:', samples.map(s => [s, canonReason(s)]));
-}
-// ===== /DEBUG =========================================================================================================================================
 
     // 2) Load staging reasons (real query), filter to allowed lines
     let { recordset: rawReasons } = await pool.request().query(`
@@ -622,6 +590,38 @@ if (req.query.debug === '1') {
       const k  = `${mC}__${day}`;
       if (!perDayReasons.has(k)) perDayReasons.set(k, new Map());
       const bag = perDayReasons.get(k);
+// ===== DEBUG (temporary) =====
+if (req.query.debug === '1') {
+  try {
+    const factsKeys   = [...perDayFacts.keys()];
+    const reasonsKeys = [...perDayReasons.keys()];
+    console.log('[dt-reasons][debug] perDayFacts:', factsKeys.length, 'perDayReasons:', reasonsKeys.length);
+
+    const missing = factsKeys.filter(k => !perDayReasons.has(k)).slice(0, 20);
+    console.log('[dt-reasons][debug] sample missing reason bags:', missing);
+
+    const topRaw = {};
+    for (const r of rawReasons) {
+      const s = String(r.reason_downtime || '').trim().toUpperCase();
+      topRaw[s] = (topRaw[s] || 0) + 1;
+    }
+    console.log('[dt-reasons][debug] top raw reasons:',
+      Object.entries(topRaw).sort((a,b)=>b[1]-a[1]).slice(0,20));
+
+    console.log('[dt-reasons][debug] alias sizes:', {
+      aliasExact: ALIAS.exact.size,
+      aliasContains: ALIAS.contains.length,
+      regex: REGEX.length,
+      kw: Object.keys(KW).length
+    });
+
+    const samples = ['LACK OF EMPLOYEES','ETTLINGER POWER OFF','DRYER REPAIR','NO MATERIAL'];
+    console.log('[dt-reasons][debug] canon samples:', samples.map(s => [s, canonReason(s)]));
+  } catch (e) {
+    console.warn('[dt-reasons][debug] failed:', e?.message || e);
+  }
+}
+// ===== /DEBUG =====
 
       const raw = String(r.reason_downtime ?? '');
       const parts = raw.split(SEP).filter(x => String(x).trim() !== '');
