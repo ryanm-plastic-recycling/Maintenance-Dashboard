@@ -14,6 +14,11 @@ export default function adminRoutes(poolPromise) {
       const pool = await poolPromise;
       const dry = String(req.query.dry || '1') === '1';
       const out = await runProdExcelIngest({ pool, dry });
+      if (!dry) {
+        await pool.request()
+          .input('n', sql.NVarChar, 'prod-excel')
+          .query('UPDATE dbo.UpdateSchedules SET LastRun = SYSUTCDATETIME() WHERE Name = @n');
+      }
       res.json({ ok:true, dry, ...out });
     } catch (e) {
       res.status(500).json({ ok:false, error:String(e.message || e) });
