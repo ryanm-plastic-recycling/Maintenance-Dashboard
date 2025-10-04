@@ -526,14 +526,13 @@
   { "pattern": "\\bCOLOR\\s+CHANGE\\b", "to": "CHANGEOVER" },
   { "pattern": "\\bCHANGE\\s*OVER\\b", "to": "CHANGEOVER" },
   { "pattern": "\\bSET\\s*-?\\s*UP\\b", "to": "CHANGEOVER" },
-  { "pattern": "\\bST(?:AR)?T(?:ED)?\\s+AT\\b", "to": "CHANGEOVER" },  // Started/Stared/Start at
+  { "pattern": "\\bST(?:AR)?T(?:ED)?\\s+AT\\b", "to": "CHANGEOVER" },
 
   { "pattern": "\\bCONTAM(INATION)?\\b", "to": "QUALITY" },
   { "pattern": "\\bQUALITY\\s+HOLD\\b", "to": "QUALITY" },
 
   { "pattern": "\\bPOWER\\s+OUTAGE\\b", "to": "UTILITY" },
 
-  // ETTLINGER typos: Ettliger, Ettlinge, EttlingeR, etc.
   { "pattern": "\\bETT+L?I?N?G?E?R\\b", "to": "ETTLINGER" },
 
   { "pattern": "\\bDIE\\s*FACE\\b", "to": "DIE FACE" },
