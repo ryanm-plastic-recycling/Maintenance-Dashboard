@@ -75,11 +75,35 @@
     .card .content{padding:16px}
 
     .donutwrap{display:grid;grid-template-columns:1fr;gap:12px}
-    .donutrow{display:grid;grid-template-columns:160px 1fr;gap:12px;align-items:center}
-    .legend{display:grid;grid-template-columns:1fr 1fr;gap:8px;font-weight:900}
-    .legend .row{display:flex;align-items:center;gap:8px}
+    .donutrow{
+      display:grid;
+      grid-template-columns:180px 1fr; /* donut | legend */
+      gap:16px;
+      align-items:center;
+    }
+    .legend{
+      display:grid;
+      grid-template-columns: 1fr auto auto; /* name | hours | % */
+      column-gap:12px; row-gap:8px;
+      font-weight:900;
+      min-width:0; /* allow ellipsis */
+    }
+    .legend .row{display:contents;} /* each item fills the 3 cols */
     .legend .dot{width:12px;height:12px;border-radius:50%}
-    .legend .name{max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .legend .name{
+      display:flex; align-items:center; gap:8px;
+      overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;
+    }
+    .legend .hrs{justify-self:end}
+    .legend .pct{justify-self:end;color:#64748b}
+    
+    /* prevent card from clipping soft edges */
+    .card .content{overflow:hidden}
+    
+    /* Stack the legend below the donut when space is tight */
+    @media (max-width: 1400px){
+      .donutrow{grid-template-columns:1fr}
+    }
 
     .lines{display:grid;grid-template-columns:repeat(auto-fit,minmax(520px,1fr));gap:12px}
     .line{border:1px solid var(--border);border-radius:14px;padding:14px;background:white;display:flex;flex-direction:column}
@@ -416,11 +440,14 @@ function pickColor(i){
     legend.innerHTML = parts.map(p => {
       const pct = total > 0 ? (p.value/total*100).toFixed(0)+'%' : '—';
       const hrs = (p.value||0).toFixed(1)+'h';
-      return `<div class="row">
-        <span class="dot" style="background:${p.color}"></span>
-        <div class="name" title="${p.name}">${p.name}</div>
-        <div class="val" style="margin-left:auto">${hrs} (${pct})</div>
-      </div>`;
+      return `
+        <div class="row">
+          <div class="name" title="${p.name}">
+            <span class="dot" style="background:${p.color}"></span>${p.name}
+          </div>
+          <div class="hrs">${hrs}</div>
+          <div class="pct">${pct}</div>
+        </div>`;
     }).join('');
   }
 
