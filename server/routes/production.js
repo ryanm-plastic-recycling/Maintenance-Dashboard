@@ -499,7 +499,7 @@ function canonReason(raw, mappings) {
   if (s.includes('DIE FACE')) return 'DIE FACE';
   if (s.includes('STARTUP')) return 'STARTUP';
 
-  return 'OTHER';
+  return 'NOT STATED';
 }
 
 // Optional behavior flag in mappings.json:
