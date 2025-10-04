@@ -37,6 +37,11 @@ const capacityByLine = mappings.capacities_lbs_hr;
 const capacityByMaterial = mappings.capacity_by_material_lbs_hr;
 const materialAlias = mappings.material_aliases;
 
+// after you load `mappings` JSON
+const ALIAS = buildAliasIndex(mappings);
+const REGEX = getRegexList(mappings);
+const KW    = getKeywordMap(mappings);
+
 // --- tiny 60s cache for summary responses ---
 const summaryCache = new Map();
 
@@ -453,53 +458,80 @@ export default function productionRoutes(poolPromise) {
 
 // helper: canon aliases with contains-pass (unchanged)
 function normalizeReason(raw){
-  const s = (raw ?? '').toString().toUpperCase()
-    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')   // strip accents
-    .replace(/[^A-Z0-9]+/g, ' ')                       // non-words -> space
-    .replace(/\s+/g, ' ')                              // collapse spaces
+  return (raw ?? '').toString().toUpperCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')  // strip accents
+    .replace(/[^A-Z0-9]+/g, ' ')                      // non-words -> space
+    .replace(/\s+/g, ' ')                             // collapse spaces
     .trim();
-  return s;
 }
 
-function canonReason(raw, mappings) {
-  const s = normalizeReason(raw);
-  if (!s) return 'UNSTATED'; // explicit bucket for blank
+// Build a normalized alias map + a "contains" list sorted by key length (desc)
+function buildAliasIndex(mappings){
+  const exact = new Map();
+  const contains = [];
+  const src = mappings?.downtime_reason_aliases || {};
+  for (const [k, v] of Object.entries(src)) {
+    const nk = normalizeReason(k);
+    exact.set(nk, v);                      // exact lookup on normalized key
+    contains.push([nk, v]);                // fallback contains pass
+  }
+  // Longest keys first so "NO MATERIAL" beats "MATERIAL"
+  contains.sort((a, b) => b[0].length - a[0].length);
+  return { exact, contains };
+}
 
-  const aliases = mappings?.downtime_reason_aliases || {};
-  const regexes = mappings?.downtime_reason_aliases_regex || [];
-  const kwMap   = mappings?.downtime_reason_keywords || {};
+function getRegexList(mappings){
+  const list = [];
+  for (const r of (mappings?.downtime_reason_aliases_regex || [])) {
+    try { list.push({ re: new RegExp(r.pattern, r.flags || 'i'), to: r.to }); } catch {}
+  }
+  return list;
+}
 
-  // 1) Exact alias
-  if (aliases[s]) return aliases[s];
+function getKeywordMap(mappings){
+  const out = {};
+  for (const [to, arr] of Object.entries(mappings?.downtime_reason_keywords || {})) {
+    out[to] = (arr || []).map(w => normalizeReason(w));
+  }
+  return out;
+}
 
-  // 2) Regex aliases (ordered)
-  for (const r of regexes) {
-    try {
-      const re = new RegExp(r.pattern, r.flags || 'i');
-      if (re.test(s)) return r.to;
-    } catch {}
+function canonReason(raw){
+  // Empty → explicit UNSTATED bucket
+  if (raw == null || String(raw).trim() === '') return 'UNSTATED';
+
+  const sNorm = normalizeReason(raw);
+  const sRawU = (raw ?? '').toString().toUpperCase();
+
+  // 1) Exact alias on normalized key
+  if (ALIAS.exact.has(sNorm)) return ALIAS.exact.get(sNorm);
+
+  // 2) Regex list (against RAW upper to allow punctuation patterns)
+  for (const { re, to } of REGEX) {
+    if (re.test(sRawU)) return to;
   }
 
-  // 3) Keyword bag (any token hit maps)
-  //    kwMap example: { "STAFFING": ["EMPLO", "OPERATOR", "NO CREW"], ... }
-  for (const [to, words] of Object.entries(kwMap)) {
-    for (const w of words) {
-      if (s.includes(w)) return to;
-    }
+  // 3) Keyword “bag” (any hit)
+  for (const [to, words] of Object.entries(KW)) {
+    for (const w of words) { if (sNorm.includes(w)) return to; }
   }
 
-  // 4) Final heuristics (broad substrings)
-  if (s.includes('EMPLOY') || s.includes('OPERATOR') || s.includes('NO CREW') || s.includes('NO STAFF') || s.includes('EMPLOYEE') || s.includes('LACK OF')) return 'STAFFING';
-  if (s.includes('NO MATERIAL') || s.includes('MATL') || s.includes('RESIN') || s.includes('SUPPLY')) return 'MATERIAL';
-  if (s.includes('CHANGEOVER') || s.includes('CHANGE OVER MATERIAL') || s.includes('COLOR') || s.includes('SETUP')) return 'CHANGEOVER';
-  if (s.includes('QUALITY') || s.includes('CONTAM') || s.includes('HOLD') || s.includes('SCRAP') || s.includes('REWORK')) return 'QUALITY';
-  if (s.includes('POWER') || s.includes('UTILITY') || s.includes('OUTAGE')) return 'UTILITY';
-  if (s.includes('ETTLINGER')) return 'ETTLINGER';
-  if (s.includes('CUTTER HEAD')) return 'CUTTER HEAD';
-  if (s.includes('DIE FACE')) return 'DIE FACE';
-  if (s.includes('STARTUP')) return 'STARTUP';
+  // 4) Alias “contains” fallback on normalized (ordered, longest first)
+  for (const [needle, to] of ALIAS.contains) {
+    if (needle && sNorm.includes(needle)) return to;
+  }
 
-  return 'NOT STATED';
+  // 5) Final heuristics (broad)
+  if (sNorm.includes('EMPLOY') || sNorm.includes('OPERATOR') || sNorm.includes('NO CREW') || sNorm.includes('NO STAFF') || sNorm.includes('EMPLOYEE') || sNorm.includes('LACK OF') || sNorm.includes('NOT ENOUGH')) return 'STAFFING';
+  if (sNorm.includes('NO MATERIAL') || sNorm.includes('MATL') || sNorm.includes('RESIN') || sNorm.includes('SUPPLY')) return 'MATERIAL';
+  if (sNorm.includes('CHANGEOVER') || sNorm.includes('CHANGE OVER') || sNorm.includes('COLOR') || sNorm.includes('SETUP') || sNorm.includes('STARTUP')) return 'CHANGEOVER';
+  if (sNorm.includes('QUALITY') || sNorm.includes('CONTAM') || sNorm.includes('HOLD') || sNorm.includes('SCRAP') || sNorm.includes('REWORK')) return 'QUALITY';
+  if (sNorm.includes('POWER') || sNorm.includes('UTILITY') || sNorm.includes('OUTAGE')) return 'UTILITY';
+  if (sNorm.includes('ETTLINGER')) return 'ETTLINGER';
+  if (sNorm.includes('CUTTER HEAD')) return 'CUTTER HEAD';
+  if (sNorm.includes('DIE FACE')) return 'DIE FACE';
+
+  return 'UNSTATED';
 }
 
 // Optional behavior flag in mappings.json:
