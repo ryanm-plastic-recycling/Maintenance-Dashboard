@@ -510,7 +510,7 @@
   "downtime_reason_buckets": [
   "STAFFING","MATERIAL","CHANGEOVER","QUALITY","MAINTENANCE","UTILITY",
   "ETTLINGER","CUTTER HEAD","DIE FACE",
-  "UNSTATED","OTHER"
+  "UNSTATED","OTHER", "STARTUP"
 ],
   "downtime_reason_aliases_regex": [
   { "pattern": "\\bNO\\s+EMP(LOYEE|LOYEES)?\\b", "to": "STAFFING" },
