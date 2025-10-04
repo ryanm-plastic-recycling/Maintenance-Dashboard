@@ -330,6 +330,17 @@
   function cssVar(name) {
     return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || name;
   }
+
+  // simple palette (pulls good/warn/bad if present, then a few accents)
+function pickColor(i){
+  const root = getComputedStyle(document.documentElement);
+  const c1 = root.getPropertyValue('--good-fg').trim() || '#10B981';
+  const c2 = root.getPropertyValue('--warn-fg').trim() || '#f59e0b';
+  const c3 = root.getPropertyValue('--bad-fg').trim()  || '#ef4444';
+  const pool = [c1, '#2563eb', c2, '#9333ea', c3];
+  return pool[i % pool.length];
+}
+
   function polarToCartesian(cx, cy, r, angDeg) {
     const a = angDeg * Math.PI / 180;
     return { x: cx + r * Math.cos(a), y: cy + r * Math.sin(a) };
@@ -365,6 +376,52 @@
     ctx.arc(cx,cy,r*0.62,0,Math.PI*2);
     ctx.fill();
     ctx.globalCompositeOperation = 'source-over';
+  }
+  
+    async function renderProdReasonsDonut(fromISO, toISO){
+    const canvas = document.getElementById('donutProd');
+    const legend = document.getElementById('legendProd');
+    if (!canvas || !legend) return;
+  
+    // Pull production reasons for weekdays only (to match the rest of Pulse math)
+    const url = `/api/production/dt-reasons?kind=prod&from=${fromISO}&to=${toISO}&weekdaysOnly=1`;
+    let data = null;
+    try { data = await fetch(url, {cache:'no-store'}).then(r=>r.json()); } catch {}
+    const rows = Array.isArray(data?.reasons) ? data.reasons.filter(r => (r?.hours||0) > 0) : [];
+    const total = rows.reduce((s, r) => s + (r.hours || 0), 0);
+  
+    // If nothing, show a neutral donut
+    if (total <= 0 || rows.length === 0) {
+      drawDonut(canvas, [{name:'No data', value:1, color:'#d1d5db'}]);
+      legend.innerHTML = `<div class="row"><span class="dot" style="background:#d1d5db"></span><div class="name">No production reasons</div><div class="val">—</div></div>`;
+      return;
+    }
+  
+    // Top 5 + Other
+    const top = rows.slice().sort((a,b)=>b.hours-a.hours).slice(0,5);
+    const topSum = top.reduce((s,r)=>s+(r.hours||0),0);
+    const other  = Math.max(0, total - topSum);
+  
+    const parts = top.map((r, i) => ({
+      name: r.reason,
+      value: r.hours,
+      color: pickColor(i)
+    }));
+    if (other > 0) parts.push({ name:'Other', value: other, color:'#d1d5db' });
+  
+    // Draw donut
+    drawDonut(canvas, parts);
+  
+    // Legend (name • hours • %)
+    legend.innerHTML = parts.map(p => {
+      const pct = total > 0 ? (p.value/total*100).toFixed(0)+'%' : '—';
+      const hrs = (p.value||0).toFixed(1)+'h';
+      return `<div class="row">
+        <span class="dot" style="background:${p.color}"></span>
+        <div class="name" title="${p.name}">${p.name}</div>
+        <div class="val" style="margin-left:auto">${hrs} (${pct})</div>
+      </div>`;
+    }).join('');
   }
 
   // ====== PROD STATUS (same data as prodstatus.html) ======
@@ -618,14 +675,8 @@
       document.getElementById('legendMaint').innerHTML =
         `<div class="row"><span class="dot" style="background:${maintParts[0].color}"></span><div class="name">Maint DT</div><div class="val">${fmtPct(ovMdtPct,true)}</div></div>
          <div class="row"><span class="dot" style="background:${maintParts[1].color}"></span><div class="name">Other</div><div class="val">${fmtPct(Math.max(0,1-(ovMdtPct||0)),true)}</div></div>`;
-      const prodParts = [
-        {name:'Prod DT', value: ovPdtPct || 0, color: '#7f1d1d'},
-        {name:'Other Time', value: Math.max(0, 1-(ovPdtPct||0)), color: '#d1d5db'}
-      ];
-      drawDonut(document.getElementById('donutProd'), prodParts);
-      document.getElementById('legendProd').innerHTML =
-        `<div class="row"><span class="dot" style="background:${prodParts[0].color}"></span><div class="name">Prod DT</div><div class="val">${fmtPct(ovPdtPct,true)}</div></div>
-         <div class="row"><span class="dot" style="background:${prodParts[1].color}"></span><div class="name">Other</div><div class="val">${fmtPct(Math.max(0,1-(ovPdtPct||0)),true)}</div></div>`;
+      
+      await renderProdReasonsDonut(fromISO, toISO);
       
       // Line tiles
       const linesGrid = document.getElementById('linesGrid');
