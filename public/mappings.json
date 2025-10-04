@@ -508,7 +508,7 @@
     "UTILITY": "UTILITY"
   },
   "downtime_reason_buckets": [
-    "STAFFING","MATERIAL","CHANGEOVER","QUALITY","MAINTENANCE","UTILITY","OTHER"
+    "STAFFING","MATERIAL","CHANGEOVER","QUALITY","MAINTENANCE","UTILITY","UNSTATED","OTHER"
   ],
   "downtime_reason_aliases_regex": [
     { "pattern": "\\bNO\\s+EMP(LOYEE|LOYEES)?\\b", "to": "STAFFING" },
