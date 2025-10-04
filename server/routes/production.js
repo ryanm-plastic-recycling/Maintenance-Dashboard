@@ -590,39 +590,6 @@ r.get('/production/dt-reasons', async (req, res, next) => {
       const k  = `${mC}__${day}`;
       if (!perDayReasons.has(k)) perDayReasons.set(k, new Map());
       const bag = perDayReasons.get(k);
-// ===== DEBUG (temporary) =====
-if (req.query.debug === '1') {
-  try {
-    const factsKeys   = [...perDayFacts.keys()];
-    const reasonsKeys = [...perDayReasons.keys()];
-    console.log('[dt-reasons][debug] perDayFacts:', factsKeys.length, 'perDayReasons:', reasonsKeys.length);
-
-    const missing = factsKeys.filter(k => !perDayReasons.has(k)).slice(0, 20);
-    console.log('[dt-reasons][debug] sample missing reason bags:', missing);
-
-    const topRaw = {};
-    for (const r of rawReasons) {
-      const s = String(r.reason_downtime || '').trim().toUpperCase();
-      topRaw[s] = (topRaw[s] || 0) + 1;
-    }
-    console.log('[dt-reasons][debug] top raw reasons:',
-      Object.entries(topRaw).sort((a,b)=>b[1]-a[1]).slice(0,20));
-
-    console.log('[dt-reasons][debug] alias sizes:', {
-      aliasExact: ALIAS.exact.size,
-      aliasContains: ALIAS.contains.length,
-      regex: REGEX.length,
-      kw: Object.keys(KW).length
-    });
-
-    const samples = ['LACK OF EMPLOYEES','ETTLINGER POWER OFF','DRYER REPAIR','NO MATERIAL'];
-    console.log('[dt-reasons][debug] canon samples:', samples.map(s => [s, canonReason(s)]));
-  } catch (e) {
-    console.warn('[dt-reasons][debug] failed:', e?.message || e);
-  }
-}
-// ===== /DEBUG =====
-
       const raw = String(r.reason_downtime ?? '');
       const parts = raw.split(SEP).filter(x => String(x).trim() !== '');
       const list = parts.length ? parts : [raw];
@@ -631,6 +598,42 @@ if (req.query.debug === '1') {
         bag.set(cat, (bag.get(cat) || 0) + 1);        // count appearances
       }
     }
+// ===== DEBUG (temporary) =====
+if (req.query.debug === '1') {
+  try {
+    const factsKeys   = [...perDayFacts.keys()];
+    const reasonsKeys = [...perDayReasons.keys()];
+    console.log('[dt-reasons][debug] perDayFacts:', factsKeys.length, 'perDayReasons:', reasonsKeys.length);
+
+    // show a couple of the first keys on each side
+    console.log('[dt-reasons][debug] facts keys sample:', factsKeys.slice(0, 10));
+    console.log('[dt-reasons][debug] reasons keys sample:', reasonsKeys.slice(0, 10));
+
+    // keys present in facts but missing in reasons
+    const missing = factsKeys.filter(k => !perDayReasons.has(k)).slice(0, 20);
+    console.log('[dt-reasons][debug] facts-without-reasons sample:', missing);
+
+    // raw reason text sample
+    const topRaw = {};
+    for (const r of rawReasons) {
+      const s = String(r.reason_downtime || '').trim().toUpperCase();
+      if (!s) continue;
+      topRaw[s] = (topRaw[s] || 0) + 1;
+    }
+    console.log('[dt-reasons][debug] top raw reasons:', Object.entries(topRaw).sort((a,b)=>b[1]-a[1]).slice(0, 20));
+
+    // alias/regex/kw sizes
+    console.log('[dt-reasons][debug] alias sizes:', {
+      aliasExact: ALIAS.exact.size,
+      aliasContains: ALIAS.contains.length,
+      regex: REGEX.length,
+      kw: Object.keys(KW).length
+    });
+  } catch (e) {
+    console.warn('[dt-reasons][debug] failed:', e?.message || e);
+  }
+}
+// ===== /DEBUG =====
 
     // 4) Allocate residual production DT once per machine-day
     const mode = allocationModeFrom(mappings);
