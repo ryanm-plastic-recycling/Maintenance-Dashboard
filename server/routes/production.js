@@ -36,6 +36,10 @@ const capacityAlias = mappings.capacity_aliases;
 const capacityByLine = mappings.capacities_lbs_hr;
 const capacityByMaterial = mappings.capacity_by_material_lbs_hr;
 const materialAlias = mappings.material_aliases;
+// after reading mappings.json (keep ALL keys from file)
+const ALIAS = buildAliasIndex(mappings);
+const REGEX = getRegexList(mappings);
+const KW    = getKeywordMap(mappings);
 
 // --- tiny 60s cache for summary responses ---
 const summaryCache = new Map();
@@ -461,46 +465,71 @@ function normalizeReason(raw){
   return s;
 }
 
-function canonReason(raw, mappings) {
-  const s = normalizeReason(raw);
-  if (!s) return 'UNSTATED'; // explicit bucket for blank
-
-  const aliases = mappings?.downtime_reason_aliases || {};
-  const regexes = mappings?.downtime_reason_aliases_regex || [];
-  const kwMap   = mappings?.downtime_reason_keywords || {};
-
-  // 1) Exact alias
-  if (aliases[s]) return aliases[s];
-
-  // 2) Regex aliases (ordered)
-  for (const r of regexes) {
-    try {
-      const re = new RegExp(r.pattern, r.flags || 'i');
-      if (re.test(s)) return r.to;
-    } catch {}
+  // Build a normalized alias map + an ordered "contains" list (longest first)
+function buildAliasIndex(mappings){
+  const exact = new Map();
+  const contains = [];
+  const src = mappings?.downtime_reason_aliases || {};
+  for (const [k,v] of Object.entries(src)) {
+    const nk = normalizeReason(k);      // "NO MATERIAL" -> "NO MATERIAL"
+    exact.set(nk, v);
+    contains.push([nk, v]);             // contains fallback
   }
-
-  // 3) Keyword bag (any token hit maps)
-  //    kwMap example: { "STAFFING": ["EMPLO", "OPERATOR", "NO CREW"], ... }
-  for (const [to, words] of Object.entries(kwMap)) {
-    for (const w of words) {
-      if (s.includes(w)) return to;
-    }
-  }
-
-  // 4) Final heuristics (broad substrings)
-  if (s.includes('EMPLOY') || s.includes('OPERATOR') || s.includes('NO CREW') || s.includes('NO STAFF') || s.includes('EMPLOYEE') || s.includes('LACK OF') || s.includes('NOT ENOUGH')) return 'STAFFING';
-  if (s.includes('NO MATERIAL') || s.includes('MATL') || s.includes('RESIN') || s.includes('SUPPLY')) return 'MATERIAL';
-  if (s.includes('CHANGEOVER') || s.includes('CHANGE OVER MATERIAL') || s.includes('COLOR') || s.includes('SETUP')) return 'CHANGEOVER';
-  if (s.includes('QUALITY') || s.includes('CONTAM') || s.includes('HOLD') || s.includes('SCRAP') || s.includes('REWORK')) return 'QUALITY';
-  if (s.includes('POWER') || s.includes('UTILITY') || s.includes('OUTAGE')) return 'UTILITY';
-  if (s.includes('ETTLINGER')) return 'ETTLINGER';
-  if (s.includes('CUTTER HEAD')) return 'CUTTER HEAD';
-  if (s.includes('DIE FACE')) return 'DIE FACE';
-  if (s.includes('STARTUP')) return 'STARTUP';
-
-  return 'NOT STATED';
+  contains.sort((a,b)=> b[0].length - a[0].length); // longest needle first
+  return { exact, contains };
 }
+
+function getRegexList(mappings){
+  const out = [];
+  for (const r of (mappings?.downtime_reason_aliases_regex || [])) {
+    try { out.push({ re: new RegExp(r.pattern, r.flags || 'i'), to: r.to }); } catch {}
+  }
+  return out;
+}
+
+function getKeywordMap(mappings){
+  const out = {};
+  for (const [to, arr] of Object.entries(mappings?.downtime_reason_keywords || {})) {
+    out[to] = (arr || []).map(normalizeReason);
+  }
+  return out;
+}
+
+function canonReason(raw){
+  if (raw == null || String(raw).trim() === '') return 'UNSTATED';
+
+  const sNorm = normalizeReason(raw);
+  const sRawU = (raw ?? '').toString().toUpperCase();
+
+  // 1) Exact alias first (normalized)
+  if (ALIAS.exact.has(sNorm)) return ALIAS.exact.get(sNorm);
+
+  // 2) Regex aliases (good for typos/variants)
+  for (const { re, to } of REGEX) { if (re.test(sRawU)) return to; }
+
+  // 3) Keyword bag
+  for (const [to, words] of Object.entries(KW)) {
+    for (const w of words) { if (sNorm.includes(w)) return to; }
+  }
+
+  // 4) Alias "contains" fallback (normalized, longest needles first)
+  for (const [needle, to] of ALIAS.contains) {
+    if (needle && sNorm.includes(needle)) return to;
+  }
+
+  // 5) Last-ditch heuristics (keep tight)
+  if (sNorm.includes('EMPLOY') || sNorm.includes('OPERATOR') || sNorm.includes('NO CREW') || sNorm.includes('NO STAFF') || sNorm.includes('NOT ENOUGH') || sNorm.includes('LACK OF')) return 'STAFFING';
+  if (sNorm.includes('NO MATERIAL') || sNorm.includes('RAN OUT MATERIAL') || sNorm.includes('MATL') || sNorm.includes('RESIN') || sNorm.includes('SUPPLY')) return 'MATERIAL';
+  if (sNorm.includes('CHANGEOVER') || sNorm.includes('CHANGE OVER') || sNorm.includes('COLOR') || sNorm.includes('SETUP') || sNorm.includes('STARTUP')) return 'CHANGEOVER';
+  if (sNorm.includes('QUALITY') || sNorm.includes('CONTAM') || sNorm.includes('HOLD') || sNorm.includes('SCRAP') || sNorm.includes('REWORK')) return 'QUALITY';
+  if (sNorm.includes('POWER') || sNorm.includes('UTILITY') || sNorm.includes('OUTAGE')) return 'UTILITY';
+  if (sNorm.includes('ETTLINGER')) return 'ETTLINGER';
+  if (sNorm.includes('CUTTER HEAD')) return 'CUTTER HEAD';
+  if (sNorm.includes('DIE FACE')) return 'DIE FACE';
+
+  return 'UNSTATED'; // <- be consistent with your buckets
+}
+
 
 // Optional behavior flag in mappings.json:
 // { "downtime_reason_allocation": "equal" }  // or "by_count"
@@ -536,7 +565,6 @@ r.get('/production/dt-reasons', async (req, res, next) => {
       FROM dbo.production_staging
       WHERE TRY_CONVERT(date, src_date) BETWEEN '${from}' AND '${to}'
         AND machine IS NOT NULL AND LTRIM(RTRIM(machine)) <> ''
-        AND reason_downtime IS NOT NULL AND LTRIM(RTRIM(reason_downtime)) <> ''
     `);
 
     // 3) Build a per-day index of reasons (dedup per machine-day)
@@ -581,7 +609,7 @@ r.get('/production/dt-reasons', async (req, res, next) => {
       if (resid > 0) {
         const bag = perDayReasons.get(`${m}__${day}`);
         if (!bag || bag.size === 0) {
-          add(bucketsProd, 'OTHER', resid);
+          add(bucketsProd, 'UNSTATED', resid);
         } else {
           if (mode === 'equal') {
             const share = resid / bag.size;
