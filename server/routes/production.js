@@ -463,7 +463,7 @@ function normalizeReason(raw){
 
 function canonReason(raw, mappings) {
   const s = normalizeReason(raw);
-  if (!s) return 'OTHER';
+  if (!s) return 'UNSTATED'; // explicit bucket for blank
 
   const aliases = mappings?.downtime_reason_aliases || {};
   const regexes = mappings?.downtime_reason_aliases_regex || [];
@@ -489,12 +489,15 @@ function canonReason(raw, mappings) {
   }
 
   // 4) Final heuristics (broad substrings)
-  if (s.includes('EMPLOY') || s.includes('OPERATOR') || s.includes('NO CREW') || s.includes('NO STAFF')) return 'STAFFING';
-  if (s.includes('MATERIAL') || s.includes('MATL') || s.includes('RESIN') || s.includes('SUPPLY'))        return 'MATERIAL';
-  if (s.includes('CHANGEOVER') || s.includes('CHANGE OVER') || s.includes('COLOR') || s.includes('SETUP') || s.includes('STARTUP')) return 'CHANGEOVER';
+  if (s.includes('EMPLOY') || s.includes('OPERATOR') || s.includes('NO CREW') || s.includes('NO STAFF') || s.includes('EMPLOYEE') || s.includes('LACK OF')) return 'STAFFING';
+  if (s.includes('NO MATERIAL') || s.includes('MATL') || s.includes('RESIN') || s.includes('SUPPLY')) return 'MATERIAL';
+  if (s.includes('CHANGEOVER') || s.includes('CHANGE OVER MATERIAL') || s.includes('COLOR') || s.includes('SETUP')) return 'CHANGEOVER';
   if (s.includes('QUALITY') || s.includes('CONTAM') || s.includes('HOLD') || s.includes('SCRAP') || s.includes('REWORK')) return 'QUALITY';
   if (s.includes('POWER') || s.includes('UTILITY') || s.includes('OUTAGE')) return 'UTILITY';
-  if (s.includes('ETTLINGER') || s.includes('CUTTER') || s.includes('DIE FACE')) return 'MAINTENANCE';
+  if (s.includes('ETTLINGER')) return 'ETTLINGER';
+  if (s.includes('CUTTER HEAD')) return 'CUTTER HEAD';
+  if (s.includes('DIE FACE')) return 'DIE FACE';
+  f (s.includes('STARTUP')) return 'STARTUP';
 
   return 'OTHER';
 }
