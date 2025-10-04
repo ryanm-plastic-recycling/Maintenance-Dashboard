@@ -535,29 +535,28 @@ r.get('/production/dt-reasons', async (req, res, next) => {
       const wd = d.getDay();
       return wd !== 0 && wd !== 6;
     };
+    const allow = new Set([
+      ...Object.keys(capacityByLine || {}),
+      ...Object.keys(capacityByMaterial || {})
+    ].map(canonLine));
 
     // 1) Load machine-day facts (must include src_date, machine, machine_hours, maint_dt_h)
-    const facts = await loadLineDayRows(pool, from, to);
+    let facts = await loadLineDayRows(pool, from, to);
+    facts = facts.filter(f => allow.has(canonLine(f.machine)));
 
     // 2) Load raw reasons FROM STAGING (ignore down_time_hours entirely)
-    const { recordset: rawReasons } = await pool.request().query(`
-      SELECT
-        CONVERT(char(10), TRY_CONVERT(date, src_date), 23) AS src_date,
-        LTRIM(RTRIM(machine)) AS machine,
-        LTRIM(RTRIM(reason_downtime)) AS reason_downtime
-      FROM dbo.production_staging
-      WHERE TRY_CONVERT(date, src_date) BETWEEN '${from}' AND '${to}'
-        AND machine IS NOT NULL AND LTRIM(RTRIM(machine)) <> ''
-    `);
+    let { recordset: rawReasons } = await pool.request().query( ... );
+    rawReasons = rawReasons.filter(r => allow.has(canonLine(r.machine)));
 
     // 3) Build a per-day index of reasons (dedup per machine-day)
     const perDayReasons = new Map(); // key: machine__date -> Map(canonReason -> count)
     for (const r of rawReasons) {
       const day = (r.src_date || '').slice(0,10);
       const m = r.machine;
+      const mC = canonLine(m);
       if (!day || !m) continue;
       if (weekdaysOnly && !isWeekday(day)) continue;
-    const k = `${m}__${day}`;
+      const k = `${mC}__${day}`;
       if (!perDayReasons.has(k)) perDayReasons.set(k, new Map());
       const bag = perDayReasons.get(k);
     
@@ -580,6 +579,7 @@ r.get('/production/dt-reasons', async (req, res, next) => {
     for (const f of facts) {
       const day = (f.src_date || '').slice(0,10);
       const m = f.machine;
+      const mC = canonLine(m);
       if (!day || !m) continue;
       if (weekdaysOnly && !isWeekday(day)) continue;
 
@@ -596,7 +596,7 @@ r.get('/production/dt-reasons', async (req, res, next) => {
 
       // allocate production residual using reasons present that day
       if (resid > 0) {
-        const bag = perDayReasons.get(`${m}__${day}`);
+        const bag = perDayReasons.get(`${mC}__${day}`);
         if (!bag || bag.size === 0) {
           add(bucketsProd, 'UNSTATED', resid);
         } else {
