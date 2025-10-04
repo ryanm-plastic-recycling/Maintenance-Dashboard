@@ -13,6 +13,7 @@ import adminRoutes from './server/routes/admin.js';
 import limbleWebhook from './server/routes/limbleWebhook.js';
 import { start as startScheduler, reload as reloadScheduler } from './server/scheduler.js';
 import { refreshHeaderKpis, refreshByAssetKpis, refreshWorkOrders } from './server/jobs/kpiJobs.js';
+import { runProdExcelIngest } from './server/jobs/prodExcelIngest.js';
 import { runFullRefresh } from './server/jobs/pipeline.js';
 import { fetchAllPages, syncLimbleToSql, syncLimbleCompletedOnly } from './server/jobs/limbleSync.js';
 import productionRoutes from './server/routes/production.js';
@@ -971,6 +972,7 @@ const jobs = {
   async work_orders_index()  { const p = await poolPromise; return refreshWorkOrders(p, 'index'); },
   async work_orders_pm()     { const p = await poolPromise; return refreshWorkOrders(p, 'pm'); },
   async work_orders_status() { const p = await poolPromise; return refreshWorkOrders(p, 'prodstatus'); },
+  async 'prod-excel'()       { const p = await poolPromise; return runProdExcelIngest({ pool: p, dry: false }); },
 
   // ETL helpers
   etl_assets_fields: async () => {
