@@ -1394,18 +1394,16 @@ function fmtH(n){ return (n||0).toFixed(1) + ' h'; }
     return `M ${s.x} ${s.y} A ${r} ${r} 0 ${largeArc} ${sweepFlag} ${e.x} ${e.y}`;
   }
 
-  async function renderDowntimeReasonsSection(fromISO, toISO){
-  document.getElementById('dtReasonsRange').textContent = `(${fromISO} → ${toISO})`;
-
-  // fetch both in parallel
-  const [prodRes, maintRes] = await Promise.all([
-    fetch(`/api/production/dt-reasons?kind=prod&from=${fromISO}&to=${toISO}`).then(r=>r.json()),
-    fetch(`/api/production/dt-reasons?kind=maint&from=${fromISO}&to=${toISO}`).then(r=>r.json())
-  ]);
-
-  drawDonutAndLegend(prodRes, 'prodDtDonut', 'prodDtEmpty', 'prodDtLegend');
-  drawDonutAndLegend(maintRes, 'maintDtDonut', 'maintDtEmpty', 'maintDtLegend');
-}
+ async function renderDowntimeReasonsSection(fromISO, toISO){
+    document.getElementById('dtReasonsRange').textContent = `(${fromISO} → ${toISO})`;
+    const includeWeekends = document.getElementById('wkndToggle')?.checked === true;
+    const wq = includeWeekends ? '0' : '1';
+  
+    const [prodRes, maintRes] = await Promise.all([
+      fetch(`/api/production/dt-reasons?kind=prod&from=${fromISO}&to=${toISO}&weekdaysOnly=${wq}`).then(r=>r.json()),
+      fetch(`/api/production/dt-reasons?kind=maint&from=${fromISO}&to=${toISO}&weekdaysOnly=${wq}`).then(r=>r.json())
+    ]);
+  }
 
 function drawDonutAndLegend(payload, donutId, emptyId, legendId){
   const cont  = document.getElementById(donutId);
