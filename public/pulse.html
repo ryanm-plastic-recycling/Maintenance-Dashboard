@@ -70,35 +70,46 @@
     .st-downp{background:#dc2626}
 
     .grid{display:grid;grid-template-columns:420px 1fr;gap:16px;align-items:stretch}
+    
     .card{background:var(--card);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow)}
     .card h3{margin:0;padding:12px 14px;border-bottom:1px solid var(--border);font-size:var(--tile-head-fs);letter-spacing:.3px;color:var(--muted);font-weight:900}
     .card .content{padding:16px}
-
+    /* Wider left column just for the donuts card */
+    .gridWide{ grid-template-columns: 560px 1fr; }
+    
+    /* scale down gracefully on narrower screens */
+    @media (max-width: 1500px){
+      .gridWide{ grid-template-columns: 480px 1fr; }
+    }
+    @media (max-width: 1200px){
+      .gridWide{ grid-template-columns: 1fr; }
+    }
+    
+    /* Give the donut row a little more room for the chart */
+    .donutrow{ grid-template-columns: 200px 1fr; }
     .donutwrap{display:grid;grid-template-columns:1fr;gap:12px}
     .donutrow{
       display:grid;
-      grid-template-columns:180px 1fr; /* donut | legend */
       gap:16px;
       align-items:center;
     }
+    
+    /* 3-column legend: name | hours | % ; allow full width names */
     .legend{
       display:grid;
-      grid-template-columns: 1fr auto auto; /* name | hours | % */
+      grid-template-columns: 1fr auto auto;
       column-gap:12px; row-gap:8px;
-      font-weight:900;
-      min-width:0; /* allow ellipsis */
+      font-weight:900; min-width:0;
     }
-    .legend .row{display:contents;} /* each item fills the 3 cols */
     .legend .dot{width:12px;height:12px;border-radius:50%}
     .legend .name{
       display:flex; align-items:center; gap:8px;
-      overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;
     }
-    .legend .hrs{justify-self:end}
-    .legend .pct{justify-self:end;color:#64748b}
+    .legend .hrs{ justify-self:end; }
+    .legend .pct{ justify-self:end; color:#64748b; }
     
-    /* prevent card from clipping soft edges */
-    .card .content{overflow:hidden}
+    /* prevent the card from clipping soft edges if anything overflows a pixel */
+    .card .content{ overflow: hidden; }
     
     /* Stack the legend below the donut when space is tight */
     @media (max-width: 1400px){
@@ -218,7 +229,7 @@
       </section>
 
       <!-- BOTTOM GRID: Left = Donuts, Right = Rank -->
-      <section class="grid" style="margin-top:16px">
+      <section class="grid gridWide" style="margin-top:16px">
         <article class="card">
           <h3>Downtime Overview — Maintenance vs Production</h3>
           <div class="content donutwrap">
