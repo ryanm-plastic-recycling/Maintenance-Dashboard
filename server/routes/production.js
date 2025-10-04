@@ -42,6 +42,8 @@ const ALIAS = buildAliasIndex(mappings);
 const REGEX = getRegexList(mappings);
 const KW    = getKeywordMap(mappings);
 
+const SEP = /\s*[/,;|]\s*/; // split "No material / lack of employees", "A;B", "A|B"
+
 // --- tiny 60s cache for summary responses ---
 const summaryCache = new Map();
 
@@ -616,14 +618,15 @@ r.get('/production/dt-reasons', async (req, res, next) => {
       if (resid > 0) {
         const bag = perDayReasons.get(`${m}__${day}`);
         if (!bag || bag.size === 0) {
+          add(bucketsProd, 'UNSTATED', resid);
         } else {
           if (mode === 'equal') {
             const share = resid / bag.size;
             for (const r of bag.keys()) add(bucketsProd, r, share);
           } else { // by_count
             let tot = 0; for (const c of bag.values()) tot += c;
-            if (tot <= 0) { add(bucketsProd, 'OTHER', resid); }
-            else {
+            if (tot <= 0) { add(bucketsProd, 'UNSTATED', resid);
+            } else {
               for (const [r, c] of bag.entries()) add(bucketsProd, r, resid * (c / tot));
             }
           }
