@@ -46,6 +46,7 @@ const COL = {
   materialType:  7,   // "Type" column (Excel col H)
   color:         8,   // "Color" column (Excel col I)
   maint_dt_h:    11,  // "Down Time"
+  reason_text:   12,  // "Reason for Downtime"
   machine_hours: 13,  // "Machine Hours"
   pounds:        15,  // "Pounds"
   year:          22,  // fallback y/m/d
@@ -98,7 +99,7 @@ export function mapRow(row){
   if (isTrulyEmptyRow(row)) return null;
   const material = normMaterial(row[COL.materialType]); // Excel “Type” (col H)
   const color    = safeStr(row[COL.color]) || null;     // Excel “Color” (col I)
-  
+  const reason   = safeStr(row[COL.reason_text]);   // raw "Reason for Downtime"
   // Prefer serial date (col 0)
   let src_date = excelSerialToISO(row[COL.dateSerial]);
 
@@ -146,6 +147,7 @@ export function mapRow(row){
     color,
     pounds,
     machine_hours,
+    reason_downtime: reason || null,
     maint_downtime_h: maint_dt_h,
     prod_downtime_h: 0,
     nameplate_lbs_hr: null,
@@ -164,6 +166,7 @@ function toDb(rec){
     nameplate_lbs_hr: rec.nameplate_lbs_hr == null ? null : safeNum(rec.nameplate_lbs_hr),
     material: rec.material || null,
     color: rec.color || null,
+    reason_downtime: rec.reason_downtime || null,
   };
 }
 
@@ -229,7 +232,7 @@ async function upsertProductionFacts(pool, records){
       null,                               // format
       null,                               // options
       r.maint_downtime_h ?? 0,            // down_time_hours (shift-maint from sheet)
-      null,                               // reason_downtime
+      r.reason_downtime || null,          // reason_downtime
       r.machine_hours ?? 0,               // machine_hours
       null,                               // standard
       r.pounds ?? 0,                      // pounds
