@@ -508,32 +508,49 @@
     "UTILITY": "UTILITY"
   },
   "downtime_reason_buckets": [
-    "STAFFING","MATERIAL","CHANGEOVER","QUALITY","MAINTENANCE","UTILITY","UNSTATED","OTHER"
-  ],
+  "STAFFING","MATERIAL","CHANGEOVER","QUALITY","MAINTENANCE","UTILITY",
+  "ETTLINGER","CUTTER HEAD","DIE FACE",
+  "UNSTATED","OTHER"
+],
   "downtime_reason_aliases_regex": [
-    { "pattern": "\\bNO\\s+EMP(LOYEE|LOYEES)?\\b", "to": "STAFFING" },
-    { "pattern": "\\bNO\\s+OP(ERATOR|S)?\\b", "to": "STAFFING" },
-    { "pattern": "\\bWAIT(ING)?\\s+ON\\s+MAT(ERIAL|L)\\b", "to": "MATERIAL" },
-    { "pattern": "\\bCOLOR\\s+CHANGE\\b", "to": "CHANGEOVER" },
-    { "pattern": "\\bCHANGE\\s*OVER\\b", "to": "CHANGEOVER" },
-    { "pattern": "\\bSTART\\s*-?\\s*UP\\b", "to": "CHANGEOVER" },
-    { "pattern": "\\bSET\\s*-?\\s*UP\\b", "to": "CHANGEOVER" },
-    { "pattern": "\\bCONTAM(INATION)?\\b", "to": "QUALITY" },
-    { "pattern": "\\bQUALITY\\s+HOLD\\b", "to": "QUALITY" },
-    { "pattern": "\\bPOWER\\s+OUTAGE\\b", "to": "UTILITY" },
-    { "pattern": "\\bETTLINGER\\b", "to": "ETTLINGER" },
-    { "pattern": "\\bDIE\\s*FACE\\b", "to": "DIE FACE" },
-    { "pattern": "\\bCUTTER\\s*HEAD\\b", "to": "CUTTER HEAD" }
-  ],
+  { "pattern": "\\bNO\\s+EMP(LOYEE|LOYEES)?\\b", "to": "STAFFING" },
+  { "pattern": "\\bNO\\s+OP(ERATOR|S)?\\b", "to": "STAFFING" },
+  { "pattern": "\\bNOT\\s+ENOUGH\\s+EMPLO(YEES|EE)\\b", "to": "STAFFING" },
+  { "pattern": "\\bLACK\\s+OF\\s+EMPLO(YEES|EE)\\b", "to": "STAFFING" },
+
+  { "pattern": "\\bNO\\s+MATERI(AL|ALS)\\b", "to": "MATERIAL" },
+  { "pattern": "\\bRAN\\s+OUT\\s+MATERI(AL|ALS)\\b", "to": "MATERIAL" },
+  { "pattern": "\\bWAIT(ING)?\\s+ON\\s+MAT(ERIAL|L)\\b", "to": "MATERIAL" },
+  { "pattern": "\\bCHANGE\\s*OVER\\s*MATERIAL\\b", "to": "MATERIAL" },
+
+  { "pattern": "\\bCOLOR\\s+CHANGE\\b", "to": "CHANGEOVER" },
+  { "pattern": "\\bCHANGE\\s*OVER\\b", "to": "CHANGEOVER" },
+  { "pattern": "\\bSET\\s*-?\\s*UP\\b", "to": "CHANGEOVER" },
+  { "pattern": "\\bST(?:AR)?T(?:ED)?\\s+AT\\b", "to": "CHANGEOVER" },  // Started/Stared/Start at
+
+  { "pattern": "\\bCONTAM(INATION)?\\b", "to": "QUALITY" },
+  { "pattern": "\\bQUALITY\\s+HOLD\\b", "to": "QUALITY" },
+
+  { "pattern": "\\bPOWER\\s+OUTAGE\\b", "to": "UTILITY" },
+
+  // ETTLINGER typos: Ettliger, Ettlinge, EttlingeR, etc.
+  { "pattern": "\\bETT+L?I?N?G?E?R\\b", "to": "ETTLINGER" },
+
+  { "pattern": "\\bDIE\\s*FACE\\b", "to": "DIE FACE" },
+  { "pattern": "\\bCUTTER\\s*HEAD\\b", "to": "CUTTER HEAD" }
+],
   "downtime_reason_keywords": {
-    "STAFFING":   ["EMPLOY", "OPERATOR", "NO CREW", "NO STAFF"],
-    "MATERIAL":   ["MATERIAL", "MATL", "RESIN", "SUPPLY"],
-    "CHANGEOVER": ["CHANGEOVER", "CHANGE OVER", "STARTUP", "SETUP", "COLOR"],
-    "QUALITY":    ["QUALITY", "CONTAM", "HOLD", "SCRAP", "REWORK"],
-    "UTILITY":    ["POWER", "UTILITY", "OUTAGE"],
-    "ETTLINGER":    ["ETTLINGER"],
-    "CUTTER":    ["CUTTER"],
-    "DIE FACE":    ["DIE FACE"],
-    "MAINTENANCE":["BREAKDOWN", "PM"]
-  }
+  "STAFFING":   ["EMPLOY", "OPERATOR", "NO CREW", "NO STAFF", "NOT ENOUGH", "LACK OF"],
+  "MATERIAL":   ["MATERIAL", "MATL", "RESIN", "SUPPLY"],
+  "CHANGEOVER": ["CHANGEOVER", "CHANGE OVER", "STARTUP", "SETUP", "COLOR", "STARTED AT", "START AT"],
+  "QUALITY":    ["QUALITY", "CONTAM", "HOLD", "SCRAP", "REWORK"],
+  "UTILITY":    ["POWER", "UTILITY", "OUTAGE"],
+
+  "ETTLINGER":  ["ETTLINGER", "ETTLIGER", "ETTLINGE"],
+
+  "CUTTER HEAD": ["CUTTER", "CUTTER HEAD", "BLADES"],
+  "DIE FACE":    ["DIE FACE"],
+
+  "MAINTENANCE":["AUGER", "BELT", "COMPRESSOR", "MOTOR", "PUMP", "SHAKER", "DRYER", "HEAT ZONE", "OIL PUMP", "CLUTCH", "VACUUM", "WATER PIPE", "ROSSI"]
+}
 }
