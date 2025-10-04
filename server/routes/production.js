@@ -10,6 +10,7 @@ const QUALITY_DEFAULT = 0.70;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const MAPPINGS_PATH = path.join(__dirname, '..', '..', 'public', 'mappings.json');
+const SEP = /\s*[/,;|]\s*/; // split "No material / lack of employees", "A;B", "A|B"
 
 const DEFAULT_MAPPINGS = {
   capacities_lbs_hr: {},
@@ -41,8 +42,6 @@ const materialAlias = mappings.material_aliases;
 const ALIAS = buildAliasIndex(mappings);
 const REGEX = getRegexList(mappings);
 const KW    = getKeywordMap(mappings);
-
-const SEP = /\s*[/,;|]\s*/; // split "No material / lack of employees", "A;B", "A|B"
 
 // --- tiny 60s cache for summary responses ---
 const summaryCache = new Map();
