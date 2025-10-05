@@ -134,6 +134,34 @@
     .subcard{background:#fff;border:1px solid var(--border);border-radius:12px;padding:12px}
 
     .empty{padding:12px;color:#64748b;border:1px dashed #cbd5e1;border-radius:10px;background:#f8fafc;margin-top:6px;text-align:center}
+
+    /* Root-cause pairs: donut | legend per row */
+    .dt-grid{ display:grid; grid-auto-rows:auto; row-gap:18px }
+    .dt-row{
+      display:grid;
+      grid-template-columns: 480px 1fr; /* donut column, legend column */
+      gap:16px;
+      align-items:start;
+    }
+    .dt-donut .chart svg{ height: 260px; }
+    .dt-legend .legend3{
+      display:grid;
+      grid-template-columns: 1fr auto auto;  /* Reason | Hours | % */
+      column-gap:12px; row-gap:8px; font-weight:900; min-width:0;
+    }
+    .dt-legend .legend3 .row{ display: contents; }
+    .dt-legend .legend3 .name{
+      display:flex; align-items:center; gap:8px;
+      overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0;
+    }
+    .dt-legend .legend3 .hrs{ justify-self:end }
+    .dt-legend .legend3 .pct{ justify-self:end; color:#64748b }
+    
+    /* Responsive */
+    @media (max-width: 1400px){
+      .dt-row{ grid-template-columns: 1fr; } /* stack donut over legend on tight screens */
+    }
+
   </style>
 </head>
 <body class="page-production">
@@ -454,44 +482,35 @@
         <div id="trendEmpty" class="empty" style="display:none">No data for selected range.</div>
       </div>
     </section>
-
     <section class="card" style="margin-top:24px">
-    <h2 style="margin:0 0 12px">Downtime – Reasons & Attribution - Root Cause<span id="dtReasonsRange" class="sub"></span></h2>
-  
-    <div class="flex" style="gap:24px; align-items:flex-start; flex-wrap:wrap">
-      <!-- Donut column -->
-      <div style="flex: 1 1 520px; min-width:520px">
-        <div style="display:flex; gap:24px; flex-wrap:wrap">
-          <!-- Production DT donut -->
-          <div class="subcard" style="flex:1 1 360px; min-width:360px">
-            <h3 style="margin:8px 0 6px">Production Downtime by Reason</h3>
-            <div id="prodDtDonut" class="chart"></div>
-            <div id="prodDtEmpty" class="empty" style="display:none">No production downtime reasons in range.</div>
-          </div>
-  
-          <!-- Maintenance DT donut (placeholder until reasons exist) -->
-          <div class="subcard" style="flex:1 1 360px; min-width:360px">
-            <h3 style="margin:8px 0 6px">Maintenance Downtime by Reason</h3>
-            <div id="maintDtDonut" class="chart"></div>
-            <div id="maintDtEmpty" class="empty" style="display:none">No maintenance downtime reasons in range.</div>
-          </div>
-        </div>
-      </div>
-  
-      <!-- Legend column -->
-      <div style="flex: 1 1 420px; min-width:420px">
-        <div class="subcard">
-          <h3 style="margin:8px 0 6px">Top 10 Reasons (Production)</h3>
-          <div id="prodDtLegend"></div>
-        </div>
-        <div class="subcard" style="margin-top:16px">
-          <h3 style="margin:8px 0 6px">Top 10 Reasons (Maintenance)</h3>
-          <div id="maintDtLegend"></div>
-        </div>
-      </div>
-    </div>
-  </section>
-
+       <h2 style="margin:0 0 12px">Downtime – Reasons & Attribution – Root Cause <span id="dtReasonsRange" class="sub"></span></h2>
+       <div class="dt-grid">
+         <!-- Row 1: Production -->
+         <div class="dt-row">
+           <div class="dt-donut">
+             <h3 style="margin:8px 0 6px">Production Downtime by Reason</h3>
+             <div id="prodDtDonut" class="chart"></div>
+             <div id="prodDtEmpty" class="empty" style="display:none">No production downtime reasons in range.</div>
+           </div>
+           <div class="dt-legend">
+             <h3 style="margin:8px 0 6px">Top 10 Reasons (Production)</h3>
+             <div id="prodDtLegend" class="legend3"></div>
+           </div>
+         </div>
+         <!-- Row 2: Maintenance -->
+         <div class="dt-row">
+           <div class="dt-donut">
+             <h3 style="margin:8px 0 6px">Maintenance Downtime by Reason</h3>
+             <div id="maintDtDonut" class="chart"></div>
+             <div id="maintDtEmpty" class="empty" style="display:none">No maintenance downtime reasons in range.</div>
+           </div>
+           <div class="dt-legend">
+             <h3 style="margin:8px 0 6px">Top 10 Reasons (Maintenance)</h3>
+             <div id="maintDtLegend" class="legend3"></div>
+           </div>
+         </div>
+       </div>
+     </section>
   </div>
 
 <script>
@@ -618,6 +637,26 @@ function getPalette(){
   return p;
 }
 
+  // Stable brand colors by reason. Fallback to palette if a key is missing.
+const REASON_COLORS = {
+  MATERIAL:   '#065f46',   // deep green
+  STAFFING:   '#2563eb',   // blue
+  UNSTATED:   '#6b7280',   // slate gray
+  ETTLINGER:  '#a855f7',   // purple
+  'DIE FACE': '#7c3aed',   // indigo
+  'CUTTER HEAD': '#7f5539',// brown
+  CHANGEOVER: '#f59e0b',   // amber
+  QUALITY:    '#ec4899',   // pink
+  UTILITY:    '#06b6d4',   // cyan
+  MAINTENANCE:'#ef4444',   // red
+  OTHER:      '#d1d5db'    // light gray
+};
+function colorForReason(name, i){
+  const key = String(name||'').toUpperCase();
+  const palette = getPalette();
+  return REASON_COLORS[key] || palette[i % palette.length];
+}
+  
 function fmtH(n){ return (n||0).toFixed(1) + ' h'; }
 
 </script>
@@ -1433,13 +1472,13 @@ function drawDonutAndLegend(payload, donutId, emptyId, legendId){
   svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
 
   const parts = rows.map((r, i) => {
-    const frac = (r.hours||0) / total;
-    const a1 = a0 + frac * Math.PI * 2;
-    const d  = donutPath(cx, cy, ro, ri, a0, a1);
-    const color = palette[i % palette.length];
-    a0 = a1;
-    return { d, color, r };
-  });
+   const frac = (r.hours||0) / total;
+   const a1 = a0 + frac * Math.PI * 2;
+   const d  = donutPath(cx, cy, ro, ri, a0, a1);
+   const color = colorForReason(r.reason, i);
+   a0 = a1;
+   return { d, color, r };
+ });
 
   svg.innerHTML = parts.map(p => `<path d="${p.d}" fill="${p.color}" opacity="0.95"></path>`).join('')
     + `<text x="${cx}" y="${cy-6}" text-anchor="middle" dominant-baseline="baseline" font-size="14" fill="#475569">${fmtH(total)}</text>`
@@ -1454,7 +1493,7 @@ function drawDonutAndLegend(payload, donutId, emptyId, legendId){
   legendList.style.columnGap = '12px';
 
   top10.forEach((item, idx) => {
-    const color = palette[idx % palette.length];
+    const color = colorForReason(item.reason, idx);
     const pct = total > 0 ? item.hours / total : 0;
 
     const sw = document.createElement('div');
