@@ -75,42 +75,47 @@
     .card h3{margin:0;padding:12px 14px;border-bottom:1px solid var(--border);font-size:var(--tile-head-fs);letter-spacing:.3px;color:var(--muted);font-weight:900}
     .card .content{padding:16px}
     /* Wider left column just for the donuts card */
+
+    /* keep the wide layout you liked */
     .gridWide{ grid-template-columns: 560px 1fr; }
+    @media (max-width: 1500px){ .gridWide{ grid-template-columns: 480px 1fr; } }
+    @media (max-width: 1200px){ .gridWide{ grid-template-columns: 1fr; } }
     
-    /* scale down gracefully on narrower screens */
-    @media (max-width: 1500px){
-      .gridWide{ grid-template-columns: 480px 1fr; }
-    }
-    @media (max-width: 1200px){
-      .gridWide{ grid-template-columns: 1fr; }
-    }
-    
-    /* Give the donut row a little more room for the chart */
-    .donutrow{ grid-template-columns: 240px 1fr; }
-    .donutwrap{display:grid;grid-template-columns:1fr;gap:12px}
+    /* base donut row (left donut + right legend) */
     .donutrow{
       display:grid;
+      grid-template-columns:200px 1fr; /* donut | legend */
       gap:16px;
       align-items:center;
     }
     
-    /* 3-column legend: name | hours | % ; allow full width names */
+    /* stack the prod row so legend is under donut */
+    .donutrow.stack{
+      grid-template-columns:1fr; /* one column: donut on top, legend below */
+      justify-items: start;      /* left-align legend under donut */
+    }
+    
+    /* donuts a bit bigger */
+    #donutMaint, #donutProd { width: 200px; height: 200px; }
+    
+    /* 3-column legend (Reason | Hours | %) */
     .legend{
       display:grid;
       grid-template-columns: 1fr auto auto;
       column-gap:12px; row-gap:8px;
       font-weight:900; min-width:0;
     }
-    .legend .dot{width:12px;height:12px;border-radius:50%}
+    .legend .row{ display: contents; }
     .legend .name{
       display:flex; align-items:center; gap:8px;
+      min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
     }
     .legend .hrs{ justify-self:end; }
     .legend .pct{ justify-self:end; color:#64748b; }
     
-    /* prevent the card from clipping soft edges if anything overflows a pixel */
+    /* avoid clipping */
     .card .content{ overflow: hidden; }
-    
+        
     /* Stack the legend below the donut when space is tight */
     @media (max-width: 1400px){
       .donutrow{grid-template-columns:1fr}
@@ -237,7 +242,7 @@
               <canvas id="donutMaint" width="160" height="160"></canvas>
               <div><div class="legend" id="legendMaint"></div></div>
             </div>
-            <div class="donutrow">
+            <div class="donutrow stack">
               <canvas id="donutProd" width="160" height="160"></canvas>
               <div><div class="legend" id="legendProd"></div></div>
             </div>
