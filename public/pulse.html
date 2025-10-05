@@ -714,10 +714,22 @@ function pickColor(i){
         {name:'Maint DT', value: ovMdtPct || 0, color: '#7f1d1d'},
         {name:'Other Time', value: Math.max(0, 1-(ovMdtPct||0)), color: '#d1d5db'}
       ];
-      drawDonut(document.getElementById('donutMaint'), maintParts);
-      document.getElementById('legendMaint').innerHTML =
-        `<div class="row"><span class="dot" style="background:${maintParts[0].color}"></span><div class="name">Maint DT</div><div class="val">${fmtPct(ovMdtPct,true)}</div></div>
-         <div class="row"><span class="dot" style="background:${maintParts[1].color}"></span><div class="name">Other</div><div class="val">${fmtPct(Math.max(0,1-(ovMdtPct||0)),true)}</div></div>`;
+      const donutMaint = document.getElementById('donutMaint');
+       drawDonut(donutMaint, maintParts);
+       const lm = document.getElementById('legendMaint');
+       const maintHrs = (totals.maint || 0);
+       const otherPct = Math.max(0, 1 - (ovMdtPct || 0));
+       lm.innerHTML = `
+         <div class="row">
+           <div class="name"><span class="dot" style="background:${maintParts[0].color}"></span>Maint DT</div>
+           <div class="hrs">${maintHrs.toFixed(1)}h</div>
+           <div class="pct">${fmtPct(ovMdtPct,true)}</div>
+         </div>
+         <div class="row">
+           <div class="name"><span class="dot" style="background:${maintParts[1].color}"></span>Other</div>
+           <div class="hrs">—</div>
+           <div class="pct">${fmtPct(otherPct,true)}</div>
+         </div>`;
       
       await renderProdReasonsDonut(fromISO, toISO);
       
