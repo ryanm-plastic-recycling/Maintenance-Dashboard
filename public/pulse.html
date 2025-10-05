@@ -242,7 +242,7 @@
               <canvas id="donutMaint" width="160" height="160"></canvas>
               <div><div class="legend" id="legendMaint"></div></div>
             </div>
-            <div class="donutrow stack">
+            <div class="donutrow">
               <canvas id="donutProd" width="160" height="160"></canvas>
               <div><div class="legend" id="legendProd"></div></div>
             </div>
@@ -372,14 +372,33 @@
   }
 
   // simple palette (pulls good/warn/bad if present, then a few accents)
-function pickColor(i){
-  const root = getComputedStyle(document.documentElement);
-  const c1 = root.getPropertyValue('--good-fg').trim() || '#10B981';
-  const c2 = root.getPropertyValue('--warn-fg').trim() || '#f59e0b';
-  const c3 = root.getPropertyValue('--bad-fg').trim()  || '#ef4444';
-  const pool = [c1, '#2563eb', c2, '#9333ea', c3];
-  return pool[i % pool.length];
-}
+  function pickColor(i){
+    const root = getComputedStyle(document.documentElement);
+    const c1 = root.getPropertyValue('--good-fg').trim() || '#10B981';
+    const c2 = root.getPropertyValue('--warn-fg').trim() || '#f59e0b';
+    const c3 = root.getPropertyValue('--bad-fg').trim()  || '#ef4444';
+    const pool = [c1, '#2563eb', c2, '#9333ea', c3];
+    return pool[i % pool.length];
+  }
+    
+  // Stable brand colors by reason (fallback to palette if missing)
+  const REASON_COLORS = {
+    MATERIAL:   '#065f46',  // deep green
+    STAFFING:   '#2563eb',  // blue
+    UNSTATED:   '#6b7280',  // slate gray
+    ETTLINGER:  '#a855f7',  // purple
+    'DIE FACE': '#7c3aed',  // indigo
+    'CUTTER HEAD':'#7f5539',// brown
+    CHANGEOVER: '#f59e0b',  // amber
+    QUALITY:    '#ec4899',  // pink
+    UTILITY:    '#06b6d4',  // cyan
+    MAINTENANCE:'#ef4444',  // red (not used for prod reasons yet)
+    OTHER:      '#d1d5db'   // light gray
+  };
+  function colorForReason(name, i){
+    const key = String(name||'').toUpperCase();
+    return REASON_COLORS[key] || pickColor(i);
+  }
 
   function polarToCartesian(cx, cy, r, angDeg) {
     const a = angDeg * Math.PI / 180;
@@ -443,10 +462,10 @@ function pickColor(i){
     const other  = Math.max(0, total - topSum);
   
     const parts = top.map((r, i) => ({
-      name: r.reason,
-      value: r.hours,
-      color: pickColor(i)
-    }));
+       name: r.reason,
+       value: r.hours,
+       color: colorForReason(r.reason, i)
+     }));
     if (other > 0) parts.push({ name:'Other', value: other, color:'#d1d5db' });
   
     // Draw donut
