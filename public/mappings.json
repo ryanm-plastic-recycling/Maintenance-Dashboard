@@ -509,6 +509,10 @@
     "NO MATERIAL": "MATERIAL",
     "RAN OUT MATERIAL": "MATERIAL",
     "CHANGE OVER MATERIAL": "MATERIAL",
+    "LAB": "MATERIAL",
+    "FORMULA": "MATERIAL",
+    "NO FORMULA": "MATERIAL",
+    "LAB FORMULA": "MATERIAL",
     "CONTAMINATION": "QUALITY",
     "QUALITY HOLD": "QUALITY",
     "ETTLINGER FILTER": "ETTLINGER",
@@ -535,6 +539,8 @@
   { "pattern": "\\bRAN\\s+OUT\\s+MATERI(AL|ALS)\\b", "to": "MATERIAL" },
   { "pattern": "\\bWAIT(ING)?\\s+ON\\s+MAT(ERIAL|L)\\b", "to": "MATERIAL" },
   { "pattern": "\\bCHANGE\\s*OVER\\s*MATERIAL\\b", "to": "MATERIAL" },
+  { "pattern": "\\bLAB\\s*OVER\\s*MATERIAL\\b", "to": "MATERIAL" },
+    { "pattern": "\\bNO\\s*MATERIAL\\b", "to": "MATERIAL" },
 
   { "pattern": "\\bCOLOR\\s+CHANGE\\b", "to": "CHANGEOVER" },
   { "pattern": "\\bCHANGE\\s*OVER\\b", "to": "CHANGEOVER" },
@@ -552,16 +558,16 @@
   { "pattern": "\\bCUTTER\\s*HEAD\\b", "to": "CUTTER HEAD" }
 ],
   "downtime_reason_keywords": {
-  "STAFFING":   ["EMPLOY", "OPERATOR", "NO CREW", "NO STAFF", "NOT ENOUGH", "LACK OF"],
-  "MATERIAL":   ["MATERIAL", "MATL", "RESIN", "SUPPLY"],
+  "STAFFING":   ["EMPLOY", "OPERATOR", "NO CREW", "NO STAFF", "NOT ENOUGH", "LACK OF", "LACK OF EMPLOYEES"],
+  "MATERIAL":   ["MATERIAL", "MATL", "RESIN", "SUPPLY", "LAB", "FORMULA"],
   "CHANGEOVER": ["CHANGEOVER", "CHANGE OVER", "STARTUP", "SETUP", "COLOR", "STARTED AT", "START AT"],
   "QUALITY":    ["QUALITY", "CONTAM", "HOLD", "SCRAP", "REWORK"],
   "UTILITY":    ["POWER", "UTILITY", "OUTAGE"],
 
-  "ETTLINGER":  ["ETTLINGER", "ETTLIGER", "ETTLINGE"],
+  "ETTLINGER":  ["ETTLINGER", "ETTLIGER", "ETTLINGE", "EXIT SCREW"],
 
   "CUTTER HEAD": ["CUTTER", "CUTTER HEAD", "BLADES"],
-  "DIE FACE":    ["DIE FACE"],
+  "DIE FACE":    ["DIE FACE", "DIE PLATE"],
 
   "MAINTENANCE":["AUGER", "BELT", "COMPRESSOR", "MOTOR", "PUMP", "SHAKER", "DRYER", "HEAT ZONE", "OIL PUMP", "CLUTCH", "VACUUM", "WATER PIPE", "ROSSI"]
 }
