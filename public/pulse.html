@@ -75,20 +75,19 @@
     .card h3{margin:0;padding:12px 14px;border-bottom:1px solid var(--border);font-size:var(--tile-head-fs);letter-spacing:.3px;color:var(--muted);font-weight:900}
     .card .content{padding:16px}
     /* Wider left column just for the donuts card */
-
-    /* keep the wide layout you liked */
-    .gridWide{ grid-template-columns: 600px 1fr; }
-    @media (max-width: 1500px){ .gridWide{ grid-template-columns: 480px 1fr; } }
+    /* Make left column wider so three donut rows have room */
+    .gridWide{ grid-template-columns: 860px 1fr; }
+    @media (max-width: 1500px){ .gridWide{ grid-template-columns: 700px 1fr; } }
     @media (max-width: 1200px){ .gridWide{ grid-template-columns: 1fr; } }
     
-    /* base donut row (left donut + right legend) */
+    /* Donut row: keep chart + legend side-by-side */
     .donutrow{
       display:grid;
-      grid-template-columns:200px 1fr; /* donut | legend */
+      grid-template-columns: 260px minmax(360px, 1fr); /* donut | legend */
       gap:16px;
-      align-items:center;
+      align-items:start;
     }
-    
+        
     /* stack the prod row so legend is under donut */
     .donutrow.stack{
       grid-template-columns:1fr; /* one column: donut on top, legend below */
@@ -98,12 +97,13 @@
     /* donuts a bit bigger */
     #donutProd { width: 200px; height: 200px; }
     
-    /* 3-column legend (Reason | Hours | %) */
+    /* Legend columns + numeric alignment */
     .legend{
       display:grid;
-      grid-template-columns: 1fr auto auto;
+      grid-template-columns: minmax(220px,1fr) 110px 90px;
       column-gap:12px; row-gap:8px;
       font-weight:900; min-width:0;
+      font-variant-numeric: tabular-nums;
     }
     .legend .row{ display: contents; }
     .legend .name{
@@ -117,9 +117,9 @@
     .card .content{ overflow: hidden; }
         
     /* Stack the legend below the donut when space is tight */
-    @media (max-width: 1400px){
-      .donutrow{grid-template-columns:1fr}
-    }
+    /* Optional: keep right column from stretching too much */
+    .gridWide{ grid-template-columns: 860px minmax(420px, 1fr); }
+
 
     .lines{display:grid;grid-template-columns:repeat(auto-fit,minmax(520px,1fr));gap:12px}
     .line{border:1px solid var(--border);border-radius:14px;padding:14px;background:white;display:flex;flex-direction:column}
