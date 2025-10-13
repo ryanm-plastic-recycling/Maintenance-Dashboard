@@ -1516,7 +1516,6 @@ function drawDonutAndLegend(payload, donutId, emptyId, legendId, topN = 10){
   legendList.style.columnGap = '12px';
 
   topX.forEach((item, idx) => {
-    const color = colorForReason(item.reason, idx);
     const color = colorFn(item.reason, idx);
     const pct = total > 0 ? item.hours / total : 0;
 
