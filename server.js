@@ -1086,73 +1086,33 @@ app.get('/api/kpis/header', async (req, res) => {
 });
 
 app.get('/api/production/dt-reasons', async (req, res) => {
-  try{
-    const kind = (req.query.kind || 'maint').toLowerCase(); // 'prod' | 'maint' (we only break down maint)
-    const dim  = (req.query.dim  || 'cat').toLowerCase();   // 'cat'  | 'fm'
-    const fromISO = String(req.query.from || '').slice(0,10);
-    const toISO   = String(req.query.to   || '').slice(0,10);
-    const wq      = (req.query.weekdaysOnly === '1') ? '1' : '0';
+  try {
+    const kind   = String(req.query.kind || 'maint').toLowerCase();     // 'prod' | 'maint'
+    const dimArg = String(req.query.dim  || 'cat').toLowerCase();       // 'cat'  | 'fm'
+    const dim    = (dimArg === 'fm') ? 'fm' : 'cat';
+    const fromISO= String(req.query.from || '').slice(0,10);
+    const toISO  = String(req.query.to   || '').slice(0,10);
+    const wkOnly = req.query.weekdaysOnly === '1';
 
-    // For now: only maintenance gets tag-based breakdown. Production stays as you already compute upstream.
     if (kind !== 'maint') {
-      return res.json({ reasons: [] }); // (leave prod side as-is or hook a SQL prod view)
+      return res.json({ reasons: [] }); // you can wire a prod SQL view later
     }
+
     const pool = await poolPromise;
-    const dim = (req.query.dim || 'cat').toLowerCase() === 'fm' ? 'fm' : 'cat';
-    const fromISO = String(req.query.from || '').slice(0,10);
-    const toISO   = String(req.query.to   || '').slice(0,10);
-    const wkOnly  = req.query.weekdaysOnly === '1';
-    
     const rs = await pool.request()
-      .input('FromDate', sql.Date, fromISO)
-      .input('ToDate',   sql.Date, toISO)
-      .input('Dim',      sql.NVarChar, dim)
-      .input('WeekdaysOnly', sql.Bit, wkOnly ? 1 : 0)
+      .input('FromDate',     sql.Date,      fromISO)
+      .input('ToDate',       sql.Date,      toISO)
+      .input('Dim',          sql.NVarChar,  dim)
+      .input('WeekdaysOnly', sql.Bit,       wkOnly ? 1 : 0)
       .execute('dbo.GetMaintDtReasons');
-    
-    const reasons = (rs.recordset || []).map(r => ({ reason: r.Reason, hours: Number(r.Hours) || 0 }));
+
+    const reasons = (rs.recordset || []).map(r => ({
+      reason: r.Reason,
+      hours:  Number(r.Hours) || 0
+    }));
+
     return res.json({ reasons });
-
-    const tasks = await fetchLimbleTasksInRange(fromISO, toISO, wq);
-
-    // Sum downtime hours per chosen dimension. Prefer a numeric 'downtimeHours' you store; fallback to labor.
-    const agg = new Map();
-
-    for (const t of tasks){
-      // Limble examples you pasted show: customTags: ["@Cat:Electrical","@FM:Contactor_Relay","@6M:Measurement"]
-      const tags = t.customTags || t.custom_tags || [];
-      // Choose the dimension key
-      let key = null;
-      if (dim === 'cat'){
-        const catTag = _firstTag(tags, 'Cat:');
-        const normalized = _normCat(catTag);
-        // Only accept your "Step 1" set; otherwise bucket to Other
-        const wl = mappings.limble_category_whitelist || [];
-        key = wl.includes(normalized) ? normalized : 'Other';
-      } else {
-        const fmTag = _firstTag(tags, 'FM:');
-        key = _normFm(fmTag) || 'Other';
-      }
-
-      // Hours: prefer t.downtimeHours (if you populate via ETL). Otherwise, try labor total, or zero.
-      let hours = Number(t.downtimeHours ?? t.downtime_hours ?? 0);
-      if (!Number.isFinite(hours) || hours <= 0){
-        // crude fallback: if Limble labor is embedded (depends on fields you pull). Else, treat as 0.
-        hours = 0;
-      }
-      if (hours <= 0) continue;
-
-      agg.set(key, (agg.get(key) || 0) + hours);
-    }
-
-    // Build response sorted desc, cap to 50 (donut uses all; legend will slice top N)
-    const reasons = Array.from(agg.entries())
-      .map(([reason, hours]) => ({ reason, hours }))
-      .sort((a,b) => b.hours - a.hours)
-      .slice(0, 50);
-
-    res.json({ reasons });
-  } catch (e){
+  } catch (e) {
     console.error('dt-reasons error', e);
     res.status(500).json({ reasons: [] });
   }
