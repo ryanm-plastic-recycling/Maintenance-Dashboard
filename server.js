@@ -1094,9 +1094,24 @@ app.get('/api/production/dt-reasons', async (req, res) => {
     const wq      = (req.query.weekdaysOnly === '1') ? '1' : '0';
 
     // For now: only maintenance gets tag-based breakdown. Production stays as you already compute upstream.
-    if (kind !== 'maint'){
-      return res.json({ reasons: [] });
+    if (kind !== 'maint') {
+      return res.json({ reasons: [] }); // (leave prod side as-is or hook a SQL prod view)
     }
+    const pool = await poolPromise;
+    const dim = (req.query.dim || 'cat').toLowerCase() === 'fm' ? 'fm' : 'cat';
+    const fromISO = String(req.query.from || '').slice(0,10);
+    const toISO   = String(req.query.to   || '').slice(0,10);
+    const wkOnly  = req.query.weekdaysOnly === '1';
+    
+    const rs = await pool.request()
+      .input('FromDate', sql.Date, fromISO)
+      .input('ToDate',   sql.Date, toISO)
+      .input('Dim',      sql.NVarChar, dim)
+      .input('WeekdaysOnly', sql.Bit, wkOnly ? 1 : 0)
+      .execute('dbo.GetMaintDtReasons');
+    
+    const reasons = (rs.recordset || []).map(r => ({ reason: r.Reason, hours: Number(r.Hours) || 0 }));
+    return res.json({ reasons });
 
     const tasks = await fetchLimbleTasksInRange(fromISO, toISO, wq);
 
