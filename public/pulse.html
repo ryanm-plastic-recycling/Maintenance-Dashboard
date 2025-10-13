@@ -444,7 +444,7 @@
     ctx.globalCompositeOperation = 'source-over';
   }
   
-    async function renderProdReasonsDonut(fromISO, toISO){
+  async function renderProdReasonsDonut(fromISO, toISO){
     const canvas = document.getElementById('donutProd');
     const legend = document.getElementById('legendProd');
     if (!canvas || !legend) return;
@@ -492,6 +492,61 @@
         </div>`;
     }).join('');
   }
+
+  async function renderDowntimeDonutsPulse(fromISO, toISO){
+  const wq = '1'; // keep weekday-only on Pulse; or wire to your toggle if you have one
+
+  const [prod, cat, fm] = await Promise.all([
+    fetch(`/api/production/dt-reasons?kind=prod&from=${fromISO}&to=${toISO}&weekdaysOnly=${wq}`).then(r=>r.json()),
+    fetch(`/api/production/dt-reasons?kind=maint&dim=cat&from=${fromISO}&to=${toISO}&weekdaysOnly=${wq}`).then(r=>r.json()),
+    fetch(`/api/production/dt-reasons?kind=maint&dim=fm&from=${fromISO}&to=${toISO}&weekdaysOnly=${wq}`).then(r=>r.json())
+  ]);
+
+  const make = (payload, canvasId, legendId, colorChooser) => {
+    const rows = (payload?.reasons||[]).filter(r => (r.hours||0) > 0);
+    const labels = rows.map(r => r.reason);
+    const data = rows.map(r => +(r.hours||0).toFixed(1));
+    const colors = rows.map((r,i) => colorChooser(r.reason, i));
+
+    // destroy existing chart if re-rendering
+    const ctx = document.getElementById(canvasId).getContext('2d');
+    if (ctx.__chart) { ctx.__chart.destroy(); }
+
+    ctx.__chart = new Chart(ctx, {
+      type: 'doughnut',
+      data: { labels, datasets: [{ data, backgroundColor: colors }] },
+      options: {
+        responsive: false, cutout: '60%',
+        plugins: { legend: { display: false }, tooltip: { enabled: true } }
+      }
+    });
+
+    // legend
+    const legend = document.getElementById(legendId);
+    legend.innerHTML = '';
+    const total = data.reduce((a,b)=>a+b,0);
+    rows.slice(0,10).forEach((r,i) => {
+      const pct = total ? (r.hours/total) : 0;
+      const color = colors[i];
+      const row = document.createElement('div');
+      row.style.display = 'flex'; row.style.justifyContent='space-between'; row.style.gap='8px';
+      row.innerHTML = `
+        <div><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${color};margin-right:8px"></span>${r.reason}</div>
+        <div>${r.hours.toFixed(1)} h</div>
+        <div>${Math.round(pct*100)}%</div>`;
+      legend.appendChild(row);
+    });
+  };
+
+  // color pickers
+  const colorForProd = (name, i) => colorForReason(name, i);
+  const colorForCat  = (name, i) => (window.MAINT_CAT_COLORS?.[name] || getPalette()[i % 20]);
+
+  make(cat, 'donutMaintCat', 'legendMaintCat', colorForCat);
+  make(fm,  'donutMaintFm',  'legendMaintFm',  colorForProd); // FM uses palette/default
+  make(prod,'donutProd',     'legendProd',     colorForProd);
+}
+
 
   // ====== PROD STATUS (same data as prodstatus.html) ======
   async function getProdStatusRows(){
