@@ -540,7 +540,12 @@
 
   // color pickers
   const colorForProd = (name, i) => colorForReason(name, i);
-  const colorForCat  = (name, i) => (window.MAINT_CAT_COLORS?.[name] || getPalette()[i % 20]);
+  const MAINT_CAT_COLORS = {
+      'Mechanical':'#4b5563','Electrical':'#2563eb','Thermal':'#f97316','Hydraulic':'#0ea5e9',
+      'Process':'#16a34a','Utilities':'#0891b2','Consumables':'#a855f7','Human Factors':'#ef4444','Other':'#9ca3af'
+    };
+    const colorForCat = (name, i) => MAINT_CAT_COLORS[name] || pickColor(i);
+
 
   make(cat, 'donutMaintCat', 'legendMaintCat', colorForCat);
   make(fm,  'donutMaintFm',  'legendMaintFm',  colorForProd); // FM uses palette/default
@@ -790,29 +795,7 @@
           <div class="value">${k.val}</div>
         </div>`).join('');
 
-      // ====== Donuts (top-left) ======
-      const maintParts = [
-        {name:'Maint DT', value: ovMdtPct || 0, color: '#7f1d1d'},
-        {name:'Other Time', value: Math.max(0, 1-(ovMdtPct||0)), color: '#d1d5db'}
-      ];
-      const donutMaint = document.getElementById('donutMaint');
-       drawDonut(donutMaint, maintParts);
-       const lm = document.getElementById('legendMaint');
-       const maintHrs = (totals.maint || 0);
-       const otherPct = Math.max(0, 1 - (ovMdtPct || 0));
-       lm.innerHTML = `
-         <div class="row">
-           <div class="name"><span class="dot" style="background:${maintParts[0].color}"></span>Maint DT</div>
-           <div class="hrs">${maintHrs.toFixed(1)}h</div>
-           <div class="pct">${fmtPct(ovMdtPct,true)}</div>
-         </div>
-         <div class="row">
-           <div class="name"><span class="dot" style="background:${maintParts[1].color}"></span>Other</div>
-           <div class="hrs">—</div>
-           <div class="pct">${fmtPct(otherPct,true)}</div>
-         </div>`;
-      
-      await renderProdReasonsDonut(fromISO, toISO);
+      await renderDowntimeDonutsPulse(fromISO, toISO);
       
       // Line tiles
       const linesGrid = document.getElementById('linesGrid');
@@ -956,5 +939,6 @@
     scheduleAutoRefresh(runForActivePeriod);
   });
 </script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </body>
 </html>
