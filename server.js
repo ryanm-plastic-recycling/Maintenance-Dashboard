@@ -523,6 +523,59 @@ async function full_refresh_daily() {
   return runFullRefresh(p);
 }
 
+// ─── Limble Tagging for Downtime ─────────────────────────────────────────────────────────
+function _firstTag(tags, startsWith){
+  if (!Array.isArray(tags)) return null;
+  return tags.find(t => typeof t === 'string' && t.replace(/^@/, '').startsWith(startsWith)) || null;
+}
+function _normCat(tag){
+  if (!tag) return null;
+  const raw = tag.replace(/^@/, '');
+  return mappings.limble_category_alias?.[raw] || null;
+}
+function _normFm(tag){
+  if (!tag) return null;
+  const raw = tag.replace(/^@/, '').replace(/^FM:/,'').replace(/_/g,' ');
+  return raw;
+}
+
+// NOTE: You can source tasks from SQL (preferred) if your ETL is writing tags & downtime hours per task.
+// Fallback shown here calls Limble directly for the window. If you already have a stored proc, swap it in.
+async function fetchLimbleTasksInRange(fromISO, toISO, weekdaysOnly){
+  const base = (process.env.API_BASE_URL || 'https://api.limblecmms.com:443').replace(/\/+$/,'');
+  const params = new URLSearchParams({
+    orderBy: '-createdDate',
+    limit: '1000',
+    status: '2',            // completed
+    type: '2,6'            // unplanned + work request (your note)
+  });
+  // If you filter by location/asset IDs elsewhere, add them here from mappings.productionAssets
+  const url = `${base}/v2/tasks/?${params.toString()}`;
+  const resp = await fetch(url, {
+    headers: {
+      'Authorization': `Bearer ${process.env.LIMBLE_TOKEN || process.env.LIMBLE_BEARER}`,
+      'Accept': 'application/json'
+    }
+  });
+  if (!resp.ok) throw new Error(`Limble tasks ${resp.status}`);
+  const data = await resp.json();
+  const rows = Array.isArray(data) ? data : (data.data ?? []);
+  // Time filter (createdDate within [from,to]); if you have actual downtime date fields in SQL, prefer those.
+  const from = new Date(fromISO + 'T00:00:00Z');
+  const to   = new Date(toISO   + 'T23:59:59Z');
+  return rows.filter(t => {
+    const d = new Date(t.createdDate || t.updatedDate || 0);
+    if (Number.isNaN(d.getTime())) return false;
+    const inRange = d >= from && d <= to;
+    if (!inRange) return false;
+    if (weekdaysOnly === '1'){
+      const wd = d.getUTCDay(); // 0 Sun..6 Sat
+      if (wd === 0 || wd === 6) return false;
+    }
+    return true;
+  });
+}
+
 // ─── network info ─────────────────────────────────────────────────────────
 const nets = os.networkInterfaces();
 const ipv4 = Object.values(nets)
@@ -1029,6 +1082,64 @@ app.get('/api/kpis/header', async (req, res) => {
   } catch (e) {
     console.error('[kpis/header]', e);
     res.status(500).json({ error: String(e.message || e) });
+  }
+});
+
+app.get('/api/production/dt-reasons', async (req, res) => {
+  try{
+    const kind = (req.query.kind || 'maint').toLowerCase(); // 'prod' | 'maint' (we only break down maint)
+    const dim  = (req.query.dim  || 'cat').toLowerCase();   // 'cat'  | 'fm'
+    const fromISO = String(req.query.from || '').slice(0,10);
+    const toISO   = String(req.query.to   || '').slice(0,10);
+    const wq      = (req.query.weekdaysOnly === '1') ? '1' : '0';
+
+    // For now: only maintenance gets tag-based breakdown. Production stays as you already compute upstream.
+    if (kind !== 'maint'){
+      return res.json({ reasons: [] });
+    }
+
+    const tasks = await fetchLimbleTasksInRange(fromISO, toISO, wq);
+
+    // Sum downtime hours per chosen dimension. Prefer a numeric 'downtimeHours' you store; fallback to labor.
+    const agg = new Map();
+
+    for (const t of tasks){
+      // Limble examples you pasted show: customTags: ["@Cat:Electrical","@FM:Contactor_Relay","@6M:Measurement"]
+      const tags = t.customTags || t.custom_tags || [];
+      // Choose the dimension key
+      let key = null;
+      if (dim === 'cat'){
+        const catTag = _firstTag(tags, 'Cat:');
+        const normalized = _normCat(catTag);
+        // Only accept your "Step 1" set; otherwise bucket to Other
+        const wl = mappings.limble_category_whitelist || [];
+        key = wl.includes(normalized) ? normalized : 'Other';
+      } else {
+        const fmTag = _firstTag(tags, 'FM:');
+        key = _normFm(fmTag) || 'Other';
+      }
+
+      // Hours: prefer t.downtimeHours (if you populate via ETL). Otherwise, try labor total, or zero.
+      let hours = Number(t.downtimeHours ?? t.downtime_hours ?? 0);
+      if (!Number.isFinite(hours) || hours <= 0){
+        // crude fallback: if Limble labor is embedded (depends on fields you pull). Else, treat as 0.
+        hours = 0;
+      }
+      if (hours <= 0) continue;
+
+      agg.set(key, (agg.get(key) || 0) + hours);
+    }
+
+    // Build response sorted desc, cap to 50 (donut uses all; legend will slice top N)
+    const reasons = Array.from(agg.entries())
+      .map(([reason, hours]) => ({ reason, hours }))
+      .sort((a,b) => b.hours - a.hours)
+      .slice(0, 50);
+
+    res.json({ reasons });
+  } catch (e){
+    console.error('dt-reasons error', e);
+    res.status(500).json({ reasons: [] });
   }
 });
 
