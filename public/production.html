@@ -668,7 +668,16 @@ function colorForReason(name, i){
   const palette = getPalette();
   return REASON_COLORS[key] || palette[i % palette.length];
 }
-  
+
+  const MAINT_CAT_COLORS = {
+  'Mechanical':'#4b5563','Electrical':'#2563eb','Thermal':'#f97316','Hydraulic':'#0ea5e9',
+  'Process':'#16a34a','Utilities':'#0891b2','Consumables':'#a855f7','Human Factors':'#ef4444','Other':'#9ca3af'
+};
+function colorForMaintCat(name, i){
+  const palette = getPalette();
+  return MAINT_CAT_COLORS[name] || palette[i % palette.length];
+}
+
 function fmtH(n){ return (n||0).toFixed(1) + ' h'; }
 
 </script>
