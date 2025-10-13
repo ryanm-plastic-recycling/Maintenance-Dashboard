@@ -19,7 +19,7 @@
     "14973": "State Street",
     "24308": "Penn Street",
     "19733": "South Carolina",
-    "21745": "Tennesee",
+    "21745": "Tennessee",
     "81345": "Rockville ARCHIVE"
   },
   "team": {
@@ -571,4 +571,23 @@
 
   "MAINTENANCE":["AUGER", "BELT", "COMPRESSOR", "MOTOR", "PUMP", "SHAKER", "DRYER", "HEAT ZONE", "OIL PUMP", "CLUTCH", "VACUUM", "WATER PIPE", "ROSSI"]
 }
+  {
+  "limble_category_whitelist": [
+    "Mechanical","Electrical","Thermal","Hydraulic","Process","Utilities","Consumables","Human Factors","Other"
+  ],
+  "limble_category_alias": {
+    "Cat:Mechanical": "Mechanical",
+    "Cat:Electrical": "Electrical",
+    "Cat:Thermal": "Thermal",
+    "Cat:Hydraulic": "Hydraulic",
+    "Cat:Process": "Process",
+    "Cat:Utilities": "Utilities",
+    "Cat:ConsumableWear": "Consumables",
+    "Cat:Consumables": "Consumables",
+    "Cat:HumanFactors": "Human Factors",
+    "Cat:Other": "Other"
+  },
+  "limble_failuremode_prefix": "FM:"
+}
+
 }
