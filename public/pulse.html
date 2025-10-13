@@ -236,13 +236,20 @@
       <!-- BOTTOM GRID: Left = Donuts, Right = Rank -->
       <section class="grid gridWide" style="margin-top:16px">
         <article class="card">
-          <h3>Downtime Overview — Maintenance vs Production</h3>
+          <h3>Downtime Overview — Production & Maintenance</h3>
           <div class="content donutwrap">
             <div class="donutrow">
-              <canvas id="donutMaint" width="160" height="160"></canvas>
-              <div><div class="legend" id="legendMaint"></div></div>
+              <div style="text-align:center;margin-bottom:6px;font-weight:800">Maintenance — Category</div>
+              <canvas id="donutMaintCat" width="160" height="160"></canvas>
+              <div><div class="legend" id="legendMaintCat"></div></div>
             </div>
             <div class="donutrow">
+              <div style="text-align:center;margin-bottom:6px;font-weight:800">Maintenance — Failure Mode</div>
+              <canvas id="donutMaintFm" width="160" height="160"></canvas>
+              <div><div class="legend" id="legendMaintFm"></div></div>
+            </div>
+            <div class="donutrow">
+              <div style="text-align:center;margin-bottom:6px;font-weight:800">Production — Reasons</div>
               <canvas id="donutProd" width="160" height="160"></canvas>
               <div><div class="legend" id="legendProd"></div></div>
             </div>
