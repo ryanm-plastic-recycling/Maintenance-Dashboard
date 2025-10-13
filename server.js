@@ -625,7 +625,7 @@ app.use(helmet({
       frameAncestors: ["'self'"],
 
       // allow your JS/CSS/images over HTTP and inline scripts used by admin.html
-      scriptSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"],
       styleSrc:  ["'self'", "'unsafe-inline'"],
       imgSrc:    ["'self'", "data:", "http:"],
       fontSrc:   ["'self'", "data:"],
