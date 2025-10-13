@@ -498,18 +498,30 @@
            </div>
          </div>
          <!-- Row 2: Maintenance -->
-         <div class="dt-row">
-           <div class="dt-donut">
-             <h3 style="margin:8px 0 6px">Maintenance Downtime by Reason</h3>
-             <div id="maintDtDonut" class="chart"></div>
-             <div id="maintDtEmpty" class="empty" style="display:none">No maintenance downtime reasons in range.</div>
-           </div>
-           <div class="dt-legend">
-             <h3 style="margin:8px 0 6px">Top 10 Reasons (Maintenance)</h3>
-             <div id="maintDtLegend" class="legend3"></div>
-           </div>
-         </div>
-       </div>
+         <!-- Row 2: Maintenance (Category) -->
+          <div class="dt-row">
+            <div class="dt-donut">
+              <h3 style="margin:8px 0 6px">Maintenance – Category</h3>
+              <div id="maintCatDonut" class="chart"></div>
+              <div id="maintCatEmpty" class="empty" style="display:none">No category tags in range.</div>
+            </div>
+            <div class="dt-legend">
+              <h3 style="margin:8px 0 6px">Top 6 Categories</h3>
+              <div id="maintCatLegend" class="legend3"></div>
+            </div>
+          </div>
+          <!-- Row 3: Maintenance (Failure Mode) -->
+          <div class="dt-row">
+            <div class="dt-donut">
+              <h3 style="margin:8px 0 6px">Maintenance – Failure Mode</h3>
+              <div id="maintFmDonut" class="chart"></div>
+              <div id="maintFmEmpty" class="empty" style="display:none">No failure-mode tags in range.</div>
+            </div>
+            <div class="dt-legend">
+              <h3 style="margin:8px 0 6px">Top 6 Failure Modes</h3>
+              <div id="maintFmLegend" class="legend3"></div>
+            </div>
+          </div>
      </section>
   </div>
 
@@ -1433,20 +1445,23 @@ function fmtH(n){ return (n||0).toFixed(1) + ' h'; }
     return `M ${s.x} ${s.y} A ${r} ${r} 0 ${largeArc} ${sweepFlag} ${e.x} ${e.y}`;
   }
 
- async function renderDowntimeReasonsSection(fromISO, toISO){
+  async function renderDowntimeReasonsSection(fromISO, toISO){
     document.getElementById('dtReasonsRange').textContent = `(${fromISO} → ${toISO})`;
     const includeWeekends = document.getElementById('wkndToggle')?.checked === true;
     const wq = includeWeekends ? '0' : '1';
   
-    const [prodRes, maintRes] = await Promise.all([
+    const [prodRes, maintCatRes, maintFmRes] = await Promise.all([
       fetch(`/api/production/dt-reasons?kind=prod&from=${fromISO}&to=${toISO}&weekdaysOnly=${wq}`).then(r=>r.json()),
-      fetch(`/api/production/dt-reasons?kind=maint&from=${fromISO}&to=${toISO}&weekdaysOnly=${wq}`).then(r=>r.json())
+      fetch(`/api/production/dt-reasons?kind=maint&dim=cat&from=${fromISO}&to=${toISO}&weekdaysOnly=${wq}`).then(r=>r.json()),
+      fetch(`/api/production/dt-reasons?kind=maint&dim=fm&from=${fromISO}&to=${toISO}&weekdaysOnly=${wq}`).then(r=>r.json())
     ]);
-   drawDonutAndLegend(prodRes,  'prodDtDonut',  'prodDtEmpty',  'prodDtLegend');
-   drawDonutAndLegend(maintRes, 'maintDtDonut', 'maintDtEmpty', 'maintDtLegend');
+  
+    drawDonutAndLegend(prodRes,     'prodDtDonut',   'prodDtEmpty',   'prodDtLegend',   10);
+    drawDonutAndLegend(maintCatRes, 'maintCatDonut', 'maintCatEmpty', 'maintCatLegend', 6);
+    drawDonutAndLegend(maintFmRes,  'maintFmDonut',  'maintFmEmpty',  'maintFmLegend',  6);
   }
 
-function drawDonutAndLegend(payload, donutId, emptyId, legendId){
+function drawDonutAndLegend(payload, donutId, emptyId, legendId, topN = 10){
   const cont  = document.getElementById(donutId);
   const empty = document.getElementById(emptyId);
   const legend= document.getElementById(legendId);
@@ -1461,8 +1476,7 @@ function drawDonutAndLegend(payload, donutId, emptyId, legendId){
   }
   empty.style.display = 'none';
 
-  // Top-10 for legend; donut uses all (still fine)
-  const top10 = rows.slice().sort((a,b)=>b.hours-a.hours).slice(0,10);
+  const topX = rows.slice().sort((a,b)=>b.hours-a.hours).slice(0, topN);
   const palette = getPalette();
 
   // Donut
@@ -1510,6 +1524,7 @@ function drawDonutAndLegend(payload, donutId, emptyId, legendId){
 
   legend.appendChild(legendList);
 }
+  
 </script>
 <script>
   // tooltip toggling (click / tap)
