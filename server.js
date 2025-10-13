@@ -1087,15 +1087,15 @@ app.get('/api/kpis/header', async (req, res) => {
 
 app.get('/api/production/dt-reasons', async (req, res) => {
   try {
-    const kind   = String(req.query.kind || 'maint').toLowerCase();     // 'prod' | 'maint'
-    const dimArg = String(req.query.dim  || 'cat').toLowerCase();       // 'cat'  | 'fm'
+    const kind   = String(req.query.kind || 'maint').toLowerCase();
+    const dimArg = String(req.query.dim  || 'cat').toLowerCase();
     const dim    = (dimArg === 'fm') ? 'fm' : 'cat';
     const fromISO= String(req.query.from || '').slice(0,10);
     const toISO  = String(req.query.to   || '').slice(0,10);
     const wkOnly = req.query.weekdaysOnly === '1';
 
     if (kind !== 'maint') {
-      return res.json({ reasons: [] }); // you can wire a prod SQL view later
+      return res.json({ reasons: [] });
     }
 
     const pool = await poolPromise;
