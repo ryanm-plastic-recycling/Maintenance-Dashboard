@@ -137,25 +137,30 @@
 
     /* Root-cause pairs: donut | legend per row */
     .dt-grid{ display:grid; grid-auto-rows:auto; row-gap:18px }
+   /* Keep donut and legend on same row, make the left column a comfy width */
     .dt-row{
       display:grid;
-      grid-template-columns: 480px 1fr; /* donut column, legend column */
+      grid-template-columns: clamp(420px, 36vw, 540px) 1fr;
       gap:16px;
       align-items:start;
     }
-    .dt-donut .chart svg{ height: 260px; }
+    
+    /* Slightly taller donut */
+    .dt-donut .chart svg{ height: 280px; }
+    
+    /* Legend: fixed numeric columns, tabular figures, right-aligned numbers */
     .dt-legend .legend3{
       display:grid;
-      grid-template-columns: 1fr auto auto;  /* Reason | Hours | % */
+      grid-template-columns: minmax(220px, 1fr) 110px 90px; /* Reason | Hours | % */
       column-gap:12px; row-gap:8px; font-weight:900; min-width:0;
+      font-variant-numeric: tabular-nums;
     }
-    .dt-legend .legend3 .row{ display: contents; }
     .dt-legend .legend3 .name{
       display:flex; align-items:center; gap:8px;
       overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0;
     }
-    .dt-legend .legend3 .hrs{ justify-self:end }
-    .dt-legend .legend3 .pct{ justify-self:end; color:#64748b }
+    .dt-legend .legend3 .hrs{ justify-self:end; }
+    .dt-legend .legend3 .pct{ justify-self:end; color:#64748b; }
     
     /* Responsive */
     @media (max-width: 1400px){
