@@ -1482,7 +1482,11 @@ function drawDonutAndLegend(payload, donutId, emptyId, legendId, topN = 10){
   cont.innerHTML = ''; legend.innerHTML = '';
 
   // Choose palette: category donut uses category colors, others use reason colors
-  const colorFn = donutId.includes('maintCat') ? colorForMaintCat : colorForReason;
+  const colorFn = donutId.includes('maintCat')
+  ? colorForMaintCat
+  : donutId.includes('maintFm')
+    ? colorForFM
+    : colorForReason;     // production or any other donuts
   
   const rows = (payload && payload.reasons) ? payload.reasons.slice() : [];
   const total = rows.reduce((s,r)=>s + (r.hours||0), 0);
