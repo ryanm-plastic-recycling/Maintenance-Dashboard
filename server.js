@@ -1085,39 +1085,6 @@ app.get('/api/kpis/header', async (req, res) => {
   }
 });
 
-app.get('/api/production/dt-reasons', async (req, res) => {
-  try {
-    const kind   = String(req.query.kind || 'maint').toLowerCase();
-    const dimArg = String(req.query.dim  || 'cat').toLowerCase();
-    const dim    = (dimArg === 'fm') ? 'fm' : 'cat';
-    const fromISO= String(req.query.from || '').slice(0,10);
-    const toISO  = String(req.query.to   || '').slice(0,10);
-    const wkOnly = req.query.weekdaysOnly === '1';
-
-    if (kind !== 'maint') {
-      return res.json({ reasons: [] });
-    }
-
-    const pool = await poolPromise;
-    const rs = await pool.request()
-      .input('FromDate',     sql.Date,      fromISO)
-      .input('ToDate',       sql.Date,      toISO)
-      .input('Dim',          sql.NVarChar,  dim)
-      .input('WeekdaysOnly', sql.Bit,       wkOnly ? 1 : 0)
-      .execute('dbo.GetMaintDtReasons');
-
-    const reasons = (rs.recordset || []).map(r => ({
-      reason: r.Reason,
-      hours:  Number(r.Hours) || 0
-    }));
-
-    return res.json({ reasons });
-  } catch (e) {
-    console.error('dt-reasons error', e);
-    res.status(500).json({ reasons: [] });
-  }
-});
-
 app.get('/api/health', (_req, res) => res.json({ ok: true, ts: new Date().toISOString() }));
 
 // 5) 404 & error handlers LAST
