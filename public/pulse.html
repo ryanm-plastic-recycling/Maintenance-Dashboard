@@ -87,12 +87,6 @@
       gap:16px;
       align-items:start;
     }
-        
-    /* stack the prod row so legend is under donut */
-    .donutrow.stack{
-      grid-template-columns:1fr; /* one column: donut on top, legend below */
-      justify-items: start;      /* left-align legend under donut */
-    }
     
     /* donuts a bit bigger */
     #donutProd { width: 200px; height: 200px; }
@@ -106,10 +100,7 @@
       font-variant-numeric: tabular-nums;
     }
     .legend .row{ display: contents; }
-    .legend .name{
-      display:flex; align-items:center; gap:8px;
-      min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
-    }
+    .legend .name{ display:flex; gap:8px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; }
     .legend .hrs{ justify-self:end; }
     .legend .pct{ justify-self:end; color:#64748b; }
     
@@ -517,40 +508,53 @@ function colorForFM(name,i){
   ]);
 
   const make = (payload, canvasId, legendId, colorChooser) => {
-    const rows = (payload?.reasons||[]).filter(r => (r.hours||0) > 0);
-    const labels = rows.map(r => r.reason);
-    const data = rows.map(r => +(r.hours||0).toFixed(1));
-    const colors = rows.map((r,i) => colorChooser(r.reason, i));
-
-    // destroy existing chart if re-rendering
+  const TOP_N = 6;
+  const rowsAll = (payload?.reasons || []).filter(r => (r.hours||0) > 0);
+  if (!rowsAll.length) {
+    // draw a neutral donut, same as your existing branch if you want
     const ctx = document.getElementById(canvasId).getContext('2d');
-    if (ctx.__chart) { ctx.__chart.destroy(); }
-
-    ctx.__chart = new Chart(ctx, {
-      type: 'doughnut',
-      data: { labels, datasets: [{ data, backgroundColor: colors }] },
-      options: {
-        responsive: false, cutout: '60%',
-        plugins: { legend: { display: false }, tooltip: { enabled: true } }
-      }
-    });
-
-    // legend
+    if (ctx.__chart) ctx.__chart.destroy();
     const legend = document.getElementById(legendId);
-    legend.innerHTML = '';
-    const total = data.reduce((a,b)=>a+b,0);
-    rows.slice(0,10).forEach((r,i) => {
-      const pct = total ? (r.hours/total) : 0;
-      const color = colors[i];
-      const row = document.createElement('div');
-      row.style.display = 'flex'; row.style.justifyContent='space-between'; row.style.gap='8px';
-      row.innerHTML = `
-        <div><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${color};margin-right:8px"></span>${r.reason}</div>
-        <div>${r.hours.toFixed(1)} h</div>
-        <div>${Math.round(pct*100)}%</div>`;
-      legend.appendChild(row);
-    });
-  };
+    legend.innerHTML = '<div class="row"><div class="name">No data</div><div class="hrs">—</div><div class="pct">—</div></div>';
+    return;
+  }
+
+  const total = rowsAll.reduce((a,b)=>a + (b.hours||0), 0);
+  const sorted = rowsAll.slice().sort((a,b)=> (b.hours||0) - (a.hours||0));
+  const top = sorted.slice(0, TOP_N);
+  const topSum = top.reduce((a,b)=>a + (b.hours||0), 0);
+  const other = Math.max(0, total - topSum);
+  const items = other > 0 ? [...top, { reason: 'Other', hours: other }] : top;
+
+  const labels = items.map(r => r.reason);
+  const data   = items.map(r => +((r.hours||0).toFixed(1)));
+  const colors = items.map((r,i) => colorChooser(r.reason, i));
+
+  const ctx = document.getElementById(canvasId).getContext('2d');
+  if (ctx.__chart) ctx.__chart.destroy();
+
+  ctx.__chart = new Chart(ctx, {
+    type: 'doughnut',
+    data: { labels, datasets: [{ data, backgroundColor: colors }] },
+    options: { responsive: false, cutout: '60%', plugins: { legend: { display: false }, tooltip: { enabled: true } } }
+  });
+
+  // legend
+  const legend = document.getElementById(legendId);
+  legend.innerHTML = '';
+  items.forEach((r,i) => {
+    const pct = total ? (r.hours/total) : 0;
+    const color = colors[i];
+    const row = document.createElement('div');
+    row.className = 'row';
+    row.innerHTML = `
+      <div class="name"><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${color};margin-right:8px"></span>${r.reason}</div>
+      <div class="hrs">${r.hours.toFixed(1)} h</div>
+      <div class="pct">${Math.round(pct*100)}%</div>`;
+    legend.appendChild(row);
+  });
+};
+
 
   // color pickers
   const colorForProd = (name, i) => colorForReason(name, i);
