@@ -1527,24 +1527,41 @@ function drawDonutAndLegend(payload, donutId, emptyId, legendId, topN = 10){
   const topX = rows.slice().sort((a,b)=>b.hours-a.hours).slice(0, topN);
   const palette = getPalette();
 
-  // Donut
+  // Donut (with <title> for native tooltip)
   const W = 420, H = 280, cx = W/2, cy = H/2, ro = 110, ri = 75;
   let a0 = -Math.PI/2;
-  const svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
-
-  const parts = rows.map((r, i) => {
-   const frac = (r.hours||0) / total;
-   const a1 = a0 + frac * Math.PI * 2;
-   const d  = donutPath(cx, cy, ro, ri, a0, a1);
-   const color = colorFn(r.reason, i);
-   a0 = a1;
-   return { d, color, r };
- });
-
-  svg.innerHTML = parts.map(p => `<path d="${p.d}" fill="${p.color}" opacity="0.95"></path>`).join('')
-    + `<text x="${cx}" y="${cy-6}" text-anchor="middle" dominant-baseline="baseline" font-size="14" fill="#475569">${fmtH(total)}</text>`
-    + `<text x="${cx}" y="${cy+14}" text-anchor="middle" dominant-baseline="hanging" font-size="12" fill="#64748b">Total</text>`;
+  
+    const parts = rows.map((r, i) => {
+     const frac = (r.hours||0) / total;
+     const a1 = a0 + frac * Math.PI * 2;
+     const d  = donutPath(cx, cy, ro, ri, a0, a1);
+     const color = colorFn(r.reason, i);
+     a0 = a1;
+     return { d, color, r };
+   });
+    
+  const segs = rows.map((r, i) => {
+    const frac = (r.hours||0) / total;
+    const a1   = a0 + frac * Math.PI * 2;
+    const d    = donutPath(cx, cy, ro, ri, a0, a1);
+    const color= colorFn(r.reason, i);
+    const pct  = total > 0 ? (r.hours/total*100) : 0;
+    a0 = a1;
+    return { d, color, r, pct };
+  });
+  
+  // embed <title> inside <path> so the browser shows a tooltip on hover
+  svg.innerHTML =
+    segs.map(s =>
+      `<path d="${s.d}" fill="${s.color}" opacity="0.95">
+         <title>${s.r.reason} — ${s.r.hours.toFixed(1)} h (${Math.round(s.pct)}%)</title>
+       </path>`
+    ).join('') +
+    `<text x="${cx}" y="${cy-6}" text-anchor="middle" dominant-baseline="baseline" font-size="14" fill="#475569">${fmtH(total)}</text>` +
+    `<text x="${cx}" y="${cy+14}" text-anchor="middle" dominant-baseline="hanging" font-size="12" fill="#64748b">Total</text>`;
+  
   cont.appendChild(svg);
 
   // Legend (top #X)
