@@ -1532,15 +1532,6 @@ function drawDonutAndLegend(payload, donutId, emptyId, legendId, topN = 10){
   let a0 = -Math.PI/2;
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
-  
-    const parts = rows.map((r, i) => {
-     const frac = (r.hours||0) / total;
-     const a1 = a0 + frac * Math.PI * 2;
-     const d  = donutPath(cx, cy, ro, ri, a0, a1);
-     const color = colorFn(r.reason, i);
-     a0 = a1;
-     return { d, color, r };
-   });
     
   const segs = rows.map((r, i) => {
     const frac = (r.hours||0) / total;
