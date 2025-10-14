@@ -100,7 +100,7 @@
     /* Legend columns + numeric alignment */
     .legend{
       display:grid;
-      grid-template-columns: minmax(220px,1fr) 110px 90px;
+      grid-template-columns: minmax(260px,1fr) 110px 90px;
       column-gap:12px; row-gap:8px;
       font-weight:900; min-width:0;
       font-variant-numeric: tabular-nums;
@@ -540,10 +540,11 @@
       'Process':'#16a34a','Utilities':'#0891b2','Consumables':'#a855f7','Human Factors':'#ef4444','Other':'#9ca3af'
     };
     const colorForCat = (name, i) => MAINT_CAT_COLORS[name] || pickColor(i);
+    const colorForFm   = (name, i) => colorForFM(name, i);
 
 
   make(cat, 'donutMaintCat', 'legendMaintCat', colorForCat);
-  make(fm,  'donutMaintFm',  'legendMaintFm',  colorForProd); // FM uses palette/default
+  make(fm,  'donutMaintFm',  'legendMaintFm',  colorForFm); 
   make(prod,'donutProd',     'legendProd',     colorForProd);
 }
 
