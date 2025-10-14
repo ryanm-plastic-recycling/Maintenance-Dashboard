@@ -526,169 +526,30 @@ function allocationModeFrom(m) {
   return mode === 'by_count' ? 'by_count' : 'equal';
 }
 
-r.get('/production/dt-reasons', async (req, res, next) => {
+r.get('/production/dt-reasons', async (req, res) => {
   try {
+    const kind   = String(req.query.kind || 'maint').toLowerCase();
+    const dim    = String(req.query.dim  || 'cat').toLowerCase() === 'fm' ? 'fm' : 'cat';
+    const fromISO= String(req.query.from || '').slice(0,10);
+    const toISO  = String(req.query.to   || '').slice(0,10);
+    const wkOnly = req.query.weekdaysOnly === '1';
+
+    // only maint uses Limble tags
+    if (kind !== 'maint') return res.json({ reasons: [] });
+
     const pool = await poolPromise;
-    const from = (req.query.from || '2000-01-01').slice(0,10);
-    const to   = (req.query.to   || '2100-01-01').slice(0,10);
-    const kind = (req.query.kind || 'prod').toLowerCase();
-    const weekdaysOnly = String(req.query.weekdaysOnly || '0') === '1';
+    const rs = await pool.request()
+      .input('FromDate',     sql.Date,     fromISO)
+      .input('ToDate',       sql.Date,     toISO)
+      .input('Dim',          sql.NVarChar, dim)
+      .input('WeekdaysOnly', sql.Bit,      wkOnly ? 1 : 0)
+      .execute('dbo.GetMaintDtReasons');
 
-    const isWeekday = (iso) => {
-      const [Y,M,D] = iso.split('-').map(Number);
-      const d = new Date(Y, M-1, D);
-      const wd = d.getDay();
-      return wd !== 0 && wd !== 6;
-    };
-
-    // Limit to lines you track in mappings
-    const allow = new Set([
-      ...Object.keys(capacityByLine || {}),
-      ...Object.keys(capacityByMaterial || {}),
-    ].map(canonLine));
-
-    // 1) Load facts and GROUP to machine-day (canonLine + date)
-    let facts = await loadLineDayRows(pool, from, to);
-    facts = facts.filter(f => allow.has(canonLine(f.machine)));
-
-    const perDayFacts = new Map(); // key: mC__day -> { runSum, maintSum }
-    for (const f of facts) {
-      const day = (f.src_date || '').slice(0,10);
-      if (!day) continue;
-      if (weekdaysOnly && !isWeekday(day)) continue;
-      const mC = canonLine(f.machine);
-      const k  = `${mC}__${day}`;
-      const run   = Number(f.machine_hours) || 0;
-      const maint = Number(f.maint_dt_h)    || 0;
-
-      const agg = perDayFacts.get(k) || { runSum:0, maintSum:0 };
-      agg.runSum   += run;
-      agg.maintSum += maint;
-      perDayFacts.set(k, agg);
-    }
-
-    // 2) Load staging reasons (real query), filter to allowed lines
-    let { recordset: rawReasons } = await pool.request().query(`
-      SELECT
-        CONVERT(char(10), TRY_CONVERT(date, src_date), 23) AS src_date,
-        LTRIM(RTRIM(machine)) AS machine,
-        LTRIM(RTRIM(reason_downtime)) AS reason_downtime
-      FROM dbo.production_staging
-      WHERE TRY_CONVERT(date, src_date) BETWEEN '${from}' AND '${to}'
-        AND machine IS NOT NULL AND LTRIM(RTRIM(machine)) <> ''
-    `);
-    rawReasons = rawReasons.filter(r => {
-      const mC = canonLine(r.machine);
-      return allow.has(mC);
-    });
-
-    // 3) Build reason bag per machine-day (canonLine + date), split multi reasons
-    const perDayReasons = new Map(); // key -> Map(category -> count)
-    for (const r of rawReasons) {
-      const day = (r.src_date || '').slice(0,10);
-      if (!day) continue;
-      if (weekdaysOnly && !isWeekday(day)) continue;
-      const mC = canonLine(r.machine);
-      const k  = `${mC}__${day}`;
-      if (!perDayReasons.has(k)) perDayReasons.set(k, new Map());
-      const bag = perDayReasons.get(k);
-      const raw = String(r.reason_downtime ?? '');
-      const parts = raw.split(SEP).filter(x => String(x).trim() !== '');
-      const list = parts.length ? parts : [raw];
-      for (const p of list) {
-        const cat = canonReason(p);                    // uses ALIAS/REGEX/KW
-        bag.set(cat, (bag.get(cat) || 0) + 1);        // count appearances
-      }
-    }
-// ===== DEBUG (temporary) =====
-if (req.query.debug === '1') {
-  try {
-    const factsKeys   = [...perDayFacts.keys()];
-    const reasonsKeys = [...perDayReasons.keys()];
-    console.log('[dt-reasons][debug] perDayFacts:', factsKeys.length, 'perDayReasons:', reasonsKeys.length);
-
-    // show a couple of the first keys on each side
-    console.log('[dt-reasons][debug] facts keys sample:', factsKeys.slice(0, 10));
-    console.log('[dt-reasons][debug] reasons keys sample:', reasonsKeys.slice(0, 10));
-
-    // keys present in facts but missing in reasons
-    const missing = factsKeys.filter(k => !perDayReasons.has(k)).slice(0, 20);
-    console.log('[dt-reasons][debug] facts-without-reasons sample:', missing);
-
-    // raw reason text sample
-    const topRaw = {};
-    for (const r of rawReasons) {
-      const s = String(r.reason_downtime || '').trim().toUpperCase();
-      if (!s) continue;
-      topRaw[s] = (topRaw[s] || 0) + 1;
-    }
-    console.log('[dt-reasons][debug] top raw reasons:', Object.entries(topRaw).sort((a,b)=>b[1]-a[1]).slice(0, 20));
-
-    // alias/regex/kw sizes
-    console.log('[dt-reasons][debug] alias sizes:', {
-      aliasExact: ALIAS.exact.size,
-      aliasContains: ALIAS.contains.length,
-      regex: REGEX.length,
-      kw: Object.keys(KW).length
-    });
+    const reasons = (rs.recordset || []).map(r => ({ reason: r.Reason, hours: Number(r.Hours) || 0 }));
+    return res.json({ reasons });
   } catch (e) {
-    console.warn('[dt-reasons][debug] failed:', e?.message || e);
-  }
-}
-// ===== /DEBUG =====
-
-    // 4) Allocate residual production DT once per machine-day
-    const mode = allocationModeFrom(mappings);
-    const add  = (acc, reason, h) => { acc[reason] = (acc[reason] || 0) + h; };
-
-    const bucketsProd  = {};
-    const bucketsMaint = {}; // kept for future maint reasons
-
-    for (const [k, agg] of perDayFacts.entries()) {
-      const [mC, day] = k.split('__');
-      const runH   = agg.runSum   || 0;
-      const maintH = agg.maintSum || 0;
-
-      // clamp residual to [0,24]
-      let resid = 24 - runH - maintH;
-      if (!Number.isFinite(resid) || resid < 0) resid = 0;
-      if (resid > 24) resid = 24;
-
-      // Maintenance donut placeholder (skip if you prefer)
-      // if (maintH > 0) add(bucketsMaint, 'OTHER', maintH);
-
-      if (resid <= 0) continue;
-
-      const bag = perDayReasons.get(k);
-      if (!bag || bag.size === 0) {
-        add(bucketsProd, 'UNSTATED', resid);
-        continue;
-      }
-
-      if (mode === 'equal') {
-        const share = resid / bag.size;
-        for (const r of bag.keys()) add(bucketsProd, r, share);
-      } else {
-        let tot = 0; for (const c of bag.values()) tot += c;
-        if (tot <= 0) add(bucketsProd, 'UNSTATED', resid);
-        else for (const [r, c] of bag.entries()) add(bucketsProd, r, resid * (c / tot));
-      }
-    }
-
-    if (kind === 'maint') {
-      const reasons = Object.entries(bucketsMaint).sort((a,b)=>b[1]-a[1])
-        .map(([reason, hours]) => ({ reason, hours }));
-      return res.json({ kind, reasons, range: { startISO: from, endISO: to },
-                        buckets: mappings.downtime_reason_buckets || [] });
-    }
-
-    const reasons = Object.entries(bucketsProd).sort((a,b)=>b[1]-a[1])
-      .map(([reason, hours]) => ({ reason, hours }));
-    res.json({ kind, reasons, range: { startISO: from, endISO: to },
-               buckets: mappings.downtime_reason_buckets || [] });
-
-  } catch (e) {
-    next(e);
+    console.error('[dt-reasons]', e);
+    return res.status(500).json({ reasons: [] });
   }
 });
 
