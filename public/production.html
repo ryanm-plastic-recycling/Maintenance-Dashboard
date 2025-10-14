@@ -152,7 +152,7 @@
     /* Legend: 2 columns — Name | (Hours + % together) */
     .dt-legend .legend2{
       display:grid;
-      grid-template-columns: minmax(240px, 1fr) 180px;  /* adjust 180 -> 160 if you like it tighter */
+      grid-template-columns: minmax(240px,1fr) 180px; /* tighten here as needed */
       column-gap:10px;
       row-gap:6px;
       font-weight:900;
@@ -169,6 +169,7 @@
     .dt-legend .legend2 .num .pct{
       margin-left:8px; color:#64748b; font-weight:900;
     }
+
 
     
     /* Responsive */
@@ -1564,7 +1565,7 @@ function drawDonutAndLegend(payload, donutId, emptyId, legendId, topN = 10){
   
   cont.appendChild(svg);
 
-  // Legend (top N) — 2-column version
+   // Legend (top N) — 2 columns: Name | "hrs  pct"
   const legendList = document.createElement('div');
   legendList.className = 'legend2';
   
@@ -1587,6 +1588,7 @@ function drawDonutAndLegend(payload, donutId, emptyId, legendId, topN = 10){
   });
   
   legend.appendChild(legendList);
+
 
 }
   
