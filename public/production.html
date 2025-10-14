@@ -148,17 +148,23 @@
     /* Slightly taller donut */
     .dt-donut .chart svg{ height: 280px; }
     
-    /* Legend: fixed numeric columns, tabular figures, right-aligned numbers */
-    /* Legend: 2 columns — Name | (Hours + % together) */
+    /* keep legend from stretching across the whole right column */
+    .dt-legend{
+      /* pick a width that looks good next to your donut */
+      max-width: 520px;   /* 500–560px is a good range; adjust to taste */
+    }
+    
+    /* our 2-col legend grid should size to its content, not 100% width */
     .dt-legend .legend2{
-      display:grid;
-      grid-template-columns: minmax(240px,1fr) 180px; /* tighten here as needed */
+      display: inline-grid;                 /* key fix */
+      grid-template-columns: minmax(240px,1fr) 170px; /* tighten if needed */
       column-gap:10px;
       row-gap:6px;
       font-weight:900;
       min-width:0;
       font-variant-numeric: tabular-nums;
     }
+    
     .dt-legend .legend2 .name{
       display:flex; align-items:center; gap:8px;
       overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0;
@@ -169,8 +175,6 @@
     .dt-legend .legend2 .num .pct{
       margin-left:8px; color:#64748b; font-weight:900;
     }
-
-
     
     /* Responsive */
     @media (max-width: 1400px){
