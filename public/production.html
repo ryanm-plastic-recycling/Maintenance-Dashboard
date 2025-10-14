@@ -674,6 +674,40 @@ function colorForReason(name, i){
   return REASON_COLORS[key] || palette[i % palette.length];
 }
 
+// Failure Mode palette (distinct, high-contrast)
+const FM_COLORS = {
+  'WATER LEAK'       : '#0ea5e9', // cyan
+  'FEEDER BLOCKAGE'  : '#2563eb', // blue
+  'MACHINE DAMAGED'  : '#111827', // slate-900
+  'SCREEN CLOG'      : '#7c3aed', // indigo
+  'BELT WORN'        : '#6b7280', // slate
+  'CONTACTOR RELAY'  : '#ef4444', // red
+  'POWER TRIP'       : '#f59e0b', // amber
+  'DIE BUILDUP'      : '#22c55e', // green
+  'CYLINDER STUCK'   : '#a855f7'  // purple
+};
+  
+// deterministic fallback if not in palette
+function hashColor(name, i=0){
+  const s = String(name||'').toUpperCase();
+  let h = 2166136261>>>0;
+  for (let c of s) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); }
+  // map to HSL with good contrast
+  const hue = (h % 360);
+  const sat = 68;
+  const lig = 48;
+  return `hsl(${hue} ${sat}% ${lig}%)`;
+}
+  
+function colorForFM(name,i){ const key=String(name||'').toUpperCase(); return FM_COLORS[key] || hashColor(key,i); }
+
+// at top of drawDonutAndLegend:
+const colorFn = donutId.includes('maintCat')
+  ? colorForMaintCat
+  : donutId.includes('maintFm')
+    ? colorForFM
+    : colorForReason;
+
   const MAINT_CAT_COLORS = {
   'Mechanical':'#4b5563','Electrical':'#2563eb','Thermal':'#f97316','Hydraulic':'#0ea5e9',
   'Process':'#16a34a','Utilities':'#0891b2','Consumables':'#a855f7','Human Factors':'#ef4444','Other':'#9ca3af'
