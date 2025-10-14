@@ -488,6 +488,25 @@
     }).join('');
   }
 
+  // Failure Mode palette (distinct, high-contrast)
+const FM_COLORS = {
+  'WATER LEAK':'#0ea5e9','FEEDER BLOCKAGE':'#2563eb','MACHINE DAMAGED':'#111827',
+  'SCREEN CLOG':'#7c3aed','BELT WORN':'#6b7280','CONTACTOR RELAY':'#ef4444',
+  'POWER TRIP':'#f59e0b','DIE BUILDUP':'#22c55e','CYLINDER STUCK':'#a855f7'
+};
+
+function hashColor(name, i=0){
+  const s = String(name||'').toUpperCase();
+  let h = 2166136261>>>0;
+  for (let c of s){ h ^= c.charCodeAt(0); h = Math.imul(h,16777619); }
+  const hue = h % 360; return `hsl(${hue} 68% 48%)`;
+}
+
+function colorForFM(name,i){
+  const key = String(name||'').toUpperCase();
+  return FM_COLORS[key] || hashColor(key, i);
+}
+
   async function renderDowntimeDonutsPulse(fromISO, toISO){
   const wq = '1'; // keep weekday-only on Pulse; or wire to your toggle if you have one
 
