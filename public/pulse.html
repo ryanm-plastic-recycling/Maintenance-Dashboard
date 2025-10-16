@@ -271,6 +271,12 @@
       <section class="grid gridWide" style="margin-top:16px">
         <article class="card">
           <h3>Downtime Overview — Production & Maintenance</h3>
+          <div class="donutrow">
+              <div class="rowtitle">Production — Reasons</div>
+              <canvas id="donutProd" width="160" height="160"></canvas>
+              <div><div class="legend" id="legendProd"></div></div>
+            </div>
+          
           <div class="content donutwrap">
             <div class="donutrow">
               <div class="rowtitle">Maintenance — Category</div>
@@ -283,12 +289,7 @@
               <canvas id="donutMaintFm" width="160" height="160"></canvas>
               <div><div class="legend" id="legendMaintFm"></div></div>
             </div>
-            
-            <div class="donutrow">
-              <div class="rowtitle">Production — Reasons</div>
-              <canvas id="donutProd" width="160" height="160"></canvas>
-              <div><div class="legend" id="legendProd"></div></div>
-            </div>
+          
           </div>
         </article>
 
