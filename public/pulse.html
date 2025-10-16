@@ -126,53 +126,64 @@
       #rankTable {font-size: 22px;}
     }
 
-    /* Wider page to give the donut+legend room */
-    .app{ max-width: 2100px; }
+    /* --- bottom grid: two columns on wide screens --- */
+    .grid.gridWide{
+      grid-template-columns: minmax(900px, 1.25fr) minmax(560px, 0.75fr);
+      gap: 16px;
+    }
+    @media (max-width: 1600px){
+      .grid.gridWide{ grid-template-columns: 1fr; }  /* stack on narrower TVs */
+    }
     
-    /* Make the bottom grid a single column (donuts on top, rank table below) */
-    .grid.gridWide{ grid-template-columns: 1fr !important; }
-    
-    /* Donut section uses a simple vertical stack of rows */
+    /* --- donut rows: title spans both columns; donut left, legend right --- */
     .donutwrap{
-      display:grid;
+      display: grid;
       grid-auto-rows: minmax(120px, auto);
       row-gap: 18px;
     }
     
-    /* Each donut row = [donut | legend] side-by-side */
     .donutrow{
-      display:grid;
+      display: grid;
       grid-template-columns: 320px minmax(640px, 1fr);  /* donut | legend */
       column-gap: 20px;
-      align-items:center;
+      align-items: center;
     }
     
-    /* Keep donut nicely sized and centered */
+    /* title spans both columns so the next two items line up left|right */
+    .donutrow .rowtitle{
+      grid-column: 1 / -1;
+      margin: 0 0 6px 0;
+      font-weight: 800;
+      text-align: left;
+    }
+    
+    /* donut sizing/centering */
     .donutrow canvas{
-      width: 200px !important;   /* optional bump */
+      width: 200px !important;
       height: 200px !important;
-      justify-self:center;
+      justify-self: center;   /* keeps donut centered in its narrow column */
     }
     
-    /* Legend: compact two numeric columns with a wider name column */
+    /* legend layout: Name | Hours | % */
     .legend{
-      display:inline-grid;                          /* don't stretch full width */
-      grid-template-columns: minmax(360px,1fr) 120px 90px;  /* Name | Hours | % */
-      column-gap:12px; row-gap:8px;
-      font-weight:900; min-width:0;
+      display: inline-grid;                           /* don't stretch full width */
+      grid-template-columns: minmax(360px,1fr) 120px 90px;
+      column-gap: 12px; row-gap: 8px;
+      font-weight: 900; min-width: 0;
       font-variant-numeric: tabular-nums;
-      max-width: 820px;                             /* prevents over-wide lines */
+      max-width: 820px;                               /* prevent over-wide lines */
     }
     .legend .row{ display: contents; }
     .legend .name{ display:flex; gap:8px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; }
     .legend .hrs{  justify-self:end; }
     .legend .pct{  justify-self:end; color:#64748b; }
     
-    /* Responsive collapse: on narrow screens stack legend under donut */
+    /* responsive: stack legend under donut if space is tight */
     @media (max-width: 1400px){
       .donutrow{ grid-template-columns: 1fr; }
       .legend{ max-width: none; }
     }
+
   </style>
 </head>
 
