@@ -135,9 +135,22 @@
 
     .empty{padding:12px;color:#64748b;border:1px dashed #cbd5e1;border-radius:10px;background:#f8fafc;margin-top:6px;text-align:center}
 
-    /* Root-cause pairs: donut | legend per row */
-    .dt-grid{ display:grid; grid-auto-rows:auto; row-gap:18px }
-   /* Keep donut and legend on same row, make the left column a comfy width */
+    /* === Pairs layout (2×2) ===================================== */
+    .dt-grid{
+      display:grid;
+      /* two equal columns that can shrink; adjust min width to taste */
+      grid-template-columns: repeat(2, minmax(520px, 1fr));
+      column-gap: 24px;
+      row-gap: 24px;
+      align-items: start;   /* keep tops aligned */
+    }
+    
+    /* collapse to one column on narrower screens */
+    @media (max-width: 1500px){
+      .dt-grid{ grid-template-columns: 1fr; }
+    }
+    
+    /* keep each pair (donut | legend) as a two-column grid */
     .dt-row{
       display:grid;
       grid-template-columns: clamp(420px, 36vw, 540px) 1fr;
@@ -147,38 +160,23 @@
     
     /* keep donut centered inside its box */
     .dt-donut .chart svg{ height:280px; display:block; margin:0 auto }
-
+    
     /* headline + legend spacing */
     .dt-legend h3{ margin:8px 0 8px }
     
-    /* keep legend from stretching across the whole right column */
-    .dt-legend{
-      /* pick a width that looks good next to your donut */
-      max-width: 520px;   /* 500–560px is a good range; adjust to taste */
-    }
-    
-    /* if you want the numbers a touch tighter */
+    /* keep legend tidy and narrow */
+    .dt-legend{ max-width:520px; }
     .dt-legend .legend2{
       display:inline-grid;
-      grid-template-columns:minmax(240px,1fr) 160px; /* was 170px */
+      grid-template-columns:minmax(240px,1fr) 160px; /* tighten numbers column */
       column-gap:10px;
     }
-    
     .dt-legend .legend2 .name{
       display:flex; align-items:center; gap:8px;
       overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0;
     }
-    .dt-legend .legend2 .num{
-      justify-self:end; text-align:right; white-space:nowrap;
-    }
-    .dt-legend .legend2 .num .pct{
-      margin-left:8px; color:#64748b; font-weight:900;
-    }
-    
-    /* Responsive */
-    @media (max-width: 1400px){
-      .dt-row{ grid-template-columns: 1fr; } /* stack donut over legend on tight screens */
-    }
+    .dt-legend .legend2 .num{ justify-self:end; white-space:nowrap; text-align:right; }
+    .dt-legend .legend2 .num .pct{ margin-left:8px; color:#64748b; font-weight:900; }
 
   </style>
 </head>
