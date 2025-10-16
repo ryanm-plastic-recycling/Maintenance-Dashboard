@@ -177,6 +177,9 @@
     .legend .name{ display:flex; gap:8px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; }
     .legend .hrs{  justify-self:end; }
     .legend .pct{  justify-self:end; color:#64748b; }
+
+    /* keep legends left-aligned in their column */
+    .donutrow .legend { justify-self: start; }
     
     /* responsive: stack legend under donut if space is tight */
     @media (max-width: 1400px){
