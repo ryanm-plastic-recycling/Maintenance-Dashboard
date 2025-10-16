@@ -145,8 +145,11 @@
       align-items:start;
     }
     
-    /* Slightly taller donut */
-    .dt-donut .chart svg{ height: 280px; }
+    /* keep donut centered inside its box */
+    .dt-donut .chart svg{ height:280px; display:block; margin:0 auto }
+
+    /* headline + legend spacing */
+    .dt-legend h3{ margin:8px 0 8px }
     
     /* keep legend from stretching across the whole right column */
     .dt-legend{
@@ -154,15 +157,11 @@
       max-width: 520px;   /* 500–560px is a good range; adjust to taste */
     }
     
-    /* our 2-col legend grid should size to its content, not 100% width */
+    /* if you want the numbers a touch tighter */
     .dt-legend .legend2{
-      display: inline-grid;                 /* key fix */
-      grid-template-columns: minmax(240px,1fr) 170px; /* tighten if needed */
+      display:inline-grid;
+      grid-template-columns:minmax(240px,1fr) 160px; /* was 170px */
       column-gap:10px;
-      row-gap:6px;
-      font-weight:900;
-      min-width:0;
-      font-variant-numeric: tabular-nums;
     }
     
     .dt-legend .legend2 .name{
@@ -513,7 +512,7 @@
            </div>
            <div class="dt-legend">
              <h3 style="margin:8px 0 6px">Top 10 Reasons (Production)</h3>
-             <div id="prodDtLegend" class="legend3"></div>
+             <div id="prodDtLegend" class="legend2"></div>
            </div>
          </div>
          <!-- Row 2: Maintenance -->
@@ -526,7 +525,7 @@
             </div>
             <div class="dt-legend">
               <h3 style="margin:8px 0 6px">Top 6 Categories</h3>
-              <div id="maintCatLegend" class="legend3"></div>
+              <div id="maintCatLegend" class="legend2"></div>
             </div>
           </div>
           <!-- Row 3: Maintenance (Failure Mode) -->
@@ -538,7 +537,7 @@
             </div>
             <div class="dt-legend">
               <h3 style="margin:8px 0 6px">Top 6 Failure Modes</h3>
-              <div id="maintFmLegend" class="legend3"></div>
+              <div id="maintFmLegend" class="legend2"></div>
             </div>
           </div>
      </section>
