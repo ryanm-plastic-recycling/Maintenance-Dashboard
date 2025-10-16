@@ -181,10 +181,20 @@
     /* keep legends left-aligned in their column */
     .donutrow .legend { justify-self: start; }
     
-    /* responsive: stack legend under donut if space is tight */
-    @media (max-width: 1400px){
-      .donutrow{ grid-template-columns: 1fr; }
-      .legend{ max-width: none; }
+    /* FINAL OVERRIDES — put these at the end of <style> */
+
+    /* give the page a bit more room overall */
+    .app { max-width: 2300px !important; }
+    
+    /* wider right column (Rank table), slightly narrower left */
+    .grid.gridWide{
+      grid-template-columns: minmax(560px, 0.85fr) minmax(1000px, 1.15fr) !important;
+      gap: 16px;
+    }
+    
+    /* optional: on narrower screens still stack */
+    @media (max-width: 1600px){
+      .grid.gridWide{ grid-template-columns: 1fr !important; }
     }
 
   </style>
