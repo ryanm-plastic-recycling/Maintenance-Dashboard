@@ -364,6 +364,20 @@
     const lastW = {from:new Date(startOfWeek(now)), to:new Date(endOfWeek(now))}; lastW.from.setDate(lastW.from.getDate()-7); lastW.to.setDate(lastW.to.getDate()-7);
     const thisM = {from:startOfMonth(now), to:endOfMonth(now)};
     const lastM = {from:startOfMonth(new Date(now.getFullYear(), now.getMonth()-1, 1)), to:endOfMonth(new Date(now.getFullYear(), now.getMonth()-1, 1))};
+    const dayPick = document.getElementById('dayPick');
+      if (dayPick) {
+        dayPick.addEventListener('change', (e) => {
+          if (!e.target.value) return;
+          // store picked date in local state and trigger render
+          window.__pickedDay = e.target.value + 'T00:00:00';
+          // visually de-activate segmented buttons (optional)
+          document.querySelectorAll('#tfButtons button.active')?.forEach(b => b.classList.remove('active'));
+          // call your existing render with 'customday'
+          renderAll('customday'); // assumes your render takes the same selector string used in computeRange
+          const lab = document.getElementById('periodLabel');
+          if (lab) lab.textContent = `— ${e.target.value}`;
+        });
+      }
 
     switch(sel){
       case 'today':     return {from:fmt(now), to:fmt(now), label:'Today'};
@@ -375,6 +389,11 @@
       case 'last7':     { const s=new Date(now); s.setDate(s.getDate()-6); return {from:fmt(s), to:fmt(now), label:'Trailing 7 days'}; }
       case 'last30':
       default:          { const s=new Date(now); s.setDate(s.getDate()-29); return {from:fmt(s), to:fmt(now), label:'Trailing 30 days'}; }
+      case 'customday': {
+        const d = new Date(window.__pickedDay); 
+        d.setHours(0,0,0,0);
+        return { from: fmt(d), to: fmt(d), label: d.toISOString().slice(0,10) };
+      }
     }
   }
 
