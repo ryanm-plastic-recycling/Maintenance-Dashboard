@@ -919,12 +919,26 @@ function colorForFM(name,i){
         const tbody = document.querySelector('#rankTable tbody');
         const tfootRow = document.getElementById('rankTotals');
       
-        const ranked = perLine.slice().sort((a,b)=>{
-          const moA = (a.moM||0)+(a.moP||0);
-          const moB = (b.moM||0)+(b.moP||0);
-          if (Number.isFinite(b.oee) && Number.isFinite(a.oee) && b.oee!==a.oee) return b.oee - a.oee;
+        const ranked = perLine.slice().sort((a, b) => {
+        const aHas = Number.isFinite(a.oee);
+        const bHas = Number.isFinite(b.oee);
+        const moA = (a.moM || 0) + (a.moP || 0);
+        const moB = (b.moM || 0) + (b.moP || 0);
+      
+        // 1) rows with OEE come first
+        if (aHas && !bHas) return -1;
+        if (!aHas && bHas) return 1;
+      
+        // 2) both have OEE -> sort by OEE desc, then Missed Opp asc as tie-breaker
+        if (aHas && bHas) {
+          if (b.oee !== a.oee) return b.oee - a.oee;
           return moA - moB;
-        });
+        }
+      
+        // 3) neither has OEE -> keep them at the bottom; sort by Missed Opp desc
+        //    (or asc if you want the “least bad” first)
+        return moB - moA;
+      });
       
         let sumPounds = 0;
         let sumMissed = 0;
