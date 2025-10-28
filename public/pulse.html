@@ -364,20 +364,6 @@
     const lastW = {from:new Date(startOfWeek(now)), to:new Date(endOfWeek(now))}; lastW.from.setDate(lastW.from.getDate()-7); lastW.to.setDate(lastW.to.getDate()-7);
     const thisM = {from:startOfMonth(now), to:endOfMonth(now)};
     const lastM = {from:startOfMonth(new Date(now.getFullYear(), now.getMonth()-1, 1)), to:endOfMonth(new Date(now.getFullYear(), now.getMonth()-1, 1))};
-    const dayPick = document.getElementById('dayPick');
-      if (dayPick) {
-        dayPick.addEventListener('change', (e) => {
-          if (!e.target.value) return;
-          // store picked date in local state and trigger render
-          window.__pickedDay = e.target.value + 'T00:00:00';
-          // visually de-activate segmented buttons (optional)
-          document.querySelectorAll('#tfButtons button.active')?.forEach(b => b.classList.remove('active'));
-          // call your existing render with 'customday'
-          renderAll('customday'); // assumes your render takes the same selector string used in computeRange
-          const lab = document.getElementById('periodLabel');
-          if (lab) lab.textContent = `— ${e.target.value}`;
-        });
-      }
 
     switch(sel){
       case 'today':     return {from:fmt(now), to:fmt(now), label:'Today'};
@@ -390,7 +376,9 @@
       case 'last30':
       default:          { const s=new Date(now); s.setDate(s.getDate()-29); return {from:fmt(s), to:fmt(now), label:'Trailing 30 days'}; }
       case 'customday': {
-        const d = new Date(window.__pickedDay); 
+        const dStr = window.__pickedDay;
+        if (!dStr) return { from: fmt(now), to: fmt(now), label: 'Today' };
+        const d = new Date(dStr);
         d.setHours(0,0,0,0);
         return { from: fmt(d), to: fmt(d), label: d.toISOString().slice(0,10) };
       }
@@ -434,6 +422,10 @@
   }
   function cssVar(name) {
     return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || name;
+  }
+  async function runFor(sel){
+    const r = computeRange(sel);
+    await renderForRange(r.from, r.to, r.label);
   }
 
   // simple palette (pulls good/warn/bad if present, then a few accents)
@@ -1011,6 +1003,32 @@ function colorForFM(name,i){
       });
     });
 
+    // Date picker wiring (add this)
+    const dayPick = document.getElementById('dayPick');
+    if (dayPick) {
+      // optional: keep users from picking the future
+      const tzToday = new Date(); tzToday.setHours(0,0,0,0);
+      dayPick.max = new Date(tzToday.getTime() - tzToday.getTimezoneOffset()*60000)
+                      .toISOString().slice(0,10);
+  
+      dayPick.addEventListener('change', async (e) => {
+        if (!e.target.value) return;
+        window.__pickedDay = e.target.value + 'T00:00:00';
+        // clear active state from timeframe buttons
+        document.querySelectorAll('#tfButtons button.active')
+          ?.forEach(b => b.classList.remove('active'));
+        // render for the custom day
+        await runFor('customday');
+        // label polish
+        const lab = document.getElementById('periodLabel');
+        if (lab) lab.textContent = `(${e.target.value})`;
+      });
+    }
+    if (dayPick && !dayPick.value) {
+      const y = new Date(); y.setDate(y.getDate()-1); y.setHours(0,0,0,0);
+      dayPick.value = new Date(y.getTime() - y.getTimezoneOffset()*60000).toISOString().slice(0,10);
+    }
+    
     // Clock
     function tickClock(){
       const el = document.getElementById('clock');
