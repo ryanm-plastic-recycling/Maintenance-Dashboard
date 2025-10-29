@@ -46,6 +46,13 @@
     .kpi-tile.bad  { background:#EF4444; color:#1F0D0D; }
     .kpi-tile .label { font-size:0.9rem; opacity:.85; }
     .kpi-tile .value { font-size:1.6rem; font-weight:700; }
+    /* keep labels on one line; tighten leading a touch */
+    #kpiAsset tfoot tr:first-child td,
+    #kpiAsset tfoot tr:first-child th {
+      white-space: nowrap;
+      line-height: 1.15;
+      vertical-align: middle; /* avoid cutoff if anything is tall */
+    }
   </style>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
