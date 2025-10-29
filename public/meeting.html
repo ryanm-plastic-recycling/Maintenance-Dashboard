@@ -132,6 +132,9 @@
           <option value="last12m">Trailing 12 months</option>
         </select>
         <span class="divider"></span>
+        <span class="pill">Pick date:</span>
+        <input id="meetDayPick" type="date" class="pill" style="padding:6px 10px" />
+        <span class="divider"></span>
         <label style="display:flex;align-items:center;gap:6px;font-weight:700">
           <input type="checkbox" id="wkndToggle"> Include Weekends
         </label>
@@ -281,6 +284,13 @@
       case 'last7':     { const s=new Date(now); s.setDate(s.getDate()-6); return {from:fmt(s), to:fmt(now), label:'Trailing 7 days'}; }
       case 'last12m':   { const s=new Date(now); s.setMonth(s.getMonth()-12); return {from:fmt(s), to:fmt(now), label:'Trailing 12 months'}; }
       case 'last30':
+      case 'customday': {
+      const dStr = window.__meetPickedDay;
+        if (!dStr) return { from: fmt(now), to: fmt(now), label: 'Today' };
+        const d = new Date(dStr);
+        d.setHours(0,0,0,0);
+        return { from: fmt(d), to: fmt(d), label: d.toISOString().slice(0,10) };
+      }
       default:          { const s=new Date(now); s.setDate(s.getDate()-29); return {from:fmt(s), to:fmt(now), label:'Trailing 30 days'}; }
     }
   }
@@ -555,12 +565,40 @@
   document.addEventListener('visibilitychange', () => { if (!document.hidden) { const age = Date.now() - lastRenderAt; if (age > REFRESH_MS * 0.9) runForActivePeriod(); } });
 
   async function runForActivePeriod(){ const sel=document.getElementById('tf').value; const r=computeRange(sel); await renderForRange(r.from, r.to, r.label); saveSelectionToLS(); }
+  
+  async function runFor(sel){
+    const r = computeRange(sel);
+    await renderForRange(r.from, r.to, r.label); // or your page’s render fn (e.g., renderMeeting)
+  }
 
   document.addEventListener('DOMContentLoaded', async () => {
     await loadMappings();
     restoreSelectionFromLS();
     document.getElementById('tf').addEventListener('change', runForActivePeriod);
     document.getElementById('wkndToggle').addEventListener('change', runForActivePeriod);
+    const dayPick = document.getElementById('meetDayPick');
+      if (dayPick) {
+        // prevent picking future dates
+        const tzToday = new Date(); tzToday.setHours(0,0,0,0);
+        dayPick.max = new Date(tzToday.getTime() - tzToday.getTimezoneOffset()*60000)
+                        .toISOString().slice(0,10);
+    
+        // optional: prefill to yesterday for convenience
+        if (!dayPick.value) {
+          const y = new Date(); y.setDate(y.getDate()-1); y.setHours(0,0,0,0);
+          dayPick.value = new Date(y.getTime() - y.getTimezoneOffset()*60000).toISOString().slice(0,10);
+        }
+    
+        dayPick.addEventListener('change', async (e) => {
+          if (!e.target.value) return;
+          window.__meetPickedDay = e.target.value + 'T00:00:00';
+          // clear active state from timeframe buttons if you have them
+          document.querySelectorAll('#tfButtons button.active')?.forEach(b => b.classList.remove('active'));
+          await runFor('customday');
+          const lab = document.getElementById('periodLabel');
+          if (lab) lab.textContent = `(${e.target.value})`;
+        });
+      }
     await runForActivePeriod();
     scheduleAutoRefresh(runForActivePeriod);
   });
