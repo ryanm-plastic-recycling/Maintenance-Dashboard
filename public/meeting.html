@@ -282,17 +282,16 @@
       case 'lastq':     return {from:fmt(lastQ.from), to:fmt(lastQ.to), label:'Last quarter'};
       case 'thisyear':  return {from:fmt(thisY.from), to:fmt(thisY.to), label:'This year'};
       case 'lastyear':  return {from:fmt(lastY.from), to:fmt(lastY.to), label:'Last year'};
-      case 'last7':     { const s=new Date(now); s.setDate(s.getDate()-6); return {from:fmt(s), to:fmt(now), label:'Trailing 7 days'}; }
-      case 'last12m':   { const s=new Date(now); s.setMonth(s.getMonth()-12); return {from:fmt(s), to:fmt(now), label:'Trailing 12 months'}; }
-      case 'last30':    { const s=new Date(now); s.setDate(s.getDate()-29);  return {from:fmt(s), to:fmt(now), label:'Trailing 30 days'}; }
+      case 'last7':   { const s=new Date(now); s.setDate(s.getDate()-6);  return {from:fmt(s), to:fmt(now), label:'Trailing 7 days'}; }
+      case 'last12m': { const s=new Date(now); s.setMonth(s.getMonth()-12); return {from:fmt(s), to:fmt(now), label:'Trailing 12 months'}; }
+      case 'last30':  { const s=new Date(now); s.setDate(s.getDate()-29);  return {from:fmt(s), to:fmt(now), label:'Trailing 30 days'}; }
       case 'customday': {
-      const dStr = window.__meetPickedDay;
+        const dStr = window.__meetPickedDay;
         if (!dStr) return { from: fmt(now), to: fmt(now), label: 'Today' };
-        const d = new Date(dStr);
-        d.setHours(0,0,0,0);
+        const d = new Date(dStr); d.setHours(0,0,0,0);
         return { from: fmt(d), to: fmt(d), label: d.toISOString().slice(0,10) };
       }
-      default:          { const s=new Date(now); s.setDate(s.getDate()-29); return {from:fmt(s), to:fmt(now), label:'Trailing 30 days'}; }
+      default: { const s=new Date(now); s.setDate(s.getDate()-29); return {from:fmt(s), to:fmt(now), label:'Trailing 30 days'}; }
     }
   }
 </script>
@@ -594,11 +593,9 @@
           if (!e.target.value) return;
           window.__meetPickedDay = e.target.value + 'T00:00:00';
           await runFor('customday');
-          // show the picked date in the header meta
-          const lab1 = document.getElementById('rangeLabel');
-          if (lab1) lab1.textContent = `(${e.target.value})`;
-          const lab2 = document.getElementById('tfLabel');
-          if (lab2) lab2.textContent = `${e.target.value} → ${e.target.value}`;
+          // show the picked date in the UI
+          const r = document.getElementById('rangeLabel'); if (r) r.textContent = `(${e.target.value})`;
+          const t = document.getElementById('tfLabel');    if (t) t.textContent = `${e.target.value} → ${e.target.value}`;
         });
       }
     await runForActivePeriod();
