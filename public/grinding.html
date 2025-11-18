@@ -6,23 +6,18 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <style>
     :root{
-      --pri-blue:#25408F;
-      --pri-green:#0AAC00; /* keep grinding header green */
-      --bg:#E9F2EA;
-      --card:#FBFCFE;
-      --ink:#0F172A;
-      --muted:#475569;
-      --border:#D7EEDD;
+      --pri-blue:#25408F; --pri-green:#92D050;
+      --bg:#E9EDF5; --card:#FBFCFE; --ink:#0F172A; --muted:#475569; --border:#D7E0F3;
       --good-bg:#dcfce7;  --good-fg:#10B981;
       --warn-bg:#fef9c3;  --warn-fg:#7c5e10;
       --bad-bg:#fee2e2;   --bad-fg:#7f1d1d;
-      --shadow:0 10px 25px rgba(0,0,0,.06);
+      --shadow: 0 10px 25px rgba(0,0,0,.08);
       --chip:#f7fafc;
 
-      /* sizing to align with Pulse styles */
-      --tile-head-fs: 30px;
-      --rank-fs: 20px;
-      --status-fs: 20px;
+      /* sizing */
+      --tile-head-fs: 30px;    /* ⬆ from 26px */
+      --rank-fs: 20px;         /* ⬆ from 18px */
+      --status-fs: 20px;       /* ⬆ from 18px */
     }
     *{box-sizing:border-box}
     body{
@@ -112,7 +107,7 @@
   <div id="loading"><div class="spinner" aria-hidden></div></div>
 
   <div class="top-border">
-    <img src="img/pri-logo-white.png" alt="PRI Logo" class="logo" />
+    <img src="img/pri-logo.png" alt="PRI Logo" class="logo" />
     <div class="top-title">PRI Pulse – Grinding <span id="periodBadge" style="font-size:14px;font-weight:700;margin-left:10px;color:#0A2A12;opacity:.95"></span></div>
     <div class="tabs">
       <a class="tab" href="index.html">Work Orders</a>
