@@ -1,4 +1,4 @@
-<!doctype html>
+<!doctype html> 
 <html lang="en">
 <head>
   <meta charset="utf-8" />
@@ -68,7 +68,8 @@
     .capright{font-size:14px;color:var(--muted);font-weight:900;text-align:right}
     .matBadge{font-size:14px;padding:6px 8px;border-radius:999px;background:#f1f7f2;border:1px solid #d6efdd;color:#065f2a;font-weight:900;margin-left:8px}
 
-    .metricrow{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:10px}
+    /* updated to 6 columns to include Missed 8h */
+    .metricrow{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-top:10px}
     .mitem{background:#f7fafc;border:1px solid var(--border);border-radius:10px;padding:10px;min-width:0}
     .mitem .label{font-size:12px;color:var(--muted);font-weight:800}
     .mitem .mkv{font-size:20px;font-weight:900}
@@ -214,6 +215,7 @@
                   <th>Avail %</th>
                   <th>Pounds</th>
                   <th>Under-Perf Gap (lb)</th>
+                  <th>Missed Opp, 8 Hr</th>
                   <th>Missed Opp, 24 Hr</th>
                 </tr>
               </thead>
@@ -457,11 +459,16 @@
 
         const grindDowntime = Math.max(0, plannedH - runtimeH - (maint || 0));
 
+        // Under-performance gap = cap * runtime - actual (what we lose because performance < cap during measured runtime)
         const capPotentialDuringRuntime = a.cap > 0 ? (a.cap * runtimeH) : 0;
         const underPerfGap = Math.max(0, Math.round(capPotentialDuringRuntime - Number(a.lbs)));
 
+        // Missed Opp overall = cap * plannedH - actual (i.e. if machine ran 24h for all days)
         const plannedPotential = a.cap > 0 ? (a.cap * plannedH) : 0;
         const plannedMissed = Math.max(0, Math.round(plannedPotential - Number(a.lbs)));
+
+        // Missed 8 hour is simply 24hr value divided by 3 (rounded)
+        const plannedMissed8 = Math.max(0, Math.round(plannedMissed / 3));
 
         let perfAdj = 0;
         if(a.cap > 0 && runtimeH > 0) perfAdj = Number(a.lbs) / (runtimeH * Number(a.cap));
@@ -469,7 +476,7 @@
 
         const avail = plannedH > 0 ? (runtimeH / plannedH) : 0;
 
-        return {...a, plannedH, runtimeH, maint, grindDowntime, perfAdj, oee: (runtimeH>0 ? (runtimeH/plannedH) * perfAdj : 0), capPotential: capPotentialDuringRuntime, missed: underPerfGap, plannedPotential, plannedMissed, dominantMaterial: domMat, avail};
+        return {...a, plannedH, runtimeH, maint, grindDowntime, perfAdj, oee: (runtimeH>0 ? (runtimeH/plannedH) * perfAdj : 0), capPotential: capPotentialDuringRuntime, missed: underPerfGap, plannedPotential, plannedMissed, plannedMissed8, dominantMaterial: domMat, avail};
       });
 
       const totals = perLine.reduce((s,x)=>{
@@ -479,11 +486,12 @@
         s.planned += x.plannedH;
         s.underPerf += x.missed || 0;
         s.plannedMissed += x.plannedMissed || 0;
+        s.plannedMissed8 += x.plannedMissed8 || 0;
         s.caps += (x.cap || 0);
         s.prod += (x.prod || 0);
         s.count++;
         return s;
-      }, {lbs:0,maint:0,runtime:0,planned:0,underPerf:0,plannedMissed:0,caps:0,prod:0,count:0});
+      }, {lbs:0,maint:0,runtime:0,planned:0,underPerf:0,plannedMissed:0,plannedMissed8:0,caps:0,prod:0,count:0});
 
       const overallAvail = totals.planned>0 ? (totals.runtime / totals.planned) : 0;
       const avgCap = totals.count ? (totals.caps / totals.count) : 0;
@@ -555,7 +563,8 @@
         const m3 = document.createElement('div'); m3.className='mitem'; m3.innerHTML = '<div class="label">Runtime h</div><div class="mkv">'+fmtH(l.runtimeH)+'</div>';
         const m4 = document.createElement('div'); m4.className='mitem'; m4.innerHTML = '<div class="label">Availability</div><div class="mkv" data-avail="'+l.avail+'">'+fmtPct(l.avail)+'</div>';
         const m5 = document.createElement('div'); m5.className='mitem'; m5.innerHTML = '<div class="label">Perf Adj</div><div class="mkv" data-perf="'+l.perfAdj+'">'+fmtPct(l.perfAdj)+'</div>';
-        metricRow.appendChild(m1); metricRow.appendChild(m2); metricRow.appendChild(m3); metricRow.appendChild(m4); metricRow.appendChild(m5);
+        const m6 = document.createElement('div'); m6.className='mitem'; m6.innerHTML = '<div class="label">Missed 8h</div><div class="mkv">'+fmtNum(l.plannedMissed8 || 0)+'</div>';
+        metricRow.appendChild(m1); metricRow.appendChild(m2); metricRow.appendChild(m3); metricRow.appendChild(m4); metricRow.appendChild(m5); metricRow.appendChild(m6);
         div.appendChild(metricRow);
 
         linesGrid.appendChild(div);
@@ -576,8 +585,9 @@
         const tdAvail = document.createElement('td'); tdAvail.className='center'; tdAvail.textContent = fmtPct(r.avail);
         const tdLbs = document.createElement('td'); tdLbs.className='center'; tdLbs.textContent = fmtNum(r.lbs);
         const tdUnder = document.createElement('td'); tdUnder.className='center'; tdUnder.textContent = fmtNum(r.missed || 0);
+        const tdMiss8 = document.createElement('td'); tdMiss8.className='center'; tdMiss8.textContent = fmtNum(r.plannedMissed8 || 0);
         const tdPlannedMiss = document.createElement('td'); tdPlannedMiss.className='center'; tdPlannedMiss.textContent = fmtNum(r.plannedMissed || 0);
-        tr.appendChild(tdName); tr.appendChild(tdPerf); tr.appendChild(tdAvail); tr.appendChild(tdLbs); tr.appendChild(tdUnder); tr.appendChild(tdPlannedMiss);
+        tr.appendChild(tdName); tr.appendChild(tdPerf); tr.appendChild(tdAvail); tr.appendChild(tdLbs); tr.appendChild(tdUnder); tr.appendChild(tdMiss8); tr.appendChild(tdPlannedMiss);
         tbody.appendChild(tr);
       });
 
@@ -589,8 +599,9 @@
       const t3 = document.createElement('td'); t3.className='center'; t3.textContent = fmtPct(overallAvail);
       const t4 = document.createElement('td'); t4.className='center'; t4.textContent = fmtNum(totals.lbs);
       const t5 = document.createElement('td'); t5.className='center'; t5.textContent = fmtNum(totals.underPerf || 0);
-      const t6 = document.createElement('td'); t6.className='center'; t6.textContent = fmtNum(totals.plannedMissed || 0);
-      totalTr.appendChild(t1); totalTr.appendChild(t2); totalTr.appendChild(t3); totalTr.appendChild(t4); totalTr.appendChild(t5); totalTr.appendChild(t6);
+      const t6 = document.createElement('td'); t6.className='center'; t6.textContent = fmtNum(totals.plannedMissed8 || 0);
+      const t7 = document.createElement('td'); t7.className='center'; t7.textContent = fmtNum(totals.plannedMissed || 0);
+      totalTr.appendChild(t1); totalTr.appendChild(t2); totalTr.appendChild(t3); totalTr.appendChild(t4); totalTr.appendChild(t5); totalTr.appendChild(t6); totalTr.appendChild(t7);
       tbody.appendChild(totalTr);
 
       // Status list
