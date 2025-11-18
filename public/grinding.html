@@ -58,7 +58,6 @@
     .tile .val{font-size:24px;font-weight:900;margin-top:6px}
     .tile .meta{font-size:13px;color:var(--muted);font-weight:800;margin-top:6px}
 
-    /* make range label larger (twice the previous little size) */
     #rangeLabel { font-size:18px; font-weight:900; color:var(--muted); display:inline-block; margin-left:8px; }
 
     .lines{display:grid;grid-auto-rows:minmax(80px,auto);gap:14px}
@@ -208,7 +207,14 @@
           <div class="content">
             <table id="rankTable">
               <thead>
-                <tr><th style="width:30%">Line</th><th>Perf %</th><th>Avail %</th><th>Pounds</th><th>Missed Opp (lb)</th></tr>
+                <tr>
+                  <th style="width:25%">Line</th>
+                  <th>Perf %</th>
+                  <th>Avail %</th>
+                  <th>Pounds</th>
+                  <th>Under-Perf Gap (lb)</th>
+                  <th>Missed Opp (lb)</th>
+                </tr>
               </thead>
               <tbody></tbody>
             </table>
@@ -334,7 +340,6 @@
     const bg = pickColorForPct(pct, 'overall');
     tile.style.background = bg;
     tile.style.borderColor = bg;
-    // if green or yellow use dark text, otherwise white
     const darkBgHexes = [COLOR_CONFIG.overall.hex.good, COLOR_CONFIG.overall.hex.warn];
     const useDarkText = darkBgHexes.indexOf(bg) !== -1;
     const textColor = useDarkText ? '#0b1722' : '#ffffff';
@@ -349,7 +354,6 @@
     if(!mitemEl) return;
     mitemEl.style.background = color;
     mitemEl.style.borderColor = color;
-    // use dark text for green/yellow tiles (same rule)
     const darkBgHexes = [COLOR_CONFIG.lineHealth.hex.good, COLOR_CONFIG.lineHealth.hex.warn];
     const useDarkText = darkBgHexes.indexOf(color) !== -1;
     mitemEl.style.color = useDarkText ? '#0b1722' : '#ffffff';
@@ -455,16 +459,21 @@
 
         const grindDowntime = Math.max(0, plannedH - runtimeH - (maint || 0));
 
+        // Under-performance gap = cap * runtime - actual (what we lose because performance < cap during measured runtime)
+        const capPotentialDuringRuntime = a.cap > 0 ? (a.cap * runtimeH) : 0;
+        const underPerfGap = Math.max(0, Math.round(capPotentialDuringRuntime - Number(a.lbs)));
+
+        // Missed Opp overall = cap * plannedH - actual (i.e. if machine ran 24h for all days)
+        const plannedPotential = a.cap > 0 ? (a.cap * plannedH) : 0;
+        const plannedMissed = Math.max(0, Math.round(plannedPotential - Number(a.lbs)));
+
         let perfAdj = 0;
         if(a.cap > 0 && runtimeH > 0) perfAdj = Number(a.lbs) / (runtimeH * Number(a.cap));
         perfAdj = Math.max(0, Math.min(perfAdj, 10));
 
-        const capPotential = a.cap > 0 ? (a.cap * runtimeH) : 0;
-        const missed = Math.max(0, Math.round(capPotential - Number(a.lbs)));
-
         const avail = plannedH > 0 ? (runtimeH / plannedH) : 0;
 
-        return {...a, plannedH, runtimeH, maint, grindDowntime, perfAdj, oee: (runtimeH>0 ? (runtimeH/plannedH) * perfAdj : 0), capPotential, missed, dominantMaterial: domMat, avail};
+        return {...a, plannedH, runtimeH, maint, grindDowntime, perfAdj, oee: (runtimeH>0 ? (runtimeH/plannedH) * perfAdj : 0), capPotential: capPotentialDuringRuntime, missed: underPerfGap, plannedPotential, plannedMissed, dominantMaterial: domMat, avail};
       });
 
       const totals = perLine.reduce((s,x)=>{
@@ -472,12 +481,13 @@
         s.maint += (x.maint || 0);
         s.runtime += (x.runtimeH || 0);
         s.planned += x.plannedH;
-        s.missed += x.missed || 0;
+        s.underPerf += x.missed || 0;
+        s.plannedMissed += x.plannedMissed || 0;
         s.caps += (x.cap || 0);
         s.prod += (x.prod || 0);
         s.count++;
         return s;
-      }, {lbs:0,maint:0,runtime:0,planned:0,missed:0,caps:0,prod:0,count:0});
+      }, {lbs:0,maint:0,runtime:0,planned:0,underPerf:0,plannedMissed:0,caps:0,prod:0,count:0});
 
       const overallAvail = totals.planned>0 ? (totals.runtime / totals.planned) : 0;
       const avgCap = totals.count ? (totals.caps / totals.count) : 0;
@@ -573,20 +583,22 @@
         const tdPerf = document.createElement('td'); tdPerf.className='center'; tdPerf.textContent = fmtPct(r.perfAdj);
         const tdAvail = document.createElement('td'); tdAvail.className='center'; tdAvail.textContent = fmtPct(r.avail);
         const tdLbs = document.createElement('td'); tdLbs.className='center'; tdLbs.textContent = fmtNum(r.lbs);
-        const tdMiss = document.createElement('td'); tdMiss.className='center'; tdMiss.textContent = fmtNum(r.missed);
-        tr.appendChild(tdName); tr.appendChild(tdPerf); tr.appendChild(tdAvail); tr.appendChild(tdLbs); tr.appendChild(tdMiss);
+        const tdUnder = document.createElement('td'); tdUnder.className='center'; tdUnder.textContent = fmtNum(r.missed || 0);
+        const tdPlannedMiss = document.createElement('td'); tdPlannedMiss.className='center'; tdPlannedMiss.textContent = fmtNum(r.plannedMissed || 0);
+        tr.appendChild(tdName); tr.appendChild(tdPerf); tr.appendChild(tdAvail); tr.appendChild(tdLbs); tr.appendChild(tdUnder); tr.appendChild(tdPlannedMiss);
         tbody.appendChild(tr);
       });
 
-      // totals
+      // totals row
       const totalTr = document.createElement('tr'); totalTr.style.fontWeight='900';
       const t1 = document.createElement('td'); t1.className='left'; t1.textContent = 'TOTAL';
       const avgPerf = perLine.length ? perLine.reduce((s,x)=>s + (x.perfAdj||0),0) / Math.max(1, perLine.length) : 0;
       const t2 = document.createElement('td'); t2.className='center'; t2.textContent = fmtPct(avgPerf);
       const t3 = document.createElement('td'); t3.className='center'; t3.textContent = fmtPct(overallAvail);
       const t4 = document.createElement('td'); t4.className='center'; t4.textContent = fmtNum(totals.lbs);
-      const t5 = document.createElement('td'); t5.className='center'; t5.textContent = fmtNum(totals.missed);
-      totalTr.appendChild(t1); totalTr.appendChild(t2); totalTr.appendChild(t3); totalTr.appendChild(t4); totalTr.appendChild(t5);
+      const t5 = document.createElement('td'); t5.className='center'; t5.textContent = fmtNum(totals.underPerf || 0);
+      const t6 = document.createElement('td'); t6.className='center'; t6.textContent = fmtNum(totals.plannedMissed || 0);
+      totalTr.appendChild(t1); totalTr.appendChild(t2); totalTr.appendChild(t3); totalTr.appendChild(t4); totalTr.appendChild(t5); totalTr.appendChild(t6);
       tbody.appendChild(totalTr);
 
       // Live status: name left, status + bullet right
@@ -639,18 +651,14 @@
 
   setInterval(()=>{ const c=$('#clock'); if(c) c.textContent = new Date().toLocaleTimeString(); },1000);
 
-  // initial render + auto-refresh every 10 minutes
   renderGrinding();
   setInterval(() => { renderGrinding(); }, 10 * 60 * 1000);
-
-  // hard reload page every 1 hour to refresh static assets
   setInterval(() => { try { location.reload(true); } catch(e) { location.reload(); } }, 60 * 60 * 1000);
 
   document.addEventListener('DOMContentLoaded', () => {
     $$('.segBig button').forEach(b => b.classList.toggle('active', b.dataset.period === STATE.period));
   });
 
-  // asset statuses loader (unchanged)
   async function loadAssetStatusCandidates(){
     const candidates = [ENDPOINTS.PRODSTATUS, ENDPOINTS.LIMBLE_ASSETFIELDS, ENDPOINTS.LIMBLE_KPIASSET, ENDPOINTS.ASSETS_FIELDS];
     for(const url of candidates){
