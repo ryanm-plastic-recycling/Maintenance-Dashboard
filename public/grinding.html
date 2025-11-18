@@ -404,7 +404,7 @@
         if(Array.isArray(lp)){
           lp.forEach(it=>{
             const name = machineNameFromRow(it) || machineNameFromRow(it.raw || it);
-            const m = Number(it.maintenance_hours ?? it.maint_hours ?? it.maint_h || 0) || 0;
+            const m = Number(it.maintenance_hours ?? it.maint_hours ?? it.maint_h || 0);
             if(name){
               const c = canonGrinding(name);
               limbleMaintMap[c] = (limbleMaintMap[c] || 0) + m;
