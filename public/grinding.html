@@ -64,15 +64,17 @@
     .line:hover{transform:translateY(-4px)}
     .lineheader{display:flex;justify-content:space-between;align-items:center}
     .linename{font-weight:900;font-size:20px}
-    .capright{font-size:13px;color:var(--muted);font-weight:900}
-    .matBadge{font-size:12px;padding:6px 8px;border-radius:999px;background:#f1f7f2;border:1px solid #d6efdd;color:#065f2a;font-weight:900;margin-left:8px}
+    .capright{font-size:16px;color:var(--muted);font-weight:900}
+    .matBadge{font-size:14px;padding:6px 8px;border-radius:999px;background:#f1f7f2;border:1px solid #d6efdd;color:#065f2a;font-weight:900;margin-left:8px}
 
-    .metricrow{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:10px}
+    /* metric row — now 5 columns in requested order */
+    .metricrow{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:10px}
     .mitem{background:#f7fafc;border:1px solid var(--border);border-radius:10px;padding:10px;min-width:0}
     .mitem .label{font-size:12px;color:var(--muted);font-weight:800}
     .mitem .mkv{font-size:20px;font-weight:900}
 
-    #grindStatusList > div{margin-bottom:8px;padding:12px 14px;border-radius:12px;border:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;font-size:18px;background:#fff;font-weight:900;box-shadow:0 6px 18px rgba(9,30,66,.04)}
+    /* Live status list. make font sizes match header style and place status on the right */
+    #grindStatusList > div{margin-bottom:8px;padding:12px 14px;border-radius:12px;border:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;font-size:20px;background:#fff;font-weight:900;box-shadow:0 6px 18px rgba(9,30,66,.04)}
     #rankTable{width:100%;border-collapse:collapse;font-size:14px;table-layout:fixed}
     #rankTable th,#rankTable td{padding:10px;border-bottom:1px dashed var(--border)}
     #rankTable th{text-align:center;color:var(--muted);font-weight:900}
@@ -553,16 +555,17 @@
               <div class="linename">${l.name}</div>
               <div class="matBadge">${domMat}</div>
               <div class="capright" style="margin-left:8px">${capText}</div>
+              <div class="capright" style="margin-left:8px">${fmtNum(l.lbs)} lb</div>
             </div>
-            <div class="capright" style="font-size:18px">${Math.round((l.perfAdj||0)*100)}%</div>
           </div>
+          <div style="margin-top:8px;font-size:14px;color:var(--muted)"><strong>Grinding downtime:</strong> ${fmtH(l.prod)} h</div>
           <div class="metricrow">
+            <div class="mitem"><div class="label">Maint h</div><div class="mkv">${fmtH(l.maint)}</div></div>
+            <div class="mitem"><div class="label">Grind DT h</div><div class="mkv">${fmtH(l.prod)}</div></div>
+            <div class="mitem"><div class="label">Runtime h</div><div class="mkv">${fmtH(l.runtimeH)}</div></div>
             <div class="mitem"><div class="label">Availability</div><div class="mkv" data-avail="${l.avail}">${fmtPct(l.avail)}</div></div>
             <div class="mitem"><div class="label">Perf Adj</div><div class="mkv" data-perf="${l.perfAdj}">${fmtPct(l.perfAdj)}</div></div>
-            <div class="mitem"><div class="label">Runtime h</div><div class="mkv">${fmtH(l.runtimeH)}</div></div>
-            <div class="mitem"><div class="label">Maint h</div><div class="mkv">${fmtH(l.maint)} / ${fmtH(l.prod)}</div></div>
           </div>
-          <div style="margin-top:10px;font-size:13px;color:var(--muted)">Grinding downtime: <strong>${fmtH(l.prod)} h</strong> • ${fmtNum(l.lbs)} lb</div>
         `;
         linesGrid.appendChild(div);
 
@@ -588,6 +591,11 @@
         tbody.appendChild(tr);
       });
 
+      // append TOTAL row
+      const totalTr = document.createElement('tr');
+      totalTr.innerHTML = `<td class="left"><strong>TOTAL</strong></td><td class="center">${fmtPct(overallPerfAdj)}</td><td class="center">${fmtPct(overallAvail)}</td><td class="center">${fmtNum(totals.lbs)}</td><td class="center">${fmtNum(totals.missed)}</td>`;
+      tbody.appendChild(totalTr);
+
       // Live status: choose only green/yellow per your request
       const statusEl = $('#grindStatusList'); statusEl.innerHTML = '';
       const statuses = assetStatusCandidate?.rows || [];
@@ -603,8 +611,15 @@
           const isAvailable = stLower.includes('avail') || stLower.includes('available') || stLower.includes('ready') || stLower.includes('in production');
           const color = isAvailable ? COLOR_CONFIG.status.available : COLOR_CONFIG.status.other;
           const bullet = `<span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${color};margin-right:10px;vertical-align:middle"></span>`;
-          row.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center"><div style="display:flex;align-items:center;font-size:18px"><span>${bullet}</span><strong>${label}</strong></div><div style="font-size:15px;color:var(--muted);font-weight:800">${st}</div></div>`;
-          statusEl.appendChild(row);
+          // left (name + bullet) and right (status) — status on the right side
+          row.innerHTML = `<div style="display:flex;align-items:center;font-size:20px"><span>${bullet}</span><strong style="font-size:20px">${label}</strong></div><div style="font-size:20px;color:var(--muted);font-weight:800">${st}</div>`;
+          // wrap to match the container flex (container CSS already handles space-between)
+          const wrapper = document.createElement('div');
+          wrapper.style.display = 'flex';
+          wrapper.style.justifyContent = 'space-between';
+          wrapper.style.alignItems = 'center';
+          wrapper.innerHTML = row.innerHTML;
+          statusEl.appendChild(wrapper);
         });
       }
 
