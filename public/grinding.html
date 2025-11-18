@@ -215,6 +215,7 @@
                   <th>Avail %</th>
                   <th>Pounds</th>
                   <th>Under-Perf Gap (lb)</th>
+                  <th>Missed Opp, 8 Hr</th>
                   <th>Missed Opp, 24 Hr</th>
                 </tr>
               </thead>
@@ -469,13 +470,16 @@
         const plannedPotential = a.cap > 0 ? (a.cap * plannedH) : 0;
         const plannedMissed = Math.max(0, Math.round(plannedPotential - Number(a.lbs)));
 
+        // New: Missed Opp, 8hr is just the 24hr missed divided by 3 (one 8hr shift)
+        const plannedMissed8 = Math.max(0, Math.round(plannedMissed / 3));
+
         let perfAdj = 0;
         if(a.cap > 0 && runtimeH > 0) perfAdj = Number(a.lbs) / (runtimeH * Number(a.cap));
         perfAdj = Math.max(0, Math.min(perfAdj, 10));
 
         const avail = plannedH > 0 ? (runtimeH / plannedH) : 0;
 
-        return {...a, plannedH, runtimeH, maint, grindDowntime, perfAdj, oee: (runtimeH>0 ? (runtimeH/plannedH) * perfAdj : 0), capPotential: capPotentialDuringRuntime, missed: underPerfGap, plannedPotential, plannedMissed, dominantMaterial: domMat, avail};
+        return {...a, plannedH, runtimeH, maint, grindDowntime, perfAdj, oee: (runtimeH>0 ? (runtimeH/plannedH) * perfAdj : 0), capPotential: capPotentialDuringRuntime, missed: underPerfGap, plannedPotential, plannedMissed, plannedMissed8, dominantMaterial: domMat, avail};
       });
 
       const totals = perLine.reduce((s,x)=>{
@@ -485,11 +489,12 @@
         s.planned += x.plannedH;
         s.underPerf += x.missed || 0;
         s.plannedMissed += x.plannedMissed || 0;
+        s.plannedMissed8 += x.plannedMissed8 || Math.round((x.plannedMissed||0)/3);
         s.caps += (x.cap || 0);
         s.prod += (x.prod || 0);
         s.count++;
         return s;
-      }, {lbs:0,maint:0,runtime:0,planned:0,underPerf:0,plannedMissed:0,caps:0,prod:0,count:0});
+      }, {lbs:0,maint:0,runtime:0,planned:0,underPerf:0,plannedMissed:0,plannedMissed8:0,caps:0,prod:0,count:0});
 
       const overallAvail = totals.planned>0 ? (totals.runtime / totals.planned) : 0;
       const avgCap = totals.count ? (totals.caps / totals.count) : 0;
@@ -622,8 +627,9 @@
         const tdAvail = document.createElement('td'); tdAvail.className='center'; tdAvail.textContent = fmtPct(r.avail);
         const tdLbs = document.createElement('td'); tdLbs.className='center'; tdLbs.textContent = fmtNum(r.lbs);
         const tdUnder = document.createElement('td'); tdUnder.className='center'; tdUnder.textContent = fmtNum(r.missed || 0);
+        const tdMiss8 = document.createElement('td'); tdMiss8.className='center'; tdMiss8.textContent = fmtNum(r.plannedMissed8 || Math.round((r.plannedMissed||0)/3));
         const tdPlannedMiss = document.createElement('td'); tdPlannedMiss.className='center'; tdPlannedMiss.textContent = fmtNum(r.plannedMissed || 0);
-        tr.appendChild(tdName); tr.appendChild(tdPerf); tr.appendChild(tdAvail); tr.appendChild(tdLbs); tr.appendChild(tdUnder); tr.appendChild(tdPlannedMiss);
+        tr.appendChild(tdName); tr.appendChild(tdPerf); tr.appendChild(tdAvail); tr.appendChild(tdLbs); tr.appendChild(tdUnder); tr.appendChild(tdMiss8); tr.appendChild(tdPlannedMiss);
         tbody.appendChild(tr);
       });
 
@@ -635,8 +641,9 @@
       const t3 = document.createElement('td'); t3.className='center'; t3.textContent = fmtPct(overallAvail);
       const t4 = document.createElement('td'); t4.className='center'; t4.textContent = fmtNum(totals.lbs);
       const t5 = document.createElement('td'); t5.className='center'; t5.textContent = fmtNum(totals.underPerf || 0);
-      const t6 = document.createElement('td'); t6.className='center'; t6.textContent = fmtNum(totals.plannedMissed || 0);
-      totalTr.appendChild(t1); totalTr.appendChild(t2); totalTr.appendChild(t3); totalTr.appendChild(t4); totalTr.appendChild(t5); totalTr.appendChild(t6);
+      const t6 = document.createElement('td'); t6.className='center'; t6.textContent = fmtNum(totals.plannedMissed8 || Math.round((totals.plannedMissed||0)/3));
+      const t7 = document.createElement('td'); t7.className='center'; t7.textContent = fmtNum(totals.plannedMissed || 0);
+      totalTr.appendChild(t1); totalTr.appendChild(t2); totalTr.appendChild(t3); totalTr.appendChild(t4); totalTr.appendChild(t5); totalTr.appendChild(t6); totalTr.appendChild(t7);
       tbody.appendChild(totalTr);
 
       // Live status: name left, status + bullet right
