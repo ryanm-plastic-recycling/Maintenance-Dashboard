@@ -6,62 +6,106 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <style>
     :root{
-      --pri-green:#0AAC00; /* pulse header color */
+      --pri-blue:#25408F;
+      --pri-green:#0AAC00; /* keep grinding header green */
       --bg:#E9F2EA;
       --card:#FBFCFE;
-      --border:#D7EEDD;
+      --ink:#0F172A;
       --muted:#475569;
+      --border:#D7EEDD;
+      --good-bg:#dcfce7;  --good-fg:#10B981;
+      --warn-bg:#fef9c3;  --warn-fg:#7c5e10;
+      --bad-bg:#fee2e2;   --bad-fg:#7f1d1d;
       --shadow:0 10px 25px rgba(0,0,0,.06);
+      --chip:#f7fafc;
+
+      /* sizing to align with Pulse styles */
+      --tile-head-fs: 30px;
+      --rank-fs: 20px;
+      --status-fs: 20px;
     }
     *{box-sizing:border-box}
-    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial,sans-serif;background:var(--bg);color:#0F172A}
+    body{
+      margin:0;
+      background:var(--bg);
+      color:var(--ink);
+      font-family:system-ui,-apple-system,"Segoe UI",Roboto,Ubuntu,"Helvetica Neue",Arial,sans-serif;
+      font-weight:800;
+      font-size:18px;
+    }
     .page-production::before{
       content:"";position:fixed;inset:0;z-index:-1;
-      background:linear-gradient(to bottom, rgba(255,255,255,.75), rgba(255,255,255,.85)), url('img/PRIfront.png') center/cover no-repeat fixed;
+      background:
+        linear-gradient(to bottom, rgba(255,255,255,.75), rgba(255,255,255,.85)),
+        url('img/PRIfront.png') center/cover no-repeat fixed;
     }
+
     /* header (match pulse) */
     .top-border{position:fixed;top:0;left:0;width:100%;height:96px;background:var(--pri-green);z-index:10;display:flex;align-items:center;padding:0 20px}
-    .top-border .logo{height:64px}
-    .top-title{font-size:24px;font-weight:900;margin-left:18px;color:#fff}
+    .top-border .logo{height:72px}
+    .top-title{font-size:32px;font-weight:900;margin-left:20px;color:#0A2A12}
     .tabs{margin-left:auto;display:flex;gap:8px;align-items:center}
-    .tab{background:#ffffffd9;padding:8px 12px;border-radius:10px;color:#0A2A12;text-decoration:none;font-weight:800}
+    .tab{background:#ffffffd9;padding:8px 12px;border-radius:10px;text-decoration:none;color:#0A2A12;font-weight:800}
     .tab.active{background:#fff}
     .wrap{margin:120px 20px 40px 20px}
     .app{max-width:1920px;margin:0 auto}
     .toolbar{display:flex;justify-content:space-between;align-items:center;margin:10px 0 16px;gap:10px;flex-wrap:wrap}
+    .left,.right{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
     .segBig{display:inline-flex;border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--card);box-shadow:var(--shadow)}
-    .segBig button{border:0;background:transparent;padding:8px 12px;font-weight:700;color:var(--muted);cursor:pointer}
-    .segBig button.active{background:var(--pri-green);color:white}
-    .grid{display:grid;grid-template-columns:380px 1fr;gap:16px;align-items:start}
+    .segBig button{border:0;background:transparent;padding:10px 14px;font-weight:900;color:var(--muted);cursor:pointer;font-size:16px}
+    .segBig button.active{background:var(--pri-blue);color:white}
+    .pill{padding:8px 12px;border-radius:999px;background:white;border:1px solid var(--border);color:var(--muted);font-weight:900;font-size:16px}
+
+    #loading{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(255,255,255,.55);z-index:9999}
+    #loading .spinner{width:64px;height:64px;border:8px solid #e5e7eb;border-top-color:var(--pri-blue);border-radius:50%;animation:spin 1s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+
+    .grid{display:grid;grid-template-columns:420px 1fr;gap:16px;align-items:start}
+    @media (max-width: 1000px){ .grid{grid-template-columns:1fr} }
+
     .card{background:var(--card);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow)}
-    .card h3{margin:0;padding:12px 14px;border-bottom:1px solid var(--border);font-size:16px;color:var(--muted)}
-    .content{padding:14px}
+    .card h3{margin:0;padding:12px 14px;border-bottom:1px solid var(--border);font-size:var(--tile-head-fs);letter-spacing:.3px;color:var(--muted);font-weight:900}
+    .card .content{padding:16px}
+
+    .kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:8px}
+    .tile, .kpi{background:var(--card);padding:12px;border-radius:12px;border:1px solid var(--border);text-align:center;min-height:84px;box-shadow:var(--shadow)}
+    .tile .lab,.kpi .label{font-size:14px;text-transform:uppercase;letter-spacing:.3px;color:var(--muted);font-weight:900}
+    .tile .val{font-size:22px;font-weight:900;margin-top:6px}
+    .subtext{font-size:12px;color:var(--muted);margin-top:6px}
+
     .lines{display:grid;grid-auto-rows:minmax(72px,auto);gap:12px}
     .line{border:1px solid var(--border);border-radius:12px;padding:12px;background:white;display:flex;flex-direction:column}
     .lineheader{display:flex;justify-content:space-between;align-items:center}
     .linename{font-weight:900}
     .capright{font-size:12px;color:var(--muted);font-weight:800}
-    .metricrow{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-top:8px}
+
+    .metricrow{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:8px}
     .mitem{background:#f7fafc;border:1px solid var(--border);border-radius:10px;padding:8px;min-width:0}
     .mitem .label{font-size:12px;color:var(--muted);font-weight:800}
     .mitem .mkv{font-size:18px;font-weight:900}
+
     #grindStatusList > div{margin-bottom:8px;padding:8px 10px;border-radius:12px;border:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;font-size:14px;background:#f9fafb;font-weight:800}
     #rankTable{width:100%;border-collapse:collapse;font-size:14px;table-layout:fixed}
     #rankTable th,#rankTable td{padding:10px;border-bottom:1px dashed var(--border)}
     #rankTable th{text-align:center;color:var(--muted);font-weight:900}
     #rankTable td.left{text-align:left}
     #rankTable td.center{text-align:center}
-    .kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:8px}
-    .tile{background:var(--card);padding:12px;border-radius:12px;border:1px solid var(--border);text-align:center;min-height:84px}
-    .tile .lab{font-size:12px;text-transform:uppercase;letter-spacing:.3px;color:#4b5563;font-weight:800}
-    .tile .val{font-size:22px;font-weight:900;margin-top:6px}
-    .subtext{font-size:12px;color:var(--muted);margin-top:6px}
-    #loading{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(255,255,255,.55);z-index:9999}
-    #loading .spinner{width:64px;height:64px;border:8px solid #e5e7eb;border-top-color:var(--pri-green);border-radius:50%;animation:spin 1s linear infinite}
-    @keyframes spin{to{transform:rotate(360deg)}}
-    footer{display:flex;justify-content:space-between;align-items:center;margin-top:12px;color:var(--muted);font-weight:800}
+
+    .donutwrap{display:grid;grid-auto-rows:minmax(120px,auto);row-gap:18px}
+    .donutrow{display:grid;grid-template-columns:320px minmax(320px,1fr);column-gap:20px;align-items:center}
+    .donutrow canvas{width:200px !important;height:200px !important;justify-self:center}
+
+    footer{display:flex;justify-content:space-between;align-items:center;margin-top:12px;color:var(--muted);font-weight:900}
     .clock{font-variant-numeric:tabular-nums;font-weight:900}
-    @media (max-width:1000px){ .grid{grid-template-columns:1fr} }
+
+    /* smaller tweaks for large displays */
+    @media (min-width:2560px){
+      .app{max-width:2560px}
+      .tile .val{font-size:28px}
+      .kpi .value{font-size:46px}
+      #rankTable {font-size: 22px;}
+    }
+
   </style>
 </head>
 <body class="page-production">
@@ -69,7 +113,7 @@
 
   <div class="top-border">
     <img src="img/pri-logo-white.png" alt="PRI Logo" class="logo" />
-    <div class="top-title">PRI Pulse – Grinding <span id="periodBadge" style="font-size:12px;font-weight:700;margin-left:10px;color:#fff;opacity:.95"></span></div>
+    <div class="top-title">PRI Pulse – Grinding <span id="periodBadge" style="font-size:14px;font-weight:700;margin-left:10px;color:#0A2A12;opacity:.95"></span></div>
     <div class="tabs">
       <a class="tab" href="index.html">Work Orders</a>
       <a class="tab" href="prodstatus.html">Prod Status</a>
@@ -85,7 +129,7 @@
   <div class="wrap">
     <div class="app">
       <div class="toolbar">
-        <div>
+        <div class="left">
           <div class="segBig" id="tfButtons" role="tablist" aria-label="Timeframe">
             <button data-period="today" class="active">Today</button>
             <button data-period="yesterday">Yesterday</button>
@@ -95,13 +139,16 @@
             <button data-period="lastmonth">Last Month</button>
             <button data-period="r7">Rolling 7d</button>
             <button data-period="r30">Rolling 30d</button>
-            <!-- preserved the simple options; date-picker omitted intentionally (server-side) -->
           </div>
+          <span class="pill" style="font-size:14px">Grinding Lines Only</span>
         </div>
-        <div><span style="background:#fff;padding:8px 10px;border-radius:10px;border:1px solid var(--border);font-weight:800">Grinding Lines Only</span></div>
+        <div class="right">
+          <span class="pill" style="font-size:14px">Auto-refresh: <strong id="refreshSec">600s</strong></span>
+          <span class="pill" style="font-size:14px">Press <strong>F</strong> for Fullscreen</span>
+        </div>
       </div>
 
-      <!-- Overall KPIs — changed to 2 tiles -->
+      <!-- Overall KPIs -->
       <section class="card" style="margin-bottom:16px">
         <h3>Grinding – Overall KPIs</h3>
         <div class="content">
@@ -214,7 +261,7 @@
 
   /* mappings loader */
   let MAPPINGS = null;
-  async function loadMappings(){ if(MAPPINGS) return MAPPINGS; const j = await fetchJSON(ENDPOINTS.MAP); MAPPINGS = j || {}; return MAPPINGS; }
+  async function loadMappings(){ if(MAPPINGS) return MAPPINGS; try { const j = await fetchJSON(ENDPOINTS.MAP); MAPPINGS = j || {}; } catch(e){ MAPPINGS = {}; } return MAPPINGS; }
   function capacityFor(lineName, material){
     const caps = MAPPINGS?.capacities_lbs_hr || {}, byMat = MAPPINGS?.capacity_by_material_lbs_hr || {}, alias = MAPPINGS?.capacity_aliases || {}, malias = MAPPINGS?.material_aliases || {};
     const canon = (caps[lineName] !== undefined || byMat[lineName]) ? lineName : (alias[lineName] || lineName);
@@ -237,7 +284,7 @@
   function canonGrinding(n){ return GRIND_ALIAS_REV.get(String(n||'').trim()) || String(n||'').trim(); }
   function isGrindingMachine(n){ return GRIND_CANON_SET.has(canonGrinding(n)); }
 
-  /* simple donut */
+  /* simple donut (percent style) */
   function drawDonut(canvas, pct, colorMain='#16a34a', colorOther='#e5e7eb'){
     if(!canvas) return;
     const ctx = canvas.getContext('2d'), w=canvas.width, h=canvas.height;
@@ -258,8 +305,7 @@
       if(!payload) { console.debug('no payload from',url); continue; }
       // try to find array in payload
       let arr = Array.isArray(payload) ? payload : (Array.isArray(payload.rows) ? payload.rows : (Array.isArray(payload.items) ? payload.items : []));
-      if(!arr || !arr.length){ // sometimes wrapped in object properties or string
-        // attempt common wrappers
+      if(!arr || !arr.length){
         if(typeof payload==='object'){
           const props = Object.keys(payload);
           for(const p of props){
@@ -271,19 +317,14 @@
         }
       }
       if(!arr || !arr.length){ console.debug('no array discovered at',url); continue; }
-      // try to normalize: attempt to extract name and status fields
       const normalized = arr.map(it => {
-        // try deep paths commonly used
         const get = k => (it && (it[k]!==undefined)) ? it[k] : null;
-        // search for property containing 'asset' or 'name'
         let name = it.assetName || it.name || it.AssetName || it.machine || it.asset || (it.asset && (it.asset.name || it.assetName)) || '';
         if(!name && typeof it === 'string') name = it;
         let status = it.assetStatus ?? it.status ?? it.value ?? it.state ?? it.fieldValue ?? '';
-        // if status object
         if(status && typeof status === 'object'){ status = status.text ?? status.name ?? status.value ?? JSON.stringify(status); }
         return { source:url, raw:it, name: String(name||'').trim(), status: String(status||'').trim() };
       });
-      // keep only grinding assets present
       const filtered = normalized.filter(n => n.name && isGrindingMachine(n.name));
       if(filtered.length>0){
         console.log('live status payload succeeded at',url, 'count', filtered.length);
@@ -411,7 +452,6 @@
       const linesGrid = $('#linesGrid'); linesGrid.innerHTML = '';
       perLine.sort((a,b)=> (b.perfAdj||0) - (a.perfAdj||0)).forEach(l=>{
         const div = document.createElement('div'); div.className='line';
-        const cls = (l.perfAdj>=THRESH.performance.good ? 'good' : l.perfAdj>=THRESH.performance.warn ? 'warn' : 'bad');
         const capText = (l.cap && l.cap>0) ? `${fmtNum(l.cap)} lbs/hr` : 'cap unknown';
         div.innerHTML = `
           <div class="lineheader">
@@ -437,7 +477,6 @@
       const maintCatsMap = {};
       const maintModesMap = {};
       (rawRows||[]).forEach(r=>{
-        // attempt to read reason/category/mode fields commonly found
         const rReason = r.reason || r.downtimeReason || r.dt_reason || r.DowntimeReason || '';
         const rCat = r.maintenanceCategory || r.category || r.maint_category || '';
         const rMode = r.failureMode || r.mode || r.failure_mode || '';
@@ -471,7 +510,6 @@
         statuses.forEach(S => {
           const row = document.createElement('div');
           const label = canonGrinding(S.name);
-          // determine status text: use S.raw fields if available
           const st = S.status || (S.raw && (S.raw.assetStatus || S.raw.status || S.raw.value || '')) || 'Available';
           row.innerHTML = `<span><strong>${label}</strong></span><span style="font-size:12px;color:var(--muted);font-weight:700">${st}</span>`;
           statusEl.appendChild(row);
@@ -484,9 +522,18 @@
     }
   }
 
+  // wire timeframe buttons
   $$('.segBig button').forEach(btn => btn.addEventListener('click', () => {
     if(btn.dataset.period && btn.dataset.period !== STATE.period){ STATE.period = btn.dataset.period; renderGrinding(); }
   }));
+
+  // fullscreen hotkey
+  document.addEventListener('keydown', (e)=>{
+    if (e.key.toLowerCase()==='f') {
+      if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(()=>{});
+      else document.exitFullscreen().catch(()=>{});
+    }
+  });
 
   // clock
   setInterval(()=>{ const c=$('#clock'); if(c) c.textContent = new Date().toLocaleTimeString(); },1000);
@@ -494,6 +541,16 @@
   // initial
   renderGrinding();
 
+  // keep a moderate auto-refresh (10m like Pulse)
+  setInterval(() => {
+    renderGrinding();
+  }, 10 * 60 * 1000);
+
+  // helper: clicking period buttons will update UI active class when done externally
+  document.addEventListener('DOMContentLoaded', () => {
+    // ensure tfButtons initial active state matches STATE.period
+    $$('.segBig button').forEach(b => b.classList.toggle('active', b.dataset.period === STATE.period));
+  });
 </script>
 </body>
 </html>
