@@ -1,26 +1,28 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <title>PRI Pulse – Grinding</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-
   <style>
     :root{
-      --pri-blue:#25408F; --bg:#E9EDF5; --card:#FBFCFE; --border:#D7E0F3; --muted:#475569;
-      --good-bg:#dcfce7; --good-fg:#065f46; --warn-bg:#fef9c3; --warn-fg:#7c5e10; --bad-bg:#fee2e2; --bad-fg:#7f1d1d;
-      --shadow:0 10px 25px rgba(0,0,0,.08);
+      --pri-green:#0AAC00; /* pulse header color */
+      --bg:#E9F2EA;
+      --card:#FBFCFE;
+      --border:#D7EEDD;
+      --muted:#475569;
+      --shadow:0 10px 25px rgba(0,0,0,.06);
     }
     *{box-sizing:border-box}
     body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial,sans-serif;background:var(--bg);color:#0F172A}
-    /* top-border header (matches Pulse) */
     .page-production::before{
       content:"";position:fixed;inset:0;z-index:-1;
       background:linear-gradient(to bottom, rgba(255,255,255,.75), rgba(255,255,255,.85)), url('img/PRIfront.png') center/cover no-repeat fixed;
     }
-    .top-border{position:fixed;top:0;left:0;width:100%;height:96px;background:var(--pri-blue);z-index:10;display:flex;align-items:center;padding:0 20px}
-    .top-border .logo{height:72px}
-    .top-title{font-size:28px;font-weight:900;margin-left:20px;color:#FFFFFF}
+    /* header (match pulse) */
+    .top-border{position:fixed;top:0;left:0;width:100%;height:96px;background:var(--pri-green);z-index:10;display:flex;align-items:center;padding:0 20px}
+    .top-border .logo{height:64px}
+    .top-title{font-size:24px;font-weight:900;margin-left:18px;color:#fff}
     .tabs{margin-left:auto;display:flex;gap:8px;align-items:center}
     .tab{background:#ffffffd9;padding:8px 12px;border-radius:10px;color:#0A2A12;text-decoration:none;font-weight:800}
     .tab.active{background:#fff}
@@ -29,32 +31,33 @@
     .toolbar{display:flex;justify-content:space-between;align-items:center;margin:10px 0 16px;gap:10px;flex-wrap:wrap}
     .segBig{display:inline-flex;border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--card);box-shadow:var(--shadow)}
     .segBig button{border:0;background:transparent;padding:8px 12px;font-weight:700;color:var(--muted);cursor:pointer}
-    .segBig button.active{background:var(--pri-blue);color:white}
-    .grid{display:grid;grid-template-columns:420px 1fr;gap:16px;align-items:stretch}
+    .segBig button.active{background:var(--pri-green);color:white}
+    .grid{display:grid;grid-template-columns:380px 1fr;gap:16px;align-items:start}
     .card{background:var(--card);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow)}
-    .card h3{margin:0;padding:12px 14px;border-bottom:1px solid var(--border);font-size:18px;color:var(--muted)}
+    .card h3{margin:0;padding:12px 14px;border-bottom:1px solid var(--border);font-size:16px;color:var(--muted)}
     .content{padding:14px}
     .lines{display:grid;grid-auto-rows:minmax(72px,auto);gap:12px}
     .line{border:1px solid var(--border);border-radius:12px;padding:12px;background:white;display:flex;flex-direction:column}
     .lineheader{display:flex;justify-content:space-between;align-items:center}
     .linename{font-weight:900}
-    .badge{font-size:12px;font-weight:900;padding:4px 8px;border-radius:999px}
-    .metricrow{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:8px}
+    .capright{font-size:12px;color:var(--muted);font-weight:800}
+    .metricrow{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-top:8px}
     .mitem{background:#f7fafc;border:1px solid var(--border);border-radius:10px;padding:8px;min-width:0}
     .mitem .label{font-size:12px;color:var(--muted);font-weight:800}
-    .mitem .mkv{font-size:22px;font-weight:900}
-    #grindStatusList > div{margin-bottom:8px;padding:8px 10px;border-radius:12px;border:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;font-size:15px;background:#f9fafb;font-weight:800}
+    .mitem .mkv{font-size:18px;font-weight:900}
+    #grindStatusList > div{margin-bottom:8px;padding:8px 10px;border-radius:12px;border:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;font-size:14px;background:#f9fafb;font-weight:800}
     #rankTable{width:100%;border-collapse:collapse;font-size:14px;table-layout:fixed}
     #rankTable th,#rankTable td{padding:10px;border-bottom:1px dashed var(--border)}
     #rankTable th{text-align:center;color:var(--muted);font-weight:900}
     #rankTable td.left{text-align:left}
-    #rankTable td.pct{text-align:center;font-variant-numeric:tabular-nums}
+    #rankTable td.center{text-align:center}
     .kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:8px}
     .tile{background:var(--card);padding:12px;border-radius:12px;border:1px solid var(--border);text-align:center;min-height:84px}
-    .tile .lab{font-size:11px;text-transform:uppercase;letter-spacing:.3px;color:#4b5563;font-weight:800}
-    .tile .val{font-size:24px;font-weight:900;margin-top:4px}
+    .tile .lab{font-size:12px;text-transform:uppercase;letter-spacing:.3px;color:#4b5563;font-weight:800}
+    .tile .val{font-size:22px;font-weight:900;margin-top:6px}
+    .subtext{font-size:12px;color:var(--muted);margin-top:6px}
     #loading{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(255,255,255,.55);z-index:9999}
-    #loading .spinner{width:64px;height:64px;border:8px solid #e5e7eb;border-top-color:var(--pri-blue);border-radius:50%;animation:spin 1s linear infinite}
+    #loading .spinner{width:64px;height:64px;border:8px solid #e5e7eb;border-top-color:var(--pri-green);border-radius:50%;animation:spin 1s linear infinite}
     @keyframes spin{to{transform:rotate(360deg)}}
     footer{display:flex;justify-content:space-between;align-items:center;margin-top:12px;color:var(--muted);font-weight:800}
     .clock{font-variant-numeric:tabular-nums;font-weight:900}
@@ -62,14 +65,11 @@
   </style>
 </head>
 <body class="page-production">
-
-  <!-- Loading overlay -->
   <div id="loading"><div class="spinner" aria-hidden></div></div>
 
-  <!-- Header copied to match pulse -->
   <div class="top-border">
-    <img src="img/pri-logo.png" alt="PRI Logo" class="logo" />
-    <div class="top-title">PRI Pulse – Grinding <span id="periodBadge" style="font-size:14px;font-weight:700;margin-left:12px;color:#fff;opacity:.9"></span></div>
+    <img src="img/pri-logo-white.png" alt="PRI Logo" class="logo" />
+    <div class="top-title">PRI Pulse – Grinding <span id="periodBadge" style="font-size:12px;font-weight:700;margin-left:10px;color:#fff;opacity:.95"></span></div>
     <div class="tabs">
       <a class="tab" href="index.html">Work Orders</a>
       <a class="tab" href="prodstatus.html">Prod Status</a>
@@ -78,14 +78,12 @@
       <a class="tab" href="pulse.html">Pulse</a>
       <a class="tab active" href="grinding.html">Grinding</a>
       <a class="tab" href="admin">Admin</a>
-      <img src="img/innovation-logo.png" alt="Innovation" style="height:64px;margin-left:8px;object-fit:contain"/>
+      <img src="img/innovation-logo.png" alt="Innovation" style="height:56px;margin-left:8px;object-fit:contain"/>
     </div>
   </div>
 
   <div class="wrap">
     <div class="app">
-
-      <!-- timeframe -->
       <div class="toolbar">
         <div>
           <div class="segBig" id="tfButtons" role="tablist" aria-label="Timeframe">
@@ -97,26 +95,26 @@
             <button data-period="lastmonth">Last Month</button>
             <button data-period="r7">Rolling 7d</button>
             <button data-period="r30">Rolling 30d</button>
+            <!-- preserved the simple options; date-picker omitted intentionally (server-side) -->
           </div>
         </div>
         <div><span style="background:#fff;padding:8px 10px;border-radius:10px;border:1px solid var(--border);font-weight:800">Grinding Lines Only</span></div>
       </div>
 
-      <!-- Overall KPIs -->
+      <!-- Overall KPIs — changed to 2 tiles -->
       <section class="card" style="margin-bottom:16px">
         <h3>Grinding – Overall KPIs</h3>
         <div class="content">
           <div style="font-size:12px;color:var(--muted);margin-bottom:8px">Range: <span id="rangeLabel">—</span></div>
           <div class="kpis">
-            <div id="tile-oee" class="tile"><div class="lab">OEE</div><div class="val" id="ov-oee">0%</div><canvas id="donut-oee" width="140" height="80"></canvas></div>
-            <div id="tile-av" class="tile"><div class="lab">Availability</div><div class="val" id="ov-av">0%</div><canvas id="donut-av" width="140" height="80"></canvas></div>
-            <div id="tile-pr" class="tile"><div class="lab">Performance</div><div class="val" id="ov-pr">0%</div><canvas id="donut-pr" width="140" height="80"></canvas></div>
+            <div id="tile-grind-av" class="tile"><div class="lab">Grinding Availability</div><div class="val" id="ov-grind-av">0%</div><div class="subtext" id="ov-grind-av-sub"></div></div>
+            <div id="tile-maint-dt" class="tile"><div class="lab">Maintenance Downtime</div><div class="val" id="ov-maint-dt">0%</div><div class="subtext" id="ov-maint-dt-sub"></div></div>
+            <div id="tile-performance" class="tile"><div class="lab">Performance</div><div class="val" id="ov-pr">0%</div><div class="subtext" id="ov-pr-sub"></div></div>
           </div>
         </div>
       </section>
 
       <div class="grid" style="margin-bottom:16px">
-        <!-- Live status -->
         <article class="card">
           <h3>LIVE Line Status — Grinding</h3>
           <div class="content">
@@ -125,7 +123,6 @@
           </div>
         </article>
 
-        <!-- Line Health (cards) -->
         <article class="card">
           <h3>Line Health — Availability & Performance</h3>
           <div class="content">
@@ -135,23 +132,36 @@
       </div>
 
       <div class="grid">
-        <!-- Downtime Overview (donuts) -->
         <article class="card">
           <h3>Downtime Overview — Grinding & Maintenance</h3>
           <div class="content">
             <div style="display:flex;gap:12px;flex-wrap:wrap">
-              <div style="flex:0 0 160px">
-                <canvas id="donutMaint" width="160" height="160"></canvas>
+              <div style="flex:0 0 220px">
+                <canvas id="donutMaint" width="220" height="220"></canvas>
+                <div style="text-align:center;margin-top:6px;font-weight:800" id="donutMaintLabel">0.0 maint h</div>
               </div>
-              <div style="flex:1">
-                <div id="legendMaint"></div>
-                <div style="margin-top:10px;color:var(--muted);font-weight:800">Maintenance DT vs planned grinding hours</div>
+
+              <div style="flex:1;min-width:320px">
+                <div style="display:flex;gap:12px;flex-wrap:wrap">
+                  <div style="flex:1">
+                    <div style="font-weight:900">Production — Reasons</div>
+                    <div id="prodReasons" style="margin-top:8px"></div>
+                  </div>
+                  <div style="flex:1">
+                    <div style="font-weight:900">Maintenance — Category</div>
+                    <div id="maintCategories" style="margin-top:8px"></div>
+                  </div>
+                  <div style="flex:1">
+                    <div style="font-weight:900">Maintenance — Failure Mode</div>
+                    <div id="maintFailureModes" style="margin-top:8px"></div>
+                  </div>
+                </div>
               </div>
             </div>
+            <div style="margin-top:12px;font-size:12px;color:var(--muted)">Charts show the top reasons/categories/modes for the selected range (grinding assets only).</div>
           </div>
         </article>
 
-        <!-- Lines ranked -->
         <article class="card">
           <h3>Lines Ranked by Performance & Missed Opportunity</h3>
           <div class="content">
@@ -169,255 +179,321 @@
         <div>Last updated <span id="updated">—</span></div>
         <div class="clock" id="clock"></div>
       </footer>
-
     </div>
   </div>
 
-  <script>
-    /* endpoints */
-    const ENDPOINTS = { BY_LINE:'/api/production/by-line', PRODSTATUS:'/api/workorders/prodstatus', MAP:'mappings.json' };
-    const STATE = { period:'today' };
-    const THRESH = { oee:{good:0.5,warn:0.25}, availability:{good:0.8,warn:0.6}, performance:{good:0.8,warn:0.6} };
+<script>
+  /* endpoints we will attempt for live asset-fields */
+  const ENDPOINTS = {
+    BY_LINE:'/api/production/by-line',
+    PRODSTATUS:'/api/workorders/prodstatus',
+    LIMBLE_ASSETFIELDS:'/api/limble/assetfields',
+    LIMBLE_KPIASSET:'/api/limble/kpiassetfields',
+    ASSETS_FIELDS:'/api/assets/fields',
+    MAP:'mappings.json'
+  };
+  const STATE = { period:'today' };
+  const THRESH = { availability:{good:0.8,warn:0.6}, performance:{good:0.8,warn:0.6} };
+  const $ = s => document.querySelector(s);
+  const $$ = s => Array.from(document.querySelectorAll(s));
 
-    const $ = s => document.querySelector(s);
-    const $$ = s => Array.from(document.querySelectorAll(s));
-    function setLoading(v){ const el=$('#loading'); if(el) el.style.display = v ? 'flex' : 'none'; }
-    async function fetchJSON(url){ try{ const r=await fetch(url,{cache:'no-store'}); if(!r.ok) throw new Error(r.status); return await r.json(); }catch(e){ console.warn('fetch failed',url,e); return null; } }
-    function fmtPct(v){ return Number.isFinite(v) ? (Math.round(v*100)+'%') : '---'; }
-    function fmtNum(n){ return Number.isFinite(n) ? Math.round(n).toLocaleString() : '---'; }
-    function fmtH(v){ return Number.isFinite(v) ? v.toFixed(1) : '---'; }
+  function setLoading(v){ const el=$('#loading'); if(el) el.style.display = v ? 'flex' : 'none'; }
+  async function fetchJSON(url, opts={}){ try{ const r = await fetch(url + (url.includes('?') ? '&' : '?') + 'ts=' + Date.now(), opts); if(!r.ok) throw new Error(r.status); return await r.json(); } catch(e){ console.warn('fetchJSON fail', url, e); return null; } }
+  function fmtPct(v){ return Number.isFinite(v) ? (Math.round(v*100)+'%') : '0%'; }
+  function fmtNum(n){ return Number.isFinite(n) ? Math.round(n).toLocaleString() : '0'; }
+  function fmtH(v){ return Number.isFinite(v) ? v.toFixed(1) : '0.0'; }
 
-    /* robust machine/name extraction — checks many possible property names */
-    function machineNameFromRow(r){
-      if(!r) return '';
-      return String(r.machine || r.asset || r.name || r.assetName || r.AssetName || r.machineName || r.device || '').trim();
-    }
-    function poundsFromRow(r){
-      return Number(r.pounds ?? r.lbs ?? r.weight ?? r.total_lbs ?? r.pounds_total ?? 0) || 0;
-    }
-    function machineHoursFromRow(r){
-      return Number(r.machine_hours ?? r.run_h ?? r.runHours ?? r.runtime_h ?? r.run_time ?? 0) || 0;
-    }
-    function maintFromRow(r){
-      return Number(r.maint_dt_h ?? r.maint_h ?? r.maintenance_h ?? r.maintenance_hours ?? 0) || 0;
-    }
-    function prodDTFromRow(r){
-      return Number(r.prod_dt_h ?? r.prod_h ?? r.prod_dt ?? 0) || 0;
-    }
-    function nameplateFromRow(r){
-      return Number(r.nameplate_lbs_hr ?? r.nameplate ?? r.cap ?? r.cap_lbs_hr ?? 0) || 0;
-    }
+  /* robust field extraction (same as prior) */
+  function machineNameFromRow(r){ if(!r) return ''; return String(r.machine || r.asset || r.name || r.assetName || r.AssetName || r.machineName || r.device || r.Asset || '').trim(); }
+  function poundsFromRow(r){ return Number(r.pounds ?? r.lbs ?? r.weight ?? r.total_lbs ?? r.pounds_total ?? 0) || 0; }
+  function machineHoursFromRow(r){ return Number(r.machine_hours ?? r.run_h ?? r.runHours ?? r.runtime_h ?? r.run_time ?? 0) || 0; }
+  function maintFromRow(r){ return Number(r.maint_dt_h ?? r.maint_h ?? r.maintenance_h ?? r.maintenance_hours ?? 0) || 0; }
+  function prodDTFromRow(r){ return Number(r.prod_dt_h ?? r.prod_h ?? r.prod_dt ?? 0) || 0; }
+  function nameplateFromRow(r){ return Number(r.nameplate_lbs_hr ?? r.nameplate ?? r.cap ?? r.cap_lbs_hr ?? 0) || 0; }
+  function materialFromRow(r){ return String(r.material || r.mat || r.resin || '').toUpperCase(); }
 
-    /* mapping & capacity loader */
-    let MAPPINGS = null;
-    async function loadMappings(){ if(MAPPINGS) return MAPPINGS; const j = await fetchJSON(ENDPOINTS.MAP+'?ts='+Date.now()); MAPPINGS = j || { capacity_by_material_lbs_hr:{}, capacities_lbs_hr:{}, capacity_aliases:{}, material_aliases:{}, productionAssets:[], grindingAssets:[] }; return MAPPINGS; }
-    function capacityFor(lineName, material){
-      const caps = MAPPINGS?.capacities_lbs_hr || {}, byMat = MAPPINGS?.capacity_by_material_lbs_hr || {}, alias = MAPPINGS?.capacity_aliases || {}, malias = MAPPINGS?.material_aliases || {};
-      const canon = (caps[lineName] !== undefined || byMat[lineName]) ? lineName : (alias[lineName] || lineName);
-      const k = String(material ?? '').trim().toUpperCase();
-      const m = malias[k] || (k===''?'DEFAULT':k);
-      return byMat[canon]?.[m] ?? byMat[canon]?.DEFAULT ?? caps[canon] ?? 0;
-    }
+  /* mappings loader */
+  let MAPPINGS = null;
+  async function loadMappings(){ if(MAPPINGS) return MAPPINGS; const j = await fetchJSON(ENDPOINTS.MAP); MAPPINGS = j || {}; return MAPPINGS; }
+  function capacityFor(lineName, material){
+    const caps = MAPPINGS?.capacities_lbs_hr || {}, byMat = MAPPINGS?.capacity_by_material_lbs_hr || {}, alias = MAPPINGS?.capacity_aliases || {}, malias = MAPPINGS?.material_aliases || {};
+    const canon = (caps[lineName] !== undefined || byMat[lineName]) ? lineName : (alias[lineName] || lineName);
+    const m = malias[(material||'').toUpperCase()] || ((material||'')===''?'DEFAULT':(material||'').toUpperCase());
+    return (byMat[canon]?.[m]) ?? (byMat[canon]?.DEFAULT) ?? caps[canon] ?? 0;
+  }
 
-    /* grinding canonical map */
-    const GRIND_CANON = [
-      {canon:'Shredder 1', aliases:['Shredder 1','Shredding Line 1','Shredding 1','S-1']},
-      {canon:'Shredder 3', aliases:['Shredder 3','Shredding Line 3','Shredding 3','S-3']},
-      {canon:'Shredder 5', aliases:['Shredder 5','Shredding Line 5','Shredding 5','S-5']},
-      {canon:'Weima', aliases:['Weima','Shredding Line 6- WEIMA','Shredding Line 6 - WEIMA','WEIMA']},
-      {canon:'Vistakon 1', aliases:['Vistakon 1','V-1','V1','Grinder V1']},
-      {canon:'Vistakon 2', aliases:['Vistakon 2','V-2','V2','Grinder V2']},
-      {canon:'PCR Washline', aliases:['PCR Washline','PCR','PCR Wash Line']}
-    ];
-    const GRIND_ALIAS_REV = (() => { const m=new Map(); for(const r of GRIND_CANON){ m.set(r.canon, r.canon); (r.aliases||[]).forEach(a=>m.set(String(a).trim(), r.canon)); } return m; })();
-    const GRIND_CANON_SET = new Set(GRIND_CANON.map(r=>r.canon));
-    function canonGrinding(n){ return GRIND_ALIAS_REV.get(String(n||'').trim()) || String(n||'').trim(); }
-    function isGrindingMachine(n){ return GRIND_CANON_SET.has(canonGrinding(n)); }
+  /* grinding canonical */
+  const GRIND_CANON = [
+    {canon:'Shredder 1', aliases:['Shredder 1','Shredding Line 1','Shredding 1']},
+    {canon:'Shredder 3', aliases:['Shredder 3','Shredding Line 3','Shredding 3']},
+    {canon:'Shredder 5', aliases:['Shredder 5','Shredding Line 5','Shredding 5']},
+    {canon:'Weima', aliases:['Weima','Shredding Line 6- WEIMA','Shredding Line 6 - WEIMA']},
+    {canon:'Vistakon 1', aliases:['Vistakon 1','Grinder V1','Vistakon 1']},
+    {canon:'Vistakon 2', aliases:['Vistakon 2','Grinder V2','Vistakon 2']},
+    {canon:'PCR Washline', aliases:['PCR Washline','PCR','PCR Wash Line']}
+  ];
+  const GRIND_ALIAS_REV = (() => { const m=new Map(); for(const r of GRIND_CANON){ m.set(r.canon, r.canon); (r.aliases||[]).forEach(a=>m.set(String(a).trim(), r.canon)); } return m; })();
+  const GRIND_CANON_SET = new Set(GRIND_CANON.map(r=>r.canon));
+  function canonGrinding(n){ return GRIND_ALIAS_REV.get(String(n||'').trim()) || String(n||'').trim(); }
+  function isGrindingMachine(n){ return GRIND_CANON_SET.has(canonGrinding(n)); }
 
-    /* simple donut drawing */
-    function drawDonut(canvas, pct, colorMain='#16a34a', colorOther='#e5e7eb'){
-      if(!canvas) return;
-      const ctx = canvas.getContext('2d');
-      const w=canvas.width, h=canvas.height;
-      ctx.clearRect(0,0,w,h);
-      const cx=w/2, cy=h/2, r=Math.min(w,h)/2-6, t=22;
-      const main = Math.max(0, Math.min(100, pct));
-      const parts=[{v:main,color:colorMain},{v:100-main,color:colorOther}];
-      let start=-Math.PI/2;
-      for(const p of parts){ const ang = (p.v/100)*Math.PI*2; ctx.beginPath(); ctx.arc(cx,cy,r,start,start+ang); ctx.arc(cx,cy,r-t,start+ang,start,true); ctx.closePath(); ctx.fillStyle=p.color; ctx.fill(); start+=ang; }
-      ctx.fillStyle='#111'; ctx.font='800 18px system-ui'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(Math.round(main)+'%', cx, cy);
-    }
+  /* simple donut */
+  function drawDonut(canvas, pct, colorMain='#16a34a', colorOther='#e5e7eb'){
+    if(!canvas) return;
+    const ctx = canvas.getContext('2d'), w=canvas.width, h=canvas.height;
+    ctx.clearRect(0,0,w,h);
+    const cx=w/2, cy=h/2, r=Math.min(w,h)/2-8, t=26;
+    const main = Math.max(0, Math.min(100, pct));
+    const parts=[{v:main,color:colorMain},{v:100-main,color:colorOther}];
+    let start=-Math.PI/2;
+    for(const p of parts){ const ang = (p.v/100)*Math.PI*2; ctx.beginPath(); ctx.arc(cx,cy,r,start,start+ang); ctx.arc(cx,cy,r-t,start+ang,start,true); ctx.closePath(); ctx.fillStyle=p.color; ctx.fill(); start+=ang; }
+    ctx.fillStyle='#111'; ctx.font='800 18px system-ui'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(Math.round(main)+'%', cx, cy);
+  }
 
-    /* loadProdStatus same as before but resilient */
-    async function loadProdStatus(){
-      const raw = await fetchJSON(ENDPOINTS.PRODSTATUS+'?t='+Date.now());
-      if(!raw) return [];
-      let rows = Array.isArray(raw.rows) ? raw.rows : (Array.isArray(raw.tiles) ? raw.tiles : (Array.isArray(raw) ? raw : []));
-      if (Array.isArray(rows) && rows.length===1 && typeof rows[0]==='object'){
-        const k=Object.keys(rows[0])[0]; const v=rows[0][k];
-        if(typeof v==='string' && v.startsWith('[')) try{ rows = JSON.parse(v); }catch(e){}
+  /* attempt multiple endpoints for live asset status — returns normalized array */
+  async function loadAssetStatusCandidates(){
+    const candidates = [ENDPOINTS.PRODSTATUS, ENDPOINTS.LIMBLE_ASSETFIELDS, ENDPOINTS.LIMBLE_KPIASSET, ENDPOINTS.ASSETS_FIELDS];
+    for(const url of candidates){
+      const payload = await fetchJSON(url);
+      if(!payload) { console.debug('no payload from',url); continue; }
+      // try to find array in payload
+      let arr = Array.isArray(payload) ? payload : (Array.isArray(payload.rows) ? payload.rows : (Array.isArray(payload.items) ? payload.items : []));
+      if(!arr || !arr.length){ // sometimes wrapped in object properties or string
+        // attempt common wrappers
+        if(typeof payload==='object'){
+          const props = Object.keys(payload);
+          for(const p of props){
+            if(Array.isArray(payload[p]) && payload[p].length>0){ arr = payload[p]; break; }
+            if(typeof payload[p] === 'string' && payload[p].trim().startsWith('[')){
+              try{ arr = JSON.parse(payload[p]); break; } catch(e){}
+            }
+          }
+        }
       }
-      if(!Array.isArray(rows)) return [];
-      return rows.map(r=>{
-        const name = r.assetName || r.name || r.AssetName || r.machine || r.asset || 'Unknown';
-        const val  = (r.assetStatus ?? r.value ?? r.status ?? '').toString().toLowerCase();
-        const limble = !!(r.limble || r.hasRequest || /request/.test(val));
-        return { name, limble };
+      if(!arr || !arr.length){ console.debug('no array discovered at',url); continue; }
+      // try to normalize: attempt to extract name and status fields
+      const normalized = arr.map(it => {
+        // try deep paths commonly used
+        const get = k => (it && (it[k]!==undefined)) ? it[k] : null;
+        // search for property containing 'asset' or 'name'
+        let name = it.assetName || it.name || it.AssetName || it.machine || it.asset || (it.asset && (it.asset.name || it.assetName)) || '';
+        if(!name && typeof it === 'string') name = it;
+        let status = it.assetStatus ?? it.status ?? it.value ?? it.state ?? it.fieldValue ?? '';
+        // if status object
+        if(status && typeof status === 'object'){ status = status.text ?? status.name ?? status.value ?? JSON.stringify(status); }
+        return { source:url, raw:it, name: String(name||'').trim(), status: String(status||'').trim() };
       });
+      // keep only grinding assets present
+      const filtered = normalized.filter(n => n.name && isGrindingMachine(n.name));
+      if(filtered.length>0){
+        console.log('live status payload succeeded at',url, 'count', filtered.length);
+        return { source:url, rows: filtered };
+      } else {
+        console.debug('endpoint',url,'returned rows but none matched grinding assets, sample names:', normalized.slice(0,6).map(x=>x.name));
+      }
     }
+    return { source:null, rows: [] };
+  }
 
-    /* main render — robust parsing + sorting by perf then avail */
-    async function renderGrinding(){
-      setLoading(true);
-      try{
-        await loadMappings();
-        $('#periodBadge').textContent = '• ' + (STATE.period || 'Today');
-        $$('.segBig button').forEach(b=>b.classList.toggle('active', b.dataset.period===STATE.period));
-        // compute dates (simple)
-        const now=new Date(); now.setHours(0,0,0,0);
-        function iso(d){ return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10); }
-        let from,to;
-        switch(STATE.period){
-          case 'yesterday': { const y=new Date(now); y.setDate(y.getDate()-1); from=to=iso(y); break; }
-          case 'week': { const d=new Date(now); const day=(d.getDay()+6)%7; d.setDate(d.getDate()-day); from=iso(d); const e=new Date(d); e.setDate(e.getDate()+6); to=iso(e); break; }
-          case 'lastweek': { const d=new Date(now); const day=(d.getDay()+6)%7; d.setDate(d.getDate()-day-7); from=iso(d); const e=new Date(d); e.setDate(e.getDate()+6); to=iso(e); break; }
-          case 'month': { const s=new Date(now.getFullYear(),now.getMonth(),1); from=iso(s); const e=new Date(now.getFullYear(),now.getMonth()+1,0); to=iso(e); break; }
-          case 'lastmonth': { const s=new Date(now.getFullYear(),now.getMonth()-1,1); from=iso(s); const e=new Date(now.getFullYear(),now.getMonth(),0); to=iso(e); break; }
-          case 'r7': { const s=new Date(now); s.setDate(s.getDate()-6); from=iso(s); to=iso(now); break; }
-          case 'r30':
-          default: { const s=new Date(now); s.setDate(s.getDate()-29); from=iso(s); to=iso(now); break; }
-        }
-        $('#rangeLabel').textContent = `${from} → ${to}`;
+  /* small helper to render list of simple colored bars (top items) */
+  function renderListBar(container, list){
+    container.innerHTML = '';
+    const top = list.slice(0,6);
+    const max = top.reduce((m,x)=>Math.max(m,x.value||0),0) || 1;
+    for(const it of top){
+      const row = document.createElement('div');
+      row.style.display='flex'; row.style.alignItems='center'; row.style.gap='8px'; row.style.marginBottom='6px';
+      const label = document.createElement('div'); label.style.flex='1'; label.textContent = it.key; label.style.fontWeight='800'; label.style.fontSize='13px';
+      const barwrap = document.createElement('div'); barwrap.style.flex='1';
+      const bar = document.createElement('div'); bar.style.height='14px'; bar.style.borderRadius='8px'; bar.style.background='#e6f4e6'; bar.style.overflow='hidden';
+      const inner = document.createElement('div'); inner.style.width = Math.round((it.value/max)*100)+'%'; inner.style.height='100%'; inner.style.background='linear-gradient(90deg,#0AAC00,#42C36A)';
+      const val = document.createElement('div'); val.style.width='80px'; val.style.textAlign='right'; val.textContent = fmtNum(it.value);
+      bar.appendChild(inner); barwrap.appendChild(bar);
+      row.appendChild(label); row.appendChild(barwrap); row.appendChild(val);
+      container.appendChild(row);
+    }
+  }
 
-        // fetch parallel
-        const [bylineRaw, prodStatusRaw] = await Promise.all([ fetchJSON(`${ENDPOINTS.BY_LINE}?from=${from}&to=${to}`), loadProdStatus() ]);
-        console.log('[grinding] /by-line raw sample:', Array.isArray(bylineRaw)?bylineRaw.slice(0,5):bylineRaw);
-        console.log('[grinding] prodStatus sample:', prodStatusRaw && prodStatusRaw.slice ? prodStatusRaw.slice(0,6) : prodStatusRaw);
+  /* main render function */
+  async function renderGrinding(){
+    setLoading(true);
+    try{
+      await loadMappings();
+      $('#periodBadge').textContent = '• ' + (STATE.period || 'today');
+      $$('.segBig button').forEach(b=>b.classList.toggle('active', b.dataset.period===STATE.period));
+      /* compute dates (same simple logic) */
+      const now=new Date(); now.setHours(0,0,0,0);
+      function iso(d){ return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10); }
+      let from,to;
+      switch(STATE.period){
+        case 'yesterday': { const y=new Date(now); y.setDate(y.getDate()-1); from=to=iso(y); break; }
+        case 'week': { const d=new Date(now); const day=(d.getDay()+6)%7; d.setDate(d.getDate()-day); from=iso(d); const e=new Date(d); e.setDate(e.getDate()+6); to=iso(e); break; }
+        case 'lastweek': { const d=new Date(now); const day=(d.getDay()+6)%7; d.setDate(d.getDate()-day-7); from=iso(d); const e=new Date(d); e.setDate(e.getDate()+6); to=iso(e); break; }
+        case 'month': { const s=new Date(now.getFullYear(),now.getMonth(),1); from=iso(s); const e=new Date(now.getFullYear(),now.getMonth()+1,0); to=iso(e); break; }
+        case 'lastmonth': { const s=new Date(now.getFullYear(),now.getMonth()-1,1); from=iso(s); const e=new Date(now.getFullYear(),now.getMonth(),0); to=iso(e); break; }
+        case 'r7': { const s=new Date(now); s.setDate(s.getDate()-6); from=iso(s); to=iso(now); break; }
+        case 'r30': default: { const s=new Date(now); s.setDate(s.getDate()-29); from=iso(s); to=iso(now); break; }
+      }
+      $('#rangeLabel').textContent = `${from} → ${to}`;
 
-        // weekday count
-        const fromD = new Date(from+'T00:00:00'); const toD=new Date(to+'T00:00:00'); const dayList=[];
-        for(let d=new Date(fromD); d<=toD; d.setDate(d.getDate()+1)){ const wd=d.getDay(); if(wd!==0 && wd!==6) dayList.push(new Date(d).toISOString().slice(0,10)); }
-        const weekdaysCount = Math.max(1, dayList.length);
+      /* fetch production by-line and try the asset status endpoints in parallel */
+      const [bylineRaw, assetStatusCandidate] = await Promise.all([
+        fetchJSON(`${ENDPOINTS.BY_LINE}?from=${from}&to=${to}`),
+        loadAssetStatusCandidates()
+      ]);
+      console.debug('bylineRaw sample', Array.isArray(bylineRaw) ? bylineRaw.slice(0,4) : bylineRaw);
+      console.debug('assetStatusCandidate', assetStatusCandidate);
 
-        // normalize by-line rows into objects we can read
-        const rawRows = Array.isArray(bylineRaw) ? bylineRaw : (bylineRaw?.rows ?? bylineRaw?.tiles ?? []);
-        const parsed = (rawRows||[]).map(r=>{
-          const machine = machineNameFromRow(r);
-          return {
-            raw:r,
-            machine,
-            pounds:poundsFromRow(r),
-            machineHours:machineHoursFromRow(r),
-            maint:maintFromRow(r),
-            prodDT:prodDTFromRow(r),
-            nameplate:nameplateFromRow(r),
-            material: (r.material || r.mat || r.resin || '')
-          };
-        });
-        // filter to grinding machines
-        const grindingRows = parsed.filter(p=>p.machine && isGrindingMachine(p.machine));
-        console.log('[grinding] rows after grind filter:', grindingRows.length, ' machines:', [...new Set(grindingRows.map(r=>canonGrinding(r.machine)))].join(', '));
+      // normalize by-line
+      const rawRows = Array.isArray(bylineRaw) ? bylineRaw : (bylineRaw && (Array.isArray(bylineRaw.rows) ? bylineRaw.rows : (Array.isArray(bylineRaw.items) ? bylineRaw.items : [])));
+      const parsed = (rawRows||[]).map(r=>{
+        const machine = machineNameFromRow(r);
+        return {
+          raw:r,
+          machine,
+          pounds:poundsFromRow(r),
+          machineHours:machineHoursFromRow(r),
+          maint:maintFromRow(r),
+          prod:prodDTFromRow(r),
+          nameplate:nameplateFromRow(r),
+          material:materialFromRow(r)
+        };
+      });
+      const grindingRows = parsed.filter(p=>p.machine && isGrindingMachine(p.machine));
+      console.debug('grindingRows count', grindingRows.length);
 
-        // aggregate by canonical name
-        const agg = {};
-        for(const r of grindingRows){
-          const canon = canonGrinding(r.machine);
-          const capFromMap = capacityFor(canon, (r.material || '').toUpperCase());
-          const cap = r.nameplate > 0 ? r.nameplate : capFromMap || 0;
-          if(!agg[canon]) agg[canon] = { name:canon, lbs:0, maint:0, prod:0, mach:0, cap:cap, days:weekdaysCount };
-          agg[canon].lbs += Math.max(0, r.pounds);
-          agg[canon].maint += Math.max(0, r.maint);
-          agg[canon].prod += Math.max(0, r.prodDT);
-          agg[canon].mach += Math.max(0, r.machineHours);
-          if(cap>0) agg[canon].cap = cap;
-        }
+      // aggregate
+      const agg = {};
+      for(const r of grindingRows){
+        const canon = canonGrinding(r.machine);
+        const capFromMap = capacityFor(canon, r.material);
+        const cap = r.nameplate > 0 ? r.nameplate : capFromMap || 0;
+        if(!agg[canon]) agg[canon] = { name:canon, lbs:0, maint:0, prod:0, mach:0, cap:cap, days:1 };
+        agg[canon].lbs += Math.max(0, r.pounds);
+        agg[canon].maint += Math.max(0, r.maint);
+        agg[canon].prod += Math.max(0, r.prod);
+        agg[canon].mach += Math.max(0, r.machineHours);
+        if(cap>0) agg[canon].cap = cap;
+      }
+      // compute weekdays count
+      const fromD=new Date(from+'T00:00:00'), toD=new Date(to+'T00:00:00');
+      let days=0; for(let d=new Date(fromD); d<=toD; d.setDate(d.getDate()+1)){ const wd=d.getDay(); if(wd!==0 && wd!==6) days++; } days = Math.max(1, days);
+      Object.values(agg).forEach(a=>a.days=days);
 
-        const perLine = Object.values(agg).map(a=>{
-          const plannedH = 24 * a.days;
-          const runtimeH = a.mach > 0 ? a.mach : (a.cap>0 ? (a.lbs / a.cap) : 0);
-          const avail = plannedH > 0 ? runtimeH / plannedH : NaN;
-          const adjDen = Math.max(1e-9, (plannedH - a.maint) * (a.cap || 0));
-          const perfAdj = (a.cap>0) ? (a.lbs / adjDen) : NaN;
-          const oee = (Number.isFinite(avail) && Number.isFinite(perfAdj)) ? (avail * perfAdj) : NaN;
-          const capPotential = a.cap>0 ? a.cap * runtimeH : 0;
-          const missed = Math.max(0, capPotential - a.lbs);
-          return {...a, plannedH, runtimeH, avail, perfAdj, oee, missed};
-        });
+      const perLine = Object.values(agg).map(a=>{
+        const plannedH = 24 * a.days;
+        const runtimeH = a.mach > 0 ? a.mach : (a.cap>0 ? (a.lbs / a.cap) : 0);
+        const avail = plannedH > 0 ? runtimeH / plannedH : 0;
+        const adjDen = Math.max(1e-9, (plannedH - a.maint) * (a.cap || 0));
+        const perfAdj = (a.cap>0) ? (a.lbs / adjDen) : 0;
+        const oee = avail * perfAdj;
+        const capPotential = a.cap>0 ? a.cap * runtimeH : 0;
+        const missed = Math.max(0, capPotential - a.lbs);
+        return {...a, plannedH, runtimeH, avail, perfAdj, oee, missed};
+      });
 
-        // overall totals
-        const totals = perLine.reduce((s,x)=>{ s.lbs+=x.lbs; s.maint+=x.maint; s.prod+=x.prod; s.runtime+=x.runtimeH; s.planned+=x.plannedH; s.missed+=x.missed; s.caps += (x.cap||0); s.count++; return s; }, {lbs:0,maint:0,prod:0,runtime:0,planned:0,missed:0,caps:0,count:0});
-        const overallAvail = totals.planned>0 ? (totals.runtime / totals.planned) : 0;
-        const avgCap = totals.count ? (totals.caps / totals.count) : 0;
-        const overallAdjDen = Math.max(1e-9, (totals.planned - totals.maint) * avgCap);
-        const overallPerfAdj = overallAdjDen>0 ? (totals.lbs / overallAdjDen) : 0;
-        const overallOEE = overallAvail * overallPerfAdj;
+      // overall
+      const totals = perLine.reduce((s,x)=>{ s.lbs+=x.lbs; s.maint+=x.maint; s.runtime+=x.runtimeH; s.planned+=x.plannedH; s.missed+=x.missed; s.caps+=x.cap; s.count++; return s; }, {lbs:0,maint:0,runtime:0,planned:0,missed:0,caps:0,count:0});
+      const overallAvail = totals.planned>0 ? (totals.runtime / totals.planned) : 0;
+      const avgCap = totals.count ? (totals.caps / totals.count) : 0;
+      const overallAdjDen = Math.max(1e-9, (totals.planned - totals.maint) * avgCap);
+      const overallPerfAdj = overallAdjDen>0 ? (totals.lbs / overallAdjDen) : 0;
 
-        // render overall tiles
-        $('#ov-oee').textContent = fmtPct(overallOEE);
-        $('#ov-av').textContent = fmtPct(overallAvail);
-        $('#ov-pr').textContent = fmtPct(overallPerfAdj);
-        drawDonut($('#donut-oee'), (overallOEE||0)*100, '#16a34a');
-        drawDonut($('#donut-av'), (overallAvail||0)*100, '#2563eb');
-        drawDonut($('#donut-pr'), (overallPerfAdj||0)*100, '#eab308');
+      // render overall tiles
+      $('#ov-grind-av').textContent = fmtPct(overallAvail);
+      $('#ov-grind-av-sub').textContent = `${fmtNum(Math.round(totals.runtime))} run h • ${fmtNum(Math.round(totals.planned))} planned h`;
+      $('#ov-maint-dt').textContent = fmtPct(totals.planned ? (totals.maint / totals.planned) : 0);
+      $('#donutMaintLabel').textContent = `${fmtH(totals.maint)} maint h • ${fmtH(totals.runtime)} run h`;
+      $('#ov-pr').textContent = fmtPct(overallPerfAdj);
+      drawDonut($('#donutMaint'), Math.min(100, (totals.maint / Math.max(1, totals.planned))*100), '#ef4444');
 
-        // Line Health cards
-        const linesGrid = $('#linesGrid'); linesGrid.innerHTML = '';
-        perLine.sort((a,b)=> (b.perfAdj||0) - (a.perfAdj||0) ).forEach(l=>{
-          const div=document.createElement('div'); div.className='line';
-          const cls = (l.perfAdj>=THRESH.performance.good ? 'good' : l.perfAdj>=THRESH.performance.warn ? 'warn' : 'bad');
-          div.innerHTML = `
-            <div class="lineheader"><div class="linename">${l.name}</div><div class="badge ${cls}">${fmtPct(l.perfAdj)}</div></div>
-            <div class="metricrow">
-              <div class="mitem"><div class="label">Availability</div><div class="mkv">${fmtPct(l.avail)}</div></div>
-              <div class="mitem"><div class="label">Perf Adj</div><div class="mkv">${fmtPct(l.perfAdj)}</div></div>
-              <div class="mitem"><div class="label">Runtime h</div><div class="mkv">${fmtH(l.runtimeH)}</div></div>
-              <div class="mitem"><div class="label">Maint h</div><div class="mkv">${fmtH(l.maint)}</div></div>
-            </div>`;
-          linesGrid.appendChild(div);
-        });
+      // Line Health cards with capacity shown
+      const linesGrid = $('#linesGrid'); linesGrid.innerHTML = '';
+      perLine.sort((a,b)=> (b.perfAdj||0) - (a.perfAdj||0)).forEach(l=>{
+        const div = document.createElement('div'); div.className='line';
+        const cls = (l.perfAdj>=THRESH.performance.good ? 'good' : l.perfAdj>=THRESH.performance.warn ? 'warn' : 'bad');
+        const capText = (l.cap && l.cap>0) ? `${fmtNum(l.cap)} lbs/hr` : 'cap unknown';
+        div.innerHTML = `
+          <div class="lineheader">
+            <div style="display:flex;gap:12px;align-items:center">
+              <div class="linename">${l.name}</div>
+              <div class="capright">${capText}</div>
+            </div>
+            <div class="capright">${Math.round((l.perfAdj||0)*100)}%</div>
+          </div>
+          <div class="metricrow">
+            <div class="mitem"><div class="label">Availability</div><div class="mkv">${fmtPct(l.avail)}</div></div>
+            <div class="mitem"><div class="label">Perf Adj</div><div class="mkv">${fmtPct(l.perfAdj)}</div></div>
+            <div class="mitem"><div class="label">Runtime h</div><div class="mkv">${fmtH(l.runtimeH)}</div></div>
+            <div class="mitem"><div class="label">Maint h</div><div class="mkv">${fmtH(l.maint)}</div></div>
+          </div>
+          <div style="margin-top:8px;font-size:12px;color:var(--muted)">Grinding downtime: ${fmtH(l.prod)} h</div>
+        `;
+        linesGrid.appendChild(div);
+      });
 
-        // Downtime donut: maintenance vs production downtime
-        const maintSum = perLine.reduce((s,x)=>s + (x.maint||0),0);
-        const prodDtSum = perLine.reduce((s,x)=>s + (x.prod||0),0);
-        const plannedSumHours = perLine.reduce((s,x)=>s + (x.plannedH||0),0) || 1;
-        const maintPct = (maintSum / plannedSumHours) * 100;
-        const prodPct = (prodDtSum / plannedSumHours) * 100;
-        drawDonut($('#donutMaint'), Math.min(100, maintPct), '#ef4444');
-        $('#legendMaint').innerHTML = `<div style="font-weight:900">${fmtH(maintSum)} maint h</div><div style="color:var(--muted)">${fmtH(prodDtSum)} prod dth</div>`;
+      // Downtime breakdown placeholders (we attempt to pull reasons from bylineRaw rows if present)
+      const prodReasonsMap = {};
+      const maintCatsMap = {};
+      const maintModesMap = {};
+      (rawRows||[]).forEach(r=>{
+        // attempt to read reason/category/mode fields commonly found
+        const rReason = r.reason || r.downtimeReason || r.dt_reason || r.DowntimeReason || '';
+        const rCat = r.maintenanceCategory || r.category || r.maint_category || '';
+        const rMode = r.failureMode || r.mode || r.failure_mode || '';
+        if(rReason) prodReasonsMap[rReason] = (prodReasonsMap[rReason]||0) + (poundsFromRow(r) || 1);
+        if(rCat) maintCatsMap[rCat] = (maintCatsMap[rCat]||0) + 1;
+        if(rMode) maintModesMap[rMode] = (maintModesMap[rMode]||0) + 1;
+      });
+      const prodReasonsArr = Object.keys(prodReasonsMap).map(k=>({key:k,value:prodReasonsMap[k]})).sort((a,b)=>b.value-a.value);
+      const maintCatsArr = Object.keys(maintCatsMap).map(k=>({key:k,value:maintCatsMap[k]})).sort((a,b)=>b.value-a.value);
+      const maintModesArr = Object.keys(maintModesMap).map(k=>({key:k,value:maintModesMap[k]})).sort((a,b)=>b.value-a.value);
+      renderListBar($('#prodReasons'), prodReasonsArr.length?prodReasonsArr:[{key:'No data',value:0}]);
+      renderListBar($('#maintCategories'), maintCatsArr.length?maintCatsArr:[{key:'No data',value:0}]);
+      renderListBar($('#maintFailureModes'), maintModesArr.length?maintModesArr:[{key:'No data',value:0}]);
 
-        // Rank table (sort by perfAdj desc, then avail desc)
-        const tbody = $('#rankTable tbody'); tbody.innerHTML='';
-        perLine.sort((a,b) => ((b.perfAdj||0) - (a.perfAdj||0)) || ((b.avail||0) - (a.avail||0)));
-        perLine.forEach(r=>{
-          const tr = document.createElement('tr');
-          tr.innerHTML = `<td class="left">${r.name}</td><td class="pct">${fmtPct(r.perfAdj)}</td><td class="pct">${fmtPct(r.avail)}</td><td class="num">${fmtNum(r.lbs)}</td><td class="num">${fmtNum(r.missed)}</td>`;
-          tbody.appendChild(tr);
-        });
+      // Rank table (perf desc then avail desc)
+      const tbody = $('#rankTable tbody'); tbody.innerHTML = '';
+      perLine.sort((a,b) => ((b.perfAdj||0) - (a.perfAdj||0)) || ((b.avail||0) - (a.avail||0)));
+      perLine.forEach(r=>{
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td class="left">${r.name}</td><td class="center">${fmtPct(r.perfAdj)}</td><td class="center">${fmtPct(r.avail)}</td><td class="center">${fmtNum(r.lbs)}</td><td class="center">${fmtNum(r.missed)}</td>`;
+        tbody.appendChild(tr);
+      });
 
-        // Live line status from prodStatusRaw (normalized)
-        const statusArr = (Array.isArray(prodStatusRaw)?prodStatusRaw:[]).filter(s => isGrindingMachine(s.name)).sort((a,b)=> canonGrinding(a.name).localeCompare(canonGrinding(b.name)));
-        const statusEl = $('#grindStatusList'); statusEl.innerHTML='';
-        statusArr.forEach(S => {
+      // Live status rendering from assetStatusCandidate.rows
+      const statusEl = $('#grindStatusList'); statusEl.innerHTML = '';
+      const statuses = assetStatusCandidate?.rows || [];
+      statuses.sort((a,b)=> canonGrinding(a.name).localeCompare(canonGrinding(b.name)));
+      if(statuses.length===0){
+        statusEl.innerHTML = '<div style="color:var(--muted);font-weight:800">No live status found for grinding assets from the attempted endpoints. Please check server-side mapping or dbo.LimbleKPIAssetFields SQL table.</div>';
+      } else {
+        statuses.forEach(S => {
           const row = document.createElement('div');
           const label = canonGrinding(S.name);
-          const tag = S.limble ? 'Limble Request' : 'Available';
-          row.innerHTML = `<span><strong>${label}</strong></span><span style="font-size:12px;color:var(--muted);font-weight:700">${tag}</span>`;
+          // determine status text: use S.raw fields if available
+          const st = S.status || (S.raw && (S.raw.assetStatus || S.raw.status || S.raw.value || '')) || 'Available';
+          row.innerHTML = `<span><strong>${label}</strong></span><span style="font-size:12px;color:var(--muted);font-weight:700">${st}</span>`;
           statusEl.appendChild(row);
         });
-
-        $('#updated').textContent = new Date().toLocaleString();
-      } finally {
-        setLoading(false);
       }
+
+      $('#updated').textContent = new Date().toLocaleString();
+    } finally {
+      setLoading(false);
     }
+  }
 
-    // timeframe button wiring
-    $$('.segBig button').forEach(btn => btn.addEventListener('click', () => {
-      if(btn.dataset.period && btn.dataset.period !== STATE.period){ STATE.period = btn.dataset.period; renderGrinding(); }
-    }));
+  $$('.segBig button').forEach(btn => btn.addEventListener('click', () => {
+    if(btn.dataset.period && btn.dataset.period !== STATE.period){ STATE.period = btn.dataset.period; renderGrinding(); }
+  }));
 
-    // initial render
-    renderGrinding();
-  </script>
+  // clock
+  setInterval(()=>{ const c=$('#clock'); if(c) c.textContent = new Date().toLocaleTimeString(); },1000);
+
+  // initial
+  renderGrinding();
+
+</script>
 </body>
 </html>
