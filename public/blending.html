@@ -1,4 +1,4 @@
-<!doctype html>
+<!doctype html> 
 <html lang="en">
 <head>
   <meta charset="utf-8" />
@@ -58,8 +58,7 @@
     .tile .val{font-size:24px;font-weight:900;margin-top:6px}
     .tile .meta{font-size:13px;color:var(--muted);font-weight:800;margin-top:6px}
 
-    /* matched to grinding improvements */
-    #rangeLabel { font-size:28px; font-weight:900; color:var(--muted); display:inline-block; margin-left:8px; }
+    #rangeLabel { font-size:18px; font-weight:900; color:var(--muted); display:inline-block; margin-left:8px; }
 
     .lines{display:grid;grid-auto-rows:minmax(80px,auto);gap:14px}
     .line{border:1px solid var(--border);border-radius:12px;padding:14px;background:white;display:flex;flex-direction:column;transition:transform .12s}
@@ -276,7 +275,92 @@
   function materialFromRow(r){ return String(r.material || r.mat || r.resin || '').toUpperCase(); }
 
   let MAPPINGS = null;
-  async function loadMappings(){ if(MAPPINGS) return MAPPINGS; try { const j = await fetchJSON(ENDPOINTS.MAP); MAPPINGS = j || {}; } catch(e){ MAPPINGS = {}; } return MAPPINGS; }
+
+  /* ---------- blending name normalization / aliasing ----------
+     Build a normalized alias map so your mappings.json values (which
+     may use different naming conventions) are accepted by the UI.
+  */
+  function normalizeNameKey(n){
+    return String(n || '').replace(/[^a-z0-9\s]/gi,' ').replace(/\s+/g,' ').trim().toLowerCase();
+  }
+
+  // Default static options (kept for backwards compat); we'll augment from mappings.json when available
+  const DEFAULT_BLEND_CANON = [
+    {canon:'Blender 1', aliases:['Blender 1','Blending 1','Blend 1','Blender B1','B1']},
+    {canon:'Blender 2', aliases:['Blender 2','Blending 2','Blend 2','Blender B2','B2']},
+    {canon:'Blender 3', aliases:['Blender 3','Blending 3','Blend 3','Blender B3','B3']},
+    {canon:'Blender 4', aliases:['Blender 4','Blending 4','Blend 4','Blender B4','B4']}
+  ];
+
+  // Map: normalized string -> canonical display name
+  const BLEND_ALIAS_REV = new Map();
+  function buildDefaultBlendAlias() {
+    BLEND_ALIAS_REV.clear();
+    for(const r of DEFAULT_BLEND_CANON){
+      const canon = r.canon;
+      BLEND_ALIAS_REV.set(normalizeNameKey(canon), canon);
+      (r.aliases||[]).forEach(a => BLEND_ALIAS_REV.set(normalizeNameKey(a), canon));
+    }
+  }
+  buildDefaultBlendAlias();
+
+  // Update alias map from mappings.json (if present)
+  function updateBlendCanonFromMappings(mapObj){
+    try{
+      if(!mapObj) return;
+      // If mappings provides an explicit blendingAssets list, prefer it
+      if(Array.isArray(mapObj.blendingAssets) && mapObj.blendingAssets.length){
+        for(const item of mapObj.blendingAssets){
+          const rawName = (typeof item === 'string' ? item : (item.name || item.title || ''));
+          if(!rawName) continue;
+          const canon = String(rawName).trim();
+          // add normalized forms
+          BLEND_ALIAS_REV.set(normalizeNameKey(canon), canon);
+          // also add simple variants (remove words like 'blender' or 'blend' if present)
+          const reduced = canon.replace(/\b(blender|blend|b)\b/gi, '').replace(/\s+/g,' ').trim();
+          if(reduced) BLEND_ALIAS_REV.set(normalizeNameKey(reduced), canon);
+          // add numeric-only variant if it's like 'B1' or 'B2'
+          const numeric = canon.match(/\d+/);
+          if(numeric) BLEND_ALIAS_REV.set(normalizeNameKey(numeric[0]), canon);
+        }
+      }
+
+      // Also accept any explicit names in capacity_aliases and capacities_lbs_hr as canonical candidates
+      const candidates = Object.assign({}, mapObj.capacity_aliases, mapObj.capacities_lbs_hr, mapObj.capacity_by_material_lbs_hr);
+      for(const k of Object.keys(candidates||{})){
+        const canon = String(k).trim();
+        if(!canon) continue;
+        BLEND_ALIAS_REV.set(normalizeNameKey(canon), canon);
+      }
+    }catch(e){
+      console.warn('updateBlendCanonFromMappings fail', e);
+    }
+  }
+
+  // Build a set of canonical values for quick lookup
+  function buildBlendCanonSet(){
+    return new Set(Array.from(BLEND_ALIAS_REV.values()).map(s => String(s).trim()));
+  }
+
+  function canonBlending(n){
+    if(!n) return '';
+    const norm = normalizeNameKey(n);
+    return BLEND_ALIAS_REV.get(norm) || String(n || '').trim();
+  }
+
+  function isBlendingMachine(n){
+    if(!n) return false;
+    const canon = canonBlending(n);
+    const set = buildBlendCanonSet();
+    return set.has(canon);
+  }
+
+  async function loadMappings(){ if(MAPPINGS) return MAPPINGS; try { const j = await fetchJSON(ENDPOINTS.MAP); MAPPINGS = j || {}; } catch(e){ MAPPINGS = {}; } 
+    // augment alias map from mappings file so later name checks work
+    updateBlendCanonFromMappings(MAPPINGS);
+    return MAPPINGS;
+  }
+
   function capacityFor(lineName, material){
     const caps = MAPPINGS?.capacities_lbs_hr || {}, byMat = MAPPINGS?.capacity_by_material_lbs_hr || {}, alias = MAPPINGS?.capacity_aliases || {}, malias = MAPPINGS?.material_aliases || {};
     const canon = (caps[lineName] !== undefined || byMat[lineName]) ? lineName : (alias[lineName] || lineName);
@@ -284,16 +368,10 @@
     return (byMat[canon]?.[m]) ?? (byMat[canon]?.DEFAULT) ?? caps[canon] ?? 0;
   }
 
-  const BLEND_CANON = [
-    {canon:'Blender 1', aliases:['Blender 1','Blending 1','Blend 1']},
-    {canon:'Blender 2', aliases:['Blender 2','Blending 2','Blend 2']},
-    {canon:'Blender 3', aliases:['Blender 3','Blending 3','Blend 3']},
-    {canon:'Blender 4', aliases:['Blender 4','Blending 4','Blend 4']}
-  ];
-  const BLEND_ALIAS_REV = (() => { const m=new Map(); for(const r of BLEND_CANON){ m.set(r.canon, r.canon); (r.aliases||[]).forEach(a=>m.set(String(a).trim(), r.canon)); } return m; })();
-  const BLEND_CANON_SET = new Set(BLEND_CANON.map(r=>r.canon));
-  function canonBlending(n){ return BLEND_ALIAS_REV.get(String(n||'').trim()) || String(n||'').trim(); }
-  function isBlendingMachine(n){ return BLEND_CANON_SET.has(canonBlending(n)); }
+  /* ---------- existing blend canonical defaults (kept for fallback) ----------
+     Note: we now use the alias map that was built above and augmented from mappings.json
+  */
+  let MAPPINGS_LOAD_TRIED = false;
 
   function drawDonutSegments(canvas, segments){
     if(!canvas) return;
@@ -383,6 +461,7 @@
       }
       $('#rangeLabel').textContent = `${from} → ${to}`;
 
+      // If limble endpoints 404, fetchJSON returns null; we tolerate that and continue
       const [bylineRaw, limblePayload, assetStatusCandidate] = await Promise.all([
         fetchJSON(`${ENDPOINTS.BY_LINE}?from=${from}&to=${to}`),
         fetchJSON(`${ENDPOINTS.LIMBLE_KPIASSET}?from=${from}&to=${to}`),
@@ -404,6 +483,7 @@
         };
       });
 
+      // filter blending machines using the alias map built from mappings.json (fall back to defaults)
       const blendingRows = parsed.filter(p=>p.machine && isBlendingMachine(p.machine));
 
       const limbleMaintMap = {};
@@ -570,15 +650,8 @@
 
         linesGrid.appendChild(div);
 
-        // apply coloring to availability and performance items
-        try {
-          const availNode = m4.querySelector('.mkv[data-avail]');
-          const perfNode = m5.querySelector('.mkv[data-perf]');
-          if(availNode){ applyMItemBg(availNode.closest('.mitem'), pickColorForPct(l.avail, 'lineHealth')); }
-          if(perfNode){ applyMItemBg(perfNode.closest('.mitem'), pickColorForPct(l.perfAdj, 'lineHealth')); }
-        } catch(e){
-          console.warn('coloring failed', e);
-        }
+        if(m4){ applyMItemBg(m4, pickColorForPct(l.avail, 'lineHealth')); }
+        if(m5){ applyMItemBg(m5, pickColorForPct(l.perfAdj, 'lineHealth')); }
       });
 
       // Rank table
@@ -660,8 +733,7 @@
     }
   });
 
-  // use the same clock selector logic as grinding.html
-  setInterval(()=>{ const c=$('#clock'); if(c) c.textContent = new Date().toLocaleTimeString(); },1000);
+  setInterval(()=>{ const c=$('.clock'); if(c) c.textContent = new Date().toLocaleTimeString(); },1000);
 
   renderBlending();
   setInterval(() => { renderBlending(); }, 10 * 60 * 1000);
