@@ -415,7 +415,6 @@
   "PCR": "PCR Washline"
 },
   "capacities_lbs_hr": {
-    "Vistakon 1": 2000,
     "Extruder NGR": 2000,
     "Extruder 1": 2000,
     "Extruder 2": 2000,
@@ -499,7 +498,7 @@
       "PP": 4500, 
       "PPTF": 5000 
     },
-    "Shredding 1": { 
+    "Shredder 1": { 
       "DEFAULT": 2100, 
       "CRY": 2250, 
       "EPP": 1450, 
@@ -509,7 +508,7 @@
       "PS": 1800, 
       "PS/PP": 830 
     },
-    "Shredding 3": { 
+    "Shredder 3": { 
       "DEFAULT": 2100, 
       "CRY": 2250, 
       "EPP": 1450, 
@@ -519,7 +518,7 @@
       "PS": 1800, 
       "PS/PP": 830 
     },
-    "Shredding 5": { 
+    "Shredder 5": { 
       "DEFAULT": 2100, 
       "CRY": 2250, 
       "EPP": 1450, 
