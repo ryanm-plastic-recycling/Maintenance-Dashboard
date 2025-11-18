@@ -45,7 +45,7 @@
     #loading .spinner{width:64px;height:64px;border:8px solid #e5e7eb;border-top-color:var(--pri-blue);border-radius:50%;animation:spin 1s linear infinite}
     @keyframes spin{to{transform:rotate(360deg)}}
 
-    /* two-column grids: Left is 2x width of right (matches your request) */
+    /* two-column grids: Left is 1fr, right is 2fr as requested */
     .grid{display:grid;grid-template-columns:1fr 2fr;gap:16px;align-items:start}
     @media (max-width: 1000px){ .grid{grid-template-columns:1fr} }
 
@@ -232,23 +232,18 @@
     MAP:'mappings.json'
   };
 
-  /***** COLOR CONFIGURATION (edit these values to tune pulse → grinding mapping) *****
-   * - overall.thresholds.good/warn are fraction values (e.g. 0.85 = 85%).
-   * - overall.hex holds the primary colors for good/warn/bad (used for tile text).
-   * - status defines live-status colors (Available vs Other).
-   * - lineHealth.thresholds similar to overall — used to color availability/perf numbers.
-   *****************************************************************************/
+  /***** COLOR CONFIGURATION (edit these values to tune pulse → grinding mapping) *****/
   const COLOR_CONFIG = {
     overall: {
-      thresholds: { good: 0.85, warn: 0.7 },             // >=good => good color; >=warn => warn color; else bad
-      hex: { good: '#10B981', warn: '#FBBF24', bad: '#EF4444' } // green, yellow, red (pulse-style)
+      thresholds: { good: 0.85, warn: 0.7 },
+      hex: { good: '#10B981', warn: '#FBBF24', bad: '#EF4444' }
     },
     status: {
-      available: '#10B981',   // green for Available for Production
-      other: '#FBBF24'        // yellow for other states
+      available: '#10B981',
+      other: '#FBBF24'
     },
     lineHealth: {
-      thresholds: { good: 0.80, warn: 0.60 }, // use for availability & performance color mapping
+      thresholds: { good: 0.80, warn: 0.60 },
       hex: { good: '#10B981', warn: '#FBBF24', bad: '#EF4444' }
     }
   };
@@ -390,6 +385,32 @@
     });
   }
 
+  /* Apply a pulse-style background color to a KPI tile and set readable text colors */
+  function applyTileBg(tileId, pct, valText, metaText){
+    const tile = document.getElementById(tileId);
+    if(!tile) return;
+    const bg = pickColorForPct(pct, 'overall');
+    tile.style.background = bg;
+    tile.style.borderColor = bg;
+    tile.style.color = '#ffffff';
+    const lab = tile.querySelector('.lab'); if(lab) lab.style.color = 'rgba(255,255,255,0.95)';
+    const val = tile.querySelector('.val'); if(val){ val.textContent = valText; val.style.color = '#ffffff'; }
+    const meta = tile.querySelector('.meta'); if(meta){ meta.textContent = metaText || ''; meta.style.color = 'rgba(255,255,255,0.9)'; }
+    tile.style.boxShadow = '0 10px 25px rgba(0,0,0,0.12)';
+  }
+
+  /* Apply background color to a .mitem box (used for availability/perf so they match pulse look) */
+  function applyMItemBg(mitemEl, color){
+    if(!mitemEl) return;
+    mitemEl.style.background = color;
+    mitemEl.style.borderColor = color;
+    mitemEl.style.color = '#ffffff';
+    // ensure inner label/meta readable
+    const lbl = mitemEl.querySelector('.label'); if(lbl) lbl.style.color = 'rgba(255,255,255,0.95)';
+    const mkv = mitemEl.querySelector('.mkv'); if(mkv) mkv.style.color = '#ffffff';
+    mitemEl.style.boxShadow = '0 8px 18px rgba(0,0,0,0.12)';
+  }
+
   async function renderGrinding(){
     setLoading(true);
     try{
@@ -472,19 +493,11 @@
       const overallAdjDen = Math.max(1e-9, (totals.planned - totals.maint) * avgCap);
       const overallPerfAdj = overallAdjDen>0 ? (totals.lbs / overallAdjDen) : 0;
 
-      // render overall tiles & color them using COLOR_CONFIG.overall
-      const ovAvailEl = $('#ov-grind-av'), ovMaintEl = $('#ov-maint-dt'), ovPerfEl = $('#ov-pr');
-      ovAvailEl.textContent = fmtPct(overallAvail);
-      ovAvailEl.style.color = pickColorForPct(overallAvail, 'overall');
-      $('#ov-grind-av-sub').textContent = `${fmtNum(Math.round(totals.runtime))} run h • ${fmtNum(Math.round(totals.planned))} planned h`;
-
-      ovMaintEl.textContent = fmtPct(totals.planned ? (totals.maint / totals.planned) : 0);
-      ovMaintEl.style.color = pickColorForPct((totals.maint / Math.max(1, totals.planned)) || 0, 'overall');
-      $('#ov-maint-dt-sub').textContent = `${fmtH(totals.maint)} maint h • ${fmtH(totals.prod)} prod dt h`;
-
-      ovPerfEl.textContent = fmtPct(overallPerfAdj);
-      ovPerfEl.style.color = pickColorForPct(overallPerfAdj, 'overall');
-      $('#ov-pr-sub').textContent = `${fmtNum(Math.round(totals.lbs))} lbs • avg cap ${fmtNum(Math.round(avgCap))} lbs/hr`;
+      // render overall tiles & color them using COLOR_CONFIG.overall (pulse-style backgrounds)
+      applyTileBg('tile-grind-av', overallAvail, fmtPct(overallAvail), `${fmtNum(Math.round(totals.runtime))} run h • ${fmtNum(Math.round(totals.planned))} planned h`);
+      const maintFrac = totals.planned ? (totals.maint / totals.planned) : 0;
+      applyTileBg('tile-maint-dt', maintFrac, fmtPct(maintFrac), `${fmtH(totals.maint)} maint h • ${fmtH(totals.prod)} prod dt h`);
+      applyTileBg('tile-performance', overallPerfAdj, fmtPct(overallPerfAdj), `${fmtNum(Math.round(totals.lbs))} lbs • avg cap ${fmtNum(Math.round(avgCap))} lbs/hr`);
 
       // Downtime donut maps
       const prodReasonsMap = {};
@@ -523,7 +536,7 @@
       drawDonutSegments($('#donutMaintMode'), segMode);
       makeLegend($('#legendMaintMode'), mmodeSeed, modeColors);
 
-      // Line Health cards (apply lineHealth mapping colors)
+      // Line Health cards (apply lineHealth mapping colors to the small boxes)
       const linesGrid = $('#linesGrid'); linesGrid.innerHTML = '';
       perLine.sort((a,b)=> (b.perfAdj||0) - (a.perfAdj||0)).forEach(l=>{
         const div = document.createElement('div'); div.className='line';
@@ -553,11 +566,17 @@
         `;
         linesGrid.appendChild(div);
 
-        // apply colors to numeric elements
+        // apply colors to numeric elements by coloring their mitem parents (pulse-style)
         const availNode = div.querySelector('.mkv[data-avail]');
         const perfNode = div.querySelector('.mkv[data-perf]');
-        if(availNode) availNode.style.color = availColor;
-        if(perfNode) perfNode.style.color = perfColor;
+        if(availNode){
+          const parent = availNode.closest('.mitem');
+          applyMItemBg(parent, availColor);
+        }
+        if(perfNode){
+          const parent = perfNode.closest('.mitem');
+          applyMItemBg(parent, perfColor);
+        }
       });
 
       // Rank table
@@ -580,7 +599,6 @@
           const row = document.createElement('div');
           const label = canonGrinding(S.name);
           const st = S.status || (S.raw && (S.raw.assetStatus || S.raw.status || S.raw.value || '')) || 'Available';
-          // normalize status -> treat 'Available' substring as available for production
           const stLower = String(st||'').toLowerCase();
           const isAvailable = stLower.includes('avail') || stLower.includes('available') || stLower.includes('ready') || stLower.includes('in production');
           const color = isAvailable ? COLOR_CONFIG.status.available : COLOR_CONFIG.status.other;
