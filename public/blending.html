@@ -1,4 +1,4 @@
-<!doctype html> 
+<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
@@ -58,7 +58,8 @@
     .tile .val{font-size:24px;font-weight:900;margin-top:6px}
     .tile .meta{font-size:13px;color:var(--muted);font-weight:800;margin-top:6px}
 
-    #rangeLabel { font-size:18px; font-weight:900; color:var(--muted); display:inline-block; margin-left:8px; }
+    /* matched to grinding improvements */
+    #rangeLabel { font-size:28px; font-weight:900; color:var(--muted); display:inline-block; margin-left:8px; }
 
     .lines{display:grid;grid-auto-rows:minmax(80px,auto);gap:14px}
     .line{border:1px solid var(--border);border-radius:12px;padding:14px;background:white;display:flex;flex-direction:column;transition:transform .12s}
@@ -569,8 +570,15 @@
 
         linesGrid.appendChild(div);
 
-        if(m4){ applyMItemBg(m4, pickColorForPct(l.avail, 'lineHealth')); }
-        if(m5){ applyMItemBg(m5, pickColorForPct(l.perfAdj, 'lineHealth')); }
+        // apply coloring to availability and performance items
+        try {
+          const availNode = m4.querySelector('.mkv[data-avail]');
+          const perfNode = m5.querySelector('.mkv[data-perf]');
+          if(availNode){ applyMItemBg(availNode.closest('.mitem'), pickColorForPct(l.avail, 'lineHealth')); }
+          if(perfNode){ applyMItemBg(perfNode.closest('.mitem'), pickColorForPct(l.perfAdj, 'lineHealth')); }
+        } catch(e){
+          console.warn('coloring failed', e);
+        }
       });
 
       // Rank table
@@ -652,7 +660,8 @@
     }
   });
 
-  setInterval(()=>{ const c=$('.clock'); if(c) c.textContent = new Date().toLocaleTimeString(); },1000);
+  // use the same clock selector logic as grinding.html
+  setInterval(()=>{ const c=$('#clock'); if(c) c.textContent = new Date().toLocaleTimeString(); },1000);
 
   renderBlending();
   setInterval(() => { renderBlending(); }, 10 * 60 * 1000);
