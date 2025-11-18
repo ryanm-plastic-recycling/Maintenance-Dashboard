@@ -432,11 +432,15 @@
         case 'r30': default: { const s=new Date(now); s.setDate(s.getDate()-29); from=iso(s); to=iso(now); break; }
       }
       $('#rangeLabel').textContent = `${from} → ${to}`;
-
-      const [bylineRaw, assetStatusCandidate] = await Promise.all([
+  
+      // Fetch by-line production data and also attempt to fetch Limble KPI asset data
+      const [bylineRaw, limblePayload, assetStatusCandidate] = await Promise.all([
         fetchJSON(`${ENDPOINTS.BY_LINE}?from=${from}&to=${to}`),
+        fetchJSON(`${ENDPOINTS.LIMBLE_KPIASSET}?from=${from}&to=${to}`),
         loadAssetStatusCandidates()
       ]);
+  
+      // Normalize rows
       const rawRows = Array.isArray(bylineRaw) ? bylineRaw : (bylineRaw && (Array.isArray(bylineRaw.rows) ? bylineRaw.rows : (Array.isArray(bylineRaw.items) ? bylineRaw.items : [])));
       const parsed = (rawRows||[]).map(r=>{
         const machine = machineNameFromRow(r);
@@ -452,56 +456,103 @@
         };
       });
       const grindingRows = parsed.filter(p=>p.machine && isGrindingMachine(p.machine));
-
-      // aggregate
+  
+      // Parse Limble KPI payload into name -> maintenance hours map (robust field detection)
+      const limbleMaintMap = {};
+      if(limblePayload){
+        // try to find array inside payload
+        let lp = Array.isArray(limblePayload) ? limblePayload : (Array.isArray(limblePayload.rows) ? limblePayload.rows : (Array.isArray(limblePayload.items) ? limblePayload.items : []));
+        if(!lp.length && typeof limblePayload === 'object'){
+          for(const k of Object.keys(limblePayload)){
+            if(Array.isArray(limblePayload[k]) && limblePayload[k].length) { lp = limblePayload[k]; break; }
+          }
+        }
+        if(Array.isArray(lp)){
+          lp.forEach(it=>{
+            const name = machineNameFromRow(it) || machineNameFromRow(it.raw || it);
+            // accept a variety of field names for maintenance hours
+            const m = Number(it.maintenance_hours ?? it.maint_hours ?? it.maint_h ?? it.maintenance_h ?? it.maintenance ?? it.total_maintenance_hours ?? it.maint || 0) || 0;
+            if(name) limbleMaintMap[canonGrinding(name)] = (limbleMaintMap[canonGrinding(name)] || 0) + m;
+          });
+        }
+      }
+  
+      // aggregate per canon machine from product rows (these are from BY_LINE)
       const agg = {};
       for(const r of grindingRows){
         const canon = canonGrinding(r.machine);
         const capFromMap = capacityFor(canon, r.material);
-        const cap = r.nameplate > 0 ? r.nameplate : capFromMap || 0;
+        const cap = r.nameplate > 0 ? r.nameplate : (capFromMap || 0);
         if(!agg[canon]) agg[canon] = { name:canon, lbs:0, maint:0, prod:0, mach:0, cap:cap, days:1, matcount:{} };
         agg[canon].lbs += Math.max(0, r.pounds);
-        agg[canon].maint += Math.max(0, r.maint);
         agg[canon].prod += Math.max(0, r.prod);
         agg[canon].mach += Math.max(0, r.machineHours);
+        // NOTE: keep existing maint from BY_LINE if present; we'll override later with Limble if available
+        agg[canon].maint += Math.max(0, r.maint);
         const m = (r.material || 'UNKNOWN').toUpperCase();
         agg[canon].matcount[m] = (agg[canon].matcount[m]||0) + 1;
         if(cap>0) agg[canon].cap = cap;
       }
-
+  
       // compute weekdays count
       const fromD=new Date(from+'T00:00:00'), toD=new Date(to+'T00:00:00');
       let days=0; for(let d=new Date(fromD); d<=toD; d.setDate(d.getDate()+1)){ const wd=d.getDay(); if(wd!==0 && wd!==6) days++; } days = Math.max(1, days);
       Object.values(agg).forEach(a=>a.days=days);
-
+  
+      // Build per-line calculated metrics using Limble maint when available and runtime-based perf
       const perLine = Object.values(agg).map(a=>{
         const matEntries = Object.entries(a.matcount || {});
         const domMat = matEntries.length ? matEntries.sort((x,y)=>y[1]-x[1])[0][0] : 'N/A';
         const plannedH = 24 * a.days;
-        const runtimeH = a.mach > 0 ? a.mach : (a.cap>0 ? (a.lbs / a.cap) : 0);
-        const avail = plannedH > 0 ? runtimeH / plannedH : 0;
-        const adjDen = Math.max(1e-9, (plannedH - a.maint) * (a.cap || 0));
-        const perfAdj = (a.cap>0) ? (a.lbs / adjDen) : 0;
-        const oee = avail * perfAdj;
-        const capPotential = a.cap>0 ? a.cap * runtimeH : 0;
-        const missed = Math.max(0, capPotential - a.lbs);
-        return {...a, plannedH, runtimeH, avail, perfAdj, oee, missed, dominantMaterial: domMat};
+  
+        // Prefer Limble maintenance hours if present
+        const limbleMaint = limbleMaintMap[a.name];
+        const maint = (typeof limbleMaint === 'number' && limbleMaint > 0) ? limbleMaint : a.maint;
+  
+        // runtime: prefer measured machine hours; fallback: infer runtime from lbs / cap (if cap > 0)
+        let runtimeH = a.mach > 0 ? a.mach : (a.cap > 0 ? (a.lbs / a.cap) : 0);
+        // make sure runtime is not unrealistically larger than planned window
+        runtimeH = Math.max(0, Math.min(runtimeH, plannedH));
+  
+        // grinding downtime := plannedH - runtime - maint (clamped)
+        const grindDowntime = Math.max(0, plannedH - runtimeH - (maint || 0));
+  
+        // Performance (what you expected): actual lbs divided by runtime * capacity
+        let perfAdj = 0;
+        if(a.cap > 0 && runtimeH > 0) perfAdj = a.lbs / (runtimeH * a.cap);
+        perfAdj = Math.max(0, Math.min(perfAdj, 10)); // keep sane cap
+  
+        // missed opportunity: cap * runtime - actual
+        const capPotential = a.cap > 0 ? (a.cap * runtimeH) : 0;
+        const missed = Math.max(0, Math.round(capPotential - a.lbs));
+  
+        return {...a, plannedH, runtimeH, maint, grindDowntime, perfAdj, oee: (runtimeH>0 ? (runtimeH/plannedH) * perfAdj : 0), capPotential, missed, dominantMaterial: domMat};
       });
-
-      // overall aggregates
-      const totals = perLine.reduce((s,x)=>{ s.lbs+=x.lbs; s.maint+=x.maint; s.runtime+=x.runtimeH; s.planned+=x.plannedH; s.missed+=x.missed; s.caps+=x.cap; s.prod+=x.prod; s.count++; return s; }, {lbs:0,maint:0,runtime:0,planned:0,missed:0,caps:0,prod:0,count:0});
+  
+      // overall aggregates — use runtime-based denominator for performance too
+      const totals = perLine.reduce((s,x)=>{
+        s.lbs += x.lbs;
+        s.maint += (x.maint || 0);
+        s.runtime += (x.runtimeH || 0);
+        s.planned += x.plannedH;
+        s.missed += x.missed || 0;
+        s.caps += (x.cap || 0);
+        s.prod += (x.prod || 0);
+        s.count++;
+        return s;
+      }, {lbs:0,maint:0,runtime:0,planned:0,missed:0,caps:0,prod:0,count:0});
+  
       const overallAvail = totals.planned>0 ? (totals.runtime / totals.planned) : 0;
       const avgCap = totals.count ? (totals.caps / totals.count) : 0;
-      const overallAdjDen = Math.max(1e-9, (totals.planned - totals.maint) * avgCap);
-      const overallPerfAdj = overallAdjDen>0 ? (totals.lbs / overallAdjDen) : 0;
-
-      // render overall tiles & color them using COLOR_CONFIG.overall (pulse-style backgrounds)
+      const overallPerfAdj = (totals.runtime>0 && avgCap>0) ? (totals.lbs / (totals.runtime * avgCap)) : 0;
+  
+      // render overall tiles (pulse-style backgrounds)
       applyTileBg('tile-grind-av', overallAvail, fmtPct(overallAvail), `${fmtNum(Math.round(totals.runtime))} run h • ${fmtNum(Math.round(totals.planned))} planned h`);
       const maintFrac = totals.planned ? (totals.maint / totals.planned) : 0;
       applyTileBg('tile-maint-dt', maintFrac, fmtPct(maintFrac), `${fmtH(totals.maint)} maint h • ${fmtH(totals.prod)} prod dt h`);
       applyTileBg('tile-performance', overallPerfAdj, fmtPct(overallPerfAdj), `${fmtNum(Math.round(totals.lbs))} lbs • avg cap ${fmtNum(Math.round(avgCap))} lbs/hr`);
-
-      // Downtime donut maps
+  
+      // Downtime donuts (unchanged)
       const prodReasonsMap = {};
       const maintCatsMap = {};
       const maintModesMap = {};
@@ -516,73 +567,68 @@
       const prodReasonsArr = Object.keys(prodReasonsMap).map(k=>({key:k,value:prodReasonsMap[k]})).sort((a,b)=>b.value-a.value);
       const maintCatsArr = Object.keys(maintCatsMap).map(k=>({key:k,value:maintCatsMap[k]})).sort((a,b)=>b.value-a.value);
       const maintModesArr = Object.keys(maintModesMap).map(k=>({key:k,value:maintModesMap[k]})).sort((a,b)=>b.value-a.value);
-
+  
       const prodSeed = prodReasonsArr.length ? prodReasonsArr : [{key:'UNSTATED',value: (totals.prod || 0) || 1}];
       const mcatSeed = maintCatsArr.length ? maintCatsArr : [{key:'Other',value:1}];
       const mmodeSeed = maintModesArr.length ? maintModesArr : [{key:'Machine Damaged',value:1}];
-
+  
       const prodColors = ['#4b5563', COLOR_CONFIG.overall.hex.good, '#d1d5db', '#1e40af', COLOR_CONFIG.overall.hex.warn];
       const catColors = ['#1f2937','#d1d5db',COLOR_CONFIG.overall.hex.good,COLOR_CONFIG.overall.hex.bad];
       const modeColors = ['#071332','#ef6b2f','#1e40af','#94a3b8'];
-
+  
       const segProd = prodSeed.slice(0,6).map((it,i)=>({ value: it.value, color: prodColors[i] || '#ccc', key: it.key }));
       const segCat = mcatSeed.slice(0,6).map((it,i)=>({ value: it.value, color: catColors[i] || '#ccc', key: it.key }));
       const segMode = mmodeSeed.slice(0,6).map((it,i)=>({ value: it.value, color: modeColors[i] || '#ccc', key: it.key }));
-
+  
       drawDonutSegments($('#donutProd'), segProd);
       makeLegend($('#legendProd'), prodSeed, prodColors);
-
+  
       drawDonutSegments($('#donutMaintCat'), segCat);
       makeLegend($('#legendMaintCat'), mcatSeed, catColors);
-
+  
       drawDonutSegments($('#donutMaintMode'), segMode);
       makeLegend($('#legendMaintMode'), mmodeSeed, modeColors);
-
-      // Line Health cards (apply lineHealth mapping colors to the small boxes)
+  
+      // Line Health cards (update order: Maint DT H > Grind DT H > Runtime H > Availability > Perf Adj)
       const linesGrid = $('#linesGrid'); linesGrid.innerHTML = '';
       perLine.sort((a,b)=> (b.perfAdj||0) - (a.perfAdj||0)).forEach(l=>{
         const div = document.createElement('div'); div.className='line';
         const capText = (l.cap && l.cap>0) ? `${fmtNum(l.cap)} lbs/hr` : 'cap unknown';
         const domMat = l.dominantMaterial || 'N/A';
-
+  
         // color picks
         const availColor = pickColorForPct(l.avail, 'lineHealth');
         const perfColor = pickColorForPct(l.perfAdj, 'lineHealth');
-
+  
+        // render with new order; first row shows name / material / cap / pounds (same font/size as header)
         div.innerHTML = `
           <div class="lineheader">
             <div style="display:flex;gap:12px;align-items:center">
-              <div class="linename">${l.name}</div>
-              <div class="matBadge">${domMat}</div>
-              <div class="capright" style="margin-left:8px">${capText}</div>
-              <div class="capright" style="margin-left:8px">${fmtNum(l.lbs)} lb</div>
+              <div class="linename" style="font-size:20px">${l.name}</div>
+              <div style="font-weight:900;color:var(--muted)">${l.dominantMaterial}</div>
+              <div style="font-weight:900;color:var(--muted)"> ${capText}</div>
+              <div style="font-weight:900;color:var(--muted)">${fmtNum(l.lbs)} lb</div>
             </div>
+            <div class="capright" style="font-size:18px">${Math.round((l.perfAdj||0)*100)}%</div>
           </div>
-          
           <div class="metricrow">
             <div class="mitem"><div class="label">Maint h</div><div class="mkv">${fmtH(l.maint)}</div></div>
-            <div class="mitem"><div class="label">Grind DT h</div><div class="mkv">${fmtH(l.prod)}</div></div>
+            <div class="mitem"><div class="label">Grind DT h</div><div class="mkv">${fmtH(l.grindDowntime)}</div></div>
             <div class="mitem"><div class="label">Runtime h</div><div class="mkv">${fmtH(l.runtimeH)}</div></div>
             <div class="mitem"><div class="label">Availability</div><div class="mkv" data-avail="${l.avail}">${fmtPct(l.avail)}</div></div>
             <div class="mitem"><div class="label">Perf Adj</div><div class="mkv" data-perf="${l.perfAdj}">${fmtPct(l.perfAdj)}</div></div>
           </div>
         `;
         linesGrid.appendChild(div);
-
-        // apply colors to numeric elements by coloring their mitem parents (pulse-style)
+  
+        // apply colors to availability and perf mitems (pulse-style)
         const availNode = div.querySelector('.mkv[data-avail]');
         const perfNode = div.querySelector('.mkv[data-perf]');
-        if(availNode){
-          const parent = availNode.closest('.mitem');
-          applyMItemBg(parent, availColor);
-        }
-        if(perfNode){
-          const parent = perfNode.closest('.mitem');
-          applyMItemBg(parent, perfColor);
-        }
+        if(availNode){ const parent = availNode.closest('.mitem'); applyMItemBg(parent, availColor); }
+        if(perfNode){ const parent = perfNode.closest('.mitem'); applyMItemBg(parent, perfColor); }
       });
-
-      // Rank table
+  
+      // Rank table with a TOTAL row
       const tbody = $('#rankTable tbody'); tbody.innerHTML = '';
       perLine.sort((a,b) => ((b.perfAdj||0) - (a.perfAdj||0)) || ((b.avail||0) - (a.avail||0)));
       perLine.forEach(r=>{
@@ -590,13 +636,14 @@
         tr.innerHTML = `<td class="left">${r.name} <div style="font-size:12px;color:var(--muted);font-weight:800">${r.dominantMaterial || ''}</div></td><td class="center">${fmtPct(r.perfAdj)}</td><td class="center">${fmtPct(r.avail)}</td><td class="center">${fmtNum(r.lbs)}</td><td class="center">${fmtNum(r.missed)}</td>`;
         tbody.appendChild(tr);
       });
-
-      // append TOTAL row
+  
+      // append total row (sums)
       const totalTr = document.createElement('tr');
-      totalTr.innerHTML = `<td class="left"><strong>TOTAL</strong></td><td class="center">${fmtPct(overallPerfAdj)}</td><td class="center">${fmtPct(overallAvail)}</td><td class="center">${fmtNum(totals.lbs)}</td><td class="center">${fmtNum(totals.missed)}</td>`;
+      totalTr.style.fontWeight = '900';
+      totalTr.innerHTML = `<td class="left">TOTAL</td><td class="center">${fmtPct( (perLine.length? (perLine.reduce((s,x)=>s + (x.perfAdj||0),0)/Math.max(1,perLine.length)):0) )}</td><td class="center">${fmtPct(overallAvail)}</td><td class="center">${fmtNum(totals.lbs)}</td><td class="center">${fmtNum(totals.missed)}</td>`;
       tbody.appendChild(totalTr);
-
-      // Live status: choose only green/yellow per your request
+  
+      // Live status (unchanged logic; make status appear on right side and increase font)
       const statusEl = $('#grindStatusList'); statusEl.innerHTML = '';
       const statuses = assetStatusCandidate?.rows || [];
       statuses.sort((a,b)=> canonGrinding(a.name).localeCompare(canonGrinding(b.name)));
@@ -611,18 +658,12 @@
           const isAvailable = stLower.includes('avail') || stLower.includes('available') || stLower.includes('ready') || stLower.includes('in production');
           const color = isAvailable ? COLOR_CONFIG.status.available : COLOR_CONFIG.status.other;
           const bullet = `<span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${color};margin-right:10px;vertical-align:middle"></span>`;
-          // left (name + bullet) and right (status) — status on the right side
-          row.innerHTML = `<div style="display:flex;align-items:center;font-size:20px"><span>${bullet}</span><strong style="font-size:20px">${label}</strong></div><div style="font-size:20px;color:var(--muted);font-weight:800">${st}</div>`;
-          // wrap to match the container flex (container CSS already handles space-between)
-          const wrapper = document.createElement('div');
-          wrapper.style.display = 'flex';
-          wrapper.style.justifyContent = 'space-between';
-          wrapper.style.alignItems = 'center';
-          wrapper.innerHTML = row.innerHTML;
-          statusEl.appendChild(wrapper);
+          // label left, status right, larger font to match header
+          row.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;font-size:18px"><div style="display:flex;align-items:center"><strong style="font-size:18px">${label}</strong></div><div style="font-size:18px;color:var(--muted);font-weight:800">${st} ${bullet}</div></div>`;
+          statusEl.appendChild(row);
         });
       }
-
+  
       $('#updated').textContent = new Date().toLocaleString();
     } finally {
       setLoading(false);
