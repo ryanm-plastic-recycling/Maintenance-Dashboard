@@ -58,12 +58,15 @@
     .tile .val{font-size:24px;font-weight:900;margin-top:6px}
     .tile .meta{font-size:13px;color:var(--muted);font-weight:800;margin-top:6px}
 
+    /* make range label larger (twice the previous little size) */
+    #rangeLabel { font-size:18px; font-weight:900; color:var(--muted); display:inline-block; margin-left:8px; }
+
     .lines{display:grid;grid-auto-rows:minmax(80px,auto);gap:14px}
     .line{border:1px solid var(--border);border-radius:12px;padding:14px;background:white;display:flex;flex-direction:column;transition:transform .12s}
     .line:hover{transform:translateY(-4px)}
     .lineheader{display:flex;justify-content:space-between;align-items:center}
     .linename{font-weight:900;font-size:20px}
-    .capright{font-size:16px;color:var(--muted);font-weight:900}
+    .capright{font-size:14px;color:var(--muted);font-weight:900;text-align:right}
     .matBadge{font-size:14px;padding:6px 8px;border-radius:999px;background:#f1f7f2;border:1px solid #d6efdd;color:#065f2a;font-weight:900;margin-left:8px}
 
     .metricrow{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:10px}
@@ -242,9 +245,9 @@
 
   function setLoading(v){ const el=$('#loading'); if(el) el.style.display = v ? 'flex' : 'none'; }
   async function fetchJSON(url, opts={}){ try{ const r = await fetch(url + (url.includes('?') ? '&' : '?') + 'ts=' + Date.now(), opts); if(!r.ok) throw new Error(r.status); return await r.json(); } catch(e){ console.warn('fetchJSON fail', url, e); return null; } }
-  function fmtPct(v){ return Number.isFinite(v) ? (Math.round(v*100)+'%') : '0%'; }
-  function fmtNum(n){ return Number.isFinite(n) ? Math.round(n).toLocaleString() : '0'; }
-  function fmtH(v){ return Number.isFinite(v) ? v.toFixed(1) : '0.0'; }
+  function fmtPct(v){ return Number.isFinite(Number(v)) ? (Math.round(Number(v)*100)+'%') : '0%'; }
+  function fmtNum(n){ return Number.isFinite(Number(n)) ? Math.round(Number(n)).toLocaleString() : '0'; }
+  function fmtH(v){ return Number.isFinite(Number(v)) ? Number(v).toFixed(1) : '0.0'; }
 
   function pickColorForPct(frac, type='lineHealth'){
     const cfg = (type === 'overall') ? COLOR_CONFIG.overall : COLOR_CONFIG.lineHealth;
@@ -331,10 +334,14 @@
     const bg = pickColorForPct(pct, 'overall');
     tile.style.background = bg;
     tile.style.borderColor = bg;
-    tile.style.color = '#ffffff';
-    const lab = tile.querySelector('.lab'); if(lab) lab.style.color = 'rgba(255,255,255,0.95)';
-    const val = tile.querySelector('.val'); if(val){ val.textContent = valText; val.style.color = '#ffffff'; }
-    const meta = tile.querySelector('.meta'); if(meta){ meta.textContent = metaText || ''; meta.style.color = 'rgba(255,255,255,0.9)'; }
+    // if green or yellow use dark text, otherwise white
+    const darkBgHexes = [COLOR_CONFIG.overall.hex.good, COLOR_CONFIG.overall.hex.warn];
+    const useDarkText = darkBgHexes.indexOf(bg) !== -1;
+    const textColor = useDarkText ? '#0b1722' : '#ffffff';
+    tile.style.color = textColor;
+    const lab = tile.querySelector('.lab'); if(lab) lab.style.color = useDarkText ? 'rgba(11,23,34,0.9)' : 'rgba(255,255,255,0.95)';
+    const val = tile.querySelector('.val'); if(val){ val.textContent = valText; val.style.color = textColor; }
+    const meta = tile.querySelector('.meta'); if(meta){ meta.textContent = metaText || ''; meta.style.color = useDarkText ? 'rgba(11,23,34,0.85)' : 'rgba(255,255,255,0.9)'; }
     tile.style.boxShadow = '0 10px 25px rgba(0,0,0,0.12)';
   }
 
@@ -342,9 +349,12 @@
     if(!mitemEl) return;
     mitemEl.style.background = color;
     mitemEl.style.borderColor = color;
-    mitemEl.style.color = '#ffffff';
-    const lbl = mitemEl.querySelector('.label'); if(lbl) lbl.style.color = 'rgba(255,255,255,0.95)';
-    const mkv = mitemEl.querySelector('.mkv'); if(mkv) mkv.style.color = '#ffffff';
+    // use dark text for green/yellow tiles (same rule)
+    const darkBgHexes = [COLOR_CONFIG.lineHealth.hex.good, COLOR_CONFIG.lineHealth.hex.warn];
+    const useDarkText = darkBgHexes.indexOf(color) !== -1;
+    mitemEl.style.color = useDarkText ? '#0b1722' : '#ffffff';
+    const lbl = mitemEl.querySelector('.label'); if(lbl) lbl.style.color = useDarkText ? 'rgba(11,23,34,0.9)' : 'rgba(255,255,255,0.95)';
+    const mkv = mitemEl.querySelector('.mkv'); if(mkv) mkv.style.color = useDarkText ? '#0b1722' : '#ffffff';
     mitemEl.style.boxShadow = '0 8px 18px rgba(0,0,0,0.12)';
   }
 
@@ -374,7 +384,6 @@
         loadAssetStatusCandidates()
       ]);
 
-      // Normalize rows (from BY_LINE)
       const rawRows = Array.isArray(bylineRaw) ? bylineRaw : (bylineRaw && (Array.isArray(bylineRaw.rows) ? bylineRaw.rows : (Array.isArray(bylineRaw.items) ? bylineRaw.items : [])));
       const parsed = (rawRows||[]).map(r=>{
         const machine = machineNameFromRow(r);
@@ -392,7 +401,6 @@
 
       const grindingRows = parsed.filter(p=>p.machine && isGrindingMachine(p.machine));
 
-      // Parse Limble: create a map of canonicalName -> total maintenance hours (summing events)
       const limbleMaintMap = {};
       if(limblePayload){
         let lp = Array.isArray(limblePayload) ? limblePayload : (Array.isArray(limblePayload.rows) ? limblePayload.rows : (Array.isArray(limblePayload.items) ? limblePayload.items : []));
@@ -404,7 +412,6 @@
         if(Array.isArray(lp)){
           lp.forEach(it=>{
             const name = machineNameFromRow(it) || machineNameFromRow(it.raw || it);
-            // --- FIX: avoid mixing ?? and || in same expression; extract candidate first ---
             const mCandidate = it.maintenance_hours ?? it.maint_hours ?? it.maint_h ?? it.maintenance_h ?? it.maintenance ?? it.total_maintenance_hours ?? it.maint ?? 0;
             const m = Number(mCandidate) || 0;
             if(name){
@@ -517,28 +524,25 @@
       drawDonutSegments($('#donutMaintMode'), segMode);
       makeLegend($('#legendMaintMode'), mmodeSeed, modeColors);
 
-      const linesGrid = $('#linesGrid');
-      linesGrid.innerHTML = '';
+      // Line Health cards (no duplicate summary; type/cap/lbs on right)
+      const linesGrid = $('#linesGrid'); linesGrid.innerHTML = '';
       perLine.sort((a,b)=> (b.perfAdj||0) - (a.perfAdj||0)).forEach(l=>{
         const div = document.createElement('div'); div.className='line';
+
+        // header
         const header = document.createElement('div'); header.className='lineheader';
         const left = document.createElement('div'); left.style.display='flex'; left.style.gap='12px'; left.style.alignItems='center';
         const nameEl = document.createElement('div'); nameEl.className='linename'; nameEl.style.fontSize='20px'; nameEl.textContent = l.name;
-        const matEl = document.createElement('div'); matEl.style.fontWeight='900'; matEl.style.color='var(--muted)'; matEl.textContent = l.dominantMaterial;
-        const capEl = document.createElement('div'); capEl.style.fontWeight='900'; capEl.style.color='var(--muted)'; capEl.textContent = l.cap && l.cap>0 ? `${fmtNum(l.cap)} lbs/hr` : 'cap unknown';
-        const lbsEl = document.createElement('div'); lbsEl.style.fontWeight='900'; lbsEl.style.color='var(--muted)'; lbsEl.textContent = `${fmtNum(l.lbs)} lb`;
-        left.appendChild(nameEl); left.appendChild(matEl); left.appendChild(capEl); left.appendChild(lbsEl);
-        const right = document.createElement('div'); right.className='capright'; right.style.fontSize='18px'; right.textContent = Math.round((l.perfAdj||0)*100) + '%';
+        left.appendChild(nameEl);
+
+        const right = document.createElement('div'); right.style.textAlign='right';
+        const matLine = document.createElement('div'); matLine.style.fontWeight='900'; matLine.style.color='var(--muted)'; matLine.textContent = l.dominantMaterial || '';
+        const capLine = document.createElement('div'); capLine.style.fontWeight='900'; capLine.style.color='var(--muted)'; capLine.textContent = (l.cap && l.cap>0) ? `${fmtNum(l.cap)} lbs/hr` : 'cap unknown';
+        const lbsLine = document.createElement('div'); lbsLine.style.fontWeight='900'; lbsLine.style.color='var(--muted)'; lbsLine.textContent = `${fmtNum(l.lbs)} lb`;
+        right.appendChild(matLine); right.appendChild(capLine); right.appendChild(lbsLine);
+
         header.appendChild(left); header.appendChild(right);
         div.appendChild(header);
-
-        const summary = document.createElement('div');
-        summary.style.marginTop = '10px';
-        summary.style.fontSize = '16px';
-        summary.style.fontWeight = '900';
-        summary.style.color = 'var(--muted)';
-        summary.textContent = `${l.name} • ${l.dominantMaterial} • ${l.cap && l.cap>0 ? fmtNum(l.cap) + ' lbs/hr' : 'cap unknown'} • ${fmtNum(l.lbs)} lb`;
-        div.appendChild(summary);
 
         const metricRow = document.createElement('div'); metricRow.className='metricrow';
         const m1 = document.createElement('div'); m1.className='mitem'; m1.innerHTML = '<div class="label">Maint h</div><div class="mkv">'+fmtH(l.maint)+'</div>';
@@ -551,12 +555,14 @@
 
         linesGrid.appendChild(div);
 
+        // color the availability and perf boxes
         const availNode = m4.querySelector('.mkv[data-avail]');
         const perfNode = m5.querySelector('.mkv[data-perf]');
         if(availNode){ applyMItemBg(availNode.closest('.mitem'), pickColorForPct(l.avail, 'lineHealth')); }
         if(perfNode){ applyMItemBg(perfNode.closest('.mitem'), pickColorForPct(l.perfAdj, 'lineHealth')); }
       });
 
+      // Rank table
       const tbody = $('#rankTable tbody'); tbody.innerHTML = '';
       perLine.sort((a,b) => ((b.perfAdj||0) - (a.perfAdj||0)) || ((b.avail||0) - (a.avail||0)));
       perLine.forEach(r=>{
@@ -572,8 +578,8 @@
         tbody.appendChild(tr);
       });
 
-      const totalTr = document.createElement('tr');
-      totalTr.style.fontWeight = '900';
+      // totals
+      const totalTr = document.createElement('tr'); totalTr.style.fontWeight='900';
       const t1 = document.createElement('td'); t1.className='left'; t1.textContent = 'TOTAL';
       const avgPerf = perLine.length ? perLine.reduce((s,x)=>s + (x.perfAdj||0),0) / Math.max(1, perLine.length) : 0;
       const t2 = document.createElement('td'); t2.className='center'; t2.textContent = fmtPct(avgPerf);
@@ -583,6 +589,7 @@
       totalTr.appendChild(t1); totalTr.appendChild(t2); totalTr.appendChild(t3); totalTr.appendChild(t4); totalTr.appendChild(t5);
       tbody.appendChild(totalTr);
 
+      // Live status: name left, status + bullet right
       const statusEl = $('#grindStatusList'); statusEl.innerHTML = '';
       const statuses = assetStatusCandidate?.rows || [];
       statuses.sort((a,b)=> canonGrinding(a.name).localeCompare(canonGrinding(b.name)));
@@ -591,20 +598,24 @@
       } else {
         statuses.forEach(S => {
           const row = document.createElement('div');
-          const label = canonGrinding(S.name);
+          row.style.display = 'flex';
+          row.style.justifyContent = 'space-between';
+          row.style.alignItems = 'center';
+          row.style.fontSize = '18px';
+          const left = document.createElement('div'); left.style.display='flex'; left.style.alignItems='center';
+          const nameSpan = document.createElement('strong'); nameSpan.style.fontSize='18px'; nameSpan.style.marginRight='8px'; nameSpan.textContent = canonGrinding(S.name);
+          left.appendChild(nameSpan);
+
+          const right = document.createElement('div'); right.style.display='flex'; right.style.alignItems='center'; right.style.gap='10px'; right.style.color='var(--muted)'; right.style.fontWeight='800';
           const st = S.status || (S.raw && (S.raw.assetStatus || S.raw.status || S.raw.value || '')) || 'Available';
           const stLower = String(st||'').toLowerCase();
           const isAvailable = stLower.includes('avail') || stLower.includes('available') || stLower.includes('ready') || stLower.includes('in production');
           const color = isAvailable ? COLOR_CONFIG.status.available : COLOR_CONFIG.status.other;
-          const bullet = document.createElement('span'); bullet.style.display='inline-block'; bullet.style.width='12px'; bullet.style.height='12px'; bullet.style.borderRadius='50%'; bullet.style.background = color; bullet.style.marginRight='10px'; bullet.style.verticalAlign='middle';
-          const wrapper = document.createElement('div'); wrapper.style.display='flex'; wrapper.style.justifyContent='space-between'; wrapper.style.alignItems='center'; wrapper.style.fontSize='18px';
-          const left = document.createElement('div'); left.style.display='flex'; left.style.alignItems='center';
-          left.appendChild(bullet);
-          const strong = document.createElement('strong'); strong.style.fontSize='18px'; strong.textContent = label;
-          left.appendChild(strong);
-          const right = document.createElement('div'); right.style.fontSize='18px'; right.style.color='var(--muted)'; right.style.fontWeight='800'; right.textContent = st;
-          wrapper.appendChild(left); wrapper.appendChild(right);
-          row.appendChild(wrapper);
+          const statusText = document.createElement('div'); statusText.textContent = st;
+          const bullet = document.createElement('span'); bullet.style.display='inline-block'; bullet.style.width='12px'; bullet.style.height='12px'; bullet.style.borderRadius='50%'; bullet.style.background = color;
+          right.appendChild(statusText); right.appendChild(bullet);
+
+          row.appendChild(left); row.appendChild(right);
           statusEl.appendChild(row);
         });
       }
@@ -620,7 +631,7 @@
   }));
 
   document.addEventListener('keydown', (e)=>{
-    if (e.key.toLowerCase()==='f') {
+    if (e.key && e.key.toLowerCase()==='f') {
       if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(()=>{});
       else document.exitFullscreen().catch(()=>{});
     }
@@ -628,13 +639,18 @@
 
   setInterval(()=>{ const c=$('#clock'); if(c) c.textContent = new Date().toLocaleTimeString(); },1000);
 
+  // initial render + auto-refresh every 10 minutes
   renderGrinding();
   setInterval(() => { renderGrinding(); }, 10 * 60 * 1000);
+
+  // hard reload page every 1 hour to refresh static assets
+  setInterval(() => { try { location.reload(true); } catch(e) { location.reload(); } }, 60 * 60 * 1000);
 
   document.addEventListener('DOMContentLoaded', () => {
     $$('.segBig button').forEach(b => b.classList.toggle('active', b.dataset.period === STATE.period));
   });
 
+  // asset statuses loader (unchanged)
   async function loadAssetStatusCandidates(){
     const candidates = [ENDPOINTS.PRODSTATUS, ENDPOINTS.LIMBLE_ASSETFIELDS, ENDPOINTS.LIMBLE_KPIASSET, ENDPOINTS.ASSETS_FIELDS];
     for(const url of candidates){
