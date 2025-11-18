@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<<!DOCTYPE html>
 <html lang="en">
 <head>
     <title>Live Production Line Status</title>
@@ -288,16 +288,33 @@
  const workOrderDataContainer = document.getElementById('work-order-data');
  const rotateBtn = document.getElementById('toggle-rotation');
  const refreshTimerEl = document.getElementById('refresh-timer');
+
  let refreshTimeout;
  let refreshCountdown = 0;
  let mappings = {};
  let config = {};
  let __ps_waiting = false;
 
+// --- Auto-reload / error reload variables (new) ---
+let consecutiveErrors = 0;
+let maxErrorsBeforeReload = 3; // default, may be overridden by config.json
+let autoReloadThresholdMs = 5 * 60 * 1000; // default 5 minutes (may be overridden)
+let autoReloadEnabled = true;
+
     fetch('/config.json')
         .then(res => res.json())
-        .then(cfg => { config = cfg; rotatePages(); })
-        .catch(() => { config = {}; });
+        .then(cfg => {
+            config = cfg;
+            // honor config overrides if provided
+            if (cfg.autoReloadThresholdSeconds && Number(cfg.autoReloadThresholdSeconds) > 0) {
+                autoReloadThresholdMs = Number(cfg.autoReloadThresholdSeconds) * 1000;
+            }
+            if (cfg.maxErrorsBeforeReload && Number(cfg.maxErrorsBeforeReload) > 0) {
+                maxErrorsBeforeReload = Number(cfg.maxErrorsBeforeReload);
+            }
+            rotatePages();
+        })
+        .catch(() => { config = {}; rotatePages(); });
 
     function updateRotateButton() {
         const paused = localStorage.getItem('rotationPaused') === 'true';
@@ -451,7 +468,9 @@
 		  if (__ps_waiting) return;
 		  __ps_waiting = true;
 		  try {
+              // fetch and validate status response
 		  const res = await fetch('/api/workorders/prodstatus?t=' + Date.now(), { cache: 'no-store' });
+          if (!res.ok) throw new Error('HTTP ' + res.status);
 		  const data = await res.json();
 		
 		  // rows may be in rows or tiles
@@ -469,12 +488,28 @@
 		
 		  if (!rows.length) {
 		    console.warn('[prodstatus] no rows to render yet');
+            // schedule a retry if the server didn't provide rows (avoid tight loop)
+            scheduleRefresh(30_000);
 		    return;
 		  }
 		
 		  renderStatus(rows, data.lastRefreshUtc);
+          // successful fetch -> reset error counter
+          consecutiveErrors = 0;
+
 		  if (data.nextRefresh) scheduleRefresh(Math.max(0, data.nextRefresh - Date.now()));
-		} finally {
+		} catch (err) {
+            console.error('[prodstatus] loadStatus error', err);
+            consecutiveErrors = (consecutiveErrors || 0) + 1;
+            // if too many consecutive errors, reload the page (attempt recover)
+            if (consecutiveErrors >= maxErrorsBeforeReload) {
+                console.warn(`[prodstatus] ${consecutiveErrors} consecutive errors — reloading page`);
+                setTimeout(() => window.location.reload(), 2000);
+                return;
+            }
+            // otherwise schedule a retry
+            scheduleRefresh(30_000);
+        } finally {
 	    __ps_waiting = false;
 	  }
 	}
@@ -535,6 +570,23 @@
 		    `;
 		    tbody.appendChild(tr);
 		  });
+
+          // After rendering check for stale server time — if server lastRefresh is older than threshold, reload
+          try {
+              if (autoReloadEnabled && lastRefreshUtc) {
+                  const lastMs = new Date(lastRefreshUtc).getTime();
+                  if (!isNaN(lastMs)) {
+                      const age = Date.now() - lastMs;
+                      if (age > autoReloadThresholdMs) {
+                          console.warn('[prodstatus] server lastRefresh is stale (age ms):', age, 'threshold:', autoReloadThresholdMs);
+                          // reload once after short delay to give any pending UI updates a chance
+                          setTimeout(() => window.location.reload(), 1500);
+                      }
+                  }
+              }
+          } catch (e) {
+              console.error('stale-check failed', e);
+          }
 		}
 
       refreshButton.addEventListener('click', () => {
