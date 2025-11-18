@@ -27,7 +27,7 @@
     .top-border{position:fixed;top:0;left:0;width:100%;height:96px;background:var(--pri-green);z-index:10;display:flex;align-items:center;padding:0 20px}
     .top-border .logo{height:72px}
     .top-title{font-size:28px;font-weight:900;margin-left:20px;color:#0A2A12}
-    .tabs{margin-left:auto;display:flex;gap:8px}
+    .tabs{margin-left:auto;display:flex;gap:8px;align-items:center}
     .tab{background:#ffffffd9;padding:8px 12px;border-radius:10px;text-decoration:none;color:#0A2A12;font-weight:700}
     .tab.active{background:#fff}
 
@@ -41,9 +41,10 @@
     .divider{height:22px;width:1px;background:var(--border)}
     .pill{padding:8px 12px;border-radius:999px;background:#fff;border:1px solid var(--border);color:var(--muted);font-weight:900;font-size:16px}
 
-    /* Loading */
+    /* Loading (accessible) */
     #loading{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(255,255,255,.55);z-index:9999}
     #loading .spinner{width:64px;height:64px;border:8px solid #e5e7eb;border-top-color:var(--pri-blue);border-radius:50%;animation:spin 1s linear infinite}
+    #loading .sr-only{position:absolute;left:-9999px}
     @keyframes spin{to{transform:rotate(360deg)}}
 
     /* KPI tiles (Rows A–C) */
@@ -53,8 +54,8 @@
     .tile .val{font-size:32px;font-weight:900;margin-top:6px}
     .tile.good { background: var(--good-bg); color: var(--good-fg); }
     .tile.warn { background: var(--warn-bg); color: var(--warn-fg); }
-    .tile.bad  { background: var(--bad-bg);  color: #fff; }
-    .tile.bad .lab, .tile.bad .val, .tile.bad .tiny { color:#fff !important; }
+    .tile.bad  { background: var(--bad-bg);  color: var(--bad-fg); }
+    .tile.bad .lab, .tile.bad .val, .tile.bad .tiny { color:var(--bad-fg) !important; }
     .kpis-rowA .tile.big { min-height: 112px; }
     .kpis-rowA .tile.big .val { font-size: 40px; }
     .op{background:#e9e9e9 ;border:1px solid var(--border);border-radius:12px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:40px;min-height:104px}
@@ -82,7 +83,6 @@
     /* Prod status table (from pulse.html) */
     #status-table { width:100%; border-collapse:collapse; font-size:18px; font-weight:800 }
     #status-table th, #status-table td { padding:10px; border-bottom:1px dashed var(--border) }
-    #status-table thead th { background:#25408F; color:#fff; text-align:left }
 
     /* Tooltip (local small) */
     .info{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;margin-left:6px;border-radius:50%;font-size:11px;line-height:1;cursor:pointer;user-select:none;background:#25408F;color:#fff;font-weight:700}
@@ -93,19 +93,22 @@
   </style>
 </head>
 <body class="page-production">
-  <div id="loading"><div class="spinner" aria-label="Loading…"></div></div>
+  <div id="loading" role="status" aria-live="polite" aria-hidden="true">
+    <div class="spinner" aria-hidden="true"></div>
+    <div class="sr-only">Loading data…</div>
+  </div>
 
   <div class="top-border">
     <img src="img/pri-logo.png" alt="PRI Logo" class="logo" />
     <div class="top-title">Operations Meeting</div>
-    <div class="tabs">
+    <div class="tabs" role="navigation" aria-label="Main navigation">
       <a class="tab" href="index.html">Work Orders</a>
       <a class="tab" href="pm.html">PM</a>
       <a class="tab" href="prodstatus.html">Prod Status</a>
       <a class="tab" href="kpi-by-asset.html">KPIs by Asset</a>
       <a class="tab" href="production.html">PACE</a>
       <a class="tab" href="pulse.html">Pulse</a>
-      <a class="tab active" href="#">Meeting</a>
+      <a class="tab active" href="#" aria-current="page">Meeting</a>
       <a class="tab" href="admin">Admin</a>
       <img src="img/innovation-logo.png" alt="Innovation" style="height:72px;margin-left:8px;object-fit:contain"/>
     </div>
@@ -115,9 +118,9 @@
     <div class="app">
 
       <!-- === Controls: timeframe + weekend toggle only === -->
-      <div class="controls">
+      <div class="controls" role="region" aria-label="Controls">
         <span class="meta-range">Timeframe:</span>
-        <select id="tf" class="select">
+        <select id="tf" class="select" aria-label="Timeframe selection">
           <option value="today">Today</option>
           <option value="yesterday">Yesterday</option>
           <option value="thisweek">This week (Mon–Sun)</option>
@@ -132,12 +135,12 @@
           <option value="last30">Trailing 30 days</option>
           <option value="last12m">Trailing 12 months</option>
         </select>
-        <span class="divider"></span>
+        <span class="divider" aria-hidden="true"></span>
         <span class="pill">Pick date:</span>
-        <input id="meetDayPick" type="date" class="pill" style="padding:6px 10px" />
-        <span class="divider"></span>
+        <input id="meetDayPick" type="date" class="pill" style="padding:6px 10px" aria-label="Pick meeting day" />
+        <span class="divider" aria-hidden="true"></span>
         <label style="display:flex;align-items:center;gap:6px;font-weight:700">
-          <input type="checkbox" id="wkndToggle"> Include Weekends
+          <input type="checkbox" id="wkndToggle" aria-label="Include weekends"> Include Weekends
         </label>
         <span id="tfLabel" class="meta-range" style="margin-left:auto"></span>
       </div>
@@ -146,27 +149,27 @@
       <section>
         <h2>Overall KPIs <span class="sub" id="rangeLabel"></span></h2>
         <!-- Row A: OEE equation -->
-        <div class="kpis kpis-rowA">
+        <div class="kpis kpis-rowA" role="region" aria-label="Overall KPIs">
           <div class="tile big" id="tile-oee">
             <div class="lab">OEE
-              <span class="tooltip"><span class="info" tabindex="0">i</span>
-                <span class="tooltip-panel"><b>Overall Equipment Effectiveness</b><br>OEE = Availability × Performance (Run) × Quality.</span>
+              <span class="tooltip"><span class="info" tabindex="0" role="button" aria-haspopup="true" aria-expanded="false">i</span>
+                <span class="tooltip-panel" role="note"><b>Overall Equipment Effectiveness</b><br>OEE = Availability × Performance (Run) × Quality.</span>
               </span>
             </div>
             <div class="val" id="ov-oee">--%</div>
             <div class="tiny" id="ov-oee-eq"></div>
           </div>
-          <div class="op">=</div>
+          <div class="op" aria-hidden="true">=</div>
           <div class="tile big" id="tile-av">
             <div class="lab">Availability</div>
             <div class="val" id="ov-av">--%</div>
           </div>
-          <div class="op">×</div>
+          <div class="op" aria-hidden="true">×</div>
           <div class="tile big" id="tile-pa">
             <div class="lab">Performance Adjusted</div>
             <div class="val" id="ov-pa">--%</div>
           </div>
-          <div class="op">×</div>
+          <div class="op" aria-hidden="true">×</div>
           <div class="tile big" id="tile-qual">
             <div class="lab">Quality*</div>
             <div class="val" id="ov-qual">70%</div>
@@ -174,7 +177,7 @@
         </div>
 
         <!-- Row B: throughput chain -->
-        <div class="kpis kpis-rowB">
+        <div class="kpis kpis-rowB" role="region" aria-label="Throughput KPIs">
           <div class="tile"><div class="lab">Run Hours</div><div class="val" id="ov-runh">--</div></div>
           <div class="tile" id="tile-pr"><div class="lab">Performance (Raw 24h)</div><div class="val" id="ov-pr">--%</div></div>
           <div class="tile"><div class="lab">Capacity Potential (lb)</div><div class="val" id="ov-cap">--</div></div>
@@ -183,7 +186,7 @@
         </div>
 
         <!-- Row C: DT & Missed -->
-        <div class="kpis kpis-rowC">
+        <div class="kpis kpis-rowC" role="region" aria-label="Downtime and missed opportunity KPIs">
           <div class="tile" id="tile-mdt-h"><div class="lab">Maint DT (h)</div><div class="val" id="ov-mdt">--</div></div>
           <div class="tile" id="tile-mdt-pct"><div class="lab">Maint DT (%)</div><div class="val" id="ov-mdt-pct">--%</div></div>
           <div class="tile" id="tile-pdt-h"><div class="lab">Prod DT (h)</div><div class="val" id="ov-pdt">--</div></div>
@@ -199,7 +202,7 @@
       <section class="section-gap">
         <div class="card">
           <h3>OEE Factors Heatmap (Availability / Performance-Run / Quality) <span class="sub" id="hm2Label"></span></h3>
-          <table id="heatFactors"></table>
+          <table id="heatFactors" aria-describedby="hm2Label"></table>
           <div id="heat2Empty" class="empty" style="display:none">No data for selected range.</div>
         </div>
       </section>
@@ -209,7 +212,7 @@
         <div class="card">
           <h3>LIVE Line Status</h3>
           <div>
-            <table id="status-table">
+            <table id="status-table" aria-live="polite">
               <thead><tr><th>Asset Name</th><th>Current Status</th></tr></thead>
               <tbody id="status-data"></tbody>
             </table>
@@ -218,7 +221,7 @@
 
         <div class="card">
           <h3>Missed Opportunity by Line (trimmed) <span class="sub" id="moLabel"></span></h3>
-          <table id="missedTbl"></table>
+          <table id="missedTbl" aria-describedby="moLabel"></table>
           <div id="missedEmpty" class="empty" style="display:none">No data for selected range.</div>
         </div>
       </section>
@@ -249,7 +252,31 @@
   const _WDAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
   const weekdayLocal = v => { if (!v) return null; const s=(typeof v==='string')?v.slice(0,10):v.toISOString().slice(0,10); const [Y,M,D]=s.split('-').map(Number); const dt=new Date(Y,M-1,D); return isNaN(dt)?null:_WDAYS[dt.getDay()]; };
 
-  function setLoading(v){ try{ const el = document.getElementById('loading'); if (el) el.style.display = v ? 'flex' : 'none'; }catch{} }
+  function setLoading(v){
+    try{
+      const el = document.getElementById('loading');
+      if (!el) return;
+      el.style.display = v ? 'flex' : 'none';
+      el.setAttribute('aria-hidden', v ? 'false' : 'true');
+    }catch{}
+  }
+
+  // small safe fetch helper with timeout and JSON parse fallback
+  async function fetchJson(url, {timeout=8000, cache='no-store'} = {}){
+    const ctl = new AbortController();
+    const id = setTimeout(()=>ctl.abort(), timeout);
+    try {
+      const res = await fetch(url, {cache, signal: ctl.signal});
+      clearTimeout(id);
+      if (!res.ok) return null;
+      const txt = await res.text();
+      try { return JSON.parse(txt); } catch { return null; }
+    } catch (e) {
+      clearTimeout(id);
+      console.warn('fetchJson failed', url, e);
+      return null;
+    }
+  }
 
   // ====== TIMEFRAME / WEEKENDS ======
   function startOfWeek(d){ const x=new Date(d); const day=(x.getDay()+6)%7; x.setDate(x.getDate()-day); x.setHours(0,0,0,0); return x;}
@@ -300,11 +327,13 @@
   let MAPPINGS;
   async function loadMappings(){
     try {
-      MAPPINGS = await (await fetch(`mappings.json?ts=${Date.now()}`, {cache:'no-store'})).json();
-    } catch {
-      console.warn('mappings.json not found; using empty defaults');
-      MAPPINGS = { capacities_lbs_hr:{}, capacity_by_material_lbs_hr:{}, capacity_aliases:{}, material_aliases:{}, statusColorMapping:{}, statusTextMapping:{}, productionAssets:[] };
-    }
+      const m = await fetchJson(`/mappings.json?ts=${Date.now()}`, {timeout:4000});
+      if (m) MAPPINGS = m;
+      else {
+        console.warn('mappings.json not found or invalid; using empty defaults');
+        MAPPINGS = { capacities_lbs_hr:{}, capacity_by_material_lbs_hr:{}, capacity_aliases:{}, material_aliases:{}, statusColorMapping:{}, statusTextMapping:{}, productionAssets:[] };
+      }
+    } catch (e) { console.warn('loadMappings failed', e); MAPPINGS = { capacities_lbs_hr:{}, capacity_by_material_lbs_hr:{}, capacity_aliases:{}, material_aliases:{}, statusColorMapping:{}, statusTextMapping:{}, productionAssets:[] }; }
   }
   function capacityFor(lineName, material){
     const { capacities_lbs_hr: caps = {}, capacity_by_material_lbs_hr: byMat = {}, capacity_aliases: alias = {}, material_aliases: malias = {} } = MAPPINGS || {};
@@ -315,24 +344,44 @@
   }
   async function loadThemeAndApply() {
     try {
-      const t = await fetch('/api/settings/kpi-theme').then(r=>r.json());
-      const c = t?.colors || {};
+      const t = await fetchJson('/api/settings/kpi-theme', {timeout:5000});
+      const c = (t && t.colors) ? t.colors : {};
       if (c.good?.bg)  document.documentElement.style.setProperty('--good-bg', c.good.bg);
       if (c.good?.fg)  document.documentElement.style.setProperty('--good-fg', c.good.fg);
       if (c.warn?.bg)  document.documentElement.style.setProperty('--warn-bg', c.warn.bg);
       if (c.warn?.fg)  document.documentElement.style.setProperty('--warn-fg', c.warn.fg);
       if (c.bad?.bg)   document.documentElement.style.setProperty('--bad-bg',  c.bad.bg);
       if (c.bad?.fg)   document.documentElement.style.setProperty('--bad-fg',  c.bad.fg);
-    } catch {}
+    } catch (e) { /* non-fatal */ }
   }
 </script>
 <script>
   // ====== PROD STATUS (same API as pulse.html) ======
+  // helper: compute readable text color (black/white) from a CSS color (#rrggbb or rgb(...))
+  function textColorForBackground(bg){
+    try {
+      if (!bg) return '#000';
+      bg = String(bg).trim();
+      let r,g,b;
+      if (bg[0]==='#') {
+        const hex = bg.length===4 ? bg.split('').map(c=>c+c).join('').slice(1) : bg.slice(1);
+        r = parseInt(hex.slice(0,2),16); g = parseInt(hex.slice(2,4),16); b = parseInt(hex.slice(4,6),16);
+      } else if (bg.startsWith('rgb')) {
+        const parts = bg.replace(/rgba?|\(|\)|\s/g,'').split(',').map(Number);
+        [r,g,b] = parts;
+      } else {
+        return '#000';
+      }
+      // luminance
+      const lum = 0.299*r + 0.587*g + 0.114*b;
+      return lum < 140 ? '#fff' : '#000';
+    } catch { return '#000'; }
+  }
+
   async function getProdStatusRows(){
     try{
-      const res = await fetch('/api/workorders/prodstatus?t=' + Date.now(), { cache:'no-store' });
-      if (!res.ok) return [];
-      let data = await res.json();
+      const data = await fetchJson('/api/workorders/prodstatus?t=' + Date.now(), {timeout:5000});
+      if (!data) return [];
       let rows = Array.isArray(data?.rows) ? data.rows : (Array.isArray(data?.tiles) ? data.tiles : []);
       if (Array.isArray(rows) && rows.length === 1 && rows[0] && typeof rows[0] === 'object'){
         const k = Object.keys(rows[0])[0];
@@ -344,6 +393,7 @@
       return rows || [];
     }catch{ return []; }
   }
+
   function renderStatusTable(rows){
     const tbody = document.getElementById('status-data'); if (!tbody) return; tbody.innerHTML = '';
     const colorMap = MAPPINGS?.statusColorMapping || {}; const textMap  = MAPPINGS?.statusTextMapping  || {}; const assets = Array.isArray(MAPPINGS?.productionAssets) ? MAPPINGS.productionAssets : [];
@@ -356,7 +406,9 @@
         const entry = byId(item.id);
         const raw = entry.assetStatus ?? entry.value ?? entry.valueText ?? entry.statusText ?? entry.status ?? entry.statusID ?? 'N/A';
         const text = toText(raw); const bg = colorFor(text);
-        const tr = document.createElement('tr'); tr.style.backgroundColor = bg; tr.style.color = (/^(#d64550|red|#118dff|blue)$/i.test(String(bg))) ? '#fff' : '#000';
+        const tr = document.createElement('tr');
+        tr.style.backgroundColor = bg;
+        tr.style.color = textColorForBackground(bg);
         tr.innerHTML = `<td>${item.name}</td><td>${text}</td>`; tbody.appendChild(tr);
       });
       return;
@@ -367,9 +419,10 @@
     const list = rows.map(r => ({ name: guessName(r), text: toText(guessRaw(r)) })).filter(r => r.name);
     if (list.length === 0){ const tr=document.createElement('tr'); tr.innerHTML = `<td colspan="2" style="color:#7f1d1d;font-weight:800">No status rows found. Check /api/workorders/prodstatus and mappings.productionAssets.</td>`; tbody.appendChild(tr); return; }
     list.sort((a,b)=> a.name.localeCompare(b.name)).forEach(({name, text})=>{
-      const bg = colorFor(text); const tr = document.createElement('tr'); tr.style.backgroundColor = bg; tr.style.color = (/^(#d64550|red|#118dff|blue)$/i.test(String(bg))) ? '#fff' : '#000'; tr.innerHTML = `<td>${name}</td><td>${text}</td>`; tbody.appendChild(tr);
+      const bg = colorFor(text); const tr = document.createElement('tr'); tr.style.backgroundColor = bg; tr.style.color = textColorForBackground(bg); tr.innerHTML = `<td>${name}</td><td>${text}</td>`; tbody.appendChild(tr);
     });
   }
+
   async function loadAndRenderStatusTable(){ if (!MAPPINGS) { try { await loadMappings(); } catch {} } const rows = await getProdStatusRows(); renderStatusTable(rows); }
 </script>
 <script>
@@ -396,12 +449,12 @@
       const planDays = includeWeekends ? alldays : weekdays;
       const planDaysCount = planDays.length;
 
-      // Fetch data
+      // Fetch data (with safe wrapper)
       const [summaryRaw, bylineRaw] = await Promise.all([
-        fetch(`/api/production/summary?from=${fromISO}&to=${toISO}`).then(r=>r.json()).catch(()=>null),
-        fetch(`/api/production/by-line?from=${fromISO}&to=${toISO}`).then(r=>r.json()).catch(()=>[])
+        fetchJson(`/api/production/summary?from=${fromISO}&to=${toISO}`, {timeout:6000}),
+        fetchJson(`/api/production/by-line?from=${fromISO}&to=${toISO}`, {timeout:6000})
       ]);
-      const byline = (bylineRaw || []).filter(r => r.machine && r.machine.startsWith('Extruder'));
+      const byline = (bylineRaw || []).filter(r => r.machine && String(r.machine).startsWith('Extruder'));
 
       // Machine-day consolidation
       const dayMap = new Map();
@@ -412,6 +465,7 @@
         const lbs = row.pounds || 0; const md = Math.max(0, row.maint_dt_h||0); const mhR = Math.max(0, row.machine_hours||0); const runH = mhR;
         const key = `${machine}__${day}`;
         if (!dayMap.has(key)) dayMap.set(key, {machine, day, lbs:0, maint_h:0, run_h:0, sumCapRun:0, sumRunH:0, cap_candidates:[], mats:{}});
+
         const d = dayMap.get(key);
         d.lbs += lbs; d.maint_h = Math.max(d.maint_h, md); d.run_h = Math.max(d.run_h, runH);
         if (capRow > 0){ d.sumCapRun += capRow*runH; d.sumRunH += runH; d.cap_candidates.push(capRow); }
@@ -430,8 +484,12 @@
       // Aggregate per line
       const agg = {};
       for (const d of dayMap.values()){
-        const m=d.machine; if (!agg[m]) agg[m] = { lbs:0, maint:0, prod:0, mach:0, rawDen24:0, runCapDen:0, moM:0, moP:0, under:0, sumAvail:0,nAvail:0,sumPR:0,nPR:0,sumPRun:0,nPRun:0, mats:{}, daysSet:new Set() };
-        const A=agg[m]; A.lbs+=d.lbs; A.maint+=d.maint_h; A.prod+=d.prod_h; A.mach+=d.run_h; A.rawDen24+=d.cap*HOURS_PER_WEEKDAY; A.runCapDen+=d.cap*d.run_h; A.moM+=d.cap*d.maint_h; A.moP+=d.cap*d.prod_h; A.under+=d.underLb; A.sumAvail+=(Number.isFinite(d.avail)?d.avail:0); A.nAvail+=1; if (Number.isFinite(d.perfRaw)){A.sumPR+=d.perfRaw; A.nPR+=1;} if (Number.isFinite(d.perfRun)){A.sumPRun+=d.perfRun; A.nPRun+=1;} A.daysSet.add(d.day);
+        const m=d.machine; if (!agg[m]) agg[m] = { lbs:0,maint:0,prod:0,mach:0,rawDen24:0,runCapDen:0,moM:0,moP:0,under:0,sumAvail:0,nAvail:0,sumPR:0,nPR:0,sumPRun:0,nPRun:0,mats:{},daysSet:new Set() };
+        const A=agg[m];
+        A.lbs+=d.lbs; A.maint+=d.maint_h; A.prod+=d.prod_h; A.mach+=d.run_h; A.rawDen24+=d.cap*HOURS_PER_WEEKDAY; A.runCapDen+=d.cap*d.run_h; A.moM+=d.cap*d.maint_h; A.moP+=d.cap*d.prod_h; A.under+=d.underLb; A.sumAvail+=(Number.isFinite(d.avail)?d.avail:0); A.nAvail+=1;
+        if (Number.isFinite(d.perfRaw)){A.sumPR+=d.perfRaw; A.nPR+=1;}
+        if (Number.isFinite(d.perfRun)){A.sumPRun+=d.perfRun; A.nPRun+=1;}
+        A.daysSet.add(d.day);
         let dom='', best=-1; for (const [k,v] of Object.entries(d.mats)) if (v>best){ best=v; dom=k; } if (dom) A.mats[dom] = (A.mats[dom] || 0) + d.lbs;
       }
 
@@ -470,7 +528,7 @@
       document.getElementById('ov-mdt-pct').textContent  = fmtPct(ovMdtPct,true);
       document.getElementById('ov-pdt-pct').textContent  = fmtPct(ovPdtPct,true);
 
-      const setTileClass = (sel, v, thr, valid=true) => { const el = document.querySelector(sel); el.classList.remove('good','warn','bad'); if (valid && Number.isFinite(v)) el.classList.add( grade(v||0, thr) ); };
+      const setTileClass = (sel, v, thr, valid=true) => { const el = document.querySelector(sel); if (!el) return; el.classList.remove('good','warn','bad'); if (valid && Number.isFinite(v)) el.classList.add( grade(v||0, thr) ); };
       setTileClass('#tile-oee',  ovOEE,     THRESH.oee,          totals.nAvail>0 && totals.nPRun>0);
       setTileClass('#tile-av',   ovAvail,   THRESH.availability, totals.nAvail>0);
       setTileClass('#tile-pa',   ovPerfRun, THRESH.capacityAdj,  totals.nPRun>0);
@@ -557,9 +615,9 @@
 </script>
 <script>
   // ====== UI wiring & periodic refresh ======
-  function scheduleAutoRefresh(run){ if (refreshTimer) clearTimeout(refreshTimer); refreshTimer = setTimeout(async ()=>{ await run(); scheduleAutoRefresh(run); }, REFRESH_MS); }
+  function scheduleAutoRefresh(run){ if (refreshTimer) clearTimeout(refreshTimer); refreshTimer = setTimeout(async ()=>{ try { await run(); } catch{}; scheduleAutoRefresh(run); }, REFRESH_MS); }
   function currentSelection(){ return { tf: document.getElementById('tf')?.value || 'last30', wknd: !!document.getElementById('wkndToggle')?.checked }; }
-  function saveSelectionToLS(){ localStorage.setItem('pace:opsSel', JSON.stringify(currentSelection())); }
+  function saveSelectionToLS(){ try { localStorage.setItem('pace:opsSel', JSON.stringify(currentSelection())); } catch {} }
   function restoreSelectionFromLS(){ try{ const s=JSON.parse(localStorage.getItem('pace:opsSel')||'{}'); if (s.tf) document.getElementById('tf').value = s.tf; if (typeof s.wknd==='boolean') document.getElementById('wkndToggle').checked = s.wknd; }catch{} }
 
   document.addEventListener('visibilitychange', () => { if (!document.hidden) { const age = Date.now() - lastRenderAt; if (age > REFRESH_MS * 0.9) runForActivePeriod(); } });
@@ -568,7 +626,7 @@
   
   async function runFor(sel){
     const r = computeRange(sel);
-    await renderForRange(r.from, r.to, r.label); // or your page’s render fn (e.g., renderMeeting)
+    await renderForRange(r.from, r.to, r.label);
   }
 
   document.addEventListener('DOMContentLoaded', async () => {
@@ -578,10 +636,9 @@
     document.getElementById('wkndToggle').addEventListener('change', runForActivePeriod);
     const dayPick = document.getElementById('meetDayPick');
       if (dayPick) {
-        // prevent picking future dates
+        // prevent picking future dates (use local midnight)
         const tzToday = new Date(); tzToday.setHours(0,0,0,0);
-        dayPick.max = new Date(tzToday.getTime() - tzToday.getTimezoneOffset()*60000)
-                        .toISOString().slice(0,10);
+        dayPick.max = new Date(tzToday.getTime() - tzToday.getTimezoneOffset()*60000).toISOString().slice(0,10);
     
         // optional: prefill to yesterday for convenience
         if (!dayPick.value) {
@@ -591,6 +648,7 @@
     
         dayPick.addEventListener('change', async (e) => {
           if (!e.target.value) return;
+          // store a full ISO local midnight (used by computeRange customday)
           window.__meetPickedDay = e.target.value + 'T00:00:00';
           await runFor('customday');
           // show the picked date in the UI
@@ -602,9 +660,20 @@
     scheduleAutoRefresh(runForActivePeriod);
   });
 
-  // Tooltip toggle
-  document.addEventListener('click', (e) => { const info = e.target.closest('.info'); if (!info) return; const panel = info.parentElement.querySelector('.tooltip-panel'); if (!panel) return; panel.classList.toggle('show'); });
-  document.addEventListener('click', (e) => { if (e.target.closest('.tooltip')) return; document.querySelectorAll('.tooltip-panel.show').forEach(p=>p.classList.remove('show')); });
+  // Unified tooltip handling (toggle on info click, close elsewhere)
+  document.addEventListener('click', (e) => {
+    const info = e.target.closest('.info');
+    if (info) {
+      const panel = info.parentElement.querySelector('.tooltip-panel');
+      if (!panel) return;
+      const shown = panel.classList.toggle('show');
+      info.setAttribute('aria-expanded', shown ? 'true' : 'false');
+      return;
+    }
+    if (!e.target.closest('.tooltip')) {
+      document.querySelectorAll('.tooltip-panel.show').forEach(p=>{ p.classList.remove('show'); const btn = p.parentElement.querySelector('.info'); if (btn) btn.setAttribute('aria-expanded','false'); });
+    }
+  });
 </script>
 </body>
 </html>
