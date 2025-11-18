@@ -64,9 +64,13 @@
     .lines{display:grid;grid-auto-rows:minmax(80px,auto);gap:14px}
     .line{border:1px solid var(--border);border-radius:12px;padding:14px;background:white;display:flex;flex-direction:column;transition:transform .12s}
     .line:hover{transform:translateY(-4px)}
+    /* header layout: allow name to grow, meta to be visible and larger */
     .lineheader{display:flex;justify-content:space-between;align-items:center;gap:12px}
-    .linename{font-weight:900;font-size:20px;max-width:60%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .capright{font-size:14px;color:var(--muted);font-weight:900;text-align:right}
+    .linename{font-weight:900;font-size:26px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .line-meta{font-size:18px;color:var(--muted);font-weight:900;white-space:nowrap}
+    .meta-sep{color:var(--muted);font-weight:900;margin:0 8px;font-size:18px}
+    .status-name{font-size:20px}
+    .capright{font-size:16px;color:var(--muted);font-weight:900;text-align:right}
     .matBadge{font-size:14px;padding:6px 8px;border-radius:999px;background:#f1f7f2;border:1px solid #d6efdd;color:#065f2a;font-weight:900;margin-left:8px}
 
     .metricrow{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:10px}
@@ -564,6 +568,7 @@
         right.style.justifyContent = 'flex-end';
         right.style.gap = '8px';
         right.style.whiteSpace = 'nowrap';
+        right.style.flex = '0 0 auto';
 
         const matText = (l.dominantMaterial && l.dominantMaterial !== 'N/A') ? l.dominantMaterial : '';
         const capText = (l.cap && l.cap > 0) ? `${fmtNum(l.cap)} lbs/hr` : 'cap unknown';
@@ -572,17 +577,13 @@
         const parts = [matText, capText, lbsText].filter(x => x && String(x).trim().length > 0);
         parts.forEach((p, idx) => {
           const span = document.createElement('div');
+          span.className = 'line-meta';
           span.textContent = p;
-          span.style.fontWeight = '900';
-          span.style.color = 'var(--muted)';
-          span.style.fontSize = '14px';
           right.appendChild(span);
           if(idx < parts.length - 1){
             const sep = document.createElement('div');
+            sep.className = 'meta-sep';
             sep.textContent = '•';
-            sep.style.color = 'var(--muted)';
-            sep.style.fontWeight = '900';
-            sep.style.margin = '0 6px';
             right.appendChild(sep);
           }
         });
@@ -660,7 +661,7 @@
           row.style.alignItems = 'center';
           row.style.fontSize = '18px';
           const left = document.createElement('div'); left.style.display='flex'; left.style.alignItems='center';
-          const nameSpan = document.createElement('strong'); nameSpan.style.fontSize='18px'; nameSpan.style.marginRight='8px'; nameSpan.textContent = canonGrinding(S.name);
+          const nameSpan = document.createElement('strong'); nameSpan.className='status-name'; nameSpan.style.marginRight='8px'; nameSpan.textContent = canonGrinding(S.name);
           left.appendChild(nameSpan);
 
           const right = document.createElement('div'); right.style.display='flex'; right.style.alignItems='center'; right.style.gap='10px'; right.style.color='var(--muted)'; right.style.fontWeight='800';
