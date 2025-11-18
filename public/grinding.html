@@ -241,7 +241,7 @@
     BY_LINE:'/api/production/by-line',
     PRODSTATUS:'/api/workorders/prodstatus',
     LIMBLE_ASSETFIELDS:'/api/limble/assetfields',
-    LIMBLE_KPIASSET:'/api/limble/kpiassetfields',
+    // removed LIMBLE_KPIASSET to avoid frequent 404 console noise
     ASSETS_FIELDS:'/api/assets/fields',
     MAP:'mappings.json'
   };
@@ -257,7 +257,18 @@
   const $$ = s => Array.from(document.querySelectorAll(s));
 
   function setLoading(v){ const el=$('#loading'); if(el) el.style.display = v ? 'flex' : 'none'; }
-  async function fetchJSON(url, opts={}){ try{ const r = await fetch(url + (url.includes('?') ? '&' : '?') + 'ts=' + Date.now(), opts); if(!r.ok) throw new Error(r.status); return await r.json(); } catch(e){ console.warn('fetchJSON fail', url, e); return null; } }
+
+  // quieter fetch - will NOT log to console on 404/network fail (returns null on failure)
+  async function fetchJSON(url, opts={}){ 
+    try{ 
+      const r = await fetch(url + (url.includes('?') ? '&' : '?') + 'ts=' + Date.now(), opts);
+      if(!r.ok) return null;
+      return await r.json();
+    } catch(e){ 
+      return null; 
+    } 
+  }
+
   function fmtPct(v){ return Number.isFinite(Number(v)) ? (Math.round(Number(v)*100)+'%') : '0%'; }
   function fmtNum(n){ return Number.isFinite(Number(n)) ? Math.round(Number(n)).toLocaleString() : '0'; }
   function fmtH(v){ return Number.isFinite(Number(v)) ? Number(v).toFixed(1) : '0.0'; }
@@ -369,14 +380,9 @@
     mitemEl.style.boxShadow = '0 8px 18px rgba(0,0,0,0.12)';
   }
 
-  /**
-   * loadAssetStatusCandidates(filterFn)
-   * - Attempts multiple endpoints for "asset status" payloads.
-   * - If a filterFn(machineName) is provided, it will return the first endpoint that contains at least one row matching that filter.
-   * - Returns { source, rows: [...] } or { source:null, rows: [] }
-   */
+  // loadAssetStatusCandidates now accepts a filter function so it returns only the assets we care about
   async function loadAssetStatusCandidates(filterFn){
-    const candidates = [ENDPOINTS.PRODSTATUS, ENDPOINTS.LIMBLE_ASSETFIELDS, ENDPOINTS.LIMBLE_KPIASSET, ENDPOINTS.ASSETS_FIELDS];
+    const candidates = [ENDPOINTS.PRODSTATUS, ENDPOINTS.ASSETS_FIELDS, ENDPOINTS.LIMBLE_ASSETFIELDS];
     for(const url of candidates){
       const payload = await fetchJSON(url);
       if(!payload) continue;
@@ -397,13 +403,8 @@
         if(status && typeof status === 'object'){ status = status.text ?? status.name ?? status.value ?? JSON.stringify(status); }
         return { source:url, raw:it, name: String(name||'').trim(), status: String(status||'').trim() };
       });
-
-      // apply optional filterFn - if provided, only return when we have at least one match
-      let filtered = norm;
-      if(typeof filterFn === 'function') filtered = norm.filter(n => n.name && filterFn(n.name));
-      // if we have any filtered rows, return them immediately
+      const filtered = norm.filter(n => n.name && filterFn(n.name));
       if(filtered.length>0) return { source:url, rows: filtered };
-      // otherwise continue to next candidate
     }
     return { source:null, rows: [] };
   }
@@ -428,11 +429,10 @@
       }
       $('#rangeLabel').textContent = `${from} → ${to}`;
 
-      // Request production/by-line and LIMBLE KPI (if available). For status candidates, ask for grinding-only.
       const [bylineRaw, limblePayload, assetStatusCandidate] = await Promise.all([
         fetchJSON(`${ENDPOINTS.BY_LINE}?from=${from}&to=${to}`),
-        fetchJSON(`${ENDPOINTS.LIMBLE_KPIASSET}?from=${from}&to=${to}`),
-        loadAssetStatusCandidates(isGrindingMachine) // <-- only want grinding candidates returned
+        fetchJSON(`${ENDPOINTS.LIMBLE_ASSETFIELDS}?from=${from}&to=${to}`),
+        loadAssetStatusCandidates(isGrindingMachine)
       ]);
 
       const rawRows = Array.isArray(bylineRaw) ? bylineRaw : (bylineRaw && (Array.isArray(bylineRaw.rows) ? bylineRaw.rows : (Array.isArray(bylineRaw.items) ? bylineRaw.items : [])));
@@ -450,10 +450,8 @@
         };
       });
 
-      // ensure we only keep parsed rows that look like grinding machines
       const grindingRows = parsed.filter(p=>p.machine && isGrindingMachine(p.machine));
 
-      // Build LIMBLE maintenance map (defensive - handle multiple payload shapes)
       const limbleMaintMap = {};
       if(limblePayload){
         let lp = Array.isArray(limblePayload) ? limblePayload : (Array.isArray(limblePayload.rows) ? limblePayload.rows : (Array.isArray(limblePayload.items) ? limblePayload.items : []));
@@ -475,7 +473,6 @@
         }
       }
 
-      // aggregate per canonical grinding line
       const agg = {};
       for(const r of grindingRows){
         const canon = canonGrinding(r.machine);
@@ -491,7 +488,6 @@
         if(cap>0) agg[canon].cap = cap;
       }
 
-      // compute working days
       const fromD=new Date(from+'T00:00:00'), toD=new Date(to+'T00:00:00');
       let days=0; for(let d=new Date(fromD); d<=toD; d.setDate(d.getDate()+1)){ const wd=d.getDay(); if(wd!==0 && wd!==6) days++; } days = Math.max(1, days);
       Object.values(agg).forEach(a=>a.days=days);
@@ -655,7 +651,7 @@
           if(availNode){ applyMItemBg(availNode.closest('.mitem'), pickColorForPct(l.avail, 'lineHealth')); }
           if(perfNode){ applyMItemBg(perfNode.closest('.mitem'), pickColorForPct(l.perfAdj, 'lineHealth')); }
         } catch(e){
-          console.warn('coloring failed', e);
+          // intentionally silent
         }
       });
 
@@ -693,13 +689,7 @@
 
       // Live status: name left, status + bullet right
       const statusEl = $('#grindStatusList'); statusEl.innerHTML = '';
-      // defensive: assetStatusCandidate rows might already be filtered by loadAssetStatusCandidates(),
-      // but re-filter here to be 100% sure
-      let statuses = (assetStatusCandidate?.rows || []).filter(s => {
-        const nm = (s.name || machineNameFromRow(s.raw || s) || '').trim();
-        return nm && isGrindingMachine(nm);
-      });
-
+      const statuses = assetStatusCandidate?.rows || [];
       statuses.sort((a,b)=> canonGrinding(a.name).localeCompare(canonGrinding(b.name)));
       if(statuses.length===0){
         statusEl.innerHTML = '<div style="color:var(--muted);font-weight:900">No live status found for grinding assets from the attempted endpoints.</div>';
@@ -711,8 +701,7 @@
           row.style.alignItems = 'center';
           row.style.fontSize = '18px';
           const left = document.createElement('div'); left.style.display='flex'; left.style.alignItems='center';
-          const nameSpan = document.createElement('strong'); nameSpan.className='status-name'; nameSpan.style.marginRight='8px';
-          nameSpan.textContent = canonGrinding(S.name || machineNameFromRow(S.raw || S));
+          const nameSpan = document.createElement('strong'); nameSpan.className='status-name'; nameSpan.style.marginRight='8px'; nameSpan.textContent = canonGrinding(S.name);
           left.appendChild(nameSpan);
 
           const right = document.createElement('div'); right.style.display='flex'; right.style.alignItems='center'; right.style.gap='10px'; right.style.color='var(--muted)'; right.style.fontWeight='800';
