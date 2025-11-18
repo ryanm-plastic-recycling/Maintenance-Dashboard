@@ -237,7 +237,7 @@
     BY_LINE:'/api/production/by-line',
     PRODSTATUS:'/api/workorders/prodstatus',
     LIMBLE_ASSETFIELDS:'/api/limble/assetfields',
-    LIMBLE_KPIASSET:'/api/limble/kpiassetfields',
+    // removed LIMBLE_KPIASSET to avoid frequent 404 console noise
     ASSETS_FIELDS:'/api/assets/fields',
     MAP:'mappings.json'
   };
@@ -253,7 +253,18 @@
   const $$ = s => Array.from(document.querySelectorAll(s));
 
   function setLoading(v){ const el=$('#loading'); if(el) el.style.display = v ? 'flex' : 'none'; }
-  async function fetchJSON(url, opts={}){ try{ const r = await fetch(url + (url.includes('?') ? '&' : '?') + 'ts=' + Date.now(), opts); if(!r.ok) throw new Error(r.status); return await r.json(); } catch(e){ console.warn('fetchJSON fail', url, e); return null; } }
+
+  // quieter fetch - will NOT log to console on 404/network fail (returns null on failure)
+  async function fetchJSON(url, opts={}){ 
+    try{ 
+      const r = await fetch(url + (url.includes('?') ? '&' : '?') + 'ts=' + Date.now(), opts);
+      if(!r.ok) return null;
+      return await r.json();
+    } catch(e){ 
+      return null; 
+    } 
+  }
+
   function fmtPct(v){ return Number.isFinite(Number(v)) ? (Math.round(Number(v)*100)+'%') : '0%'; }
   function fmtNum(n){ return Number.isFinite(Number(n)) ? Math.round(Number(n)).toLocaleString() : '0'; }
   function fmtH(v){ return Number.isFinite(Number(v)) ? Number(v).toFixed(1) : '0.0'; }
@@ -275,92 +286,7 @@
   function materialFromRow(r){ return String(r.material || r.mat || r.resin || '').toUpperCase(); }
 
   let MAPPINGS = null;
-
-  /* ---------- blending name normalization / aliasing ----------
-     Build a normalized alias map so your mappings.json values (which
-     may use different naming conventions) are accepted by the UI.
-  */
-  function normalizeNameKey(n){
-    return String(n || '').replace(/[^a-z0-9\s]/gi,' ').replace(/\s+/g,' ').trim().toLowerCase();
-  }
-
-  // Default static options (kept for backwards compat); we'll augment from mappings.json when available
-  const DEFAULT_BLEND_CANON = [
-    {canon:'Blender 1', aliases:['Blender 1','Blending 1','Blend 1','Blender B1','B1']},
-    {canon:'Blender 2', aliases:['Blender 2','Blending 2','Blend 2','Blender B2','B2']},
-    {canon:'Blender 3', aliases:['Blender 3','Blending 3','Blend 3','Blender B3','B3']},
-    {canon:'Blender 4', aliases:['Blender 4','Blending 4','Blend 4','Blender B4','B4']}
-  ];
-
-  // Map: normalized string -> canonical display name
-  const BLEND_ALIAS_REV = new Map();
-  function buildDefaultBlendAlias() {
-    BLEND_ALIAS_REV.clear();
-    for(const r of DEFAULT_BLEND_CANON){
-      const canon = r.canon;
-      BLEND_ALIAS_REV.set(normalizeNameKey(canon), canon);
-      (r.aliases||[]).forEach(a => BLEND_ALIAS_REV.set(normalizeNameKey(a), canon));
-    }
-  }
-  buildDefaultBlendAlias();
-
-  // Update alias map from mappings.json (if present)
-  function updateBlendCanonFromMappings(mapObj){
-    try{
-      if(!mapObj) return;
-      // If mappings provides an explicit blendingAssets list, prefer it
-      if(Array.isArray(mapObj.blendingAssets) && mapObj.blendingAssets.length){
-        for(const item of mapObj.blendingAssets){
-          const rawName = (typeof item === 'string' ? item : (item.name || item.title || ''));
-          if(!rawName) continue;
-          const canon = String(rawName).trim();
-          // add normalized forms
-          BLEND_ALIAS_REV.set(normalizeNameKey(canon), canon);
-          // also add simple variants (remove words like 'blender' or 'blend' if present)
-          const reduced = canon.replace(/\b(blender|blend|b)\b/gi, '').replace(/\s+/g,' ').trim();
-          if(reduced) BLEND_ALIAS_REV.set(normalizeNameKey(reduced), canon);
-          // add numeric-only variant if it's like 'B1' or 'B2'
-          const numeric = canon.match(/\d+/);
-          if(numeric) BLEND_ALIAS_REV.set(normalizeNameKey(numeric[0]), canon);
-        }
-      }
-
-      // Also accept any explicit names in capacity_aliases and capacities_lbs_hr as canonical candidates
-      const candidates = Object.assign({}, mapObj.capacity_aliases, mapObj.capacities_lbs_hr, mapObj.capacity_by_material_lbs_hr);
-      for(const k of Object.keys(candidates||{})){
-        const canon = String(k).trim();
-        if(!canon) continue;
-        BLEND_ALIAS_REV.set(normalizeNameKey(canon), canon);
-      }
-    }catch(e){
-      console.warn('updateBlendCanonFromMappings fail', e);
-    }
-  }
-
-  // Build a set of canonical values for quick lookup
-  function buildBlendCanonSet(){
-    return new Set(Array.from(BLEND_ALIAS_REV.values()).map(s => String(s).trim()));
-  }
-
-  function canonBlending(n){
-    if(!n) return '';
-    const norm = normalizeNameKey(n);
-    return BLEND_ALIAS_REV.get(norm) || String(n || '').trim();
-  }
-
-  function isBlendingMachine(n){
-    if(!n) return false;
-    const canon = canonBlending(n);
-    const set = buildBlendCanonSet();
-    return set.has(canon);
-  }
-
-  async function loadMappings(){ if(MAPPINGS) return MAPPINGS; try { const j = await fetchJSON(ENDPOINTS.MAP); MAPPINGS = j || {}; } catch(e){ MAPPINGS = {}; } 
-    // augment alias map from mappings file so later name checks work
-    updateBlendCanonFromMappings(MAPPINGS);
-    return MAPPINGS;
-  }
-
+  async function loadMappings(){ if(MAPPINGS) return MAPPINGS; try { const j = await fetchJSON(ENDPOINTS.MAP); MAPPINGS = j || {}; } catch(e){ MAPPINGS = {}; } return MAPPINGS; }
   function capacityFor(lineName, material){
     const caps = MAPPINGS?.capacities_lbs_hr || {}, byMat = MAPPINGS?.capacity_by_material_lbs_hr || {}, alias = MAPPINGS?.capacity_aliases || {}, malias = MAPPINGS?.material_aliases || {};
     const canon = (caps[lineName] !== undefined || byMat[lineName]) ? lineName : (alias[lineName] || lineName);
@@ -368,10 +294,16 @@
     return (byMat[canon]?.[m]) ?? (byMat[canon]?.DEFAULT) ?? caps[canon] ?? 0;
   }
 
-  /* ---------- existing blend canonical defaults (kept for fallback) ----------
-     Note: we now use the alias map that was built above and augmented from mappings.json
-  */
-  let MAPPINGS_LOAD_TRIED = false;
+  const BLEND_CANON = [
+    {canon:'Blender 1', aliases:['Blender 1','Blending 1','Blend 1']},
+    {canon:'Blender 2', aliases:['Blender 2','Blending 2','Blend 2']},
+    {canon:'Blender 3', aliases:['Blender 3','Blending 3','Blend 3']},
+    {canon:'Blender 4', aliases:['Blender 4','Blending 4','Blend 4']}
+  ];
+  const BLEND_ALIAS_REV = (() => { const m=new Map(); for(const r of BLEND_CANON){ m.set(r.canon, r.canon); (r.aliases||[]).forEach(a=>m.set(String(a).trim(), r.canon)); } return m; })();
+  const BLEND_CANON_SET = new Set(BLEND_CANON.map(r=>r.canon));
+  function canonBlending(n){ return BLEND_ALIAS_REV.get(String(n||'').trim()) || String(n||'').trim(); }
+  function isBlendingMachine(n){ return BLEND_CANON_SET.has(canonBlending(n)); }
 
   function drawDonutSegments(canvas, segments){
     if(!canvas) return;
@@ -441,6 +373,35 @@
     mitemEl.style.boxShadow = '0 8px 18px rgba(0,0,0,0.12)';
   }
 
+  // loadAssetStatusCandidates now accepts a filter function so it returns only the assets we care about
+  async function loadAssetStatusCandidates(filterFn){
+    const candidates = [ENDPOINTS.PRODSTATUS, ENDPOINTS.ASSETS_FIELDS, ENDPOINTS.LIMBLE_ASSETFIELDS];
+    for(const url of candidates){
+      const payload = await fetchJSON(url);
+      if(!payload) continue;
+      let arr = Array.isArray(payload) ? payload : (Array.isArray(payload.rows) ? payload.rows : (Array.isArray(payload.items) ? payload.items : []));
+      if(!arr.length && typeof payload==='object'){
+        for(const p of Object.keys(payload)){
+          if(Array.isArray(payload[p]) && payload[p].length>0){ arr = payload[p]; break; }
+          if(typeof payload[p] === 'string' && payload[p].trim().startsWith('[')){
+            try{ arr = JSON.parse(payload[p]); break; } catch(e){}
+          }
+        }
+      }
+      if(!arr.length) continue;
+      const norm = arr.map(it=>{
+        let name = it.assetName || it.name || it.AssetName || it.machine || it.asset || (it.asset && (it.asset.name || it.assetName)) || '';
+        if(!name && typeof it === 'string') name = it;
+        let status = it.assetStatus ?? it.status ?? it.value ?? it.state ?? it.fieldValue ?? '';
+        if(status && typeof status === 'object'){ status = status.text ?? status.name ?? status.value ?? JSON.stringify(status); }
+        return { source:url, raw:it, name: String(name||'').trim(), status: String(status||'').trim() };
+      });
+      const filtered = norm.filter(n => n.name && filterFn(n.name));
+      if(filtered.length>0) return { source:url, rows: filtered };
+    }
+    return { source:null, rows: [] };
+  }
+
   async function renderBlending(){
     setLoading(true);
     try{
@@ -461,11 +422,10 @@
       }
       $('#rangeLabel').textContent = `${from} → ${to}`;
 
-      // If limble endpoints 404, fetchJSON returns null; we tolerate that and continue
       const [bylineRaw, limblePayload, assetStatusCandidate] = await Promise.all([
         fetchJSON(`${ENDPOINTS.BY_LINE}?from=${from}&to=${to}`),
-        fetchJSON(`${ENDPOINTS.LIMBLE_KPIASSET}?from=${from}&to=${to}`),
-        loadAssetStatusCandidates()
+        fetchJSON(`${ENDPOINTS.LIMBLE_ASSETFIELDS}?from=${from}&to=${to}`),
+        loadAssetStatusCandidates(isBlendingMachine)
       ]);
 
       const rawRows = Array.isArray(bylineRaw) ? bylineRaw : (bylineRaw && (Array.isArray(bylineRaw.rows) ? bylineRaw.rows : (Array.isArray(bylineRaw.items) ? bylineRaw.items : [])));
@@ -483,7 +443,6 @@
         };
       });
 
-      // filter blending machines using the alias map built from mappings.json (fall back to defaults)
       const blendingRows = parsed.filter(p=>p.machine && isBlendingMachine(p.machine));
 
       const limbleMaintMap = {};
@@ -733,7 +692,7 @@
     }
   });
 
-  setInterval(()=>{ const c=$('.clock'); if(c) c.textContent = new Date().toLocaleTimeString(); },1000);
+  setInterval(()=>{ const c=$('#clock'); if(c) c.textContent = new Date().toLocaleTimeString(); },1000);
 
   renderBlending();
   setInterval(() => { renderBlending(); }, 10 * 60 * 1000);
@@ -742,34 +701,6 @@
   document.addEventListener('DOMContentLoaded', () => {
     $$('.segBig button').forEach(b => b.classList.toggle('active', b.dataset.period === STATE.period));
   });
-
-  async function loadAssetStatusCandidates(){
-    const candidates = [ENDPOINTS.PRODSTATUS, ENDPOINTS.LIMBLE_ASSETFIELDS, ENDPOINTS.LIMBLE_KPIASSET, ENDPOINTS.ASSETS_FIELDS];
-    for(const url of candidates){
-      const payload = await fetchJSON(url);
-      if(!payload) continue;
-      let arr = Array.isArray(payload) ? payload : (Array.isArray(payload.rows) ? payload.rows : (Array.isArray(payload.items) ? payload.items : []));
-      if(!arr.length && typeof payload==='object'){
-        for(const p of Object.keys(payload)){
-          if(Array.isArray(payload[p]) && payload[p].length>0){ arr = payload[p]; break; }
-          if(typeof payload[p] === 'string' && payload[p].trim().startsWith('[')){
-            try{ arr = JSON.parse(payload[p]); break; } catch(e){}
-          }
-        }
-      }
-      if(!arr.length) continue;
-      const norm = arr.map(it=>{
-        let name = it.assetName || it.name || it.AssetName || it.machine || it.asset || (it.asset && (it.asset.name || it.assetName)) || '';
-        if(!name && typeof it === 'string') name = it;
-        let status = it.assetStatus ?? it.status ?? it.value ?? it.state ?? it.fieldValue ?? '';
-        if(status && typeof status === 'object'){ status = status.text ?? status.name ?? status.value ?? JSON.stringify(status); }
-        return { source:url, raw:it, name: String(name||'').trim(), status: String(status||'').trim() };
-      });
-      const filtered = norm.filter(n => n.name && isBlendingMachine(n.name));
-      if(filtered.length>0) return { source:url, rows: filtered };
-    }
-    return { source:null, rows: [] };
-  }
 </script>
 </body>
 </html>
