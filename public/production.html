@@ -1608,5 +1608,32 @@ function drawDonutAndLegend(payload, donutId, emptyId, legendId, topN = 10){
     document.querySelectorAll('.tooltip-panel.show').forEach(p=>p.classList.remove('show'));
   });
 </script>
+
+<!-- Scheduled hard reload (cache-busted) -->
+<script>
+(function(){
+  // default to 3600s if no ?autoReload= value present
+  const params = new URLSearchParams(location.search);
+  const sec = parseInt(params.get('autoReload')) || 3600;
+  const AUTO_HARD_RELOAD_MS = Math.max(0, sec) * 1000;
+  if (AUTO_HARD_RELOAD_MS > 0) {
+    console.info(`PACE: scheduled hard reload every ${sec}s`);
+    setInterval(() => {
+      try {
+        // don't reload when tab is hidden (e.g., TV asleep)
+        if (document.hidden) return;
+        console.info('PACE: performing scheduled hard reload');
+        const u = new URL(location.href);
+        u.searchParams.set('ts', Date.now()); // cache-bust param
+        window.location.href = u.toString();
+      } catch (e) {
+        console.warn('PACE: scheduled reload failed', e);
+        try { location.reload(); } catch(_) {}
+      }
+    }, AUTO_HARD_RELOAD_MS);
+  }
+})();
+</script>
+
 </body>
 </html>
