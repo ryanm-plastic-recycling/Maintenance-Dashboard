@@ -1097,15 +1097,19 @@ function colorForFM(name,i){
     await runForActivePeriod();
     scheduleAutoRefresh(runForActivePeriod);
 
-    // Scheduled hard reload as a safety net (configurable via URL)
+    // Scheduled hard reload every AUTO_HARD_RELOAD_MS (cache-busted)
     if (AUTO_HARD_RELOAD_MS > 0) {
       console.info(`Pulse: scheduled hard reload every ${AUTO_HARD_RELOAD_SECONDS}s`);
-      setInterval(()=> {
-         if (!hasTriggeredHardReload) {
-           console.info('Pulse: performing scheduled hard reload');
-           hasTriggeredHardReload = true;
-           try { location.reload(); } catch(e) { console.warn('Pulse: scheduled reload failed', e); }
-         }
+      setInterval(() => {
+        try {
+          console.info('Pulse: performing scheduled hard reload');
+          const u = new URL(location.href);
+          u.searchParams.set('ts', Date.now()); // cache-bust
+          window.location.href = u.toString();
+        } catch (e) {
+          console.warn('Pulse: scheduled reload failed', e);
+          try { location.reload(); } catch(_) {}
+        }
       }, AUTO_HARD_RELOAD_MS);
     }
   });
