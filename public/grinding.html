@@ -45,6 +45,7 @@
     #loading .spinner{width:64px;height:64px;border:8px solid #e5e7eb;border-top-color:var(--pri-blue);border-radius:50%;animation:spin 1s linear infinite}
     @keyframes spin{to{transform:rotate(360deg)}}
 
+    /* two-column grids: Left is 1fr, right is 2fr as requested */
     .grid{display:grid;grid-template-columns:1fr 2fr;gap:16px;align-items:start}
     @media (max-width: 1000px){ .grid{grid-template-columns:1fr} }
 
@@ -66,12 +67,14 @@
     .capright{font-size:16px;color:var(--muted);font-weight:900}
     .matBadge{font-size:14px;padding:6px 8px;border-radius:999px;background:#f1f7f2;border:1px solid #d6efdd;color:#065f2a;font-weight:900;margin-left:8px}
 
+    /* metric row — now 5 columns in requested order */
     .metricrow{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:10px}
     .mitem{background:#f7fafc;border:1px solid var(--border);border-radius:10px;padding:10px;min-width:0}
     .mitem .label{font-size:12px;color:var(--muted);font-weight:800}
     .mitem .mkv{font-size:20px;font-weight:900}
 
-    #grindStatusList > div{margin-bottom:8px;padding:12px 14px;border-radius:12px;border:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;font-size:20px;background:#fff;font-weight:900;box-shadow:0 6px 18px rgba(9,30,66,.04)}
+    /* Live status list. make font sizes match header style and place status on the right */
+    #grindStatusList > div{margin-bottom:8px;padding:12px 14px;border-radius:12px;border:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;font-size:18px;background:#fff;font-weight:900;box-shadow:0 6px 18px rgba(9,30,66,.04)}
     #rankTable{width:100%;border-collapse:collapse;font-size:14px;table-layout:fixed}
     #rankTable th,#rankTable td{padding:10px;border-bottom:1px dashed var(--border)}
     #rankTable th{text-align:center;color:var(--muted);font-weight:900}
@@ -221,6 +224,7 @@
   </div>
 
 <script>
+  /* endpoints we will attempt for live asset-fields */
   const ENDPOINTS = {
     BY_LINE:'/api/production/by-line',
     PRODSTATUS:'/api/workorders/prodstatus',
@@ -230,6 +234,7 @@
     MAP:'mappings.json'
   };
 
+  /***** COLOR CONFIGURATION *****/
   const COLOR_CONFIG = {
     overall: {
       thresholds: { good: 0.85, warn: 0.7 },
@@ -250,14 +255,7 @@
   const $$ = s => Array.from(document.querySelectorAll(s));
 
   function setLoading(v){ const el=$('#loading'); if(el) el.style.display = v ? 'flex' : 'none'; }
-  async function fetchJSON(url, opts = {}) {
-    try {
-      const sep = url.includes('?') ? '&' : '?';
-      const r = await fetch(url + sep + 'ts=' + Date.now(), opts);
-      if (!r.ok) throw new Error('HTTP ' + r.status);
-      return await r.json();
-    } catch (e) { console.warn('fetchJSON fail', url, e); return null; }
-  }
+  async function fetchJSON(url, opts={}){ try{ const r = await fetch(url + (url.includes('?') ? '&' : '?') + 'ts=' + Date.now(), opts); if(!r.ok) throw new Error(r.status); return await r.json(); } catch(e){ console.warn('fetchJSON fail', url, e); return null; } }
   function fmtPct(v){ return Number.isFinite(v) ? (Math.round(v*100)+'%') : '0%'; }
   function fmtNum(n){ return Number.isFinite(n) ? Math.round(n).toLocaleString() : '0'; }
   function fmtH(v){ return Number.isFinite(v) ? v.toFixed(1) : '0.0'; }
@@ -272,15 +270,14 @@
 
   function machineNameFromRow(r){ if(!r) return ''; return String(r.machine || r.asset || r.name || r.assetName || r.AssetName || r.machineName || r.device || r.Asset || '').trim(); }
   function poundsFromRow(r){ return Number(r.pounds ?? r.lbs ?? r.weight ?? r.total_lbs ?? r.pounds_total ?? 0) || 0; }
-  function machineHoursFromRow(r){ return Number(r.machine_hours ?? r.run_h ?? r.runHours ?? r.runtime_h ?? r.run_time ?? 0) || 0; }
-  function maintFromRow(r){ return Number(r.maint_dt_h ?? r.maint_h ?? r.maintenance_h ?? r.maintenance_hours ?? 0) || 0; }
+  function machineHoursFromRow(r){ return Number(r.machine_hours ?? r.run_h ?? r.runHours ?? r.runtime_h ?? r.run_time ?? r.runtime ?? 0) || 0; }
+  function maintFromRow(r){ return Number(r.maint_dt_h ?? r.maint_h ?? r.maintenance_h ?? r.maintenance_hours ?? r.maintenance ?? 0) || 0; }
   function prodDTFromRow(r){ return Number(r.prod_dt_h ?? r.prod_h ?? r.prod_dt ?? 0) || 0; }
   function nameplateFromRow(r){ return Number(r.nameplate_lbs_hr ?? r.nameplate ?? r.cap ?? r.cap_lbs_hr ?? 0) || 0; }
   function materialFromRow(r){ return String(r.material || r.mat || r.resin || '').toUpperCase(); }
 
   let MAPPINGS = null;
   async function loadMappings(){ if(MAPPINGS) return MAPPINGS; try { const j = await fetchJSON(ENDPOINTS.MAP); MAPPINGS = j || {}; } catch(e){ MAPPINGS = {}; } return MAPPINGS; }
-
   function capacityFor(lineName, material){
     const caps = MAPPINGS?.capacities_lbs_hr || {}, byMat = MAPPINGS?.capacity_by_material_lbs_hr || {}, alias = MAPPINGS?.capacity_aliases || {}, malias = MAPPINGS?.material_aliases || {};
     const canon = (caps[lineName] !== undefined || byMat[lineName]) ? lineName : (alias[lineName] || lineName);
@@ -297,7 +294,7 @@
     {canon:'Vistakon 2', aliases:['Vistakon 2','Grinder V2','Vistakon 2']},
     {canon:'PCR Washline', aliases:['PCR Washline','PCR','PCR Wash Line']}
   ];
-  const GRIND_ALIAS_REV = (() => { const m = new Map(); for(const r of GRIND_CANON){ m.set(r.canon, r.canon); (r.aliases||[]).forEach(a=>m.set(String(a).trim(), r.canon)); } return m; })();
+  const GRIND_ALIAS_REV = (() => { const m=new Map(); for(const r of GRIND_CANON){ m.set(r.canon, r.canon); (r.aliases||[]).forEach(a=>m.set(String(a).trim(), r.canon)); } return m; })();
   const GRIND_CANON_SET = new Set(GRIND_CANON.map(r=>r.canon));
   function canonGrinding(n){ return GRIND_ALIAS_REV.get(String(n||'').trim()) || String(n||'').trim(); }
   function isGrindingMachine(n){ return GRIND_CANON_SET.has(canonGrinding(n)); }
@@ -326,52 +323,6 @@
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     const pct = Math.round((segments[0]?.value||0) / total * 100);
     ctx.fillText(pct + '%', cx, cy);
-  }
-
-  async function loadAssetStatusCandidates(){
-    const candidates = [ENDPOINTS.PRODSTATUS, ENDPOINTS.LIMBLE_ASSETFIELDS, ENDPOINTS.LIMBLE_KPIASSET, ENDPOINTS.ASSETS_FIELDS];
-    for(const url of candidates){
-      const payload = await fetchJSON(url);
-      if(!payload) continue;
-      let arr = Array.isArray(payload) ? payload : (Array.isArray(payload.rows) ? payload.rows : (Array.isArray(payload.items) ? payload.items : []));
-      if(!arr.length && typeof payload==='object'){
-        for(const p of Object.keys(payload)){
-          if(Array.isArray(payload[p]) && payload[p].length>0){ arr = payload[p]; break; }
-          if(typeof payload[p] === 'string' && payload[p].trim().startsWith('[')){
-            try{ arr = JSON.parse(payload[p]); break; } catch(e){}
-          }
-        }
-      }
-      if(!arr.length) continue;
-      const norm = arr.map(it=>{
-        let name = it.assetName || it.name || it.AssetName || it.machine || it.asset || (it.asset && (it.asset.name || it.assetName)) || '';
-        if(!name && typeof it === 'string') name = it;
-        let status = it.assetStatus ?? it.status ?? it.value ?? it.state ?? it.fieldValue ?? '';
-        if(status && typeof status === 'object'){ status = status.text ?? status.name ?? status.value ?? JSON.stringify(status); }
-        return { source:url, raw:it, name: String(name||'').trim(), status: String(status||'').trim() };
-      });
-      const filtered = norm.filter(n => n.name && isGrindingMachine(n.name));
-      if(filtered.length>0) return { source:url, rows: filtered };
-    }
-    return { source:null, rows: [] };
-  }
-
-  function renderListBar(container, list){
-    container.innerHTML = '';
-    const top = list.slice(0,6);
-    const max = top.reduce((m,x)=>Math.max(m,x.value||0),0) || 1;
-    top.forEach(it=>{
-      const row = document.createElement('div');
-      row.style.display='flex'; row.style.alignItems='center'; row.style.gap='8px'; row.style.marginBottom='6px';
-      const label = document.createElement('div'); label.style.flex='1'; label.textContent = it.key; label.style.fontWeight='900'; label.style.fontSize='14px';
-      const barwrap = document.createElement('div'); barwrap.style.flex='1';
-      const bar = document.createElement('div'); bar.style.height='12px'; bar.style.borderRadius='8px'; bar.style.background='#eef6f0'; bar.style.overflow='hidden';
-      const inner = document.createElement('div'); inner.style.width = Math.round((it.value/max)*100)+'%'; inner.style.height='100%'; inner.style.background='linear-gradient(90deg,#0AAC00,#42C36A)';
-      const val = document.createElement('div'); val.style.width='80px'; val.style.textAlign='right'; val.textContent = fmtH(it.value);
-      bar.appendChild(inner); barwrap.appendChild(bar);
-      row.appendChild(label); row.appendChild(barwrap); row.appendChild(val);
-      container.appendChild(row);
-    });
   }
 
   function makeLegend(containerEl, arr, colors){
@@ -415,9 +366,9 @@
     setLoading(true);
     try{
       await loadMappings();
-      const periodBadge = $('#periodBadge'); if(periodBadge) periodBadge.textContent = '• ' + (STATE.period || 'today');
+      $('#periodBadge').textContent = '• ' + (STATE.period || 'today');
       $$('.segBig button').forEach(b=>b.classList.toggle('active', b.dataset.period===STATE.period));
-      const now = new Date(); now.setHours(0,0,0,0);
+      const now=new Date(); now.setHours(0,0,0,0);
       function iso(d){ return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10); }
       let from,to;
       switch(STATE.period){
@@ -429,51 +380,61 @@
         case 'r7': { const s=new Date(now); s.setDate(s.getDate()-6); from=iso(s); to=iso(now); break; }
         case 'r30': default: { const s=new Date(now); s.setDate(s.getDate()-29); from=iso(s); to=iso(now); break; }
       }
-      const rangeLabel = $('#rangeLabel'); if(rangeLabel) rangeLabel.textContent = (from && to) ? (from + ' → ' + to) : '—';
+      $('#rangeLabel').textContent = `${from} → ${to}`;
 
-      // fetch
+      // Fetch production & limble KPI asset data (limble may be absent)
       const [bylineRaw, limblePayload, assetStatusCandidate] = await Promise.all([
-        fetchJSON(ENDPOINTS.BY_LINE + '?from=' + (from||'') + '&to=' + (to||'')),
-        fetchJSON(ENDPOINTS.LIMBLE_KPIASSET + '?from=' + (from||'') + '&to=' + (to||'')),
+        fetchJSON(`${ENDPOINTS.BY_LINE}?from=${from}&to=${to}`),
+        fetchJSON(`${ENDPOINTS.LIMBLE_KPIASSET}?from=${from}&to=${to}`),
         loadAssetStatusCandidates()
       ]);
 
+      // debug samples so you can see what the endpoints return
+      console.log('BY_LINE sample', Array.isArray(bylineRaw) ? (bylineRaw[0] || null) : (bylineRaw && (bylineRaw.rows ? bylineRaw.rows[0] : bylineRaw.items ? bylineRaw.items[0] : null)));
+      console.log('LIMBLE sample', limblePayload && (Array.isArray(limblePayload) ? limblePayload[0] : (limblePayload.rows ? limblePayload.rows[0] : (limblePayload.items ? limblePayload.items[0] : limblePayload))));
+
+      // Normalize rows (from BY_LINE)
       const rawRows = Array.isArray(bylineRaw) ? bylineRaw : (bylineRaw && (Array.isArray(bylineRaw.rows) ? bylineRaw.rows : (Array.isArray(bylineRaw.items) ? bylineRaw.items : [])));
       const parsed = (rawRows||[]).map(r=>{
+        const machine = machineNameFromRow(r);
         return {
           raw:r,
-          machine: machineNameFromRow(r),
-          pounds: poundsFromRow(r),
-          machineHours: machineHoursFromRow(r),
-          maint: maintFromRow(r),
-          prod: prodDTFromRow(r),
-          nameplate: nameplateFromRow(r),
-          material: materialFromRow(r)
+          machine,
+          pounds:poundsFromRow(r),
+          machineHours:machineHoursFromRow(r),
+          maint:maintFromRow(r),
+          prod:prodDTFromRow(r),
+          nameplate:nameplateFromRow(r),
+          material:materialFromRow(r)
         };
       });
+
       const grindingRows = parsed.filter(p=>p.machine && isGrindingMachine(p.machine));
 
-      // parse limble payload into maint map
+      // Parse Limble: create a map of canonicalName -> total maintenance hours (summing events)
       const limbleMaintMap = {};
       if(limblePayload){
         let lp = Array.isArray(limblePayload) ? limblePayload : (Array.isArray(limblePayload.rows) ? limblePayload.rows : (Array.isArray(limblePayload.items) ? limblePayload.items : []));
         if(!lp.length && typeof limblePayload === 'object'){
           for(const k of Object.keys(limblePayload)){
-            if(Array.isArray(limblePayload[k]) && limblePayload[k].length){ lp = limblePayload[k]; break; }
+            if(Array.isArray(limblePayload[k]) && limblePayload[k].length) { lp = limblePayload[k]; break; }
           }
         }
         if(Array.isArray(lp)){
           lp.forEach(it=>{
             const name = machineNameFromRow(it) || machineNameFromRow(it.raw || it);
             const m = Number(it.maintenance_hours ?? it.maint_hours ?? it.maint_h ?? it.maintenance_h ?? it.maintenance ?? it.total_maintenance_hours ?? it.maint || 0) || 0;
-            if(name) limbleMaintMap[canonGrinding(name)] = (limbleMaintMap[canonGrinding(name)] || 0) + m;
+            if(name){
+              const c = canonGrinding(name);
+              limbleMaintMap[c] = (limbleMaintMap[c] || 0) + m;
+            }
           });
         }
       }
 
-      // aggregate by canonical name
+      // Build canonical aggregates from BY_LINE rows
       const agg = {};
-      grindingRows.forEach(r=>{
+      for(const r of grindingRows){
         const canon = canonGrinding(r.machine);
         const capFromMap = capacityFor(canon, r.material);
         const cap = r.nameplate > 0 ? r.nameplate : (capFromMap || 0);
@@ -481,45 +442,60 @@
         agg[canon].lbs += Math.max(0, r.pounds);
         agg[canon].prod += Math.max(0, r.prod);
         agg[canon].mach += Math.max(0, r.machineHours);
-        agg[canon].maint += Math.max(0, r.maint);
+        agg[canon].maint += Math.max(0, r.maint); // fallback if limble not present
         const m = (r.material || 'UNKNOWN').toUpperCase();
         agg[canon].matcount[m] = (agg[canon].matcount[m]||0) + 1;
         if(cap>0) agg[canon].cap = cap;
-      });
-
-      // days (count weekdays)
-      const fromD = new Date((from||'') + 'T00:00:00'), toD = new Date((to||'') + 'T00:00:00');
-      let days = 0;
-      for(let d = new Date(fromD); d <= toD; d.setDate(d.getDate()+1)){
-        const wd = d.getDay();
-        if(wd !== 0 && wd !== 6) days++;
       }
-      days = Math.max(1, days);
-      Object.values(agg).forEach(a=>a.days = days);
 
-      // compute perLine
+      // compute weekday count (business days)
+      const fromD=new Date(from+'T00:00:00'), toD=new Date(to+'T00:00:00');
+      let days=0; for(let d=new Date(fromD); d<=toD; d.setDate(d.getDate()+1)){ const wd=d.getDay(); if(wd!==0 && wd!==6) days++; } days = Math.max(1, days);
+      Object.values(agg).forEach(a=>a.days=days);
+
+      // robust per-line calculation (prefer Limble maint when available, prefer measured runtime)
       const perLine = Object.values(agg).map(a=>{
         const matEntries = Object.entries(a.matcount || {});
         const domMat = matEntries.length ? matEntries.sort((x,y)=>y[1]-x[1])[0][0] : 'N/A';
         const plannedH = 24 * a.days;
-        const limbleMaint = limbleMaintMap[a.name];
-        const maint = (typeof limbleMaint === 'number' && limbleMaint > 0) ? limbleMaint : a.maint;
-        let runtimeH = a.mach > 0 ? a.mach : (a.cap > 0 ? (a.lbs / a.cap) : 0);
-        runtimeH = Math.max(0, Math.min(runtimeH, plannedH));
+
+        // Prefer Limble maintenance hours if present (sum); otherwise use BY_LINE maint
+        const limbleMaint = Number(limbleMaintMap[a.name] || 0);
+        const maint = (limbleMaint > 0) ? limbleMaint : (Number(a.maint) || 0);
+
+        // runtime: prefer measured machine hours; fallback: infer runtime from lbs / cap (if cap > 0)
+        let runtimeH = 0;
+        if (Number(a.mach) > 0) runtimeH = Number(a.mach);
+        else if (a.cap > 0 && Number(a.lbs) > 0) runtimeH = Number(a.lbs) / Number(a.cap);
+        runtimeH = Math.max(0, Math.min(runtimeH, plannedH)); // clamp to 0..plannedH
+
+        // grinding downtime := plannedH - runtime - maint
         const grindDowntime = Math.max(0, plannedH - runtimeH - (maint || 0));
+
+        // Performance: actual lbs divided by (runtime * capacity)
         let perfAdj = 0;
-        if(a.cap > 0 && runtimeH > 0) perfAdj = a.lbs / (runtimeH * a.cap);
-        perfAdj = Math.max(0, Math.min(perfAdj, 10));
+        if(a.cap > 0 && runtimeH > 0) perfAdj = Number(a.lbs) / (runtimeH * Number(a.cap));
+        perfAdj = Math.max(0, Math.min(perfAdj, 10)); // sanity cap
+
+        // missed opportunity: capacity * runtime - actual
         const capPotential = a.cap > 0 ? (a.cap * runtimeH) : 0;
-        const missed = Math.max(0, Math.round(capPotential - a.lbs));
+        const missed = Math.max(0, Math.round(capPotential - Number(a.lbs)));
+
         const avail = plannedH > 0 ? (runtimeH / plannedH) : 0;
-        return Object.assign({}, a, { plannedH, runtimeH, maint, grindDowntime, perfAdj, oee: (runtimeH>0 ? (runtimeH/plannedH) * perfAdj : 0), capPotential, missed, dominantMaterial: domMat, avail });
+
+        return {...a, plannedH, runtimeH, maint, grindDowntime, perfAdj, oee: (runtimeH>0 ? (runtimeH/plannedH) * perfAdj : 0), capPotential, missed, dominantMaterial: domMat, avail};
       });
 
-      // totals
+      // overall aggregates
       const totals = perLine.reduce((s,x)=>{
-        s.lbs += x.lbs; s.maint += (x.maint||0); s.runtime += (x.runtimeH||0); s.planned += x.plannedH;
-        s.missed += x.missed||0; s.caps += (x.cap||0); s.prod += (x.prod||0); s.count++;
+        s.lbs += x.lbs;
+        s.maint += (x.maint || 0);
+        s.runtime += (x.runtimeH || 0);
+        s.planned += x.plannedH;
+        s.missed += x.missed || 0;
+        s.caps += (x.cap || 0);
+        s.prod += (x.prod || 0);
+        s.count++;
         return s;
       }, {lbs:0,maint:0,runtime:0,planned:0,missed:0,caps:0,prod:0,count:0});
 
@@ -527,13 +503,16 @@
       const avgCap = totals.count ? (totals.caps / totals.count) : 0;
       const overallPerfAdj = (totals.runtime>0 && avgCap>0) ? (totals.lbs / (totals.runtime * avgCap)) : 0;
 
-      applyTileBg('tile-grind-av', overallAvail, fmtPct(overallAvail), fmtNum(Math.round(totals.runtime)) + ' run h • ' + fmtNum(Math.round(totals.planned)) + ' planned h');
+      // render overall tiles
+      applyTileBg('tile-grind-av', overallAvail, fmtPct(overallAvail), `${fmtNum(Math.round(totals.runtime))} run h • ${fmtNum(Math.round(totals.planned))} planned h`);
       const maintFrac = totals.planned ? (totals.maint / totals.planned) : 0;
-      applyTileBg('tile-maint-dt', maintFrac, fmtPct(maintFrac), fmtH(totals.maint) + ' maint h • ' + fmtH(totals.prod) + ' prod dt h');
-      applyTileBg('tile-performance', overallPerfAdj, fmtPct(overallPerfAdj), fmtNum(Math.round(totals.lbs)) + ' lbs • avg cap ' + fmtNum(Math.round(avgCap)) + ' lbs/hr');
+      applyTileBg('tile-maint-dt', maintFrac, fmtPct(maintFrac), `${fmtH(totals.maint)} maint h • ${fmtH(totals.prod)} prod dt h`);
+      applyTileBg('tile-performance', overallPerfAdj, fmtPct(overallPerfAdj), `${fmtNum(Math.round(totals.lbs))} lbs • avg cap ${fmtNum(Math.round(avgCap))} lbs/hr`);
 
-      // donuts (simple seeds)
-      const prodReasonsMap = {}; const maintCatsMap = {}; const maintModesMap = {};
+      // Downtime donuts
+      const prodReasonsMap = {};
+      const maintCatsMap = {};
+      const maintModesMap = {};
       (rawRows||[]).forEach(r=>{
         const rReason = r.reason || r.downtimeReason || r.dt_reason || r.DowntimeReason || r.prod_reason || '';
         const rCat = r.maintenanceCategory || r.category || r.maint_category || r.maint_cat || '';
@@ -560,142 +539,140 @@
 
       drawDonutSegments($('#donutProd'), segProd);
       makeLegend($('#legendProd'), prodSeed, prodColors);
+
       drawDonutSegments($('#donutMaintCat'), segCat);
       makeLegend($('#legendMaintCat'), mcatSeed, catColors);
+
       drawDonutSegments($('#donutMaintMode'), segMode);
       makeLegend($('#legendMaintMode'), mmodeSeed, modeColors);
 
-      // render lines using DOM methods (avoid nested template pitfalls)
-      const linesGrid = $('#linesGrid'); if(linesGrid) linesGrid.innerHTML = '';
+      // Line Health cards — build DOM nodes (new order & header row changed)
+      const linesGrid = $('#linesGrid');
+      linesGrid.innerHTML = '';
       perLine.sort((a,b)=> (b.perfAdj||0) - (a.perfAdj||0)).forEach(l=>{
-        const card = document.createElement('div'); card.className = 'line';
-        // header
-        const h = document.createElement('div'); h.className = 'lineheader';
-        const left = document.createElement('div'); left.style.display = 'flex'; left.style.gap = '12px'; left.style.alignItems = 'center';
-        const nm = document.createElement('div'); nm.className = 'linename'; nm.textContent = l.name;
-        const mat = document.createElement('div'); mat.style.fontWeight = '900'; mat.style.color = 'var(--muted)'; mat.textContent = l.dominantMaterial || '';
-        const cap = document.createElement('div'); cap.style.fontWeight = '900'; cap.style.color = 'var(--muted)'; cap.textContent = (l.cap && l.cap>0) ? (fmtNum(l.cap) + ' lbs/hr') : 'cap unknown';
-        const lbs = document.createElement('div'); lbs.style.fontWeight = '900'; lbs.style.color = 'var(--muted)'; lbs.textContent = fmtNum(l.lbs) + ' lb';
-        left.appendChild(nm); left.appendChild(mat); left.appendChild(cap); left.appendChild(lbs);
-        const right = document.createElement('div'); right.className = 'capright'; right.style.fontSize = '18px'; right.textContent = Math.round((l.perfAdj||0)*100) + '%';
-        h.appendChild(left); h.appendChild(right);
-        card.appendChild(h);
+        const div = document.createElement('div'); div.className='line';
+        // header row: Machine name | Material | Capacity | Pounds (same font as header)
+        const header = document.createElement('div'); header.className='lineheader';
+        const left = document.createElement('div'); left.style.display='flex'; left.style.gap='12px'; left.style.alignItems='center';
+        const nameEl = document.createElement('div'); nameEl.className='linename'; nameEl.style.fontSize='20px'; nameEl.textContent = l.name;
+        const matEl = document.createElement('div'); matEl.style.fontWeight='900'; matEl.style.color='var(--muted)'; matEl.textContent = l.dominantMaterial;
+        const capEl = document.createElement('div'); capEl.style.fontWeight='900'; capEl.style.color='var(--muted)'; capEl.textContent = l.cap && l.cap>0 ? `${fmtNum(l.cap)} lbs/hr` : 'cap unknown';
+        const lbsEl = document.createElement('div'); lbsEl.style.fontWeight='900'; lbsEl.style.color='var(--muted)'; lbsEl.textContent = `${fmtNum(l.lbs)} lb`;
+        left.appendChild(nameEl); left.appendChild(matEl); left.appendChild(capEl); left.appendChild(lbsEl);
+        const right = document.createElement('div'); right.className='capright'; right.style.fontSize='18px'; right.textContent = Math.round((l.perfAdj||0)*100) + '%';
+        header.appendChild(left); header.appendChild(right);
+        div.appendChild(header);
 
-        // metrics row
-        const mr = document.createElement('div'); mr.className = 'metricrow';
-        const fields = [
-          {label:'Maint h', value: fmtH(l.maint)},
-          {label:'Grind DT h', value: fmtH(l.grindDowntime)},
-          {label:'Runtime h', value: fmtH(l.runtimeH)},
-          {label:'Availability', value: fmtPct(l.avail)},
-          {label:'Perf Adj', value: fmtPct(l.perfAdj)}
-        ];
-        fields.forEach(f=>{
-          const mi = document.createElement('div'); mi.className = 'mitem';
-          const lab = document.createElement('div'); lab.className = 'label'; lab.textContent = f.label;
-          const mkv = document.createElement('div'); mkv.className = 'mkv'; mkv.textContent = f.value;
-          if(f.label === 'Availability') mkv.setAttribute('data-avail', String(l.avail));
-          if(f.label === 'Perf Adj') mkv.setAttribute('data-perf', String(l.perfAdj));
-          mi.appendChild(lab); mi.appendChild(mkv);
-          mr.appendChild(mi);
-        });
-        card.appendChild(mr);
-        linesGrid.appendChild(card);
+        // metric row (Maint DT H > Grind DT H > Runtime H > Availability > Perf Adj)
+        const metricRow = document.createElement('div'); metricRow.className='metricrow';
+        const m1 = document.createElement('div'); m1.className='mitem'; m1.innerHTML = '<div class="label">Maint h</div><div class="mkv">'+fmtH(l.maint)+'</div>';
+        const m2 = document.createElement('div'); m2.className='mitem'; m2.innerHTML = '<div class="label">Grind DT h</div><div class="mkv">'+fmtH(l.grindDowntime)+'</div>';
+        const m3 = document.createElement('div'); m3.className='mitem'; m3.innerHTML = '<div class="label">Runtime h</div><div class="mkv">'+fmtH(l.runtimeH)+'</div>';
+        const m4 = document.createElement('div'); m4.className='mitem'; m4.innerHTML = '<div class="label">Availability</div><div class="mkv" data-avail="'+l.avail+'">'+fmtPct(l.avail)+'</div>';
+        const m5 = document.createElement('div'); m5.className='mitem'; m5.innerHTML = '<div class="label">Perf Adj</div><div class="mkv" data-perf="'+l.perfAdj+'">'+fmtPct(l.perfAdj)+'</div>';
+        metricRow.appendChild(m1); metricRow.appendChild(m2); metricRow.appendChild(m3); metricRow.appendChild(m4); metricRow.appendChild(m5);
+        div.appendChild(metricRow);
 
-        // apply colours
-        const availColor = pickColorForPct(l.avail, 'lineHealth');
-        const perfColor = pickColorForPct(l.perfAdj, 'lineHealth');
-        const availM = card.querySelector('.mkv[data-avail]')?.closest('.mitem');
-        const perfM = card.querySelector('.mkv[data-perf]')?.closest('.mitem');
-        if(availM) applyMItemBg(availM, availColor);
-        if(perfM) applyMItemBg(perfM, perfColor);
+        // small summary row moved up, same font as machine name
+        const summary = document.createElement('div');
+        summary.style.marginTop = '10px';
+        summary.style.fontSize = '16px';
+        summary.style.fontWeight = '900';
+        summary.style.color = 'var(--muted)';
+        summary.textContent = `${l.name} • ${l.dominantMaterial} • ${l.cap && l.cap>0 ? fmtNum(l.cap) + ' lbs/hr' : 'cap unknown'} • ${fmtNum(l.lbs)} lb`;
+        // note: removed perf % here per request (perf adj remains in the card)
+        div.insertBefore(summary, metricRow); // place above metrics as requested
+
+        linesGrid.appendChild(div);
+
+        // color apply
+        const availNode = m4.querySelector('.mkv[data-avail]');
+        const perfNode = m5.querySelector('.mkv[data-perf]');
+        if(availNode){ applyMItemBg(availNode.closest('.mitem'), pickColorForPct(l.avail, 'lineHealth')); }
+        if(perfNode){ applyMItemBg(perfNode.closest('.mitem'), pickColorForPct(l.perfAdj, 'lineHealth')); }
       });
 
-      // rank table
-      const tbody = $('#rankTable tbody'); if(tbody) tbody.innerHTML = '';
+      // Rank table + TOTAL row
+      const tbody = $('#rankTable tbody'); tbody.innerHTML = '';
       perLine.sort((a,b) => ((b.perfAdj||0) - (a.perfAdj||0)) || ((b.avail||0) - (a.avail||0)));
       perLine.forEach(r=>{
         const tr = document.createElement('tr');
-        const td1 = document.createElement('td'); td1.className = 'left';
-        const nameDiv = document.createElement('div'); nameDiv.textContent = r.name;
-        const small = document.createElement('div'); small.style.fontSize='12px'; small.style.color='var(--muted)'; small.style.fontWeight='800'; small.textContent = r.dominantMaterial || '';
-        td1.appendChild(nameDiv); td1.appendChild(small);
-        const td2 = document.createElement('td'); td2.className='center'; td2.textContent = fmtPct(r.perfAdj);
-        const td3 = document.createElement('td'); td3.className='center'; td3.textContent = fmtPct(r.avail);
-        const td4 = document.createElement('td'); td4.className='center'; td4.textContent = fmtNum(r.lbs);
-        const td5 = document.createElement('td'); td5.className='center'; td5.textContent = fmtNum(r.missed);
-        tr.appendChild(td1); tr.appendChild(td2); tr.appendChild(td3); tr.appendChild(td4); tr.appendChild(td5);
+        const tdName = document.createElement('td'); tdName.className='left';
+        const nameWrap = document.createElement('div'); nameWrap.innerHTML = `<div style="font-weight:900">${r.name}</div><div style="font-size:12px;color:var(--muted);font-weight:800">${r.dominantMaterial || ''}</div>`;
+        tdName.appendChild(nameWrap);
+        const tdPerf = document.createElement('td'); tdPerf.className='center'; tdPerf.textContent = fmtPct(r.perfAdj);
+        const tdAvail = document.createElement('td'); tdAvail.className='center'; tdAvail.textContent = fmtPct(r.avail);
+        const tdLbs = document.createElement('td'); tdLbs.className='center'; tdLbs.textContent = fmtNum(r.lbs);
+        const tdMiss = document.createElement('td'); tdMiss.className='center'; tdMiss.textContent = fmtNum(r.missed);
+        tr.appendChild(tdName); tr.appendChild(tdPerf); tr.appendChild(tdAvail); tr.appendChild(tdLbs); tr.appendChild(tdMiss);
         tbody.appendChild(tr);
       });
 
-      // total row
-      if(tbody){
-        const totalTr = document.createElement('tr'); totalTr.style.fontWeight='900';
-        const td1 = document.createElement('td'); td1.className='left'; td1.textContent = 'TOTAL';
-        const avgPerf = perLine.length ? (perLine.reduce((s,x)=>s + (x.perfAdj||0),0) / perLine.length) : 0;
-        const td2 = document.createElement('td'); td2.className='center'; td2.textContent = fmtPct(avgPerf);
-        const td3 = document.createElement('td'); td3.className='center'; td3.textContent = fmtPct(overallAvail);
-        const td4 = document.createElement('td'); td4.className='center'; td4.textContent = fmtNum(totals.lbs);
-        const td5 = document.createElement('td'); td5.className='center'; td5.textContent = fmtNum(totals.missed);
-        totalTr.appendChild(td1); totalTr.appendChild(td2); totalTr.appendChild(td3); totalTr.appendChild(td4); totalTr.appendChild(td5);
-        tbody.appendChild(totalTr);
-      }
+      // totals row
+      const totalTr = document.createElement('tr');
+      totalTr.style.fontWeight = '900';
+      const t1 = document.createElement('td'); t1.className='left'; t1.textContent = 'TOTAL';
+      const avgPerf = perLine.length ? perLine.reduce((s,x)=>s + (x.perfAdj||0),0) / Math.max(1, perLine.length) : 0;
+      const t2 = document.createElement('td'); t2.className='center'; t2.textContent = fmtPct(avgPerf);
+      const t3 = document.createElement('td'); t3.className='center'; t3.textContent = fmtPct(overallAvail);
+      const t4 = document.createElement('td'); t4.className='center'; t4.textContent = fmtNum(totals.lbs);
+      const t5 = document.createElement('td'); t5.className='center'; t5.textContent = fmtNum(totals.missed);
+      totalTr.appendChild(t1); totalTr.appendChild(t2); totalTr.appendChild(t3); totalTr.appendChild(t4); totalTr.appendChild(t5);
+      tbody.appendChild(totalTr);
 
-      // live status list
-      const statusEl = $('#grindStatusList'); if(statusEl) statusEl.innerHTML = '';
-      const statuses = (assetStatusCandidate && assetStatusCandidate.rows) ? assetStatusCandidate.rows : [];
+      // Live status: label left, status right, larger font
+      const statusEl = $('#grindStatusList'); statusEl.innerHTML = '';
+      const statuses = assetStatusCandidate?.rows || [];
       statuses.sort((a,b)=> canonGrinding(a.name).localeCompare(canonGrinding(b.name)));
-      if(statuses.length === 0){
-        const msg = document.createElement('div'); msg.style.color='var(--muted)'; msg.style.fontWeight='900'; msg.textContent = 'No live status found for grinding assets from the attempted endpoints.';
-        statusEl.appendChild(msg);
+      if(statuses.length===0){
+        statusEl.innerHTML = '<div style="color:var(--muted);font-weight:900">No live status found for grinding assets from the attempted endpoints.</div>';
       } else {
-        statuses.forEach(S=>{
+        statuses.forEach(S => {
           const row = document.createElement('div');
-          row.style.display = 'flex'; row.style.justifyContent = 'space-between'; row.style.alignItems = 'center'; row.style.fontSize='18px';
-          const left = document.createElement('div'); left.style.display='flex'; left.style.alignItems='center';
-          const name = document.createElement('strong'); name.style.fontSize='18px'; name.textContent = canonGrinding(S.name);
-          left.appendChild(name);
-          const statusRight = document.createElement('div'); statusRight.style.fontSize='18px'; statusRight.style.color='var(--muted)'; statusRight.style.fontWeight='800';
+          const label = canonGrinding(S.name);
           const st = S.status || (S.raw && (S.raw.assetStatus || S.raw.status || S.raw.value || '')) || 'Available';
           const stLower = String(st||'').toLowerCase();
           const isAvailable = stLower.includes('avail') || stLower.includes('available') || stLower.includes('ready') || stLower.includes('in production');
           const color = isAvailable ? COLOR_CONFIG.status.available : COLOR_CONFIG.status.other;
-          const bullet = document.createElement('span'); bullet.style.display='inline-block'; bullet.style.width='12px'; bullet.style.height='12px'; bullet.style.borderRadius='50%'; bullet.style.background = color; bullet.style.marginLeft='10px';
-          statusRight.textContent = st;
-          statusRight.appendChild(bullet);
-          row.appendChild(left); row.appendChild(statusRight);
+          const bullet = document.createElement('span'); bullet.style.display='inline-block'; bullet.style.width='12px'; bullet.style.height='12px'; bullet.style.borderRadius='50%'; bullet.style.background = color; bullet.style.marginRight='10px'; bullet.style.verticalAlign='middle';
+          const wrapper = document.createElement('div'); wrapper.style.display='flex'; wrapper.style.justifyContent='space-between'; wrapper.style.alignItems='center'; wrapper.style.fontSize='18px';
+          const left = document.createElement('div'); left.style.display='flex'; left.style.alignItems='center';
+          const strong = document.createElement('strong'); strong.style.fontSize='18px'; strong.textContent = label;
+          left.appendChild(bullet); left.appendChild(strong);
+          const right = document.createElement('div'); right.style.fontSize='18px'; right.style.color='var(--muted)'; right.style.fontWeight='800'; right.textContent = st;
+          wrapper.appendChild(left); wrapper.appendChild(right);
+          row.appendChild(wrapper);
           statusEl.appendChild(row);
         });
       }
 
-      const updated = $('#updated'); if(updated) updated.textContent = (new Date()).toLocaleString();
+      $('#updated').textContent = new Date().toLocaleString();
     } finally {
       setLoading(false);
     }
   }
 
   // wire timeframe buttons
-  document.addEventListener('click', function(e){
-    const btn = e.target.closest('.segBig button');
-    if (btn?.dataset?.period && btn.dataset.period !== STATE.period) {
-      STATE.period = btn.dataset.period;
-      renderGrinding();
-    }
-  });
+  $$('.segBig button').forEach(btn => btn.addEventListener('click', () => {
+    if(btn.dataset.period && btn.dataset.period !== STATE.period){ STATE.period = btn.dataset.period; renderGrinding(); }
+  }));
 
+  // fullscreen hotkey
   document.addEventListener('keydown', (e)=>{
-    if (e.key && e.key.toLowerCase && e.key.toLowerCase() === 'f') {
+    if (e.key.toLowerCase()==='f') {
       if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(()=>{});
       else document.exitFullscreen().catch(()=>{});
     }
   });
 
-  setInterval(()=>{ const c=$('#clock'); if(c) c.textContent = (new Date()).toLocaleTimeString(); },1000);
+  // clock
+  setInterval(()=>{ const c=$('#clock'); if(c) c.textContent = new Date().toLocaleTimeString(); },1000);
 
   // initial render + auto-refresh
   renderGrinding();
   setInterval(() => { renderGrinding(); }, 10 * 60 * 1000);
 
+  // init active state on DOMContentLoaded
   document.addEventListener('DOMContentLoaded', () => {
     $$('.segBig button').forEach(b => b.classList.toggle('active', b.dataset.period === STATE.period));
   });
