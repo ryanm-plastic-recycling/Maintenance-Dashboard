@@ -404,7 +404,9 @@
         if(Array.isArray(lp)){
           lp.forEach(it=>{
             const name = machineNameFromRow(it) || machineNameFromRow(it.raw || it);
-            const m = Number(it.maintenance_hours ?? it.maint_hours ?? it.maint_h || 0);
+            // --- FIX: avoid mixing ?? and || in same expression; extract candidate first ---
+            const mCandidate = it.maintenance_hours ?? it.maint_hours ?? it.maint_h ?? it.maintenance_h ?? it.maintenance ?? it.total_maintenance_hours ?? it.maint ?? 0;
+            const m = Number(mCandidate) || 0;
             if(name){
               const c = canonGrinding(name);
               limbleMaintMap[c] = (limbleMaintMap[c] || 0) + m;
@@ -633,7 +635,6 @@
     $$('.segBig button').forEach(b => b.classList.toggle('active', b.dataset.period === STATE.period));
   });
 
-  // helper to load asset status candidates (kept at end to avoid hoisting quirks)
   async function loadAssetStatusCandidates(){
     const candidates = [ENDPOINTS.PRODSTATUS, ENDPOINTS.LIMBLE_ASSETFIELDS, ENDPOINTS.LIMBLE_KPIASSET, ENDPOINTS.ASSETS_FIELDS];
     for(const url of candidates){
