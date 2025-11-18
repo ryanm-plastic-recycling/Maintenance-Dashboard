@@ -356,6 +356,12 @@
     { "id": 885,  "name": "Grinder V2" },
     { "id": 2491, "name": "PCR" }
   ],
+   "blendingAssets": [
+    { "id": 2411, "name": "Blender B1" },
+    { "id": 2413, "name": "Blender B2" },
+    { "id": 2415, "name": "Blender B3" },
+    { "id": 2443, "name": "Blender B4" }
+  ],
   "statusColorMapping": {
     "1": "#0AAC00",
     "2": "#F5E050",
@@ -412,7 +418,12 @@
   "Shredding Line 6- WEIMA": "Weima",
   "Grinder V1": "Vistakon 1",
   "Grinder V2": "Vistakon 2",
-  "PCR": "PCR Washline"
+  "PCR": "PCR Washline",
+
+  "Blender B1": "Blender 1",
+  "Blender B2": "Blender 2",
+  "Blender B3": "Blender 3",
+  "Blender B4": "Blender 4"
 },
   "capacities_lbs_hr": {
     "Extruder NGR": 2000,
@@ -433,7 +444,11 @@
     "Weima": 2897,
     "Vistakon 1": 3440,
     "Vistakon 2": 3259,
-    "PCR Washline": 1230
+    "PCR Washline": 1230,
+    "Blender 1": 1200,
+    "Blender 2": 1100,
+    "Blender 3": 1000,
+    "Blender 4": 900
   },
   "capacity_by_material_lbs_hr": {
     "Extruder NGR": { 
@@ -566,6 +581,18 @@
       "HDPE": 514, 
       "HIPS": 875, 
       "PP": 1230
+    },
+    "Blender 1": {
+      "DEFAULT": 1000
+    },
+    "Blender 2": {
+      "DEFAULT": 1000
+    },
+    "Blender 3": {
+      "DEFAULT": 1000
+    },
+    "Blender 4": {
+      "DEFAULT": 1000
     }
   },
    "material_aliases": {
