@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!DOCTYPE html> 
 <html lang="en">
 <head>
   <meta charset="utf-8" />
@@ -342,6 +342,16 @@
   const fmtPct = (v, valid=true) => (valid && Number.isFinite(v)) ? (Math.round(v*100) + '%') : MISSING;
   const fmtFixed = (v, digits=1, valid=true) => (valid && Number.isFinite(v)) ? v.toFixed(digits) : MISSING;
   const fmtInt = (v, valid=true) => (valid && Number.isFinite(v)) ? Number(Math.round(v)).toLocaleString() : MISSING;
+
+  // ====== AUTO-RELOAD CONFIG ======
+  // Default scheduled hard reload interval (seconds) can be overridden via URL: ?autoReload=600
+  const AUTO_HARD_RELOAD_SECONDS = parseInt(new URLSearchParams(location.search).get('autoReload')) || 3600; // default: 3600s = 1 hour
+  const AUTO_HARD_RELOAD_MS = AUTO_HARD_RELOAD_SECONDS * 1000;
+
+  // Keep track of last-good pounds to detect sudden "zero" renders
+  let lastNonZeroLbs = 0;
+  let zeroStreak = 0;
+  let hasTriggeredHardReload = false;
 
   let refreshTimer = null;
   let lastRenderAt = 0;
@@ -864,6 +874,32 @@ function colorForFM(name,i){
       const ovMdtPct  = totals.plannedH > 0 ? (totals.maint / totals.plannedH) : 0;
       const ovPdtPct  = totals.plannedH > 0 ? (totals.prod  / totals.plannedH) : 0;
 
+      // ----- Auto-reload / detection logic -----
+      try {
+        const currentLbs = Number(totals.lbs || 0);
+        // store totals for debugging
+        window.__pulseTotals = totals;
+        if (currentLbs > 0) {
+          lastNonZeroLbs = currentLbs;
+          zeroStreak = 0;
+        } else if (lastNonZeroLbs > 0) {
+          // We previously had non-zero data; now it's zero: likely the broken state.
+          zeroStreak++;
+          console.warn('Pulse: detected zero-data render (streak:', zeroStreak, '). Will auto-reload.');
+          // Immediate reload on first occurrence (mirrors manual Ctrl+R fix).
+          if (zeroStreak >= 1 && !hasTriggeredHardReload) {
+            hasTriggeredHardReload = true;
+            setTimeout(()=> {
+              console.warn('Pulse: performing auto-reload due to zero-data render');
+              location.reload();
+            }, 1500);
+          }
+        }
+      } catch (e) {
+        console.warn('Pulse: reload detection failed', e);
+      }
+
+      // ----- KPIs / render -----
       const kpis = [
         {id:'oee',   label:'OEE',            val:fmtPct(ovOEE, totals.nAvail>0 && totals.nPRun>0), cls:grade(ovOEE, THRESH.oee),                  show:true},
         {id:'avail', label:'Availability',   val:fmtPct(ovAvail, totals.nAvail>0),                cls:grade(ovAvail, THRESH.availability), show:true},
@@ -1060,6 +1096,18 @@ function colorForFM(name,i){
     // First KPI/tiles render + 10m auto-refresh
     await runForActivePeriod();
     scheduleAutoRefresh(runForActivePeriod);
+
+    // Scheduled hard reload as a safety net (configurable via URL)
+    if (AUTO_HARD_RELOAD_MS > 0) {
+      console.info(`Pulse: scheduled hard reload every ${AUTO_HARD_RELOAD_SECONDS}s`);
+      setInterval(()=> {
+         if (!hasTriggeredHardReload) {
+           console.info('Pulse: performing scheduled hard reload');
+           hasTriggeredHardReload = true;
+           try { location.reload(); } catch(e) { console.warn('Pulse: scheduled reload failed', e); }
+         }
+      }, AUTO_HARD_RELOAD_MS);
+    }
   });
 </script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
