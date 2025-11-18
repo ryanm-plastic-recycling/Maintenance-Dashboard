@@ -347,6 +347,15 @@
     { "id": 2407, "name": "New Extrusion Line NL1" },
     { "id": 2408, "name": "New Extrusion Line NL2" }
   ],
+  "grindingAssets": [
+    { "id": 2411, "name": "Shredding Line 1" },
+    { "id": 2413, "name": "Shredding Line 3" },
+    { "id": 2415, "name": "Shredding Line 5" },
+    { "id": 2443, "name": "Shredding Line 6- WEIMA" },
+    { "id": 389,  "name": "Grinder V1" },
+    { "id": 885,  "name": "Grinder V2" },
+    { "id": 2491, "name": "PCR" }
+  ],
   "statusColorMapping": {
     "1": "#0AAC00",
     "2": "#F5E050",
@@ -395,7 +404,15 @@
   "NL2": "Extruder New Twin",
 
   "New Extrusion Line NL1": "Extruder New Single",
-  "New Extrusion Line NL2": "Extruder New Twin"
+  "New Extrusion Line NL2": "Extruder New Twin",
+
+  "Shredding Line 1": "Shredder 1",
+  "Shredding Line 3": "Shredder 3",
+  "Shredding Line 5": "Shredder 5",
+  "Shredding Line 6- WEIMA": "Weima",
+  "Grinder V1": "Vistakon 1",
+  "Grinder V2": "Vistakon 2",
+  "PCR": "PCR Washline"
 },
   "capacities_lbs_hr": {
     "Vistakon 1": 2000,
@@ -408,7 +425,14 @@
     "Extruder 6": 2000,
     "Extruder 7": 2000,
     "Extruder New Single": 6000,
-    "Extruder New Twin": 5000
+    "Extruder New Twin": 5000,
+    "Shredder 1": 4000,
+    "Shredder 3": 4000,
+    "Shredder 5": 4000,
+    "Weima": 3500,
+    "Vistakon 1": 2500,
+    "Vistakon 2": 2500,
+    "PCR Washline": 5000
   },
   "capacity_by_material_lbs_hr": {
     "Extruder NGR": { 
@@ -474,6 +498,76 @@
       "DEFAULT": 5000, 
       "PP": 4500, 
       "PPTF": 5000 
+    },
+    "Shredding 1": { 
+      "DEFAULT": 2100, 
+      "CRY": 2250, 
+      "EPP": 1450, 
+      "EPS": 1250, 
+      "HIPS": 2510, 
+      "PP": 1200, 
+      "PS": 1800, 
+      "PS/PP": 830 
+    },
+    "Shredding 3": { 
+      "DEFAULT": 2100, 
+      "CRY": 2250, 
+      "EPP": 1450, 
+      "EPS": 1250, 
+      "HIPS": 2510, 
+      "PP": 1200, 
+      "PS": 1800, 
+      "PS/PP": 830 
+    },
+    "Shredding 5": { 
+      "DEFAULT": 2100, 
+      "CRY": 2250, 
+      "EPP": 1450, 
+      "EPS": 1250, 
+      "HIPS": 2510, 
+      "PP": 1200, 
+      "PS": 1800, 
+      "PS/PP": 830 
+    },
+    "Weima": { 
+      "DEFAULT": 2100, 
+      "CRY": 2250, 
+      "EPP": 1450, 
+      "EPS": 1250, 
+      "HIPS": 2510, 
+      "PP": 1200, 
+      "PS": 1800, 
+      "PS/PP": 830 
+    },
+    "Vistakon 1": { 
+      "DEFAULT": 2100, 
+      "CRY": 2250, 
+      "EPP": 1450, 
+      "EPS": 1250, 
+      "HIPS": 2510, 
+      "PP": 1200, 
+      "PS": 1800, 
+      "PS/PP": 830 
+    },
+    "Vistakon 2": { 
+      "DEFAULT": 2100, 
+      "CRY": 2250, 
+      "EPP": 1450, 
+      "EPS": 1250, 
+      "HIPS": 2510, 
+      "PP": 1200, 
+      "PS": 1800, 
+      "PS/PP": 830 
+    },
+    "PCR Washline": { 
+      "DEFAULT": 2100, 
+      "CRY": 2250, 
+      "EPP": 1450, 
+      "EPS": 1250, 
+      "HIPS": 2510, 
+      "PP": 1200, 
+      "PS": 1800, 
+      "PS/PP": 830 
     }
   },
    "material_aliases": {
