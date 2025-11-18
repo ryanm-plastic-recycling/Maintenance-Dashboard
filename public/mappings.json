@@ -425,11 +425,13 @@
     "Extruder 7": 2000,
     "Extruder New Single": 6000,
     "Extruder New Twin": 5000,
-    "Shredder 1": 4000,
-    "Shredder 3": 4000,
-    "Shredder 5": 4000,
-    "Weima": 3500,
-    "Vistakon 1": 2500,
+    "Shredder 1": 850,
+    "Shredder 2": 2119,
+    "Shredder 3": 1731,
+    "Shredder 4": 421,
+    "Shredder 5": 1813,
+    "Weima": 2897,
+    "Vistakon 1": 3440,
     "Vistakon 2": 2500,
     "PCR Washline": 5000
   },
@@ -499,44 +501,45 @@
       "PPTF": 5000 
     },
     "Shredder 1": { 
-      "DEFAULT": 2100, 
-      "CRY": 2250, 
-      "EPP": 1450, 
-      "EPS": 1250, 
-      "HIPS": 2510, 
-      "PP": 1200, 
-      "PS": 1800, 
-      "PS/PP": 830 
+      "DEFAULT": 850, 
+      "PET": 850, 
+      "PP": 830
+    },
+    "Shredder 2": { 
+      "DEFAULT": 2119, 
+      "PS": 2119, 
+      "PP": 1481
     },
     "Shredder 3": { 
-      "DEFAULT": 2100, 
-      "CRY": 2250, 
-      "EPP": 1450, 
-      "EPS": 1250, 
-      "HIPS": 2510, 
-      "PP": 1200, 
-      "PS": 1800, 
-      "PS/PP": 830 
+      "DEFAULT": 1731, 
+      "ABS": 1122,
+      "CRY": 1709, 
+      "HDPE": 630, 
+      "MIPS": 1089, 
+      "HIPS": 1375, 
+      "PP": 1023, 
+      "PS": 1731, 
+      "PS/PP": 626,
+      "TPO": 1018
+    },
+    "Shredder 4": { 
+      "DEFAULT": 421, 
+      "PP": 421
     },
     "Shredder 5": { 
-      "DEFAULT": 2100, 
-      "CRY": 2250, 
-      "EPP": 1450, 
-      "EPS": 1250, 
-      "HIPS": 2510, 
-      "PP": 1200, 
-      "PS": 1800, 
-      "PS/PP": 830 
+      "DEFAULT": 1813, 
+      "CRY": 1813, 
+      "ABS": 1383, 
+      "HDPE": 1411, 
+      "HIPS": 1437, 
+      "PP": 1219, 
+      "TPO": 1430 
     },
     "Weima": { 
-      "DEFAULT": 2100, 
-      "CRY": 2250, 
-      "EPP": 1450, 
-      "EPS": 1250, 
-      "HIPS": 2510, 
-      "PP": 1200, 
-      "PS": 1800, 
-      "PS/PP": 830 
+      "DEFAULT": 2897,  
+      "HDPE": 1885, 
+      "HIPS": 2483, 
+      "PP": 2897
     },
     "Vistakon 1": { 
       "DEFAULT": 2100, 
