@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>PRI Pulse – Grinding</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="style.css" />
+
+  <style>
+    :root{
+      --bg: #f3f6ff;
+      --card: #ffffff;
+      --border: #d4ddf0;
+      --muted: #6b7280;
+      --good-bg: #e0fce7;
+      --good-fg: #166534;
+      --warn-bg: #fef3c7;
+      --warn-fg: #92400e;
+      --bad-bg: #fee2e2;
+      --bad-fg: #991b1b;
+    }
+    body{
+      margin:0;
+      font-family: system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      background:var(--bg);
+      color:#111827;
+    }
+
+    header{
+      background:#0f172a;
+      color:white;
+      padding:10px 18px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+    }
+    header .left{
+      display:flex;
+      align-items:center;
+      gap:18px;
+    }
+    header h1{
+      margin:0;
+      font-size:20px;
+      font-weight:800;
+    }
+    header .sub{
+      font-size:13px;
+      opacity:.75;
+    }
+    .tabs{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      margin-top:4px;
+    }
+    .tab{
+      padding:6px 12px;
+      border-radius:999px;
+      background:rgba(15,23,42,.6);
+      color:#e5e7eb;
+      text-decoration:none;
+      font-size:13px;
+      font-weight:600;
+    }
+    .tab:hover{
+      background:rgba(148,163,184,.7);
+    }
+    .tab.active{
+      background:#f97316;
+      color:white;
+    }
+
+    main{
+      padding:16px 18px 24px;
+      max-width:1600px;
+      margin:0 auto;
+    }
+
+    .row{
+      display:grid;
+      grid-template-columns:minmax(0,2fr) minmax(0,1.4fr);
+      gap:16px;
+    }
+    @media(max-width:1200px){
+      .row{grid-template-columns:1fr;}
+    }
+
+    .card{
+      background:var(--card);
+      border-radius:16px;
+      border:1px solid var(--border);
+      padding:14px 16px 16px;
+      box-shadow:0 2px 4px rgba(15,23,42,.06);
+    }
+    .card h2{
+      margin:0 0 8px;
+      font-size:16px;
+      display:flex;
+      align-items:baseline;
+      gap:8px;
+    }
+    .card h2 .sub{
+      font-size:12px;
+      color:var(--muted);
+      font-weight:500;
+    }
+
+    .segBig{
+      display:flex;
+      flex-wrap:wrap;
+      gap:6px;
+      margin-top:2px;
+    }
+    .segBig button{
+      border-radius:999px;
+      border:1px solid #d1d5db;
+      background:#f9fafb;
+      padding:4px 10px;
+      font-size:12px;
+      cursor:pointer;
+    }
+    .segBig button.active{
+      background:#2563eb;
+      color:white;
+      border-color:#2563eb;
+    }
+
+    /* KPI tiles */
+    .kpis{
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(170px,1fr));
+      gap:10px;
+      margin-top:10px;
+    }
+    .tile{
+      background:var(--card);
+      padding:12px;
+      border-radius:12px;
+      border:1px solid var(--border);
+      text-align:center;
+      min-height:84px;
+    }
+    .tile .lab{
+      font-size:11px;
+      text-transform:uppercase;
+      letter-spacing:.3px;
+      color:#4b5563;
+    }
+    .tile .val{
+      font-size:22px;
+      font-weight:900;
+      margin-top:4px;
+    }
+    .tile.good{background:var(--good-bg);color:var(--good-fg);}
+    .tile.warn{background:var(--warn-bg);color:var(--warn-fg);}
+    .tile.bad{background:var(--bad-bg);color:var(--bad-fg);}
+
+    .tile canvas{
+      width:100%;
+      height:80px;
+      display:block;
+      margin-top:4px;
+    }
+
+    /* table */
+    table{
+      width:100%;
+      border-collapse:collapse;
+      margin-top:10px;
+      font-size:13px;
+    }
+    th,td{
+      padding:6px 8px;
+      text-align:right;
+      border-bottom:1px solid #e5e7eb;
+      white-space:nowrap;
+    }
+    th:first-child, td:first-child{
+      text-align:left;
+    }
+    th{
+      font-size:11px;
+      text-transform:uppercase;
+      letter-spacing:.3px;
+      color:#6b7280;
+      background:#f9fafb;
+    }
+    tr:hover td{
+      background:#f3f4ff;
+    }
+    .chip{
+      border-radius:999px;
+      font-size:11px;
+      padding:2px 8px;
+      display:inline-block;
+    }
+    .chip.good{background:var(--good-bg);color:var(--good-fg);}
+    .chip.warn{background:var(--warn-bg);color:var(--warn-fg);}
+    .chip.bad{background:var(--bad-bg);color:var(--bad-fg);}
+
+    /* line status */
+    #grindStatusList > div{
+      margin-bottom:8px;
+      padding:8px 10px;
+      border-radius:12px;
+      border:1px solid #e5e7eb;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      font-size:13px;
+      background:#f9fafb;
+    }
+
+    /* loading overlay */
+    #loading{
+      position:fixed;
+      inset:0;
+      background:rgba(15,23,42,.08);
+      display:none;
+      align-items:center;
+      justify-content:center;
+      z-index:999;
+    }
+    #loading .box{
+      padding:10px 16px;
+      border-radius:999px;
+      background:#111827;
+      color:#e5e7eb;
+      font-size:13px;
+      display:flex;
+      align-items:center;
+      gap:10px;
+    }
+    #loading .dot{
+      width:8px;
+      height:8px;
+      border-radius:50%;
+      background:#22c55e;
+      box-shadow:0 0 0 4px rgba(34,197,94,.4);
+      animation:pulse 1.4s infinite;
+    }
+    @keyframes pulse{
+      0%{transform:scale(1);opacity:1;}
+      100%{transform:scale(1.7);opacity:0;}
+    }
+
+  </style>
+</head>
+<body>
+  <div id="loading">
+    <div class="box">
+      <div class="dot"></div>
+      <span>Loading grinding KPIs…</span>
+    </div>
+  </div>
+
+  <header>
+    <div class="left">
+      <div>
+        <h1>PRI Pulse – Grinding</h1>
+        <div class="sub">Shredders, Vistakon, PCR • OEE / Availability / Performance</div>
+        <div class="tabs">
+          <a class="tab" href="pm.html">PM</a>
+          <a class="tab" href="prodstatus.html">Prod Status</a>
+          <a class="tab" href="kpi-by-asset.html">KPIs by Asset</a>
+          <a class="tab" href="production.html">PACE</a>
+          <a class="tab" href="pulse.html">Pulse</a>
+          <a class="tab active" href="grinding.html">Grinding</a>
+          <a class="tab" href="admin">Admin</a>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div style="font-size:12px;color:#9ca3af;text-align:right;">Range</div>
+      <div id="periodLabel" style="font-size:14px;font-weight:700;">• Today</div>
+    </div>
+  </header>
+
+  <main>
+    <div class="card">
+      <h2>
+        Grinding – Timeframe
+        <span class="sub">Tap a range to recalc KPIs</span>
+      </h2>
+      <div class="segBig">
+        <button data-period="today"     class="active">Today</button>
+        <button data-period="yesterday">Yesterday</button>
+        <button data-period="week">This Week</button>
+        <button data-period="lastweek">Last Week</button>
+        <button data-period="month">This Month</button>
+        <button data-period="lastmonth">Last Month</button>
+        <button data-period="r7">Rolling 7d</button>
+        <button data-period="r30">Rolling 30d</button>
+      </div>
+    </div>
+
+    <div class="row" style="margin-top:14px;">
+      <section class="card">
+        <h2>Grinding – Overall KPIs <span class="sub" id="rangeLabel"></span></h2>
+        <div class="kpis">
+          <div id="tile-oee" class="tile">
+            <div class="lab">OEE</div>
+            <div class="val" id="ov-oee">---</div>
+            <canvas id="donut-oee" width="140" height="80"></canvas>
+          </div>
+          <div id="tile-av" class="tile">
+            <div class="lab">Availability</div>
+            <div class="val" id="ov-av">---</div>
+            <canvas id="donut-av" width="140" height="80"></canvas>
+          </div>
+          <div id="tile-pr" class="tile">
+            <div class="lab">Performance</div>
+            <div class="val" id="ov-pr">---</div>
+            <canvas id="donut-pr" width="140" height="80"></canvas>
+          </div>
+        </div>
+
+        <table id="grindTable">
+          <thead>
+            <tr>
+              <th>Machine</th>
+              <th>OEE</th>
+              <th>Avail</th>
+              <th>Perf</th>
+              <th>Lbs</th>
+              <th>Runtime h</th>
+              <th>Maint h</th>
+              <th>Prod DT h</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </section>
+
+      <section class="card">
+        <h2>Grinding – Line Status <span class="sub">Live from Prod Status / Limble</span></h2>
+        <div id="grindStatusList"></div>
+        <div class="sub" style="margin-top:8px;color:var(--muted);font-size:11px;">
+          Status is filtered to grinding lines only (Shredders 1/3/5, Weima, Vistakon 1/2, PCR).
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script>
+    /* ===== endpoints & helpers ===== */
+    const ENDPOINTS = {
+      BY_LINE   : '/api/production/by-line',
+      PRODSTATUS: '/api/workorders/prodstatus',
+      MAP       : 'mappings.json'
+    };
+
+    const THRESH = {
+      oee:         { good: 0.50, warn: 0.25 },
+      availability:{ good: 0.80, warn: 0.60 },
+      performance: { good: 0.80, warn: 0.60 }
+    };
+
+    const STATE = {
+      period: 'today'
+    };
+
+    const $  = sel => document.querySelector(sel);
+    const $$ = sel => Array.from(document.querySelectorAll(sel));
+
+    function fmtPct01(v){
+      return Number.isFinite(v) ? (Math.round(v*100) + '%') : '---';
+    }
+    function fmtNum(v){
+      return Number.isFinite(v) ? Number(Math.round(v)).toLocaleString() : '---';
+    }
+    function fmtH(v){
+      return Number.isFinite(v) ? v.toFixed(1) : '---';
+    }
+
+    function setLoading(v){
+      const el = document.getElementById('loading');
+      if (!el) return;
+      el.style.display = v ? 'flex' : 'none';
+    }
+
+    async function fetchJSON(url){
+      try{
+        const r = await fetch(url, { cache:'no-store' });
+        if (!r.ok) throw new Error(r.status);
+        return await r.json();
+      }catch(e){
+        console.warn('fetch failed', url, e);
+        return null;
+      }
+    }
+
+    /* ===== timeframe helpers (match pulse/production) ===== */
+    function startOfWeek(d){
+      const x = new Date(d);
+      const day = (x.getDay()+6)%7; // Mon=0
+      x.setDate(x.getDate()-day);
+      x.setHours(0,0,0,0);
+      return x;
+    }
+    function endOfWeek(d){
+      const x = startOfWeek(d);
+      x.setDate(x.getDate()+6);
+      return x;
+    }
+    function startOfMonth(d){ return new Date(d.getFullYear(), d.getMonth(), 1); }
+    function endOfMonth(d){ return new Date(d.getFullYear(), d.getMonth()+1, 0); }
+    function iso(d){
+      return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10);
+    }
+    function isWeekday(d){
+      const n = d.getDay();
+      return n !== 0 && n !== 6;
+    }
+
+    function computeRange(sel){
+      const now = new Date();
+      now.setHours(0,0,0,0);
+      const y = new Date(now);
+      y.setDate(y.getDate()-1);
+
+      const thisW = { from:startOfWeek(now), to:endOfWeek(now) };
+      const lastW = { from:new Date(thisW.from), to:new Date(thisW.to) };
+      lastW.from.setDate(lastW.from.getDate()-7);
+      lastW.to.setDate(lastW.to.getDate()-7);
+
+      const thisM = { from:startOfMonth(now), to:endOfMonth(now) };
+      const lastM = {
+        from:startOfMonth(new Date(now.getFullYear(), now.getMonth()-1, 1)),
+        to:endOfMonth(new Date(now.getFullYear(), now.getMonth()-1, 1))
+      };
+
+      switch(sel){
+        case 'today'    : return { from:iso(now), to:iso(now) };
+        case 'yesterday': return { from:iso(y),   to:iso(y)   };
+        case 'week'     : return { from:iso(thisW.from), to:iso(thisW.to) };
+        case 'lastweek' : return { from:iso(lastW.from), to:iso(lastW.to) };
+        case 'month'    : return { from:iso(thisM.from), to:iso(thisM.to) };
+        case 'lastmonth': return { from:iso(lastM.from), to:iso(lastM.to) };
+        case 'r7': {
+          const s=new Date(now); s.setDate(s.getDate()-6);
+          return { from:iso(s), to:iso(now) };
+        }
+        case 'r30':
+        default: {
+          const s=new Date(now); s.setDate(s.getDate()-29);
+          return { from:iso(s), to:iso(now) };
+        }
+      }
+    }
+
+    /* ===== mappings.json (capacity etc) ===== */
+    let MAPPINGS = null;
+    async function loadMappings(){
+      const j = await fetchJSON(`${ENDPOINTS.MAP}?ts=${Date.now()}`);
+      MAPPINGS = j || {
+        capacities_lbs_hr:{},
+        capacity_by_material_lbs_hr:{},
+        capacity_aliases:{},
+        material_aliases:{},
+        productionAssets:[],
+        grindingAssets:[]
+      };
+    }
+
+    function capacityFor(lineName, material){
+      const { capacities_lbs_hr: caps = {}, capacity_by_material_lbs_hr: byMat = {}, capacity_aliases: alias = {}, material_aliases: malias = {} } = MAPPINGS || {};
+      const canon = (caps[lineName] !== undefined || byMat[lineName]) ? lineName : (alias[lineName] || lineName);
+      const k = String(material ?? '').trim().toUpperCase();
+      const m = malias[k] || (k === '' ? 'DEFAULT' : k);
+      return byMat[canon]?.[m] ?? byMat[canon]?.DEFAULT ?? caps[canon] ?? 0;
+    }
+
+    /* ===== Grinding canonical map (local, no risk to existing code) ===== */
+
+    const GRIND_CANON = [
+      { canon:'Shredder 1', aliases:['Shredder 1','Shredding Line 1'] },
+      { canon:'Shredder 3', aliases:['Shredder 3','Shredding Line 3'] },
+      { canon:'Shredder 5', aliases:['Shredder 5','Shredding Line 5'] },
+      { canon:'Weima',      aliases:['Weima','Shredding Line 6- WEIMA','Shredding Line 6 - WEIMA'] },
+      { canon:'Vistakon 1', aliases:['Vistakon 1','V-1','V1','Grinder V1'] },
+      { canon:'Vistakon 2', aliases:['Vistakon 2','V-2','V2','Grinder V2'] },
+      { canon:'PCR Washline', aliases:['PCR Washline','PCR','PCR Wash Line'] }
+    ];
+
+    const GRIND_ALIAS_REV = (() => {
+      const m = new Map();
+      for (const row of GRIND_CANON){
+        m.set(row.canon, row.canon);
+        (row.aliases || []).forEach(a => m.set(String(a).trim(), row.canon));
+      }
+      return m;
+    })();
+    const GRIND_CANON_SET = new Set(GRIND_CANON.map(r => r.canon));
+
+    function canonGrinding(name){
+      const n = String(name || '').trim();
+      return GRIND_ALIAS_REV.get(n) || n;
+    }
+    function isGrindingMachine(name){
+      const c = canonGrinding(name);
+      return GRIND_CANON_SET.has(c);
+    }
+
+    /* ===== simple donuts ===== */
+    function drawDonut(canvas, pct, label, mainColor, otherColor){
+      const ctx = canvas.getContext('2d');
+      const w  = canvas.width;
+      const h  = canvas.height;
+      ctx.clearRect(0,0,w,h);
+      const cx=w/2, cy=h/2, r=Math.min(w,h)/2-6, t=16;
+      const main = Math.max(0,Math.min(100,pct));
+      const parts = [
+        { val: main,          color: mainColor },
+        { val: 100 - main,    color: otherColor }
+      ];
+      let start = -Math.PI/2;
+      const total = 100;
+      for (const p of parts){
+        const ang = (p.val/total)*Math.PI*2;
+        ctx.beginPath();
+        ctx.arc(cx,cy,r,start,start+ang);
+        ctx.arc(cx,cy,r-t,start+ang,start,true);
+        ctx.closePath();
+        ctx.fillStyle = p.color;
+        ctx.fill();
+        start += ang;
+      }
+      ctx.fillStyle = '#111827';
+      ctx.font = '800 18px system-ui';
+      ctx.textAlign='center';
+      ctx.textBaseline='middle';
+      ctx.fillText(`${Math.round(main)}%`, cx, cy);
+    }
+
+    /* ===== prodstatus loader (normalized) ===== */
+    async function loadProdStatus(){
+      const raw = await fetchJSON(`${ENDPOINTS.PRODSTATUS}?t=${Date.now()}`);
+      if (!raw) return null;
+      let rows = Array.isArray(raw?.rows) ? raw.rows : (Array.isArray(raw?.tiles) ? raw.tiles : []);
+      if (Array.isArray(rows) && rows.length === 1 && typeof rows[0] === 'object'){
+        const k = Object.keys(rows[0])[0];
+        const v = rows[0][k];
+        if (typeof v === 'string' && v.startsWith('[')){
+          try{ rows = JSON.parse(v); }catch(e){}
+        }
+      }
+      if (!Array.isArray(rows) || !rows.length) return null;
+      return rows.map(r => {
+        const name = r.assetName || r.name || r.AssetName || r.machine || r.asset || 'Unknown';
+        const val  = (r.assetStatus ?? r.value ?? r.status ?? '').toString().toLowerCase();
+        const limble = !!(r.limble || r.hasRequest || /request/.test(val));
+        return { name, limble };
+      });
+    }
+
+    function grade(v, {good, warn}){
+      if (!Number.isFinite(v)) return '';
+      return v >= good ? 'good' : v >= warn ? 'warn' : 'bad';
+    }
+
+    /* ===== main render ===== */
+    async function renderGrinding(){
+      setLoading(true);
+      try{
+        const names = {
+          today:'Today',
+          yesterday:'Yesterday',
+          week:'This Week',
+          lastweek:'Last Week',
+          month:'This Month',
+          lastmonth:'Last Month',
+          r7:'Rolling 7d',
+          r30:'Rolling 30d'
+        };
+        $('#periodLabel').textContent = '• ' + (names[STATE.period] || 'Range');
+        $$('.segBig button').forEach(b => {
+          b.classList.toggle('active', b.dataset.period === STATE.period);
+        });
+
+        if (!MAPPINGS) await loadMappings();
+
+        const {from,to} = computeRange(STATE.period);
+
+        const [bylineRaw, prodStatusRaw] = await Promise.all([
+          fetchJSON(`${ENDPOINTS.BY_LINE}?from=${from}&to=${to}`),
+          loadProdStatus()
+        ]);
+
+        // Build weekday count for planned hours
+        const fromD = new Date(from + 'T00:00:00');
+        const toD   = new Date(to   + 'T00:00:00');
+        const dates = [];
+        for (let d = new Date(fromD); d <= toD; d.setDate(d.getDate()+1)){
+          if (isWeekday(d)) dates.push(iso(d));
+        }
+        const weekdaysCount = dates.length || 1;
+
+        // Filter to grinding machines (by machine name coming from /by-line)
+        const byline = (bylineRaw || []).filter(r => r.machine && isGrindingMachine(r.machine));
+
+        // Aggregate per canonical grinding machine
+        const agg = {};
+        for (const r of byline){
+          const canon = canonGrinding(r.machine);
+          const cap = (r.nameplate_lbs_hr && r.nameplate_lbs_hr > 0)
+            ? r.nameplate_lbs_hr
+            : capacityFor(canon, r.material);
+
+          const lbs = Number(r.pounds || r.lbs || 0) || 0;
+          const mh  = Number(r.machine_hours || 0) || 0;
+          const md  = Number(r.maint_dt_h    || 0) || 0;
+          const pd  = Number(r.prod_dt_h     || 0) || 0;
+
+          if (!agg[canon]){
+            agg[canon] = { lbs:0, cap:cap, maint:0, prod:0, mach:0, days:weekdaysCount };
+          }
+          const a = agg[canon];
+          a.lbs   += Math.max(0, lbs);
+          a.maint += Math.max(0, md);
+          a.prod  += Math.max(0, pd);
+          a.mach  += Math.max(0, mh);
+          if (cap > 0) a.cap = cap;
+        }
+
+        const perLine = Object.keys(agg).sort().map(name => {
+          const a = agg[name];
+          const plannedH = 24 * a.days;
+          const runtimeH = a.mach > 0
+            ? a.mach
+            : (a.cap > 0 ? (a.lbs / a.cap) : 0);
+
+          const avail    = plannedH > 0 ? (runtimeH / plannedH) : 0;
+          const adjDen   = Math.max(1e-9, (plannedH - a.maint) * (a.cap || 0));
+          const perfAdj  = (a.cap > 0) ? (a.lbs / adjDen) : 0;
+          const oee      = avail * perfAdj;
+
+          return {
+            name,
+            lbs:a.lbs,
+            cap:a.cap,
+            maint:a.maint,
+            prod:a.prod,
+            mach:a.mach,
+            plannedH,
+            runtimeH,
+            avail,
+            perfAdj,
+            oee
+          };
+        });
+
+        // Overall from perLine
+        const totals = perLine.reduce((s,x) => {
+          s.lbs     += x.lbs;
+          s.planned += x.plannedH;
+          s.runtime += x.runtimeH;
+          s.maint   += x.maint;
+          s.prod    += x.prod;
+          return s;
+        }, { lbs:0, planned:0, runtime:0, maint:0, prod:0 });
+
+        const overallAvail   = totals.planned > 0 ? (totals.runtime / totals.planned) : 0;
+        const overallAdjDen  = Math.max(1e-9, (totals.planned - totals.maint) * (perLine.length ? (perLine.reduce((s,x)=>s+x.cap,0)/perLine.length) : 0));
+        const overallPerfAdj = overallAdjDen > 0 ? (totals.lbs / overallAdjDen) : 0;
+        const overallOEE     = overallAvail * overallPerfAdj;
+
+        // === Render overall tiles ===
+        $('#rangeLabel').textContent = `(${from} → ${to})`;
+
+        $('#ov-oee').textContent = fmtPct01(overallOEE);
+        $('#ov-av').textContent  = fmtPct01(overallAvail);
+        $('#ov-pr').textContent  = fmtPct01(overallPerfAdj);
+
+        const clsO = grade(overallOEE, THRESH.oee);
+        const clsA = grade(overallAvail, THRESH.availability);
+        const clsP = grade(overallPerfAdj, THRESH.performance);
+
+        ['tile-oee','tile-av','tile-pr'].forEach(id => {
+          const el = document.getElementById(id);
+          if (!el) return;
+          el.classList.remove('good','warn','bad');
+        });
+        if (clsO) document.getElementById('tile-oee').classList.add(clsO);
+        if (clsA) document.getElementById('tile-av').classList.add(clsA);
+        if (clsP) document.getElementById('tile-pr').classList.add(clsP);
+
+        drawDonut(document.getElementById('donut-oee'), overallOEE*100, 'OEE', '#16a34a', '#e5e7eb');
+        drawDonut(document.getElementById('donut-av'),  overallAvail*100, 'Avail', '#2563eb', '#e5e7eb');
+        drawDonut(document.getElementById('donut-pr'),  overallPerfAdj*100, 'Perf', '#eab308', '#e5e7eb');
+
+        // === Per-line table ===
+        const tbody = document.querySelector('#grindTable tbody');
+        tbody.innerHTML = '';
+        perLine
+          .sort((a,b) => b.oee - a.oee)
+          .forEach(row => {
+            const tr = document.createElement('tr');
+            const cls = grade(row.oee, THRESH.oee);
+            const chip = `<span class="chip ${cls}">${fmtPct01(row.oee)}</span>`;
+            tr.innerHTML = `
+              <td>${row.name}</td>
+              <td>${chip}</td>
+              <td>${fmtPct01(row.avail)}</td>
+              <td>${fmtPct01(row.perfAdj)}</td>
+              <td>${fmtNum(row.lbs)}</td>
+              <td>${fmtH(row.runtimeH)}</td>
+              <td>${fmtH(row.maint)}</td>
+              <td>${fmtH(row.prod)}</td>
+            `;
+            tbody.appendChild(tr);
+          });
+
+        // === Line status (filtered prodstatus) ===
+        const statusArr = (Array.isArray(prodStatusRaw) ? prodStatusRaw : [])
+          .filter(s => isGrindingMachine(s.name))
+          .sort((a,b) => canonGrinding(a.name).localeCompare(canonGrinding(b.name)));
+
+        const statusEl = document.getElementById('grindStatusList');
+        statusEl.innerHTML = '';
+        statusArr.forEach(S => {
+          const row = document.createElement('div');
+          const label = canonGrinding(S.name);
+          const tag   = S.limble ? 'Limble Request' : 'Available';
+          row.innerHTML = `
+            <span><strong>${label}</strong></span>
+            <span style="font-size:12px;color:var(--muted);font-weight:700">${tag}</span>
+          `;
+          statusEl.appendChild(row);
+        });
+
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    // wire timeframe buttons
+    $$('.segBig button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const p = btn.dataset.period;
+        if (!p || p === STATE.period) return;
+        STATE.period = p;
+        renderGrinding();
+      });
+    });
+
+    // initial render
+    renderGrinding();
+  </script>
+</body>
+</html>
