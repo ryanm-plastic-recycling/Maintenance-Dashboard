@@ -7,233 +7,103 @@
   <style>
     :root{
       --pri-blue:#25408F; --pri-green:#92D050;
-      --bg:#E9EDF5; --card:#FBFCFE; --ink:#0F172A; --muted:#475569; --border:#D7E0F3;
-      --shadow: 0 10px 25px rgba(0,0,0,.08);
-      --tile-head-fs: 30px;
+      --bg:#F1F5F9; --card:#FFFFFF; --ink:#0F172A; --muted:#475569; --border:#E2E8F0;
+      --shadow:0 10px 25px rgba(0,0,0,.06)
     }
     *{box-sizing:border-box}
-    body{
-      margin:0;
-      background:var(--bg);
-      color:var(--ink);
-      font-family:system-ui,-apple-system,"Segoe UI",Roboto,Ubuntu,"Helvetica Neue",Arial,sans-serif;
-      font-weight:800;
-      font-size:18px;
-    }
-    .page-production::before{
-      content:"";position:fixed;inset:0;z-index:-1;
-      background:
-        linear-gradient(to bottom, rgba(255,255,255,.75), rgba(255,255,255,.85)),
-        url('img/PRIfront.png') center/cover no-repeat fixed;
-    }
-    .top-border{position:fixed;top:0;left:0;width:100%;height:96px;background:var(--pri-green);z-index:10;display:flex;align-items:center;padding:0 20px}
-    .top-border .logo{height:72px}
-    .top-title{font-size:32px;font-weight:900;margin-left:20px;color:#0A2A12}
-    .tabs{margin-left:auto;display:flex;gap:8px;align-items:center}
-    .tab{background:#ffffffd9;padding:8px 12px;border-radius:10px;text-decoration:none;color:#0A2A12;font-weight:800}
-    .tab.active{background:#fff}
-    .wrap{margin:120px 20px 40px 20px}
-    .app{max-width:1920px;margin:0 auto}
-    .toolbar{display:flex;justify-content:space-between;align-items:center;margin:10px 0 16px;gap:10px;flex-wrap:wrap}
-    .left,.right{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-    .segBig{display:inline-flex;border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--card);box-shadow:var(--shadow)}
-    .segBig button{border:0;background:transparent;padding:10px 14px;font-weight:900;color:var(--muted);cursor:pointer;font-size:16px}
-    .segBig button.active{background:var(--pri-blue);color:white}
-    .pill{padding:8px 12px;border-radius:999px;background:white;border:1px solid var(--border);color:var(--muted);font-weight:900;font-size:16px}
-
-    #loading{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(255,255,255,.55);z-index:9999}
-    #loading .spinner{width:64px;height:64px;border:8px solid #e5e7eb;border-top-color:var(--pri-blue);border-radius:50%;animation:spin 1s linear infinite}
+    body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Roboto,Ubuntu,"Helvetica Neue",Arial,sans-serif;font-weight:800}
+    .top{position:fixed;top:0;left:0;right:0;height:88px;background:var(--pri-green);display:flex;align-items:center;padding:10px 18px;z-index:20}
+    .top img{height:64px}
+    .title{margin-left:12px;font-size:26px;color:#072014;font-weight:900}
+    .wrap{margin:120px 20px 40px}
+    .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;box-shadow:var(--shadow);margin-bottom:16px}
+    .seg{display:inline-flex;border-radius:12px;overflow:hidden;border:1px solid var(--border)}
+    .seg button{padding:8px 12px;border:0;background:transparent;font-weight:900;cursor:pointer;color:var(--muted)}
+    .seg button.active{background:var(--pri-blue);color:#fff}
+    #loading{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(255,255,255,.6);z-index:999}
+    #loading .spinner{width:56px;height:56px;border:8px solid #e6e6e6;border-top-color:var(--pri-blue);border-radius:50%;animation:spin 1s linear infinite}
     @keyframes spin{to{transform:rotate(360deg)}}
-
-    .grid{display:grid;grid-template-columns:1fr 2fr;gap:16px;align-items:start}
-    @media (max-width: 1000px){ .grid{grid-template-columns:1fr} }
-
-    .card{background:var(--card);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow)}
-    .card h3{margin:0;padding:12px 14px;border-bottom:1px solid var(--border);font-size:var(--tile-head-fs);letter-spacing:.3px;color:var(--muted);font-weight:900}
-    .card .content{padding:16px}
-
-    .kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:8px}
-    .tile, .kpi{background:var(--card);padding:12px;border-radius:12px;border:1px solid var(--border);text-align:center;min-height:84px;box-shadow:var(--shadow)}
-    .tile .lab,.kpi .label{font-size:14px;text-transform:uppercase;letter-spacing:.3px;color:var(--muted);font-weight:900}
-    .tile .val{font-size:24px;font-weight:900;margin-top:6px}
-    .tile .meta{font-size:13px;color:var(--muted);font-weight:800;margin-top:6px}
-
-    /* larger range label */
-    #rangeLabel { font-size:28px; font-weight:900; color:var(--muted); display:inline-block; margin-left:8px; }
-
-    .lines{display:grid;grid-auto-rows:minmax(80px,auto);gap:14px}
-    .line{border:1px solid var(--border);border-radius:12px;padding:14px;background:white;display:flex;flex-direction:column;transition:transform .12s}
-    .line:hover{transform:translateY(-4px)}
-    /* header layout: allow name to grow, meta to be visible and larger */
-    .lineheader{display:flex;justify-content:space-between;align-items:center;gap:12px}
-    .linename{font-weight:900;font-size:26px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .line-meta{font-size:18px;color:var(--muted);font-weight:900;white-space:nowrap}
-    .meta-sep{color:var(--muted);font-weight:900;margin:0 8px;font-size:18px}
-    .status-name{font-size:20px}
-    .capright{font-size:16px;color:var(--muted);font-weight:900;text-align:right}
-    .matBadge{font-size:14px;padding:6px 8px;border-radius:999px;background:#f1f7f2;border:1px solid #d6efdd;color:#065f2a;font-weight:900;margin-left:8px}
-
-    .metricrow{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:10px}
-    .mitem{background:#f7fafc;border:1px solid var(--border);border-radius:10px;padding:10px;min-width:0}
-    .mitem .label{font-size:12px;color:var(--muted);font-weight:800}
-    .mitem .mkv{font-size:20px;font-weight:900}
-
-    #grindStatusList > div{margin-bottom:8px;padding:12px 14px;border-radius:12px;border:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;font-size:18px;background:#fff;font-weight:900;box-shadow:0 6px 18px rgba(9,30,66,.04)}
-    #rankTable{width:100%;border-collapse:collapse;font-size:14px;table-layout:fixed}
-    #rankTable th,#rankTable td{padding:10px;border-bottom:1px dashed var(--border)}
-    #rankTable th{text-align:center;color:var(--muted);font-weight:900}
-    #rankTable td.left{text-align:left}
-    #rankTable td.center{text-align:center}
-
-    .donutwrap{display:grid;grid-auto-rows:minmax(120px,auto);row-gap:18px}
-    .donutrow{display:grid;grid-template-columns:220px 1fr;column-gap:18px;align-items:center}
-    .donutrow canvas{width:200px !important;height:200px !important;justify-self:center}
-    .legend{display:flex;flex-direction:column;gap:8px;padding-left:10px}
-    .legend .item{display:flex;align-items:center;gap:10px;justify-content:flex-end}
-    .bullet{width:14px;height:14px;border-radius:50%;flex:0 0 14px}
-    .legend .label{font-weight:900;color:var(--muted);flex:1;text-align:left}
-    .legend .val{font-weight:900;color:var(--muted);width:90px;text-align:right}
-
-    footer{display:flex;justify-content:space-between;align-items:center;margin-top:12px;color:var(--muted);font-weight:900}
-    .clock{font-variant-numeric:tabular-nums;font-weight:900}
-
-    @media (min-width:2560px){
-      .app{max-width:2560px}
-      .tile .val{font-size:28px}
-      #rankTable {font-size: 22px;}
-    }
+    .grid{display:grid;grid-template-columns:1fr 2fr;gap:14px}
+    @media(max-width:1000px){.grid{grid-template-columns:1fr}}
+    .kpis{display:flex;gap:12px}
+    .tile{flex:1;padding:12px;border-radius:10px;border:1px solid var(--border);background:#fbfdff;text-align:center}
+    .tile .lab{font-size:12px;color:var(--muted);text-transform:uppercase;font-weight:900}
+    .tile .val{font-size:22px;font-weight:900;margin-top:8px}
+    .lines{display:grid;gap:12px}
+    .line{padding:12px;border-radius:10px;border:1px solid var(--border);background:#fff;display:flex;justify-content:space-between;align-items:center}
+    footer{margin-top:12px;color:var(--muted);font-weight:900;display:flex;justify-content:space-between}
+    table{width:100%;border-collapse:collapse}
+    th,td{padding:10px;border-bottom:1px dashed var(--border);text-align:center}
+    th{text-align:left;color:var(--muted);font-weight:900}
   </style>
 </head>
-<body class="page-production">
+<body>
   <div id="loading"><div class="spinner" aria-hidden></div></div>
 
-  <div class="top-border">
-    <img src="img/pri-logo.png" alt="PRI Logo" class="logo" />
-    <div class="top-title">PRI Pulse – Grinding <span id="periodBadge" style="font-size:14px;font-weight:700;margin-left:10px;color:#0A2A12;opacity:.95"></span></div>
-    <div class="tabs">
-      <a class="tab" href="index.html">Work Orders</a>
-      <a class="tab" href="prodstatus.html">Prod Status</a>
-      <a class="tab" href="kpi-by-asset.html">KPIs by Asset</a>
-      <a class="tab" href="production.html">PACE</a>
-      <a class="tab" href="pulse.html">Pulse</a>
-      <a class="tab active" href="grinding.html">Grinding</a>
-      <a class="tab" href="blending.html">Blending</a>
-      <a class="tab" href="admin">Admin</a>
-      <img src="img/innovation-logo.png" alt="Innovation" style="height:56px;margin-left:8px;object-fit:contain"/>
-    </div>
+  <div class="top">
+    <img src="img/pri-logo.png" alt="PRI"/>
+    <div class="title">PRI Pulse – Grinding</div>
   </div>
 
   <div class="wrap">
-    <div class="app">
-      <div class="toolbar">
-        <div class="left">
-          <div class="segBig" id="tfButtons" role="tablist" aria-label="Timeframe">
-            <button data-period="today" class="active">Today</button>
-            <button data-period="yesterday">Yesterday</button>
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div class="seg" role="tablist">
+            <button data-period="r7" class="active">Rolling 7d</button>
+            <button data-period="r30">Rolling 30d</button>
             <button data-period="week">This Week</button>
             <button data-period="lastweek">Last Week</button>
-            <button data-period="month">This Month</button>
-            <button data-period="lastmonth">Last Month</button>
-            <button data-period="r7">Rolling 7d</button>
-            <button data-period="r30">Rolling 30d</button>
           </div>
-          <span class="pill" style="font-size:14px">Grinding Lines Only</span>
+          <div style="margin-top:8px;color:var(--muted);font-weight:900">Grinding assets only</div>
         </div>
-        <div class="right">
-          <span class="pill" style="font-size:14px">Auto-refresh: <strong id="refreshSec">600s</strong></span>
-          <span class="pill" style="font-size:14px">Press <strong>F</strong> for Fullscreen</span>
+        <div style="text-align:right">
+          <div style="font-weight:900;color:var(--muted)">Auto-refresh 10m • Press F for fullscreen</div>
+          <div id="rangeLabel" style="color:var(--muted);font-weight:900;margin-top:6px">—</div>
         </div>
       </div>
+    </div>
 
-      <section class="card" style="margin-bottom:16px">
-        <h3>Grinding – Overall KPIs</h3>
-        <div class="content">
-          <div style="font-size:12px;color:var(--muted);margin-bottom:8px">Range: <span id="rangeLabel">—</span></div>
-          <div class="kpis">
-            <div id="tile-grind-av" class="tile">
-              <div class="lab">Grinding Availability</div>
-              <div class="val" id="ov-grind-av">0%</div>
-              <div class="meta" id="ov-grind-av-sub"></div>
-            </div>
-            <div id="tile-maint-dt" class="tile">
-              <div class="lab">Maintenance Downtime</div>
-              <div class="val" id="ov-maint-dt">0%</div>
-              <div class="meta" id="ov-maint-dt-sub"></div>
-            </div>
-            <div id="tile-performance" class="tile">
-              <div class="lab">Performance</div>
-              <div class="val" id="ov-pr">0%</div>
-              <div class="meta" id="ov-pr-sub"></div>
-            </div>
+    <div class="grid">
+      <section class="card">
+        <h3 style="margin:0 0 10px 0">Grinding Overall</h3>
+        <div class="kpis">
+          <div class="tile">
+            <div class="lab">Availability</div>
+            <div class="val" id="ov-grind-av">0%</div>
+          </div>
+          <div class="tile">
+            <div class="lab">Maintenance Downtime</div>
+            <div class="val" id="ov-grind-maint">0%</div>
+          </div>
+          <div class="tile">
+            <div class="lab">Performance</div>
+            <div class="val" id="ov-grind-pr">0%</div>
           </div>
         </div>
+        <div style="margin-top:12px;color:var(--muted)">If LIMBLE endpoints are missing the page will continue to show aggregated results from other sources.</div>
       </section>
 
-      <div class="grid" style="margin-bottom:16px">
-        <article class="card">
-          <h3 style="font-size:20px">LIVE Line Status — Grinding</h3>
-          <div class="content">
-            <div id="grindStatusList" style="min-height:120px"></div>
-            <div style="margin-top:8px;font-size:12px;color:var(--muted)">Status filtered to grinding lines only.</div>
-          </div>
-        </article>
-
-        <article class="card">
-          <h3 style="font-size:20px">Line Health — Availability & Performance</h3>
-          <div class="content">
-            <div id="linesGrid" class="lines"></div>
-          </div>
-        </article>
-      </div>
-
-      <div class="grid">
-        <article class="card">
-          <h3>Downtime Overview — Grinding & Maintenance</h3>
-          <div class="content">
-            <div class="donutwrap">
-              <div class="donutrow">
-                <canvas id="donutProd" width="220" height="220"></canvas>
-                <div class="legend" id="legendProd"></div>
-              </div>
-              <div class="donutrow">
-                <canvas id="donutMaintCat" width="220" height="220"></canvas>
-                <div class="legend" id="legendMaintCat"></div>
-              </div>
-              <div class="donutrow">
-                <canvas id="donutMaintMode" width="220" height="220"></canvas>
-                <div class="legend" id="legendMaintMode"></div>
-              </div>
-            </div>
-            <div style="margin-top:12px;font-size:12px;color:var(--muted)">Charts show the top reasons/categories/modes for the selected range (grinding assets only).</div>
-          </div>
-        </article>
-
-        <article class="card">
-          <h3>Lines Ranked by Performance & Missed Opportunity</h3>
-          <div class="content">
-            <table id="rankTable">
-              <thead>
-                <tr>
-                  <th style="width:25%">Line</th>
-                  <th>Perf %</th>
-                  <th>Avail %</th>
-                  <th>Pounds</th>
-                  <th>Under-Perf Gap (lb)</th>
-                  <th>Missed Opp, 8 Hr</th>
-                  <th>Missed Opp, 24 Hr</th>
-                </tr>
-              </thead>
-              <tbody></tbody>
-            </table>
-          </div>
-        </article>
-      </div>
-
-      <footer>
-        <div>Last updated <span id="updated">—</span></div>
-        <div class="clock" id="clock"></div>
-      </footer>
+      <section class="card">
+        <h3 style="margin:0 0 10px 0">Line Health — Grinding</h3>
+        <div id="linesGrid" class="lines"></div>
+      </section>
     </div>
+
+    <div class="card">
+      <h3 style="margin:0 0 12px 0">Ranked Lines</h3>
+      <table id="rankTable">
+        <thead>
+          <tr><th>Line</th><th>Perf %</th><th>Avail %</th><th>Pounds</th><th>Maint h</th><th>Missed 8h</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <footer>
+      <div>Last updated <span id="updated">—</span></div>
+      <div id="clock" style="font-variant-numeric:tabular-nums"></div>
+    </footer>
   </div>
 
 <script>
@@ -246,149 +116,82 @@
     MAP:'mappings.json'
   };
 
-  const COLOR_CONFIG = {
-    overall: { thresholds: { good: 0.85, warn: 0.7 }, hex: { good: '#10B981', warn: '#FBBF24', bad: '#EF4444' } },
-    status: { available: '#10B981', other: '#FBBF24' },
-    lineHealth: { thresholds: { good: 0.80, warn: 0.60 }, hex: { good: '#10B981', warn: '#FBBF24', bad: '#EF4444' } }
-  };
-
-  const STATE = { period:'today' };
+  const COLOR = { good:'#10B981', warn:'#FBBF24', bad:'#EF4444' };
+  const STATE={ period:'r7' };
   const $ = s => document.querySelector(s);
   const $$ = s => Array.from(document.querySelectorAll(s));
 
   function setLoading(v){ const el=$('#loading'); if(el) el.style.display = v ? 'flex' : 'none'; }
   async function fetchJSON(url, opts={}){ try{ const r = await fetch(url + (url.includes('?') ? '&' : '?') + 'ts=' + Date.now(), opts); if(!r.ok) throw new Error(r.status); return await r.json(); } catch(e){ console.warn('fetchJSON fail', url, e); return null; } }
+
+  // Normalizers / heuristics
+  function normalizeNameKey(n){ return String(n||'').replace(/[^a-z0-9\s]/gi,' ').replace(/\s+/g,' ').trim().toLowerCase(); }
+  const DEFAULT_GRIND_CANON = [
+    {canon:'Grinder V1', aliases:['Grinder V1','Grinder 1','V1','Grinder V 1','GrinderV1']},
+    {canon:'Grinder V2', aliases:['Grinder V2','Grinder 2','V2','GrinderV2']},
+    {canon:'Shredder 1', aliases:['Shredder 1','Shredder 01','Shredder1']},
+    {canon:'Shredder 2', aliases:['Shredder 2','Shredder2']},
+    {canon:'Weima', aliases:['Weima','Shredding Line 6- WEIMA','Weima 6']}
+  ];
+
+  const GRIND_ALIAS_REV = new Map();
+  function buildDefaultAlias(){ GRIND_ALIAS_REV.clear(); for(const r of DEFAULT_GRIND_CANON){ GRIND_ALIAS_REV.set(normalizeNameKey(r.canon), r.canon); (r.aliases||[]).forEach(a => GRIND_ALIAS_REV.set(normalizeNameKey(a), r.canon)); } }
+  buildDefaultAlias();
+
+  let MAPPINGS = null;
+  function updateGrindFromMappings(mapObj){
+    if(!mapObj) return;
+    // Use grindingAssets if present
+    if(Array.isArray(mapObj.grindingAssets) && mapObj.grindingAssets.length){
+      for(const it of mapObj.grindingAssets){
+        const rawName = (typeof it === 'string') ? it : (it.name || it.title || '');
+        if(!rawName) continue;
+        const canon = String(rawName).trim();
+        GRIND_ALIAS_REV.set(normalizeNameKey(canon), canon);
+        // reduced forms & numeric id
+        const reduced = canon.replace(/\b(grinder|grinding|shredder|line|v)\b/gi,'').replace(/\s+/g,' ').trim();
+        if(reduced) GRIND_ALIAS_REV.set(normalizeNameKey(reduced), canon);
+        const numeric = canon.match(/\d+/);
+        if(numeric) GRIND_ALIAS_REV.set(normalizeNameKey(numeric[0]), canon);
+      }
+    }
+    // include capacity_aliases and capacities as candidates
+    const candidates = Object.assign({}, mapObj.capacity_aliases, mapObj.capacities_lbs_hr, mapObj.capacity_by_material_lbs_hr);
+    for(const k of Object.keys(candidates||{})){ const canon = String(k).trim(); if(canon) GRIND_ALIAS_REV.set(normalizeNameKey(canon), canon); }
+  }
+
+  function canonGrinding(n){ if(!n) return ''; const norm = normalizeNameKey(n); return GRIND_ALIAS_REV.get(norm) || String(n||'').trim(); }
+  function isGrindingMachine(n){ if(!n) return false; const c = canonGrinding(n); return Array.from(GRIND_ALIAS_REV.values()).map(x=>x.trim()).includes(String(c).trim()); }
+
   function fmtPct(v){ return Number.isFinite(Number(v)) ? (Math.round(Number(v)*100)+'%') : '0%'; }
   function fmtNum(n){ return Number.isFinite(Number(n)) ? Math.round(Number(n)).toLocaleString() : '0'; }
   function fmtH(v){ return Number.isFinite(Number(v)) ? Number(v).toFixed(1) : '0.0'; }
 
-  function pickColorForPct(frac, type='lineHealth'){
-    const cfg = (type === 'overall') ? COLOR_CONFIG.overall : COLOR_CONFIG.lineHealth;
-    const thr = cfg.thresholds;
-    if(frac >= thr.good) return cfg.hex.good;
-    if(frac >= thr.warn) return cfg.hex.warn;
-    return cfg.hex.bad;
-  }
+  async function loadMappings(){ if(MAPPINGS) return MAPPINGS; MAPPINGS = await fetchJSON(ENDPOINTS.MAP) || {}; updateGrindFromMappings(MAPPINGS); return MAPPINGS; }
 
-  function machineNameFromRow(r){ if(!r) return ''; return String(r.machine || r.asset || r.name || r.assetName || r.AssetName || r.machineName || r.device || r.Asset || '').trim(); }
-  function poundsFromRow(r){ return Number(r.pounds ?? r.lbs ?? r.weight ?? r.total_lbs ?? r.pounds_total ?? 0) || 0; }
-  function machineHoursFromRow(r){ return Number(r.machine_hours ?? r.run_h ?? r.runHours ?? r.runtime_h ?? r.run_time ?? r.runtime ?? 0) || 0; }
-  function maintFromRow(r){ return Number(r.maint_dt_h ?? r.maint_h ?? r.maintenance_h ?? r.maintenance_hours ?? r.maintenance ?? 0) || 0; }
-  function prodDTFromRow(r){ return Number(r.prod_dt_h ?? r.prod_h ?? r.prod_dt ?? 0) || 0; }
-  function nameplateFromRow(r){ return Number(r.nameplate_lbs_hr ?? r.nameplate ?? r.cap ?? r.cap_lbs_hr ?? 0) || 0; }
-  function materialFromRow(r){ return String(r.material || r.mat || r.resin || '').toUpperCase(); }
-
-  let MAPPINGS = null;
-  async function loadMappings(){ if(MAPPINGS) return MAPPINGS; try { const j = await fetchJSON(ENDPOINTS.MAP); MAPPINGS = j || {}; } catch(e){ MAPPINGS = {}; } return MAPPINGS; }
-  function capacityFor(lineName, material){
-    const caps = MAPPINGS?.capacities_lbs_hr || {}, byMat = MAPPINGS?.capacity_by_material_lbs_hr || {}, alias = MAPPINGS?.capacity_aliases || {}, malias = MAPPINGS?.material_aliases || {};
-    const canon = (caps[lineName] !== undefined || byMat[lineName]) ? lineName : (alias[lineName] || lineName);
-    const m = malias[(material||'').toUpperCase()] || ((material||'')===''?'DEFAULT':(material||'').toUpperCase());
-    return (byMat[canon]?.[m]) ?? (byMat[canon]?.DEFAULT) ?? caps[canon] ?? 0;
-  }
-
-  const GRIND_CANON = [
-    {canon:'Shredder 1', aliases:['Shredder 1','Shredding Line 1','Shredding 1']},
-    {canon:'Shredder 3', aliases:['Shredder 3','Shredding Line 3','Shredding 3']},
-    {canon:'Shredder 5', aliases:['Shredder 5','Shredding Line 5','Shredding 5']},
-    {canon:'Weima', aliases:['Weima','Shredding Line 6- WEIMA','Shredding Line 6 - WEIMA']},
-    {canon:'Vistakon 1', aliases:['Vistakon 1','Grinder V1','Vistakon 1']},
-    {canon:'Vistakon 2', aliases:['Vistakon 2','Grinder V2','Vistakon 2']},
-    {canon:'PCR Washline', aliases:['PCR Washline','PCR','PCR Wash Line']}
-  ];
-  const GRIND_ALIAS_REV = (() => { const m=new Map(); for(const r of GRIND_CANON){ m.set(r.canon, r.canon); (r.aliases||[]).forEach(a=>m.set(String(a).trim(), r.canon)); } return m; })();
-  const GRIND_CANON_SET = new Set(GRIND_CANON.map(r=>r.canon));
-  function canonGrinding(n){ return GRIND_ALIAS_REV.get(String(n||'').trim()) || String(n||'').trim(); }
-  function isGrindingMachine(n){ return GRIND_CANON_SET.has(canonGrinding(n)); }
-
-  function drawDonutSegments(canvas, segments){
-    if(!canvas) return;
-    const ctx = canvas.getContext('2d');
-    const w = canvas.width, h = canvas.height;
-    ctx.clearRect(0,0,w,h);
-    const cx = w/2, cy = h/2, r = Math.min(w,h)/2 - 10, inner = r*0.55;
-    const total = segments.reduce((s,x)=>s + (x.value||0),0) || 1;
-    let start = -Math.PI/2;
-    for(const seg of segments){
-      const ang = (seg.value/total) * Math.PI * 2;
-      ctx.beginPath();
-      ctx.moveTo(cx,cy);
-      ctx.arc(cx,cy,r,start,start+ang,false);
-      ctx.arc(cx,cy,inner,start+ang,start,true);
-      ctx.closePath();
-      ctx.fillStyle = seg.color;
-      ctx.fill();
-      start += ang;
-    }
-    ctx.fillStyle = '#0b1722';
-    ctx.font = '800 18px system-ui';
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    const pct = Math.round((segments[0]?.value||0) / total * 100);
-    ctx.fillText(pct + '%', cx, cy);
-  }
-
-  function makeLegend(containerEl, arr, colors){
-    containerEl.innerHTML = '';
-    const total = arr.reduce((s,x)=>s + (x.value||0),0) || 1;
-    arr.slice(0,5).forEach((it,i)=>{
-      const row = document.createElement('div'); row.className='item';
-      const bullet = document.createElement('div'); bullet.className='bullet'; bullet.style.background = colors[i] || '#ddd';
-      const label = document.createElement('div'); label.className='label'; label.textContent = it.key;
-      const val = document.createElement('div'); val.className='val'; val.textContent = fmtH(it.value) + ' h';
-      const pct = document.createElement('div'); pct.style.width='50px'; pct.style.textAlign='right'; pct.style.color='var(--muted)'; pct.style.fontWeight='800'; pct.textContent = Math.round((it.value/total)*100) + '%';
-      row.appendChild(bullet); row.appendChild(label); row.appendChild(val); row.appendChild(pct);
-      containerEl.appendChild(row);
-    });
-  }
-
-  function applyTileBg(tileId, pct, valText, metaText){
-    const tile = document.getElementById(tileId);
-    if(!tile) return;
-    const bg = pickColorForPct(pct, 'overall');
-    tile.style.background = bg;
-    tile.style.borderColor = bg;
-    const darkBgHexes = [COLOR_CONFIG.overall.hex.good, COLOR_CONFIG.overall.hex.warn];
-    const useDarkText = darkBgHexes.indexOf(bg) !== -1;
-    const textColor = useDarkText ? '#0b1722' : '#ffffff';
-    tile.style.color = textColor;
-    const lab = tile.querySelector('.lab'); if(lab) lab.style.color = useDarkText ? 'rgba(11,23,34,0.9)' : 'rgba(255,255,255,0.95)';
-    const val = tile.querySelector('.val'); if(val){ val.textContent = valText; val.style.color = textColor; }
-    const meta = tile.querySelector('.meta'); if(meta){ meta.textContent = metaText || ''; meta.style.color = useDarkText ? 'rgba(11,23,34,0.85)' : 'rgba(255,255,255,0.9)'; }
-    tile.style.boxShadow = '0 10px 25px rgba(0,0,0,0.12)';
-  }
-
-  function applyMItemBg(mitemEl, color){
-    if(!mitemEl) return;
-    mitemEl.style.background = color;
-    mitemEl.style.borderColor = color;
-    const darkBgHexes = [COLOR_CONFIG.lineHealth.hex.good, COLOR_CONFIG.lineHealth.hex.warn];
-    const useDarkText = darkBgHexes.indexOf(color) !== -1;
-    mitemEl.style.color = useDarkText ? '#0b1722' : '#ffffff';
-    const lbl = mitemEl.querySelector('.label'); if(lbl) lbl.style.color = useDarkText ? 'rgba(11,23,34,0.9)' : 'rgba(255,255,255,0.95)';
-    const mkv = mitemEl.querySelector('.mkv'); if(mkv) mkv.style.color = useDarkText ? '#0b1722' : '#ffffff';
-    mitemEl.style.boxShadow = '0 8px 18px rgba(0,0,0,0.12)';
+  // color pick simple
+  function pickColor(frac){
+    if(frac >= 0.85) return COLOR.good;
+    if(frac >= 0.7) return COLOR.warn;
+    return COLOR.bad;
   }
 
   async function renderGrinding(){
     setLoading(true);
     try{
       await loadMappings();
-      $('#periodBadge').textContent = '• ' + (STATE.period || 'today');
-      $$('.segBig button').forEach(b=>b.classList.toggle('active', b.dataset.period===STATE.period));
-      const now=new Date(); now.setHours(0,0,0,0);
+      $('#rangeLabel').textContent = STATE.period;
+
+      // calculate date range
+      const now = new Date(); now.setHours(0,0,0,0);
       function iso(d){ return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10); }
       let from,to;
-      switch(STATE.period){
-        case 'yesterday': { const y=new Date(now); y.setDate(y.getDate()-1); from=to=iso(y); break; }
-        case 'week': { const d=new Date(now); const day=(d.getDay()+6)%7; d.setDate(d.getDate()-day); from=iso(d); const e=new Date(d); e.setDate(e.getDate()+6); to=iso(e); break; }
-        case 'lastweek': { const d=new Date(now); const day=(d.getDay()+6)%7; d.setDate(d.getDate()-day-7); from=iso(d); const e=new Date(d); e.setDate(e.getDate()+6); to=iso(e); break; }
-        case 'month': { const s=new Date(now.getFullYear(),now.getMonth(),1); from=iso(s); const e=new Date(now.getFullYear(),now.getMonth()+1,0); to=iso(e); break; }
-        case 'lastmonth': { const s=new Date(now.getFullYear(),now.getMonth()-1,1); from=iso(s); const e=new Date(now.getFullYear(),now.getMonth(),0); to=iso(e); break; }
-        case 'r7': { const s=new Date(now); s.setDate(s.getDate()-6); from=iso(s); to=iso(now); break; }
-        case 'r30': default: { const s=new Date(now); s.setDate(s.getDate()-29); from=iso(s); to=iso(now); break; }
-      }
-      $('#rangeLabel').textContent = `${from} → ${to}`;
+      if(STATE.period==='r7'){ const s=new Date(now); s.setDate(s.getDate()-6); from=iso(s); to=iso(now); }
+      else if(STATE.period==='r30'){ const s=new Date(now); s.setDate(s.getDate()-29); from=iso(s); to=iso(now); }
+      else if(STATE.period==='week'){ const d=new Date(now); const day=(d.getDay()+6)%7; d.setDate(d.getDate()-day); from=iso(d); const e=new Date(d); e.setDate(e.getDate()+6); to=iso(e);}
+      else { const s=new Date(now); s.setDate(s.getDate()-6); from=iso(s); to=iso(now); }
 
+      // try endpoints; tolerant of 404/null
       const [bylineRaw, limblePayload, assetStatusCandidate] = await Promise.all([
         fetchJSON(`${ENDPOINTS.BY_LINE}?from=${from}&to=${to}`),
         fetchJSON(`${ENDPOINTS.LIMBLE_KPIASSET}?from=${from}&to=${to}`),
@@ -396,287 +199,123 @@
       ]);
 
       const rawRows = Array.isArray(bylineRaw) ? bylineRaw : (bylineRaw && (Array.isArray(bylineRaw.rows) ? bylineRaw.rows : (Array.isArray(bylineRaw.items) ? bylineRaw.items : [])));
-      const parsed = (rawRows||[]).map(r=>{
-        const machine = machineNameFromRow(r);
+      const rows = (rawRows || []).map(r => {
+        const machine = r.machine || r.asset || r.name || r.assetName || r.machineName || '';
         return {
-          raw:r,
-          machine,
-          pounds:poundsFromRow(r),
-          machineHours:machineHoursFromRow(r),
-          maint:maintFromRow(r),
-          prod:prodDTFromRow(r),
-          nameplate:nameplateFromRow(r),
-          material:materialFromRow(r)
+          raw: r,
+          machine: String(machine).trim(),
+          pounds: Number(r.pounds || r.lbs || r.weight || 0) || 0,
+          machineHours: Number(r.machine_hours || r.run_h || r.runtime || 0) || 0,
+          maint: Number(r.maint_dt_h || r.maint_h || r.maintenance_h || 0) || 0,
+          prod: Number(r.prod_dt_h || r.prod_h || 0) || 0,
+          nameplate: Number(r.nameplate_lbs_hr || r.cap || 0) || 0,
+          material: String(r.material || r.mat || '').toUpperCase()
         };
       });
 
-      const grindingRows = parsed.filter(p=>p.machine && isGrindingMachine(p.machine));
+      // filter grinding machines using alias map
+      const grindingRows = rows.filter(r => r.machine && isGrindingMachine(r.machine));
 
+      // build limble map if available
       const limbleMaintMap = {};
       if(limblePayload){
         let lp = Array.isArray(limblePayload) ? limblePayload : (Array.isArray(limblePayload.rows) ? limblePayload.rows : (Array.isArray(limblePayload.items) ? limblePayload.items : []));
-        if(!lp.length && typeof limblePayload === 'object'){
-          for(const k of Object.keys(limblePayload)){
-            if(Array.isArray(limblePayload[k]) && limblePayload[k].length) { lp = limblePayload[k]; break; }
-          }
-        }
-        if(Array.isArray(lp)){
-          lp.forEach(it=>{
-            const name = machineNameFromRow(it) || machineNameFromRow(it.raw || it);
-            const mCandidate = it.maintenance_hours ?? it.maint_hours ?? it.maint_h ?? it.maintenance_h ?? it.maintenance ?? it.total_maintenance_hours ?? it.maint ?? 0;
-            const m = Number(mCandidate) || 0;
-            if(name){
-              const c = canonGrinding(name);
-              limbleMaintMap[c] = (limbleMaintMap[c] || 0) + m;
-            }
-          });
-        }
+        lp.forEach(it=>{
+          const name = it.assetName || it.name || it.machine || it.asset || '';
+          const m = Number(it.maintenance_hours || it.maint_h || it.maintenance || 0) || 0;
+          if(name){ limbleMaintMap[ canonGrinding(name) ] = (limbleMaintMap[ canonGrinding(name) ] || 0) + m; }
+        });
       }
 
+      // aggregate per line
       const agg = {};
-      for(const r of grindingRows){
+      grindingRows.forEach(r => {
         const canon = canonGrinding(r.machine);
-        const capFromMap = capacityFor(canon, r.material);
-        const cap = r.nameplate > 0 ? r.nameplate : (capFromMap || 0);
-        if(!agg[canon]) agg[canon] = { name:canon, lbs:0, maint:0, prod:0, mach:0, cap:cap, days:1, matcount:{} };
-        agg[canon].lbs += Math.max(0, r.pounds);
-        agg[canon].prod += Math.max(0, r.prod);
-        agg[canon].mach += Math.max(0, r.machineHours);
-        agg[canon].maint += Math.max(0, r.maint);
-        const m = (r.material || 'UNKNOWN').toUpperCase();
-        agg[canon].matcount[m] = (agg[canon].matcount[m]||0) + 1;
-        if(cap>0) agg[canon].cap = cap;
-      }
+        if(!agg[canon]) agg[canon] = { name: canon, lbs:0, mach:0, maint:0, prod:0, cap: (r.nameplate || 0), matcount:{}};
+        agg[canon].lbs += r.pounds;
+        agg[canon].mach += r.machineHours;
+        agg[canon].maint += r.maint;
+        agg[canon].prod += r.prod;
+        const mat = (r.material||'').toUpperCase() || 'UNKNOWN';
+        agg[canon].matcount[mat] = (agg[canon].matcount[mat]||0) + 1;
+        if(r.nameplate && !agg[canon].cap) agg[canon].cap = r.nameplate;
+      });
 
-      const fromD=new Date(from+'T00:00:00'), toD=new Date(to+'T00:00:00');
-      let days=0; for(let d=new Date(fromD); d<=toD; d.setDate(d.getDate()+1)){ const wd=d.getDay(); if(wd!==0 && wd!==6) days++; } days = Math.max(1, days);
-      Object.values(agg).forEach(a=>a.days=days);
+      // set a days count
+      const fromD = new Date(from+'T00:00:00'), toD = new Date(to+'T00:00:00');
+      let days=0; for(let d=new Date(fromD); d<=toD; d.setDate(d.getDate()+1)){ const wd=d.getDay(); if(wd!==0 && wd!==6) days++; }
+      days = Math.max(1, days);
 
       const perLine = Object.values(agg).map(a=>{
-        const matEntries = Object.entries(a.matcount || {});
-        const domMat = matEntries.length ? matEntries.sort((x,y)=>y[1]-x[1])[0][0] : 'N/A';
-        const plannedH = 24 * a.days;
-        const limbleMaint = Number(limbleMaintMap[a.name] || 0);
-        const maint = (limbleMaint > 0) ? limbleMaint : (Number(a.maint) || 0);
-
-        let runtimeH = 0;
-        if (Number(a.mach) > 0) runtimeH = Number(a.mach);
-        else if (a.cap > 0 && Number(a.lbs) > 0) runtimeH = Number(a.lbs) / Number(a.cap);
-        runtimeH = Math.max(0, Math.min(runtimeH, plannedH));
-
-        const grindDowntime = Math.max(0, plannedH - runtimeH - (maint || 0));
-
-        // Under-performance gap = cap * runtime - actual (what we lose because performance < cap during measured runtime)
-        const capPotentialDuringRuntime = a.cap > 0 ? (a.cap * runtimeH) : 0;
-        const underPerfGap = Math.max(0, Math.round(capPotentialDuringRuntime - Number(a.lbs)));
-
-        // Missed Opp overall = cap * plannedH - actual (i.e. if machine ran 24h for all days)
+        a.days = days;
+        const plannedH = 24 * days;
+        const limbleM = Number(limbleMaintMap[a.name] || 0);
+        const maint = limbleM > 0 ? limbleM : (a.maint || 0);
+        const runtimeH = a.mach > 0 ? a.mach : (a.cap > 0 && a.lbs>0 ? a.lbs / a.cap : 0);
+        const safeRuntime = Math.max(0, Math.min(runtimeH, plannedH));
+        const capPotentialDuringRuntime = a.cap > 0 ? (a.cap * safeRuntime) : 0;
+        const underPerfGap = Math.max(0, Math.round(capPotentialDuringRuntime - a.lbs));
         const plannedPotential = a.cap > 0 ? (a.cap * plannedH) : 0;
-        const plannedMissed = Math.max(0, Math.round(plannedPotential - Number(a.lbs)));
-
-        // New: Missed Opp, 8hr is just the 24hr missed divided by 3 (one 8hr shift)
-        const plannedMissed8 = Math.max(0, Math.round(plannedMissed / 3));
-
-        let perfAdj = 0;
-        if(a.cap > 0 && runtimeH > 0) perfAdj = Number(a.lbs) / (runtimeH * Number(a.cap));
-        perfAdj = Math.max(0, Math.min(perfAdj, 10));
-
-        const avail = plannedH > 0 ? (runtimeH / plannedH) : 0;
-
-        return {...a, plannedH, runtimeH, maint, grindDowntime, perfAdj, oee: (runtimeH>0 ? (runtimeH/plannedH) * perfAdj : 0), capPotential: capPotentialDuringRuntime, missed: underPerfGap, plannedPotential, plannedMissed, plannedMissed8, dominantMaterial: domMat, avail};
+        const plannedMissed = Math.max(0, Math.round(plannedPotential - a.lbs));
+        const plannedMissed8 = Math.round(plannedMissed / 3);
+        const perfAdj = (a.cap>0 && safeRuntime>0) ? (a.lbs / (safeRuntime * a.cap)) : 0;
+        const avail = plannedH>0 ? (safeRuntime / plannedH) : 0;
+        const matEntries = Object.entries(a.matcount||{}).sort((x,y)=>y[1]-x[1]);
+        const domMat = matEntries.length ? matEntries[0][0] : 'N/A';
+        return {...a, runtimeH: safeRuntime, perfAdj: perfAdj, avail, missed: underPerfGap, plannedMissed, plannedMissed8, dominantMaterial: domMat};
       });
 
-      const totals = perLine.reduce((s,x)=>{
-        s.lbs += x.lbs;
-        s.maint += (x.maint || 0);
-        s.runtime += (x.runtimeH || 0);
-        s.planned += x.plannedH;
-        s.underPerf += x.missed || 0;
-        s.plannedMissed += x.plannedMissed || 0;
-        s.plannedMissed8 += x.plannedMissed8 || Math.round((x.plannedMissed||0)/3);
-        s.caps += (x.cap || 0);
-        s.prod += (x.prod || 0);
-        s.count++;
-        return s;
-      }, {lbs:0,maint:0,runtime:0,planned:0,underPerf:0,plannedMissed:0,plannedMissed8:0,caps:0,prod:0,count:0});
+      // overall totals
+      const totals = perLine.reduce((s,x)=>{ s.lbs += x.lbs; s.maint += x.maint; s.runtime += x.runtimeH; s.planned += x.days*24; s.missed += x.missed; s.plannedMissed += x.plannedMissed; s.count++; return s; }, {lbs:0,maint:0,runtime:0,planned:0,missed:0,plannedMissed:0,count:0});
 
-      const overallAvail = totals.planned>0 ? (totals.runtime / totals.planned) : 0;
-      const avgCap = totals.count ? (totals.caps / totals.count) : 0;
-      const overallPerfAdj = (totals.runtime>0 && avgCap>0) ? (totals.lbs / (totals.runtime * avgCap)) : 0;
+      const overallAvail = totals.planned ? (totals.runtime / totals.planned) : 0;
+      const avgCap = perLine.length ? perLine.reduce((s,x)=>s + (x.cap||0),0)/perLine.length : 0;
+      const overallPerf = (totals.runtime>0 && avgCap>0) ? (totals.lbs / (totals.runtime * avgCap)) : 0;
 
-      applyTileBg('tile-grind-av', overallAvail, fmtPct(overallAvail), `${fmtNum(Math.round(totals.runtime))} run h • ${fmtNum(Math.round(totals.planned))} planned h`);
-      const maintFrac = totals.planned ? (totals.maint / totals.planned) : 0;
-      applyTileBg('tile-maint-dt', maintFrac, fmtPct(maintFrac), `${fmtH(totals.maint)} maint h • ${fmtH(totals.prod)} prod dt h`);
-      applyTileBg('tile-performance', overallPerfAdj, fmtPct(overallPerfAdj), `${fmtNum(Math.round(totals.lbs))} lbs • avg cap ${fmtNum(Math.round(avgCap))} lbs/hr`);
+      $('#ov-grind-av').textContent = fmtPct(overallAvail);
+      $('#ov-grind-maint').textContent = fmtH(totals.maint || 0) + ' h';
+      $('#ov-grind-pr').textContent = fmtPct(overallPerf);
 
-      const prodReasonsMap = {};
-      const maintCatsMap = {};
-      const maintModesMap = {};
-      (rawRows||[]).forEach(r=>{
-        const rReason = r.reason || r.downtimeReason || r.dt_reason || r.DowntimeReason || r.prod_reason || '';
-        const rCat = r.maintenanceCategory || r.category || r.maint_category || r.maint_cat || '';
-        const rMode = r.failureMode || r.mode || r.failure_mode || '';
-        if(rReason) prodReasonsMap[rReason] = (prodReasonsMap[rReason]||0) + (r.prod_dt_h || r.prod_h || 1);
-        if(rCat) maintCatsMap[rCat] = (maintCatsMap[rCat]||0) + (r.maint_dt_h || r.maint_h || 1);
-        if(rMode) maintModesMap[rMode] = (maintModesMap[rMode]||0) + (r.maint_dt_h || r.maint_h || 1);
-      });
-      const prodReasonsArr = Object.keys(prodReasonsMap).map(k=>({key:k,value:prodReasonsMap[k]})).sort((a,b)=>b.value-a.value);
-      const maintCatsArr = Object.keys(maintCatsMap).map(k=>({key:k,value:maintCatsMap[k]})).sort((a,b)=>b.value-a.value);
-      const maintModesArr = Object.keys(maintModesMap).map(k=>({key:k,value:maintModesMap[k]})).sort((a,b)=>b.value-a.value);
-
-      const prodSeed = prodReasonsArr.length ? prodReasonsArr : [{key:'UNSTATED',value: (totals.prod || 0) || 1}];
-      const mcatSeed = maintCatsArr.length ? maintCatsArr : [{key:'Other',value:1}];
-      const mmodeSeed = maintModesArr.length ? maintModesArr : [{key:'Machine Damaged',value:1}];
-
-      const prodColors = ['#4b5563', COLOR_CONFIG.overall.hex.good, '#d1d5db', '#1e40af', COLOR_CONFIG.overall.hex.warn];
-      const catColors = ['#1f2937','#d1d5db',COLOR_CONFIG.overall.hex.good,COLOR_CONFIG.overall.hex.bad];
-      const modeColors = ['#071332','#ef6b2f','#1e40af','#94a3b8'];
-
-      const segProd = prodSeed.slice(0,6).map((it,i)=>({ value: it.value, color: prodColors[i] || '#ccc', key: it.key }));
-      const segCat = mcatSeed.slice(0,6).map((it,i)=>({ value: it.value, color: catColors[i] || '#ccc', key: it.key }));
-      const segMode = mmodeSeed.slice(0,6).map((it,i)=>({ value: it.value, color: modeColors[i] || '#ccc', key: it.key }));
-
-      drawDonutSegments($('#donutProd'), segProd);
-      makeLegend($('#legendProd'), prodSeed, prodColors);
-
-      drawDonutSegments($('#donutMaintCat'), segCat);
-      makeLegend($('#legendMaintCat'), mcatSeed, catColors);
-
-      drawDonutSegments($('#donutMaintMode'), segMode);
-      makeLegend($('#legendMaintMode'), mmodeSeed, modeColors);
-
-      // Line Health cards — name left, "material • cap • pounds" single row on right
+      // draw lines
       const linesGrid = $('#linesGrid'); linesGrid.innerHTML = '';
       perLine.sort((a,b)=> (b.perfAdj||0) - (a.perfAdj||0)).forEach(l=>{
         const div = document.createElement('div'); div.className='line';
-
-        // header: left = name, right = single row (material • capacity • pounds)
-        const header = document.createElement('div'); header.className='lineheader';
-
-        const left = document.createElement('div');
-        left.style.minWidth = '0';
-        left.style.display = 'flex';
-        left.style.alignItems = 'center';
-        left.style.gap = '12px';
-
-        const nameEl = document.createElement('div'); nameEl.className='linename'; nameEl.textContent = l.name || '';
-        left.appendChild(nameEl);
-
-        const right = document.createElement('div');
-        right.style.display = 'flex';
-        right.style.alignItems = 'center';
-        right.style.justifyContent = 'flex-end';
-        right.style.gap = '8px';
-        right.style.whiteSpace = 'nowrap';
-        right.style.flex = '0 0 auto';
-
-        const matText = (l.dominantMaterial && l.dominantMaterial !== 'N/A') ? l.dominantMaterial : '';
-        const capText = (l.cap && l.cap > 0) ? `${fmtNum(l.cap)} lbs/hr` : 'cap unknown';
-        const lbsText = `${fmtNum(l.lbs)} lb`;
-
-        const parts = [matText, capText, lbsText].filter(x => x && String(x).trim().length > 0);
-        parts.forEach((p, idx) => {
-          const span = document.createElement('div');
-          span.className = 'line-meta';
-          span.textContent = p;
-          right.appendChild(span);
-          if(idx < parts.length - 1){
-            const sep = document.createElement('div');
-            sep.className = 'meta-sep';
-            sep.textContent = '•';
-            right.appendChild(sep);
-          }
-        });
-
-        header.appendChild(left);
-        header.appendChild(right);
-        div.appendChild(header);
-
-        // metric row
-        const metricRow = document.createElement('div'); metricRow.className='metricrow';
-        const m1 = document.createElement('div'); m1.className='mitem'; m1.innerHTML = '<div class="label">Maint h</div><div class="mkv">'+fmtH(l.maint)+'</div>';
-        const m2 = document.createElement('div'); m2.className='mitem'; m2.innerHTML = '<div class="label">Grind DT h</div><div class="mkv">'+fmtH(l.grindDowntime)+'</div>';
-        const m3 = document.createElement('div'); m3.className='mitem'; m3.innerHTML = '<div class="label">Runtime h</div><div class="mkv">'+fmtH(l.runtimeH)+'</div>';
-        const m4 = document.createElement('div'); m4.className='mitem'; m4.innerHTML = '<div class="label">Availability</div><div class="mkv" data-avail="'+l.avail+'">'+fmtPct(l.avail)+'</div>';
-        const m5 = document.createElement('div'); m5.className='mitem'; m5.innerHTML = '<div class="label">Perf Adj</div><div class="mkv" data-perf="'+l.perfAdj+'">'+fmtPct(l.perfAdj)+'</div>';
-        metricRow.appendChild(m1); metricRow.appendChild(m2); metricRow.appendChild(m3); metricRow.appendChild(m4); metricRow.appendChild(m5);
-        div.appendChild(metricRow);
-
+        const left = document.createElement('div'); left.style.fontWeight='900'; left.textContent = l.name + ' • ' + l.dominantMaterial;
+        const right = document.createElement('div'); right.style.textAlign='right';
+        const perf = document.createElement('div'); perf.textContent = 'Perf ' + fmtPct(l.perfAdj);
+        const avail = document.createElement('div'); avail.textContent = 'Avail ' + fmtPct(l.avail);
+        const missed = document.createElement('div'); missed.textContent = 'Missed 8h ' + fmtNum(l.plannedMissed8);
+        right.appendChild(perf); right.appendChild(avail); right.appendChild(missed);
+        div.appendChild(left); div.appendChild(right);
         linesGrid.appendChild(div);
-
-        // apply coloring to availability and performance tiles
-        try {
-          const availNode = m4.querySelector('.mkv[data-avail]');
-          const perfNode = m5.querySelector('.mkv[data-perf]');
-          if(availNode){ applyMItemBg(availNode.closest('.mitem'), pickColorForPct(l.avail, 'lineHealth')); }
-          if(perfNode){ applyMItemBg(perfNode.closest('.mitem'), pickColorForPct(l.perfAdj, 'lineHealth')); }
-        } catch(e){
-          console.warn('coloring failed', e);
-        }
+        // colorize small badges (inline style to keep the file self-contained)
+        perf.style.fontWeight='900'; perf.style.color=pickColor(l.perfAdj);
+        avail.style.fontWeight='900'; avail.style.color=pickColor(l.avail);
       });
 
-      // Rank table
+      // ranking table
       const tbody = $('#rankTable tbody'); tbody.innerHTML = '';
-      perLine.sort((a,b) => ((b.perfAdj||0) - (a.perfAdj||0)) || ((b.avail||0) - (a.avail||0)));
       perLine.forEach(r=>{
         const tr = document.createElement('tr');
-        const tdName = document.createElement('td'); tdName.className='left';
-        const nameWrap = document.createElement('div');
-        nameWrap.innerHTML = '<div style="font-weight:900">'+r.name+'</div><div style="font-size:12px;color:var(--muted);font-weight:800">'+(r.dominantMaterial || '')+'</div>';
-        tdName.appendChild(nameWrap);
-        const tdPerf = document.createElement('td'); tdPerf.className='center'; tdPerf.textContent = fmtPct(r.perfAdj);
-        const tdAvail = document.createElement('td'); tdAvail.className='center'; tdAvail.textContent = fmtPct(r.avail);
-        const tdLbs = document.createElement('td'); tdLbs.className='center'; tdLbs.textContent = fmtNum(r.lbs);
-        const tdUnder = document.createElement('td'); tdUnder.className='center'; tdUnder.textContent = fmtNum(r.missed || 0);
-        const tdMiss8 = document.createElement('td'); tdMiss8.className='center'; tdMiss8.textContent = fmtNum(r.plannedMissed8 || Math.round((r.plannedMissed||0)/3));
-        const tdPlannedMiss = document.createElement('td'); tdPlannedMiss.className='center'; tdPlannedMiss.textContent = fmtNum(r.plannedMissed || 0);
-        tr.appendChild(tdName); tr.appendChild(tdPerf); tr.appendChild(tdAvail); tr.appendChild(tdLbs); tr.appendChild(tdUnder); tr.appendChild(tdMiss8); tr.appendChild(tdPlannedMiss);
+        const tdName = document.createElement('td'); tdName.textContent = r.name + (r.dominantMaterial ? ' • '+r.dominantMaterial : '');
+        const tdPerf = document.createElement('td'); tdPerf.textContent = fmtPct(r.perfAdj);
+        const tdAvail = document.createElement('td'); tdAvail.textContent = fmtPct(r.avail);
+        const tdLbs = document.createElement('td'); tdLbs.textContent = fmtNum(r.lbs);
+        const tdMaint = document.createElement('td'); tdMaint.textContent = fmtH(r.maint);
+        const tdMiss8 = document.createElement('td'); tdMiss8.textContent = fmtNum(r.plannedMissed8);
+        tr.appendChild(tdName); tr.appendChild(tdPerf); tr.appendChild(tdAvail); tr.appendChild(tdLbs); tr.appendChild(tdMaint); tr.appendChild(tdMiss8);
         tbody.appendChild(tr);
       });
 
-      // totals row
       const totalTr = document.createElement('tr'); totalTr.style.fontWeight='900';
-      const t1 = document.createElement('td'); t1.className='left'; t1.textContent = 'TOTAL';
-      const avgPerf = perLine.length ? perLine.reduce((s,x)=>s + (x.perfAdj||0),0) / Math.max(1, perLine.length) : 0;
-      const t2 = document.createElement('td'); t2.className='center'; t2.textContent = fmtPct(avgPerf);
-      const t3 = document.createElement('td'); t3.className='center'; t3.textContent = fmtPct(overallAvail);
-      const t4 = document.createElement('td'); t4.className='center'; t4.textContent = fmtNum(totals.lbs);
-      const t5 = document.createElement('td'); t5.className='center'; t5.textContent = fmtNum(totals.underPerf || 0);
-      const t6 = document.createElement('td'); t6.className='center'; t6.textContent = fmtNum(totals.plannedMissed8 || Math.round((totals.plannedMissed||0)/3));
-      const t7 = document.createElement('td'); t7.className='center'; t7.textContent = fmtNum(totals.plannedMissed || 0);
-      totalTr.appendChild(t1); totalTr.appendChild(t2); totalTr.appendChild(t3); totalTr.appendChild(t4); totalTr.appendChild(t5); totalTr.appendChild(t6); totalTr.appendChild(t7);
+      const t1 = document.createElement('td'); t1.textContent = 'TOTAL';
+      const t2 = document.createElement('td'); t2.textContent = fmtPct(perLine.length ? perLine.reduce((s,x)=>s+x.perfAdj,0)/perLine.length : 0);
+      const t3 = document.createElement('td'); t3.textContent = fmtPct(overallAvail);
+      const t4 = document.createElement('td'); t4.textContent = fmtNum(totals.lbs || 0);
+      const t5 = document.createElement('td'); t5.textContent = fmtH(totals.maint || 0);
+      const t6 = document.createElement('td'); t6.textContent = fmtNum(totals.plannedMissed || 0);
+      totalTr.appendChild(t1); totalTr.appendChild(t2); totalTr.appendChild(t3); totalTr.appendChild(t4); totalTr.appendChild(t5); totalTr.appendChild(t6);
       tbody.appendChild(totalTr);
-
-      // Live status: name left, status + bullet right
-      const statusEl = $('#grindStatusList'); statusEl.innerHTML = '';
-      const statuses = assetStatusCandidate?.rows || [];
-      statuses.sort((a,b)=> canonGrinding(a.name).localeCompare(canonGrinding(b.name)));
-      if(statuses.length===0){
-        statusEl.innerHTML = '<div style="color:var(--muted);font-weight:900">No live status found for grinding assets from the attempted endpoints.</div>';
-      } else {
-        statuses.forEach(S => {
-          const row = document.createElement('div');
-          row.style.display = 'flex';
-          row.style.justifyContent = 'space-between';
-          row.style.alignItems = 'center';
-          row.style.fontSize = '18px';
-          const left = document.createElement('div'); left.style.display='flex'; left.style.alignItems='center';
-          const nameSpan = document.createElement('strong'); nameSpan.className='status-name'; nameSpan.style.marginRight='8px'; nameSpan.textContent = canonGrinding(S.name);
-          left.appendChild(nameSpan);
-
-          const right = document.createElement('div'); right.style.display='flex'; right.style.alignItems='center'; right.style.gap='10px'; right.style.color='var(--muted)'; right.style.fontWeight='800';
-          const st = S.status || (S.raw && (S.raw.assetStatus || S.raw.status || S.raw.value || '')) || 'Available';
-          const stLower = String(st||'').toLowerCase();
-          const isAvailable = stLower.includes('avail') || stLower.includes('available') || stLower.includes('ready') || stLower.includes('in production');
-          const color = isAvailable ? COLOR_CONFIG.status.available : COLOR_CONFIG.status.other;
-          const statusText = document.createElement('div'); statusText.textContent = st;
-          const bullet = document.createElement('span'); bullet.style.display='inline-block'; bullet.style.width='12px'; bullet.style.height='12px'; bullet.style.borderRadius='50%'; bullet.style.background = color;
-          right.appendChild(statusText); right.appendChild(bullet);
-
-          row.appendChild(left); row.appendChild(right);
-          statusEl.appendChild(row);
-        });
-      }
 
       $('#updated').textContent = new Date().toLocaleString();
     } finally {
@@ -684,47 +323,28 @@
     }
   }
 
-  $$('.segBig button').forEach(btn => btn.addEventListener('click', () => {
-    if(btn.dataset.period && btn.dataset.period !== STATE.period){ STATE.period = btn.dataset.period; renderGrinding(); }
-  }));
-
-  document.addEventListener('keydown', (e)=>{
-    if (e.key && e.key.toLowerCase()==='f') {
-      if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(()=>{});
-      else document.exitFullscreen().catch(()=>{});
-    }
-  });
-
+  $$('.seg button').forEach(b=>b.addEventListener('click', ()=>{ if(b.dataset.period && b.dataset.period !== STATE.period){ STATE.period = b.dataset.period; $$('.seg button').forEach(x => x.classList.toggle('active', x.dataset.period === STATE.period)); renderGrinding(); }}));
+  document.addEventListener('keydown', (e)=>{ if(e.key && e.key.toLowerCase()==='f'){ if(!document.fullscreenElement) document.documentElement.requestFullscreen().catch(()=>{}); else document.exitFullscreen().catch(()=>{}); }});
   setInterval(()=>{ const c=$('#clock'); if(c) c.textContent = new Date().toLocaleTimeString(); },1000);
-
   renderGrinding();
-  setInterval(() => { renderGrinding(); }, 10 * 60 * 1000);
-  setInterval(() => { try { location.reload(true); } catch(e) { location.reload(); } }, 60 * 60 * 1000);
+  setInterval(()=>renderGrinding(), 10*60*1000);
+  setInterval(()=>{ try{ location.reload(true); } catch(e){ location.reload(); } }, 60*60*1000);
 
-  document.addEventListener('DOMContentLoaded', () => {
-    $$('.segBig button').forEach(b => b.classList.toggle('active', b.dataset.period === STATE.period));
-  });
-
+  // Try a few candidate endpoints for live status — tolerant and returns [] if none found
   async function loadAssetStatusCandidates(){
-    const candidates = [ENDPOINTS.PRODSTATUS, ENDPOINTS.LIMBLE_ASSETFIELDS, ENDPOINTS.LIMBLE_KPIASSET, ENDPOINTS.ASSETS_FIELDS];
-    for(const url of candidates){
+    const list = [ENDPOINTS.PRODSTATUS, ENDPOINTS.LIMBLE_ASSETFIELDS, ENDPOINTS.LIMBLE_KPIASSET, ENDPOINTS.ASSETS_FIELDS];
+    for(const url of list){
       const payload = await fetchJSON(url);
       if(!payload) continue;
       let arr = Array.isArray(payload) ? payload : (Array.isArray(payload.rows) ? payload.rows : (Array.isArray(payload.items) ? payload.items : []));
-      if(!arr.length && typeof payload==='object'){
-        for(const p of Object.keys(payload)){
-          if(Array.isArray(payload[p]) && payload[p].length>0){ arr = payload[p]; break; }
-          if(typeof payload[p] === 'string' && payload[p].trim().startsWith('[')){
-            try{ arr = JSON.parse(payload[p]); break; } catch(e){}
-          }
-        }
+      if(!arr.length && typeof payload === 'object'){
+        for(const k of Object.keys(payload)){ if(Array.isArray(payload[k]) && payload[k].length){ arr = payload[k]; break; } }
       }
       if(!arr.length) continue;
       const norm = arr.map(it=>{
-        let name = it.assetName || it.name || it.AssetName || it.machine || it.asset || (it.asset && (it.asset.name || it.assetName)) || '';
+        let name = it.assetName || it.name || it.AssetName || it.machine || it.asset || (it.asset && (it.asset.name||it.assetName)) || '';
         if(!name && typeof it === 'string') name = it;
         let status = it.assetStatus ?? it.status ?? it.value ?? it.state ?? it.fieldValue ?? '';
-        if(status && typeof status === 'object'){ status = status.text ?? status.name ?? status.value ?? JSON.stringify(status); }
         return { source:url, raw:it, name: String(name||'').trim(), status: String(status||'').trim() };
       });
       const filtered = norm.filter(n => n.name && isGrindingMachine(n.name));
