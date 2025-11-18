@@ -13,11 +13,9 @@
       --bad-bg:#fee2e2;   --bad-fg:#7f1d1d;
       --shadow: 0 10px 25px rgba(0,0,0,.08);
       --chip:#f7fafc;
-
-      /* sizing */
-      --tile-head-fs: 30px;    /* ⬆ from 26px */
-      --rank-fs: 20px;         /* ⬆ from 18px */
-      --status-fs: 20px;       /* ⬆ from 18px */
+      --tile-head-fs: 30px;
+      --rank-fs: 20px;
+      --status-fs: 18px;
     }
     *{box-sizing:border-box}
     body{
@@ -34,8 +32,6 @@
         linear-gradient(to bottom, rgba(255,255,255,.75), rgba(255,255,255,.85)),
         url('img/PRIfront.png') center/cover no-repeat fixed;
     }
-
-    /* header (match pulse) */
     .top-border{position:fixed;top:0;left:0;width:100%;height:96px;background:var(--pri-green);z-index:10;display:flex;align-items:center;padding:0 20px}
     .top-border .logo{height:72px}
     .top-title{font-size:32px;font-weight:900;margin-left:20px;color:#0A2A12}
@@ -65,21 +61,24 @@
     .kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:8px}
     .tile, .kpi{background:var(--card);padding:12px;border-radius:12px;border:1px solid var(--border);text-align:center;min-height:84px;box-shadow:var(--shadow)}
     .tile .lab,.kpi .label{font-size:14px;text-transform:uppercase;letter-spacing:.3px;color:var(--muted);font-weight:900}
-    .tile .val{font-size:22px;font-weight:900;margin-top:6px}
+    .tile .val{font-size:24px;font-weight:900;margin-top:6px}
+    .tile .meta{font-size:13px;color:var(--muted);font-weight:800;margin-top:6px}
     .subtext{font-size:12px;color:var(--muted);margin-top:6px}
 
-    .lines{display:grid;grid-auto-rows:minmax(72px,auto);gap:12px}
-    .line{border:1px solid var(--border);border-radius:12px;padding:12px;background:white;display:flex;flex-direction:column}
+    .lines{display:grid;grid-auto-rows:minmax(80px,auto);gap:14px}
+    .line{border:1px solid var(--border);border-radius:12px;padding:14px;background:white;display:flex;flex-direction:column;transition:transform .12s}
+    .line:hover{transform:translateY(-4px)}
     .lineheader{display:flex;justify-content:space-between;align-items:center}
-    .linename{font-weight:900}
-    .capright{font-size:12px;color:var(--muted);font-weight:800}
+    .linename{font-weight:900;font-size:20px}
+    .capright{font-size:13px;color:var(--muted);font-weight:900}
+    .matBadge{font-size:12px;padding:6px 8px;border-radius:999px;background:#f1f7f2;border:1px solid #d6efdd;color:#065f2a;font-weight:900;margin-left:8px}
 
-    .metricrow{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:8px}
-    .mitem{background:#f7fafc;border:1px solid var(--border);border-radius:10px;padding:8px;min-width:0}
+    .metricrow{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:10px}
+    .mitem{background:#f7fafc;border:1px solid var(--border);border-radius:10px;padding:10px;min-width:0}
     .mitem .label{font-size:12px;color:var(--muted);font-weight:800}
-    .mitem .mkv{font-size:18px;font-weight:900}
+    .mitem .mkv{font-size:20px;font-weight:900}
 
-    #grindStatusList > div{margin-bottom:8px;padding:8px 10px;border-radius:12px;border:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;font-size:14px;background:#f9fafb;font-weight:800}
+    #grindStatusList > div{margin-bottom:8px;padding:12px 14px;border-radius:12px;border:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;font-size:18px;background:#fff;font-weight:900;box-shadow:0 6px 18px rgba(9,30,66,.04)}
     #rankTable{width:100%;border-collapse:collapse;font-size:14px;table-layout:fixed}
     #rankTable th,#rankTable td{padding:10px;border-bottom:1px dashed var(--border)}
     #rankTable th{text-align:center;color:var(--muted);font-weight:900}
@@ -87,20 +86,22 @@
     #rankTable td.center{text-align:center}
 
     .donutwrap{display:grid;grid-auto-rows:minmax(120px,auto);row-gap:18px}
-    .donutrow{display:grid;grid-template-columns:320px minmax(320px,1fr);column-gap:20px;align-items:center}
+    .donutrow{display:grid;grid-template-columns:220px 1fr;column-gap:18px;align-items:center}
     .donutrow canvas{width:200px !important;height:200px !important;justify-self:center}
+    .legend{display:flex;flex-direction:column;gap:8px;padding-left:10px}
+    .legend .item{display:flex;align-items:center;gap:10px;justify-content:flex-end}
+    .bullet{width:14px;height:14px;border-radius:50%;flex:0 0 14px}
+    .legend .label{font-weight:900;color:var(--muted);flex:1;text-align:left}
+    .legend .val{font-weight:900;color:var(--muted);width:90px;text-align:right}
 
     footer{display:flex;justify-content:space-between;align-items:center;margin-top:12px;color:var(--muted);font-weight:900}
     .clock{font-variant-numeric:tabular-nums;font-weight:900}
 
-    /* smaller tweaks for large displays */
     @media (min-width:2560px){
       .app{max-width:2560px}
       .tile .val{font-size:28px}
-      .kpi .value{font-size:46px}
       #rankTable {font-size: 22px;}
     }
-
   </style>
 </head>
 <body class="page-production">
@@ -143,30 +144,41 @@
         </div>
       </div>
 
-      <!-- Overall KPIs -->
       <section class="card" style="margin-bottom:16px">
         <h3>Grinding – Overall KPIs</h3>
         <div class="content">
           <div style="font-size:12px;color:var(--muted);margin-bottom:8px">Range: <span id="rangeLabel">—</span></div>
           <div class="kpis">
-            <div id="tile-grind-av" class="tile"><div class="lab">Grinding Availability</div><div class="val" id="ov-grind-av">0%</div><div class="subtext" id="ov-grind-av-sub"></div></div>
-            <div id="tile-maint-dt" class="tile"><div class="lab">Maintenance Downtime</div><div class="val" id="ov-maint-dt">0%</div><div class="subtext" id="ov-maint-dt-sub"></div></div>
-            <div id="tile-performance" class="tile"><div class="lab">Performance</div><div class="val" id="ov-pr">0%</div><div class="subtext" id="ov-pr-sub"></div></div>
+            <div id="tile-grind-av" class="tile">
+              <div class="lab">Grinding Availability</div>
+              <div class="val" id="ov-grind-av">0%</div>
+              <div class="meta" id="ov-grind-av-sub"></div>
+            </div>
+            <div id="tile-maint-dt" class="tile">
+              <div class="lab">Maintenance Downtime</div>
+              <div class="val" id="ov-maint-dt">0%</div>
+              <div class="meta" id="ov-maint-dt-sub"></div>
+            </div>
+            <div id="tile-performance" class="tile">
+              <div class="lab">Performance</div>
+              <div class="val" id="ov-pr">0%</div>
+              <div class="meta" id="ov-pr-sub"></div>
+            </div>
           </div>
         </div>
       </section>
 
       <div class="grid" style="margin-bottom:16px">
         <article class="card">
-          <h3>LIVE Line Status — Grinding</h3>
+          <h3 style="font-size:20px">LIVE Line Status — Grinding</h3>
           <div class="content">
             <div id="grindStatusList" style="min-height:120px"></div>
-            <div style="margin-top:8px;font-size:12px;color:var(--muted)">Status is filtered to grinding lines only (Shredders 1/3/5, Weima, Vistakon 1/2, PCR).</div>
+            <div style="margin-top:8px;font-size:12px;color:var(--muted)">Status filtered to grinding lines only.</div>
           </div>
         </article>
 
         <article class="card">
-          <h3>Line Health — Availability & Performance</h3>
+          <h3 style="font-size:20px">Line Health — Availability & Performance</h3>
           <div class="content">
             <div id="linesGrid" class="lines"></div>
           </div>
@@ -177,27 +189,18 @@
         <article class="card">
           <h3>Downtime Overview — Grinding & Maintenance</h3>
           <div class="content">
-            <div style="display:flex;gap:12px;flex-wrap:wrap">
-              <div style="flex:0 0 220px">
-                <canvas id="donutMaint" width="220" height="220"></canvas>
-                <div style="text-align:center;margin-top:6px;font-weight:800" id="donutMaintLabel">0.0 maint h</div>
+            <div class="donutwrap">
+              <div class="donutrow">
+                <canvas id="donutProd" width="220" height="220"></canvas>
+                <div class="legend" id="legendProd"></div>
               </div>
-
-              <div style="flex:1;min-width:320px">
-                <div style="display:flex;gap:12px;flex-wrap:wrap">
-                  <div style="flex:1">
-                    <div style="font-weight:900">Production — Reasons</div>
-                    <div id="prodReasons" style="margin-top:8px"></div>
-                  </div>
-                  <div style="flex:1">
-                    <div style="font-weight:900">Maintenance — Category</div>
-                    <div id="maintCategories" style="margin-top:8px"></div>
-                  </div>
-                  <div style="flex:1">
-                    <div style="font-weight:900">Maintenance — Failure Mode</div>
-                    <div id="maintFailureModes" style="margin-top:8px"></div>
-                  </div>
-                </div>
+              <div class="donutrow">
+                <canvas id="donutMaintCat" width="220" height="220"></canvas>
+                <div class="legend" id="legendMaintCat"></div>
+              </div>
+              <div class="donutrow">
+                <canvas id="donutMaintMode" width="220" height="220"></canvas>
+                <div class="legend" id="legendMaintMode"></div>
               </div>
             </div>
             <div style="margin-top:12px;font-size:12px;color:var(--muted)">Charts show the top reasons/categories/modes for the selected range (grinding assets only).</div>
@@ -225,7 +228,6 @@
   </div>
 
 <script>
-  /* endpoints we will attempt for live asset-fields */
   const ENDPOINTS = {
     BY_LINE:'/api/production/by-line',
     PRODSTATUS:'/api/workorders/prodstatus',
@@ -235,17 +237,14 @@
     MAP:'mappings.json'
   };
   const STATE = { period:'today' };
-  const THRESH = { availability:{good:0.8,warn:0.6}, performance:{good:0.8,warn:0.6} };
   const $ = s => document.querySelector(s);
   const $$ = s => Array.from(document.querySelectorAll(s));
-
   function setLoading(v){ const el=$('#loading'); if(el) el.style.display = v ? 'flex' : 'none'; }
   async function fetchJSON(url, opts={}){ try{ const r = await fetch(url + (url.includes('?') ? '&' : '?') + 'ts=' + Date.now(), opts); if(!r.ok) throw new Error(r.status); return await r.json(); } catch(e){ console.warn('fetchJSON fail', url, e); return null; } }
   function fmtPct(v){ return Number.isFinite(v) ? (Math.round(v*100)+'%') : '0%'; }
   function fmtNum(n){ return Number.isFinite(n) ? Math.round(n).toLocaleString() : '0'; }
   function fmtH(v){ return Number.isFinite(v) ? v.toFixed(1) : '0.0'; }
 
-  /* robust field extraction (same as prior) */
   function machineNameFromRow(r){ if(!r) return ''; return String(r.machine || r.asset || r.name || r.assetName || r.AssetName || r.machineName || r.device || r.Asset || '').trim(); }
   function poundsFromRow(r){ return Number(r.pounds ?? r.lbs ?? r.weight ?? r.total_lbs ?? r.pounds_total ?? 0) || 0; }
   function machineHoursFromRow(r){ return Number(r.machine_hours ?? r.run_h ?? r.runHours ?? r.runtime_h ?? r.run_time ?? 0) || 0; }
@@ -254,7 +253,6 @@
   function nameplateFromRow(r){ return Number(r.nameplate_lbs_hr ?? r.nameplate ?? r.cap ?? r.cap_lbs_hr ?? 0) || 0; }
   function materialFromRow(r){ return String(r.material || r.mat || r.resin || '').toUpperCase(); }
 
-  /* mappings loader */
   let MAPPINGS = null;
   async function loadMappings(){ if(MAPPINGS) return MAPPINGS; try { const j = await fetchJSON(ENDPOINTS.MAP); MAPPINGS = j || {}; } catch(e){ MAPPINGS = {}; } return MAPPINGS; }
   function capacityFor(lineName, material){
@@ -264,7 +262,6 @@
     return (byMat[canon]?.[m]) ?? (byMat[canon]?.DEFAULT) ?? caps[canon] ?? 0;
   }
 
-  /* grinding canonical */
   const GRIND_CANON = [
     {canon:'Shredder 1', aliases:['Shredder 1','Shredding Line 1','Shredding 1']},
     {canon:'Shredder 3', aliases:['Shredder 3','Shredding Line 3','Shredding 3']},
@@ -279,85 +276,99 @@
   function canonGrinding(n){ return GRIND_ALIAS_REV.get(String(n||'').trim()) || String(n||'').trim(); }
   function isGrindingMachine(n){ return GRIND_CANON_SET.has(canonGrinding(n)); }
 
-  /* simple donut (percent style) */
-  function drawDonut(canvas, pct, colorMain='#16a34a', colorOther='#e5e7eb'){
+  function drawDonutSegments(canvas, segments){
     if(!canvas) return;
-    const ctx = canvas.getContext('2d'), w=canvas.width, h=canvas.height;
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width, h = canvas.height;
     ctx.clearRect(0,0,w,h);
-    const cx=w/2, cy=h/2, r=Math.min(w,h)/2-8, t=26;
-    const main = Math.max(0, Math.min(100, pct));
-    const parts=[{v:main,color:colorMain},{v:100-main,color:colorOther}];
-    let start=-Math.PI/2;
-    for(const p of parts){ const ang = (p.v/100)*Math.PI*2; ctx.beginPath(); ctx.arc(cx,cy,r,start,start+ang); ctx.arc(cx,cy,r-t,start+ang,start,true); ctx.closePath(); ctx.fillStyle=p.color; ctx.fill(); start+=ang; }
-    ctx.fillStyle='#111'; ctx.font='800 18px system-ui'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(Math.round(main)+'%', cx, cy);
+    const cx = w/2, cy = h/2, r = Math.min(w,h)/2 - 10, inner = r*0.55;
+    const total = segments.reduce((s,x)=>s + (x.value||0),0) || 1;
+    let start = -Math.PI/2;
+    for(const seg of segments){
+      const ang = (seg.value/total) * Math.PI * 2;
+      ctx.beginPath();
+      ctx.moveTo(cx,cy);
+      ctx.arc(cx,cy,r,start,start+ang,false);
+      ctx.arc(cx,cy,inner,start+ang,start,true);
+      ctx.closePath();
+      ctx.fillStyle = seg.color;
+      ctx.fill();
+      start += ang;
+    }
+    // center text
+    ctx.fillStyle = '#0b1722';
+    ctx.font = '800 18px system-ui';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    const pct = Math.round((segments[0]?.value||0) / total * 100);
+    ctx.fillText(pct + '%', cx, cy);
   }
 
-  /* attempt multiple endpoints for live asset status — returns normalized array */
   async function loadAssetStatusCandidates(){
     const candidates = [ENDPOINTS.PRODSTATUS, ENDPOINTS.LIMBLE_ASSETFIELDS, ENDPOINTS.LIMBLE_KPIASSET, ENDPOINTS.ASSETS_FIELDS];
     for(const url of candidates){
       const payload = await fetchJSON(url);
-      if(!payload) { console.debug('no payload from',url); continue; }
-      // try to find array in payload
+      if(!payload) continue;
       let arr = Array.isArray(payload) ? payload : (Array.isArray(payload.rows) ? payload.rows : (Array.isArray(payload.items) ? payload.items : []));
-      if(!arr || !arr.length){
-        if(typeof payload==='object'){
-          const props = Object.keys(payload);
-          for(const p of props){
-            if(Array.isArray(payload[p]) && payload[p].length>0){ arr = payload[p]; break; }
-            if(typeof payload[p] === 'string' && payload[p].trim().startsWith('[')){
-              try{ arr = JSON.parse(payload[p]); break; } catch(e){}
-            }
+      if(!arr.length && typeof payload==='object'){
+        for(const p of Object.keys(payload)){
+          if(Array.isArray(payload[p]) && payload[p].length>0){ arr = payload[p]; break; }
+          if(typeof payload[p] === 'string' && payload[p].trim().startsWith('[')){
+            try{ arr = JSON.parse(payload[p]); break; } catch(e){}
           }
         }
       }
-      if(!arr || !arr.length){ console.debug('no array discovered at',url); continue; }
-      const normalized = arr.map(it => {
-        const get = k => (it && (it[k]!==undefined)) ? it[k] : null;
+      if(!arr.length) continue;
+      const norm = arr.map(it=>{
         let name = it.assetName || it.name || it.AssetName || it.machine || it.asset || (it.asset && (it.asset.name || it.assetName)) || '';
         if(!name && typeof it === 'string') name = it;
         let status = it.assetStatus ?? it.status ?? it.value ?? it.state ?? it.fieldValue ?? '';
         if(status && typeof status === 'object'){ status = status.text ?? status.name ?? status.value ?? JSON.stringify(status); }
         return { source:url, raw:it, name: String(name||'').trim(), status: String(status||'').trim() };
       });
-      const filtered = normalized.filter(n => n.name && isGrindingMachine(n.name));
-      if(filtered.length>0){
-        console.log('live status payload succeeded at',url, 'count', filtered.length);
-        return { source:url, rows: filtered };
-      } else {
-        console.debug('endpoint',url,'returned rows but none matched grinding assets, sample names:', normalized.slice(0,6).map(x=>x.name));
-      }
+      const filtered = norm.filter(n => n.name && isGrindingMachine(n.name));
+      if(filtered.length>0) return { source:url, rows: filtered };
     }
     return { source:null, rows: [] };
   }
 
-  /* small helper to render list of simple colored bars (top items) */
   function renderListBar(container, list){
     container.innerHTML = '';
     const top = list.slice(0,6);
     const max = top.reduce((m,x)=>Math.max(m,x.value||0),0) || 1;
-    for(const it of top){
+    top.forEach(it=>{
       const row = document.createElement('div');
       row.style.display='flex'; row.style.alignItems='center'; row.style.gap='8px'; row.style.marginBottom='6px';
-      const label = document.createElement('div'); label.style.flex='1'; label.textContent = it.key; label.style.fontWeight='800'; label.style.fontSize='13px';
+      const label = document.createElement('div'); label.style.flex='1'; label.textContent = it.key; label.style.fontWeight='900'; label.style.fontSize='14px';
       const barwrap = document.createElement('div'); barwrap.style.flex='1';
-      const bar = document.createElement('div'); bar.style.height='14px'; bar.style.borderRadius='8px'; bar.style.background='#e6f4e6'; bar.style.overflow='hidden';
+      const bar = document.createElement('div'); bar.style.height='12px'; bar.style.borderRadius='8px'; bar.style.background='#eef6f0'; bar.style.overflow='hidden';
       const inner = document.createElement('div'); inner.style.width = Math.round((it.value/max)*100)+'%'; inner.style.height='100%'; inner.style.background='linear-gradient(90deg,#0AAC00,#42C36A)';
-      const val = document.createElement('div'); val.style.width='80px'; val.style.textAlign='right'; val.textContent = fmtNum(it.value);
+      const val = document.createElement('div'); val.style.width='80px'; val.style.textAlign='right'; val.textContent = fmtH(it.value);
       bar.appendChild(inner); barwrap.appendChild(bar);
       row.appendChild(label); row.appendChild(barwrap); row.appendChild(val);
       container.appendChild(row);
-    }
+    });
   }
 
-  /* main render function */
+  function makeLegend(containerEl, arr, colors){
+    containerEl.innerHTML = '';
+    const total = arr.reduce((s,x)=>s + (x.value||0),0) || 1;
+    arr.slice(0,5).forEach((it,i)=>{
+      const row = document.createElement('div'); row.className='item';
+      const bullet = document.createElement('div'); bullet.className='bullet'; bullet.style.background = colors[i] || '#ddd';
+      const label = document.createElement('div'); label.className='label'; label.textContent = it.key;
+      const val = document.createElement('div'); val.className='val'; val.textContent = fmtH(it.value) + ' h';
+      const pct = document.createElement('div'); pct.style.width='50px'; pct.style.textAlign='right'; pct.style.color='var(--muted)'; pct.style.fontWeight='800'; pct.textContent = Math.round((it.value/total)*100) + '%';
+      row.appendChild(bullet); row.appendChild(label); row.appendChild(val); row.appendChild(pct);
+      containerEl.appendChild(row);
+    });
+  }
+
   async function renderGrinding(){
     setLoading(true);
     try{
       await loadMappings();
       $('#periodBadge').textContent = '• ' + (STATE.period || 'today');
       $$('.segBig button').forEach(b=>b.classList.toggle('active', b.dataset.period===STATE.period));
-      /* compute dates (same simple logic) */
       const now=new Date(); now.setHours(0,0,0,0);
       function iso(d){ return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10); }
       let from,to;
@@ -372,15 +383,10 @@
       }
       $('#rangeLabel').textContent = `${from} → ${to}`;
 
-      /* fetch production by-line and try the asset status endpoints in parallel */
       const [bylineRaw, assetStatusCandidate] = await Promise.all([
         fetchJSON(`${ENDPOINTS.BY_LINE}?from=${from}&to=${to}`),
         loadAssetStatusCandidates()
       ]);
-      console.debug('bylineRaw sample', Array.isArray(bylineRaw) ? bylineRaw.slice(0,4) : bylineRaw);
-      console.debug('assetStatusCandidate', assetStatusCandidate);
-
-      // normalize by-line
       const rawRows = Array.isArray(bylineRaw) ? bylineRaw : (bylineRaw && (Array.isArray(bylineRaw.rows) ? bylineRaw.rows : (Array.isArray(bylineRaw.items) ? bylineRaw.items : [])));
       const parsed = (rawRows||[]).map(r=>{
         const machine = machineNameFromRow(r);
@@ -396,27 +402,32 @@
         };
       });
       const grindingRows = parsed.filter(p=>p.machine && isGrindingMachine(p.machine));
-      console.debug('grindingRows count', grindingRows.length);
 
-      // aggregate
+      // aggregate w/ material maps
       const agg = {};
       for(const r of grindingRows){
         const canon = canonGrinding(r.machine);
         const capFromMap = capacityFor(canon, r.material);
         const cap = r.nameplate > 0 ? r.nameplate : capFromMap || 0;
-        if(!agg[canon]) agg[canon] = { name:canon, lbs:0, maint:0, prod:0, mach:0, cap:cap, days:1 };
+        if(!agg[canon]) agg[canon] = { name:canon, lbs:0, maint:0, prod:0, mach:0, cap:cap, days:1, matcount: {} };
         agg[canon].lbs += Math.max(0, r.pounds);
         agg[canon].maint += Math.max(0, r.maint);
         agg[canon].prod += Math.max(0, r.prod);
         agg[canon].mach += Math.max(0, r.machineHours);
+        const m = (r.material || 'UNKNOWN').toUpperCase();
+        agg[canon].matcount[m] = (agg[canon].matcount[m]||0) + 1;
         if(cap>0) agg[canon].cap = cap;
       }
-      // compute weekdays count
+
+      // days
       const fromD=new Date(from+'T00:00:00'), toD=new Date(to+'T00:00:00');
       let days=0; for(let d=new Date(fromD); d<=toD; d.setDate(d.getDate()+1)){ const wd=d.getDay(); if(wd!==0 && wd!==6) days++; } days = Math.max(1, days);
       Object.values(agg).forEach(a=>a.days=days);
 
       const perLine = Object.values(agg).map(a=>{
+        // dominant material
+        const matEntries = Object.entries(a.matcount || {});
+        const domMat = matEntries.length ? matEntries.sort((x,y)=>y[1]-x[1])[0][0] : 'N/A';
         const plannedH = 24 * a.days;
         const runtimeH = a.mach > 0 ? a.mach : (a.cap>0 ? (a.lbs / a.cap) : 0);
         const avail = plannedH > 0 ? runtimeH / plannedH : 0;
@@ -425,88 +436,111 @@
         const oee = avail * perfAdj;
         const capPotential = a.cap>0 ? a.cap * runtimeH : 0;
         const missed = Math.max(0, capPotential - a.lbs);
-        return {...a, plannedH, runtimeH, avail, perfAdj, oee, missed};
+        return {...a, plannedH, runtimeH, avail, perfAdj, oee, missed, dominantMaterial: domMat};
       });
 
-      // overall
-      const totals = perLine.reduce((s,x)=>{ s.lbs+=x.lbs; s.maint+=x.maint; s.runtime+=x.runtimeH; s.planned+=x.plannedH; s.missed+=x.missed; s.caps+=x.cap; s.count++; return s; }, {lbs:0,maint:0,runtime:0,planned:0,missed:0,caps:0,count:0});
+      // totals
+      const totals = perLine.reduce((s,x)=>{ s.lbs+=x.lbs; s.maint+=x.maint; s.runtime+=x.runtimeH; s.planned+=x.plannedH; s.missed+=x.missed; s.caps+=x.cap; s.prod+=x.prod; s.count++; return s; }, {lbs:0,maint:0,runtime:0,planned:0,missed:0,caps:0,prod:0,count:0});
       const overallAvail = totals.planned>0 ? (totals.runtime / totals.planned) : 0;
       const avgCap = totals.count ? (totals.caps / totals.count) : 0;
       const overallAdjDen = Math.max(1e-9, (totals.planned - totals.maint) * avgCap);
       const overallPerfAdj = overallAdjDen>0 ? (totals.lbs / overallAdjDen) : 0;
 
-      // render overall tiles
+      // render overall tiles, include production downtime beside maint
       $('#ov-grind-av').textContent = fmtPct(overallAvail);
       $('#ov-grind-av-sub').textContent = `${fmtNum(Math.round(totals.runtime))} run h • ${fmtNum(Math.round(totals.planned))} planned h`;
       $('#ov-maint-dt').textContent = fmtPct(totals.planned ? (totals.maint / totals.planned) : 0);
-      $('#donutMaintLabel').textContent = `${fmtH(totals.maint)} maint h • ${fmtH(totals.runtime)} run h`;
+      $('#ov-maint-dt-sub').textContent = `${fmtH(totals.maint)} maint h • ${fmtH(totals.prod)} prod dt h`;
       $('#ov-pr').textContent = fmtPct(overallPerfAdj);
-      drawDonut($('#donutMaint'), Math.min(100, (totals.maint / Math.max(1, totals.planned))*100), '#ef4444');
+      $('#ov-pr-sub').textContent = `${fmtNum(Math.round(totals.lbs))} lbs • avg cap ${fmtNum(Math.round(avgCap))} lbs/hr`;
 
-      // Line Health cards with capacity shown
+      // Donut data: build maps from rawRows
+      const prodReasonsMap = {};
+      const maintCatsMap = {};
+      const maintModesMap = {};
+      (rawRows||[]).forEach(r=>{
+        const rReason = r.reason || r.downtimeReason || r.dt_reason || r.DowntimeReason || r.prod_reason || '';
+        const rCat = r.maintenanceCategory || r.category || r.maint_category || r.maint_cat || '';
+        const rMode = r.failureMode || r.mode || r.failure_mode || '';
+        if(rReason) prodReasonsMap[rReason] = (prodReasonsMap[rReason]||0) + (r.prod_dt_h || r.prod_h || 1);
+        if(rCat) maintCatsMap[rCat] = (maintCatsMap[rCat]||0) + (r.maint_dt_h || r.maint_h || 1);
+        if(rMode) maintModesMap[rMode] = (maintModesMap[rMode]||0) + (r.maint_dt_h || r.maint_h || 1);
+      });
+      const prodReasonsArr = Object.keys(prodReasonsMap).map(k=>({key:k,value:prodReasonsMap[k]})).sort((a,b)=>b.value-a.value);
+      const maintCatsArr = Object.keys(maintCatsMap).map(k=>({key:k,value:maintCatsMap[k]})).sort((a,b)=>b.value-a.value);
+      const maintModesArr = Object.keys(maintModesMap).map(k=>({key:k,value:maintModesMap[k]})).sort((a,b)=>b.value-a.value);
+
+      // default fallback if no data so charts still render
+      const prodSeed = prodReasonsArr.length ? prodReasonsArr : [{key:'UNSTATED',value: (totals.prod || 0) || 1}];
+      const mcatSeed = maintCatsArr.length ? maintCatsArr : [{key:'Other',value:1}];
+      const mmodeSeed = maintModesArr.length ? maintModesArr : [{key:'Machine Damaged',value:1}];
+
+      // choose color palettes (mirror pulse look)
+      const prodColors = ['#4b5563','#0b7a4a','#d1d5db','#1e40af','#f59e0b'];
+      const catColors = ['#1f2937','#d1d5db','#0b7a4a','#ef4444'];
+      const modeColors = ['#071332','#ef6b2f','#1e40af','#94a3b8'];
+
+      // prepare segments arrays: ensure top-first ordering
+      const segProd = prodSeed.slice(0,6).map((it,i)=>({ value: it.value, color: prodColors[i] || '#ccc', key: it.key }));
+      const segCat = mcatSeed.slice(0,6).map((it,i)=>({ value: it.value, color: catColors[i] || '#ccc', key: it.key }));
+      const segMode = mmodeSeed.slice(0,6).map((it,i)=>({ value: it.value, color: modeColors[i] || '#ccc', key: it.key }));
+
+      drawDonutSegments($('#donutProd'), segProd);
+      makeLegend($('#legendProd'), prodSeed, prodColors);
+
+      drawDonutSegments($('#donutMaintCat'), segCat);
+      makeLegend($('#legendMaintCat'), mcatSeed, catColors);
+
+      drawDonutSegments($('#donutMaintMode'), segMode);
+      makeLegend($('#legendMaintMode'), mmodeSeed, modeColors);
+
+      // Line Health cards with material and prod downtime shown, nicer fonts
       const linesGrid = $('#linesGrid'); linesGrid.innerHTML = '';
       perLine.sort((a,b)=> (b.perfAdj||0) - (a.perfAdj||0)).forEach(l=>{
         const div = document.createElement('div'); div.className='line';
         const capText = (l.cap && l.cap>0) ? `${fmtNum(l.cap)} lbs/hr` : 'cap unknown';
+        const domMat = l.dominantMaterial || 'N/A';
         div.innerHTML = `
           <div class="lineheader">
             <div style="display:flex;gap:12px;align-items:center">
               <div class="linename">${l.name}</div>
-              <div class="capright">${capText}</div>
+              <div class="matBadge">${domMat}</div>
+              <div class="capright" style="margin-left:8px">${capText}</div>
             </div>
-            <div class="capright">${Math.round((l.perfAdj||0)*100)}%</div>
+            <div class="capright" style="font-size:18px">${Math.round((l.perfAdj||0)*100)}%</div>
           </div>
           <div class="metricrow">
             <div class="mitem"><div class="label">Availability</div><div class="mkv">${fmtPct(l.avail)}</div></div>
             <div class="mitem"><div class="label">Perf Adj</div><div class="mkv">${fmtPct(l.perfAdj)}</div></div>
             <div class="mitem"><div class="label">Runtime h</div><div class="mkv">${fmtH(l.runtimeH)}</div></div>
-            <div class="mitem"><div class="label">Maint h</div><div class="mkv">${fmtH(l.maint)}</div></div>
+            <div class="mitem"><div class="label">Maint h</div><div class="mkv">${fmtH(l.maint)} / ${fmtH(l.prod)}</div></div>
           </div>
-          <div style="margin-top:8px;font-size:12px;color:var(--muted)">Grinding downtime: ${fmtH(l.prod)} h</div>
+          <div style="margin-top:10px;font-size:13px;color:var(--muted)">Grinding downtime: <strong>${fmtH(l.prod)} h</strong> • ${fmtNum(l.lbs)} lb</div>
         `;
         linesGrid.appendChild(div);
       });
 
-      // Downtime breakdown placeholders (we attempt to pull reasons from bylineRaw rows if present)
-      const prodReasonsMap = {};
-      const maintCatsMap = {};
-      const maintModesMap = {};
-      (rawRows||[]).forEach(r=>{
-        const rReason = r.reason || r.downtimeReason || r.dt_reason || r.DowntimeReason || '';
-        const rCat = r.maintenanceCategory || r.category || r.maint_category || '';
-        const rMode = r.failureMode || r.mode || r.failure_mode || '';
-        if(rReason) prodReasonsMap[rReason] = (prodReasonsMap[rReason]||0) + (poundsFromRow(r) || 1);
-        if(rCat) maintCatsMap[rCat] = (maintCatsMap[rCat]||0) + 1;
-        if(rMode) maintModesMap[rMode] = (maintModesMap[rMode]||0) + 1;
-      });
-      const prodReasonsArr = Object.keys(prodReasonsMap).map(k=>({key:k,value:prodReasonsMap[k]})).sort((a,b)=>b.value-a.value);
-      const maintCatsArr = Object.keys(maintCatsMap).map(k=>({key:k,value:maintCatsMap[k]})).sort((a,b)=>b.value-a.value);
-      const maintModesArr = Object.keys(maintModesMap).map(k=>({key:k,value:maintModesMap[k]})).sort((a,b)=>b.value-a.value);
-      renderListBar($('#prodReasons'), prodReasonsArr.length?prodReasonsArr:[{key:'No data',value:0}]);
-      renderListBar($('#maintCategories'), maintCatsArr.length?maintCatsArr:[{key:'No data',value:0}]);
-      renderListBar($('#maintFailureModes'), maintModesArr.length?maintModesArr:[{key:'No data',value:0}]);
-
-      // Rank table (perf desc then avail desc)
+      // summary rank table
       const tbody = $('#rankTable tbody'); tbody.innerHTML = '';
       perLine.sort((a,b) => ((b.perfAdj||0) - (a.perfAdj||0)) || ((b.avail||0) - (a.avail||0)));
       perLine.forEach(r=>{
         const tr = document.createElement('tr');
-        tr.innerHTML = `<td class="left">${r.name}</td><td class="center">${fmtPct(r.perfAdj)}</td><td class="center">${fmtPct(r.avail)}</td><td class="center">${fmtNum(r.lbs)}</td><td class="center">${fmtNum(r.missed)}</td>`;
+        tr.innerHTML = `<td class="left">${r.name} <div style="font-size:12px;color:var(--muted);font-weight:800">${r.dominantMaterial || ''}</div></td><td class="center">${fmtPct(r.perfAdj)}</td><td class="center">${fmtPct(r.avail)}</td><td class="center">${fmtNum(r.lbs)}</td><td class="center">${fmtNum(r.missed)}</td>`;
         tbody.appendChild(tr);
       });
 
-      // Live status rendering from assetStatusCandidate.rows
+      // live status
       const statusEl = $('#grindStatusList'); statusEl.innerHTML = '';
       const statuses = assetStatusCandidate?.rows || [];
       statuses.sort((a,b)=> canonGrinding(a.name).localeCompare(canonGrinding(b.name)));
       if(statuses.length===0){
-        statusEl.innerHTML = '<div style="color:var(--muted);font-weight:800">No live status found for grinding assets from the attempted endpoints. Please check server-side mapping or dbo.LimbleKPIAssetFields SQL table.</div>';
+        statusEl.innerHTML = '<div style="color:var(--muted);font-weight:900">No live status found for grinding assets from the attempted endpoints.</div>';
       } else {
         statuses.forEach(S => {
           const row = document.createElement('div');
           const label = canonGrinding(S.name);
           const st = S.status || (S.raw && (S.raw.assetStatus || S.raw.status || S.raw.value || '')) || 'Available';
-          row.innerHTML = `<span><strong>${label}</strong></span><span style="font-size:12px;color:var(--muted);font-weight:700">${st}</span>`;
+          row.innerHTML = `<span style="font-size:18px"><strong>${label}</strong></span><span style="font-size:15px;color:var(--muted);font-weight:800">${st}</span>`;
           statusEl.appendChild(row);
         });
       }
@@ -517,12 +551,10 @@
     }
   }
 
-  // wire timeframe buttons
   $$('.segBig button').forEach(btn => btn.addEventListener('click', () => {
     if(btn.dataset.period && btn.dataset.period !== STATE.period){ STATE.period = btn.dataset.period; renderGrinding(); }
   }));
 
-  // fullscreen hotkey
   document.addEventListener('keydown', (e)=>{
     if (e.key.toLowerCase()==='f') {
       if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(()=>{});
@@ -530,22 +562,10 @@
     }
   });
 
-  // clock
   setInterval(()=>{ const c=$('#clock'); if(c) c.textContent = new Date().toLocaleTimeString(); },1000);
-
-  // initial
   renderGrinding();
-
-  // keep a moderate auto-refresh (10m like Pulse)
-  setInterval(() => {
-    renderGrinding();
-  }, 10 * 60 * 1000);
-
-  // helper: clicking period buttons will update UI active class when done externally
-  document.addEventListener('DOMContentLoaded', () => {
-    // ensure tfButtons initial active state matches STATE.period
-    $$('.segBig button').forEach(b => b.classList.toggle('active', b.dataset.period === STATE.period));
-  });
+  setInterval(() => { renderGrinding(); }, 10 * 60 * 1000);
+  document.addEventListener('DOMContentLoaded', () => { $$('.segBig button').forEach(b => b.classList.toggle('active', b.dataset.period === STATE.period)); });
 </script>
 </body>
 </html>
