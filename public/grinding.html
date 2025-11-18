@@ -676,9 +676,10 @@
 
   // wire timeframe buttons
   document.addEventListener('click', function(e){
-    const btn = e.target.closest && e.target.closest('.segBig button');
-    if(btn && btn.dataset && btn.dataset.period){
-      if(btn.dataset.period !== STATE.period){ STATE.period = btn.dataset.period; renderGrinding(); }
+    const btn = e.target.closest('.segBig button');
+    if (btn?.dataset?.period && btn.dataset.period !== STATE.period) {
+      STATE.period = btn.dataset.period;
+      renderGrinding();
     }
   });
 
