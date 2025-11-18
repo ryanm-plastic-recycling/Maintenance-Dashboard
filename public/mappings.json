@@ -432,8 +432,8 @@
     "Shredder 5": 1813,
     "Weima": 2897,
     "Vistakon 1": 3440,
-    "Vistakon 2": 2500,
-    "PCR Washline": 5000
+    "Vistakon 2": 3259,
+    "PCR Washline": 1230
   },
   "capacity_by_material_lbs_hr": {
     "Extruder NGR": { 
@@ -542,34 +542,30 @@
       "PP": 2897
     },
     "Vistakon 1": { 
-      "DEFAULT": 2100, 
-      "CRY": 2250, 
-      "EPP": 1450, 
-      "EPS": 1250, 
-      "HIPS": 2510, 
-      "PP": 1200, 
-      "PS": 1800, 
-      "PS/PP": 830 
+      "DEFAULT": 3440, 
+      "CRY": 3440, 
+      "ABS": 1664,  
+      "HIPS": 781, 
+      "PET": 365,
+      "PP": 1531, 
+      "PS": 1488, 
+      "PS/PP": 1500 
     },
     "Vistakon 2": { 
-      "DEFAULT": 2100, 
-      "CRY": 2250, 
-      "EPP": 1450, 
-      "EPS": 1250, 
-      "HIPS": 2510, 
-      "PP": 1200, 
-      "PS": 1800, 
-      "PS/PP": 830 
+      "DEFAULT": 3259, 
+      "CRY": 2040, 
+      "CD": 3259, 
+      "PET": 338,  
+      "PP": 2205, 
+      "PS": 2248, 
+      "PS/PP": 2220 
     },
     "PCR Washline": { 
-      "DEFAULT": 2100, 
-      "CRY": 2250, 
-      "EPP": 1450, 
-      "EPS": 1250, 
-      "HIPS": 2510, 
-      "PP": 1200, 
-      "PS": 1800, 
-      "PS/PP": 830 
+      "DEFAULT": 1230, 
+      "CRY": 948,  
+      "HDPE": 514, 
+      "HIPS": 875, 
+      "PP": 1230
     }
   },
    "material_aliases": {
