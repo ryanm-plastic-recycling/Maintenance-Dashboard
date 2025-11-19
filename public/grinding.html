@@ -445,26 +445,6 @@ async function renderGrinding(){
     // only keep grinding machines by keyword
     const grindingRows = parsed.filter(p => p.machine && isGrindingMachineByName(p.machine));
 
-    //const limbleMaintMap = {};
-    if(limblePayload){
-      let lp = Array.isArray(limblePayload) ? limblePayload : (Array.isArray(limblePayload.rows) ? limblePayload.rows : (Array.isArray(limblePayload.items) ? limblePayload.items : []));
-      if(!lp.length && typeof limblePayload === 'object'){
-        for(const k of Object.keys(limblePayload)){
-          if(Array.isArray(limblePayload[k]) && limblePayload[k].length) { lp = limblePayload[k]; break; }
-        }
-      }
-      if(Array.isArray(lp)){
-        lp.forEach(it=>{
-          const name = machineNameFromRow(it) || machineNameFromRow(it.raw || it);
-          const mCandidate = it.maintenance_hours ?? it.maint_hours ?? it.maint_h ?? it.maintenance_h ?? it.maintenance ?? it.total_maintenance_hours ?? it.maint ?? 0;
-          const m = Number(mCandidate) || 0;
-          if(name && isGrindingMachineByName(name)){
-            limbleMaintMap[name.trim()] = (limbleMaintMap[name.trim()] || 0) + m;
-          }
-        });
-      }
-    }
-
     // aggregate per canonical grinding name (coarse)
     const agg = {};
     grindingRows.forEach(r => {
