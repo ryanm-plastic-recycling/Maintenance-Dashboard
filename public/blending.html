@@ -5,7 +5,7 @@
   <title>PRI Pulse – Blending</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <style>
-    /* Styles same structure as grinding but smaller header fonts — preserved */
+    /* styles preserved (same as previous blending layout) */
     :root{--pri-blue:#25408F;--pri-green:#92D050;--bg:#E9EDF5;--card:#FBFCFE;--ink:#0F172A;--muted:#475569;--border:#D7E0F3;--shadow:0 10px 25px rgba(0,0,0,.08);--tile-head-fs:30px}
     *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Roboto,Ubuntu,"Helvetica Neue",Arial,sans-serif;font-weight:800;font-size:18px}
     .page-production::before{content:"";position:fixed;inset:0;z-index:-1;background:linear-gradient(to bottom, rgba(255,255,255,.75), rgba(255,255,255,.85)),url('img/PRIfront.png') center/cover no-repeat fixed}
@@ -59,12 +59,18 @@
             <button data-period="r30">Rolling 30d</button>
           </div>
 
-          <!-- DATE PICKER -->
+          <!-- DATE PICKERS: from/to AND single-day -->
           <label style="font-weight:800;color:var(--muted);font-size:14px;margin-left:6px">From</label>
           <input id="fromDate" type="date" style="padding:8px;border-radius:8px;border:1px solid var(--border)" />
           <label style="font-weight:800;color:var(--muted);font-size:14px">To</label>
           <input id="toDate" type="date" style="padding:8px;border-radius:8px;border:1px solid var(--border)" />
-          <button id="applyRange" style="padding:8px 12px;border-radius:8px;border:0;background:var(--pri-blue);color:#fff;font-weight:900;cursor:pointer">Apply</button>
+          <button id="applyRange" style="padding:8px 12px;border-radius:8px;border:0;background:var(--pri-blue);color:#fff;font-weight:900;cursor:pointer">Apply Range</button>
+
+          <span style="width:8px"></span>
+
+          <label style="font-weight:800;color:var(--muted);font-size:14px">Day</label>
+          <input id="singleDate" type="date" style="padding:8px;border-radius:8px;border:1px solid var(--border)" />
+          <button id="applyDay" style="padding:8px 12px;border-radius:8px;border:0;background:#1e40af;color:#fff;font-weight:900;cursor:pointer">Apply Day</button>
 
           <span class="pill" style="font-size:14px">Blending Machines Only</span>
         </div>
@@ -167,7 +173,7 @@
   </div>
 
 <script>
-/* Same pattern as grinding with blending-specific filters (keywords & whitelist) */
+/* Same pattern as grinding but for blending. Important change: probeEndpointOnce uses GET (no HEAD) */
 const ENDPOINTS = {
   BY_LINE: '/api/production/by-line',
   PRODSTATUS: '/api/workorders/prodstatus',
@@ -189,7 +195,7 @@ function fmtNum(n){ return Number.isFinite(Number(n)) ? Math.round(Number(n)).to
 function fmtH(v){ return Number.isFinite(Number(v)) ? Number(v).toFixed(1) : '0.0'; }
 async function fetchJSONQuiet(url, opts={}) { try { const r = await fetch(url + (url.includes('?') ? '&' : '?') + 'ts=' + Date.now(), {cache:'no-store', ...opts}); if(!r.ok) return null; return await r.json(); } catch(e){ return null; } }
 const endpointAvail = new Map();
-async function probeEndpointOnce(url) { if(endpointAvail.has(url)) return endpointAvail.get(url); try { const r = await fetch(url + (url.includes('?') ? '&' : '?') + 'probe=' + Date.now(), {method:'HEAD', cache:'no-store'}); const ok = r && r.ok; endpointAvail.set(url, ok); return ok; } catch(e){ endpointAvail.set(url, false); return false; } }
+async function probeEndpointOnce(url) { if(endpointAvail.has(url)) return endpointAvail.get(url); try { const r = await fetch(url + (url.includes('?') ? '&' : '?') + 'probe=' + Date.now(), {method:'GET', cache:'no-store'}); const ok = r && r.ok; endpointAvail.set(url, ok); return ok; } catch(e){ endpointAvail.set(url, false); return false; } }
 function machineNameFromRow(r){ if(!r) return ''; return String(r.machine || r.asset || r.name || r.assetName || r.AssetName || r.machineName || r.device || r.Asset || '').trim(); }
 function poundsFromRow(r){ return Number(r.pounds ?? r.lbs ?? r.weight ?? r.total_lbs ?? r.pounds_total ?? 0) || 0; }
 function machineHoursFromRow(r){ return Number(r.machine_hours ?? r.run_h ?? r.runHours ?? r.runtime_h ?? r.run_time ?? r.runtime ?? 0) || 0; }
@@ -201,16 +207,12 @@ let MAPPINGS = null;
 async function loadMappings(){ if(MAPPINGS) return MAPPINGS; try { const j = await fetchJSONQuiet(ENDPOINTS.MAP); MAPPINGS = j || {}; } catch(e){ MAPPINGS = {}; } return MAPPINGS; }
 function capacityFor(lineName, material){ const caps = MAPPINGS?.capacities_lbs_hr || {}, byMat = MAPPINGS?.capacity_by_material_lbs_hr || {}, alias = MAPPINGS?.capacity_aliases || {}, malias = MAPPINGS?.material_aliases || {}; const canon = (caps[lineName] !== undefined || byMat[lineName]) ? lineName : (alias[lineName] || lineName); const m = malias[(material||'').toUpperCase()] || ((material||'')===''?'DEFAULT':(material||'').toUpperCase()); return (byMat[canon]?.[m]) ?? (byMat[canon]?.DEFAULT) ?? caps[canon] ?? 0; }
 
-/* blending filter:
-   - primary: look for 'blend' or 'blender' keyword
-   - also allow known blender names (Blender B1, Blender 1, etc.)
-*/
+/* blending filter */
 const BLEND_KEYWORDS = ['blend','blender','blending'];
 function isBlendingMachineByName(n){
   if(!n) return false;
   const s = n.toLowerCase();
   if(BLEND_KEYWORDS.some(k => s.includes(k))) return true;
-  // also permit exact short names
   const whitelist = ['b1','b2','b3','blender b1','blender b2','blender b3','blender b4','blender 1','blender 2','blender 3','blender 4'];
   return whitelist.some(w => s === w || s.includes(w));
 }
@@ -265,6 +267,7 @@ async function renderBlending(){
     function iso(d){ return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10); }
     let from,to;
     if(STATE.period === 'custom' && STATE.customFrom && STATE.customTo){ from = STATE.customFrom; to = STATE.customTo; }
+    else if (STATE.period === 'single' && STATE.customFrom){ from = to = STATE.customFrom; }
     else {
       switch(STATE.period){
         case 'yesterday': { const y=new Date(now); y.setDate(y.getDate()-1); from=to=iso(y); break;}
@@ -502,7 +505,7 @@ async function renderBlending(){
 $$('.segBig button').forEach(btn => btn.addEventListener('click', () => {
   if(btn.dataset.period && btn.dataset.period !== STATE.period){
     STATE.period = btn.dataset.period;
-    if(STATE.period !== 'custom'){ STATE.customFrom = STATE.customTo = null; $('#fromDate').value = ''; $('#toDate').value = ''; }
+    if(STATE.period !== 'custom' && STATE.period !== 'single'){ STATE.customFrom = STATE.customTo = null; $('#fromDate').value = ''; $('#toDate').value = ''; $('#singleDate').value = ''; }
     renderBlending();
   }
 }));
@@ -510,6 +513,13 @@ document.getElementById('applyRange').addEventListener('click', () => {
   const f = $('#fromDate').value, t = $('#toDate').value;
   if(!f || !t){ alert('Please pick both From and To dates.'); return; }
   STATE.period = 'custom'; STATE.customFrom = f; STATE.customTo = t;
+  $$('.segBig button').forEach(b => b.classList.remove('active'));
+  renderBlending();
+});
+document.getElementById('applyDay').addEventListener('click', () => {
+  const d = $('#singleDate').value;
+  if(!d){ alert('Please select a day.'); return; }
+  STATE.period = 'single'; STATE.customFrom = d; STATE.customTo = d;
   $$('.segBig button').forEach(b => b.classList.remove('active'));
   renderBlending();
 });
