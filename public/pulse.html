@@ -206,6 +206,12 @@
   <div class="top-border">
     <img src="img/pri-logo.png" alt="PRI Logo" class="logo" />
     <div class="top-title">PRI Pulse <span id="periodLabel" style="font-size:18px;font-weight:900;margin-left:8px;color:#0A2A12"></span></div>
+
+    <!-- Limble banner added (small, non-intrusive) -->
+    <a href="https://limblecmms.com" target="_blank" style="margin-left:12px;display:flex;align-items:center;text-decoration:none">
+      <img src="img/limble-banner.png" alt="Limble" style="height:60px;object-fit:contain"/>
+    </a>
+
     <div class="tabs">
       <a class="tab" href="index.html">Work Orders</a>
       <a class="tab" href="pm.html">PM</a>
@@ -239,6 +245,12 @@
           <span class="pill" id="sitePill">All Sites</span>
           <span class="pill">Pick date:</span>
             <input id="dayPick" type="date" class="pill" style="padding:6px 10px" />
+
+          <!-- Range picker (From / To) -->
+          <span class="pill">Range:</span>
+            <input id="rangeFrom" type="date" class="pill" style="padding:6px 10px;width:140px" />
+            <input id="rangeTo"   type="date" class="pill" style="padding:6px 10px;width:140px" />
+            <button id="applyRange" class="pill" style="cursor:pointer;padding:7px 12px">Apply</button>
         </div>
         <div class="right">
           <span class="pill">Auto-refresh: <strong id="refreshSec">600s</strong></span>
@@ -1051,6 +1063,13 @@ function colorForFM(name,i){
       b.addEventListener('click', async ()=>{
         document.querySelectorAll('#tfButtons button').forEach(x=>x.classList.remove('active'));
         b.classList.add('active');
+
+        // clear single-day and range picks when switching preset periods
+        const dp = document.getElementById('dayPick'); if (dp) { dp.value = ''; delete window.__pickedDay; }
+        const rf = document.getElementById('rangeFrom'); if (rf) rf.value = '';
+        const rt = document.getElementById('rangeTo');   if (rt) rt.value = '';
+        delete window.__pickedRangeFrom; delete window.__pickedRangeTo;
+
         await runForActivePeriod();
       });
     });
@@ -1069,6 +1088,11 @@ function colorForFM(name,i){
         // clear active state from timeframe buttons
         document.querySelectorAll('#tfButtons button.active')
           ?.forEach(b => b.classList.remove('active'));
+        // clear range fields when single-day is chosen
+        const rf = document.getElementById('rangeFrom'); if (rf) rf.value = '';
+        const rt = document.getElementById('rangeTo');   if (rt) rt.value = '';
+        delete window.__pickedRangeFrom; delete window.__pickedRangeTo;
+
         // render for the custom day
         await runFor('customday');
         // label polish
@@ -1080,7 +1104,43 @@ function colorForFM(name,i){
       const y = new Date(); y.setDate(y.getDate()-1); y.setHours(0,0,0,0);
       dayPick.value = new Date(y.getTime() - y.getTimezoneOffset()*60000).toISOString().slice(0,10);
     }
-    
+
+    // Range picker wiring
+    const rangeFrom = document.getElementById('rangeFrom');
+    const rangeTo   = document.getElementById('rangeTo');
+    const applyBtn  = document.getElementById('applyRange');
+
+    if (rangeFrom && rangeTo) {
+      // same max logic as dayPick - prevent future date selection
+      const tzToday = new Date(); tzToday.setHours(0,0,0,0);
+      const maxStr = new Date(tzToday.getTime() - tzToday.getTimezoneOffset()*60000).toISOString().slice(0,10);
+      rangeFrom.max = maxStr; rangeTo.max = maxStr;
+    }
+
+    if (applyBtn) {
+      applyBtn.addEventListener('click', async () => {
+        const f = (rangeFrom && rangeFrom.value) ? rangeFrom.value : null;
+        const t = (rangeTo   && rangeTo.value)   ? rangeTo.value   : null;
+        if (!f || !t) {
+          alert('Please select both From and To dates for the range.');
+          return;
+        }
+        if (f > t) {
+          alert('From date must be on or before To date.');
+          return;
+        }
+
+        // clear timeframe buttons and single-day pick
+        document.querySelectorAll('#tfButtons button.active')?.forEach(b => b.classList.remove('active'));
+        if (dayPick) { dayPick.value = ''; delete window.__pickedDay; }
+
+        // store picked range and render
+        window.__pickedRangeFrom = f;
+        window.__pickedRangeTo   = t;
+        await renderForRange(f, t, `Custom range: ${f} → ${t}`);
+      });
+    }
+
     // Clock
     function tickClock(){
       const el = document.getElementById('clock');
