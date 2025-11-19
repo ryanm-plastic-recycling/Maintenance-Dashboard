@@ -81,9 +81,16 @@
           <span class="pill" style="font-size:14px">Blending Machines Only</span>
         </div>
 
-        <div class="right">
+        <div class="right" style="align-items:center;gap:10px;flex-wrap:wrap">
           <span class="pill" style="font-size:14px">Auto-refresh: <strong id="refreshSec">600s</strong></span>
           <span class="pill" style="font-size:14px">Press <strong>F</strong> for Fullscreen</span>
+
+          <!-- Shift selector (planned hours per day) -->
+          <div class="segBig" id="shiftButtons" aria-label="Planned Hours per Day">
+            <button data-shift="8" class="active">1 Shift – 8h</button>
+            <button data-shift="16">2 Shifts – 16h</button>
+            <button data-shift="24">3 Shifts – 24h</button>
+          </div>
         </div>
       </div>
 
@@ -191,7 +198,10 @@ const COLOR_CONFIG = {
   status: { available: '#10B981', other: '#FBBF24' },
   lineHealth: { thresholds: { good: 0.80, warn: 0.60 }, hex: { good: '#10B981', warn: '#FBBF24', bad: '#EF4444' } }
 };
-const STATE = { period:'today', customFrom:null, customTo:null };
+
+/* shiftHours = planned hours/day; default 8h / 1 shift */
+const STATE = { period:'today', customFrom:null, customTo:null, shiftHours:8 };
+
 const $ = s => document.querySelector(s), $$ = s => Array.from(document.querySelectorAll(s));
 function setLoading(v){ const el = $('#loading'); if(el) el.style.display = v ? 'flex' : 'none'; }
 function fmtPct(v){ return Number.isFinite(Number(v)) ? (Math.round(Number(v)*100)+'%') : '0%'; }
@@ -292,7 +302,7 @@ async function renderBlending(){
     await checkLimbleBanner();
     await loadMappings();
     $('#periodBadge').textContent = '• ' + (STATE.period || 'today');
-    $$('.segBig button').forEach(b=>b.classList.toggle('active', b.dataset.period===STATE.period));
+    $$('#tfButtons button').forEach(b=>b.classList.toggle('active', b.dataset.period===STATE.period));
 
     const now = new Date(); now.setHours(0,0,0,0);
     function iso(d){ return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10); }
@@ -354,11 +364,13 @@ async function renderBlending(){
     let days=0; for(let d=new Date(fromD); d<=toD; d.setDate(d.getDate()+1)){ const wd=d.getDay(); if(wd!==0 && wd!==6) days++; } days = Math.max(1, days);
     Object.values(agg).forEach(a => a.days = days);
 
+    const hoursPerDay = STATE.shiftHours || 24;
+
     const perLine = Object.values(agg).map(a => {
       const matEntries = Object.entries(a.matcount || {});
       const domMat = matEntries.length ? matEntries.sort((x, y) => y[1] - x[1])[0][0] : 'N/A';
 
-      const plannedH = 24 * a.days;
+      const plannedH = hoursPerDay * a.days;
       const maint = Number(a.maint) || 0;
 
       let runtimeH = 0;
@@ -414,7 +426,7 @@ async function renderBlending(){
     const avgCap = totals.count ? (totals.caps / totals.count) : 0;
     const overallPerfAdj = (totals.runtime>0 && avgCap>0) ? (totals.lbs / (totals.runtime * avgCap)) : 0;
 
-    applyTileBg('tile-blend-av', overallAvail, fmtPct(overallAvail), `${fmtNum(Math.round(totals.runtime))} run h • ${fmtNum(Math.round(totals.planned))} planned h`);
+    applyTileBg('tile-blend-av', overallAvail, fmtPct(overallAvail), `${fmtNum(Math.round(totals.runtime))} run h • ${fmtNum(Math.round(totals.planned))} planned h (${hoursPerDay}h/day)`);
     const maintFrac = totals.planned ? (totals.maint / totals.planned) : 0;
     applyTileBg('tile-blend-maint-dt', maintFrac, fmtPct(maintFrac), `${fmtH(totals.maint)} maint h • ${fmtH(totals.prod)} prod dt h`);
     applyTileBg('tile-blend-performance', overallPerfAdj, fmtPct(overallPerfAdj), `${fmtNum(Math.round(totals.lbs))} lbs • avg cap ${fmtNum(Math.round(avgCap))} lbs/hr`);
@@ -534,7 +546,7 @@ async function renderBlending(){
 }
 
 /* UI wiring */
-$$('.segBig button').forEach(btn => btn.addEventListener('click', () => {
+$$('#tfButtons button').forEach(btn => btn.addEventListener('click', () => {
   if(btn.dataset.period && btn.dataset.period !== STATE.period){
     STATE.period = btn.dataset.period;
     if(STATE.period !== 'custom' && STATE.period !== 'single'){ STATE.customFrom = STATE.customTo = null; $('#fromDate').value = ''; $('#toDate').value = ''; $('#singleDate').value = ''; }
@@ -545,22 +557,37 @@ document.getElementById('applyRange').addEventListener('click', () => {
   const f = $('#fromDate').value, t = $('#toDate').value;
   if(!f || !t){ alert('Please pick both From and To dates.'); return; }
   STATE.period = 'custom'; STATE.customFrom = f; STATE.customTo = t;
-  $$('.segBig button').forEach(b => b.classList.remove('active'));
+  $$('#tfButtons button').forEach(b => b.classList.remove('active'));
   renderBlending();
 });
 document.getElementById('applyDay').addEventListener('click', () => {
   const d = $('#singleDate').value;
   if(!d){ alert('Please select a day.'); return; }
   STATE.period = 'single'; STATE.customFrom = d; STATE.customTo = d;
-  $$('.segBig button').forEach(b => b.classList.remove('active'));
+  $$('#tfButtons button').forEach(b => b.classList.remove('active'));
   renderBlending();
 });
+
+/* Shift buttons wiring */
+$$('#shiftButtons button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const h = Number(btn.dataset.shift) || 24;
+    STATE.shiftHours = h;
+    $$('#shiftButtons button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    renderBlending();
+  });
+});
+
 document.addEventListener('keydown', (e)=>{ if (e.key && e.key.toLowerCase()==='f') { if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(()=>{}); else document.exitFullscreen().catch(()=>{}); } });
 setInterval(()=>{ const c=$('#clock'); if(c) c.textContent = new Date().toLocaleTimeString(); },1000);
 renderBlending();
 setInterval(() => { renderBlending(); }, 10 * 60 * 1000);
 setInterval(() => { try { location.reload(true); } catch(e) { location.reload(); } }, 60 * 60 * 1000);
-document.addEventListener('DOMContentLoaded', () => { $$('.segBig button').forEach(b => b.classList.toggle('active', b.dataset.period === STATE.period)); });
+document.addEventListener('DOMContentLoaded', () => {
+  $$('#tfButtons button').forEach(b => b.classList.toggle('active', b.dataset.period === STATE.period));
+  $$('#shiftButtons button').forEach(b => b.classList.toggle('active', Number(b.dataset.shift) === STATE.shiftHours));
+});
 </script>
 </body>
 </html>
