@@ -1,9 +1,9 @@
-<!DOCTYPE html> 
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>PRI Pulse - Transformation</title>
+  <title>PRI Pace - Transformation</title>
   <style>
     :root{
       --pri-blue:#25408F; --pri-green:#92D050;
@@ -205,7 +205,7 @@
 
   <div class="top-border">
     <img src="img/pri-logo.png" alt="PRI Logo" class="logo" />
-    <div class="top-title">PRI Pulse <span id="periodLabel" style="font-size:18px;font-weight:900;margin-left:8px;color:#0A2A12"></span></div>
+    <div class="top-title">PRI Pace <span id="periodLabel" style="font-size:18px;font-weight:900;margin-left:8px;color:#0A2A12"></span></div>
     <div class="tabs">
       <a class="tab" href="index.html">Work Orders</a>
       <a class="tab" href="pm.html">PM</a>
@@ -218,6 +218,8 @@
       <a class="tab" href="meeting.html">Meeting</a>
       <a class="tab" href="admin">Admin</a>
       <img src="img/innovation-logo.png" alt="Innovation" style="height:72px;margin-left:8px;object-fit:contain"/>
+      <!-- Limble banner: replace path if needed -->
+      <img src="img/limble-banner.png" alt="Limble" style="height:72px;margin-left:8px;object-fit:contain"/>
     </div>
   </div>
 
@@ -237,8 +239,12 @@
             <button data-period="last30" role="tab">Rolling 30d</button>
           </div>
           <span class="pill" id="sitePill">All Sites</span>
-          <span class="pill">Pick date:</span>
-            <input id="dayPick" type="date" class="pill" style="padding:6px 10px" />
+
+          <!-- From / To date-range controls -->
+          <span class="pill">From:</span>
+          <input id="fromPick" type="date" class="pill" style="padding:6px 10px" />
+          <span class="pill">To:</span>
+          <input id="toPick" type="date" class="pill" style="padding:6px 10px" />
         </div>
         <div class="right">
           <span class="pill">Auto-refresh: <strong id="refreshSec">600s</strong></span>
@@ -778,7 +784,7 @@ function colorForFM(name,i){
         const runH = mhR;
 
         const key = `${machine}__${day}`;
-        if (!dayMap.has(key)) dayMap.set(key, {machine, day, lbs:0, maint_h:0, run_h:0, sumCapRun:0, sumRunH:0, cap_candidates:[], mats:{}});
+        if (!dayMap.has(key)) dayMap.set(key, {machine, day, lbs:0, maint_h:0, run_h:0, sumCapRun:0, sumRunH:0, cap_candidates:[], mats:{}}); 
         const d = dayMap.get(key);
         d.lbs += lbs;
         d.maint_h = Math.max(d.maint_h, md);
@@ -974,7 +980,6 @@ function colorForFM(name,i){
         }
       
         // 3) neither has OEE -> keep them at the bottom; sort by Missed Opp desc
-        //    (or asc if you want the “least bad” first)
         return moB - moA;
       });
       
@@ -1051,36 +1056,57 @@ function colorForFM(name,i){
       b.addEventListener('click', async ()=>{
         document.querySelectorAll('#tfButtons button').forEach(x=>x.classList.remove('active'));
         b.classList.add('active');
+        // keep date-range inputs in sync with timeframe selection
+        const sel = b.dataset.period;
+        const r = computeRange(sel);
+        const fromEl = document.getElementById('fromPick');
+        const toEl   = document.getElementById('toPick');
+        if (fromEl && toEl && r.from && r.to) { fromEl.value = r.from; toEl.value = r.to; }
         await runForActivePeriod();
       });
     });
 
-    // Date picker wiring (add this)
-    const dayPick = document.getElementById('dayPick');
-    if (dayPick) {
-      // optional: keep users from picking the future
+    // Date range wiring (FROM / TO)
+    const fromPick = document.getElementById('fromPick');
+    const toPick   = document.getElementById('toPick');
+
+    if (fromPick && toPick) {
+      // Prevent future selection
       const tzToday = new Date(); tzToday.setHours(0,0,0,0);
-      dayPick.max = new Date(tzToday.getTime() - tzToday.getTimezoneOffset()*60000)
-                      .toISOString().slice(0,10);
-  
-      dayPick.addEventListener('change', async (e) => {
-        if (!e.target.value) return;
-        window.__pickedDay = e.target.value + 'T00:00:00';
-        // clear active state from timeframe buttons
-        document.querySelectorAll('#tfButtons button.active')
-          ?.forEach(b => b.classList.remove('active'));
-        // render for the custom day
-        await runFor('customday');
-        // label polish
-        const lab = document.getElementById('periodLabel');
-        if (lab) lab.textContent = `(${e.target.value})`;
+      const maxIso = new Date(tzToday.getTime() - tzToday.getTimezoneOffset()*60000).toISOString().slice(0,10);
+      fromPick.max = maxIso; toPick.max = maxIso;
+
+      // sensible default: last week (Mon-Sun) matching your other defaults
+      const now = new Date(); now.setHours(0,0,0,0);
+      const startOfWeek = (d) => { const x=new Date(d); const day=(x.getDay()+6)%7; x.setDate(x.getDate()-day); x.setHours(0,0,0,0); return x; };
+      const lastWeekFrom = new Date(startOfWeek(now)); lastWeekFrom.setDate(lastWeekFrom.getDate()-7);
+      const lastWeekTo   = new Date(startOfWeek(now)); lastWeekTo.setDate(lastWeekTo.getDate()-1);
+
+      fromPick.value = new Date(lastWeekFrom.getTime() - lastWeekFrom.getTimezoneOffset()*60000).toISOString().slice(0,10);
+      toPick.value   = new Date(lastWeekTo.getTime()   - lastWeekTo.getTimezoneOffset()*60000).toISOString().slice(0,10);
+
+      async function renderCustomRange(){
+        const f = fromPick.value;
+        const t = toPick.value;
+        if (!f || !t) return;
+        // clear timeframe button active state
+        document.querySelectorAll('#tfButtons button.active')?.forEach(b => b.classList.remove('active'));
+        // label and render
+        const label = `Custom: ${f} → ${t}`;
+        await renderForRange(f, t, label);
+      }
+
+      fromPick.addEventListener('change', async () => {
+        // keep from <= to
+        if (toPick.value && fromPick.value > toPick.value) { toPick.value = fromPick.value; }
+        await renderCustomRange();
+      });
+      toPick.addEventListener('change', async () => {
+        if (fromPick.value && toPick.value < fromPick.value) { fromPick.value = toPick.value; }
+        await renderCustomRange();
       });
     }
-    if (dayPick && !dayPick.value) {
-      const y = new Date(); y.setDate(y.getDate()-1); y.setHours(0,0,0,0);
-      dayPick.value = new Date(y.getTime() - y.getTimezoneOffset()*60000).toISOString().slice(0,10);
-    }
-    
+
     // Clock
     function tickClock(){
       const el = document.getElementById('clock');
