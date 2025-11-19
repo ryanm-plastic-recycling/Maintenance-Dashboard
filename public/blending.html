@@ -250,7 +250,7 @@ function applyMItemBg(mitemEl, color){ if(!mitemEl) return; mitemEl.style.backgr
 
 /* similar asset status loader (probe first, filter with isBlendingMachineByName) */
 async function loadAssetStatusCandidates(filterFn){
-  const candidates = [ENDPOINTS.PRODSTATUS, ENDPOINTS.ASSETS_FIELDS, ENDPOINTS.LIMBLE_ASSETFIELDS, ENDPOINTS.LIMBLE_KPIASSETFIELDS];
+  const candidates = [ENDPOINTS.PRODSTATUS, ENDPOINTS.ASSETS_FIELDS];
   for(const url of candidates){
     const ok = await probeEndpointOnce(url);
     if(!ok) continue;
