@@ -207,9 +207,7 @@ async function checkLimbleBanner() {
   if (!bannerEl) return;
 
   try {
-    // Only probe the real server endpoint that fronts Limble
     const ok = await probeEndpointOnce(ENDPOINTS.ASSETS_FIELDS);
-
     if (!ok) {
       bannerEl.style.display = 'block';
       bannerEl.innerHTML = `
@@ -224,7 +222,6 @@ async function checkLimbleBanner() {
       bannerEl.style.display = 'none';
     }
   } catch {
-    // if the probe itself blows up, fail quiet
     bannerEl.style.display = 'none';
   }
 }
@@ -288,7 +285,7 @@ async function loadAssetStatusCandidates(filterFn){
   return { source:null, rows: [] };
 }
 
-/* main render for blending — same shape as grinding but using isBlendingMachineByName */
+/* main render for blending */
 async function renderBlending(){
   setLoading(true);
   try{
@@ -316,10 +313,9 @@ async function renderBlending(){
     }
     $('#rangeLabel').textContent = `${from} → ${to}`;
 
-    // Fetch data in parallel (no direct /api/limble calls from the browser)
     const [bylineRaw, assetStatusCandidate] = await Promise.all([
       fetchJSONQuiet(`${ENDPOINTS.BY_LINE}?from=${from}&to=${to}`),
-      loadAssetStatusCandidates(isGrindingMachineByName)
+      loadAssetStatusCandidates(isBlendingMachineByName)
     ]);
 
     const rawRows = Array.isArray(bylineRaw) ? bylineRaw : (bylineRaw && (Array.isArray(bylineRaw.rows) ? bylineRaw.rows : (Array.isArray(bylineRaw.items) ? bylineRaw.items : [])));
@@ -337,10 +333,8 @@ async function renderBlending(){
       };
     });
 
-    // filter to blending machines only (keyword)
     const blendingRows = parsed.filter(p => p.machine && isBlendingMachineByName(p.machine));
 
-    // aggregate
     const agg = {};
     blendingRows.forEach(r => {
       const name = r.machine.trim();
@@ -363,12 +357,10 @@ async function renderBlending(){
     const perLine = Object.values(agg).map(a => {
       const matEntries = Object.entries(a.matcount || {});
       const domMat = matEntries.length ? matEntries.sort((x, y) => y[1] - x[1])[0][0] : 'N/A';
-    
+
       const plannedH = 24 * a.days;
-    
-      // No Limble overlay here anymore – just use the maintenance hours coming from by-line
       const maint = Number(a.maint) || 0;
-    
+
       let runtimeH = 0;
       if (Number(a.mach) > 0) {
         runtimeH = Number(a.mach);
@@ -376,24 +368,24 @@ async function renderBlending(){
         runtimeH = Number(a.lbs) / Number(a.cap);
       }
       runtimeH = Math.max(0, Math.min(runtimeH, plannedH));
-    
+
       const grindDowntime = Math.max(0, plannedH - runtimeH - maint);
-    
+
       const capPotentialDuringRuntime = a.cap > 0 ? (a.cap * runtimeH) : 0;
       const underPerfGap = Math.max(0, Math.round(capPotentialDuringRuntime - Number(a.lbs)));
-    
+
       const plannedPotential = a.cap > 0 ? (a.cap * plannedH) : 0;
       const plannedMissed = Math.max(0, Math.round(plannedPotential - Number(a.lbs)));
       const plannedMissed8 = Math.max(0, Math.round(plannedMissed / 3));
-    
+
       let perfAdj = 0;
       if (a.cap > 0 && runtimeH > 0) {
         perfAdj = Number(a.lbs) / (runtimeH * Number(a.cap));
       }
       perfAdj = Math.max(0, Math.min(perfAdj, 10));
-    
+
       const avail = plannedH > 0 ? (runtimeH / plannedH) : 0;
-    
+
       return {
         ...a,
         plannedH,
@@ -402,7 +394,7 @@ async function renderBlending(){
         grindDowntime,
         perfAdj,
         oee: runtimeH > 0 ? (runtimeH / plannedH) * perfAdj : 0,
-        capPotential: capPotentialDuring nighttime,
+        capPotential: capPotentialDuringRuntime,
         missed: underPerfGap,
         plannedPotential,
         plannedMissed,
