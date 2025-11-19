@@ -22,6 +22,9 @@
     #blendStatusList>div{margin-bottom:8px;padding:12px 14px;border-radius:12px;border:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;font-size:18px;background:#fff;font-weight:900;box-shadow:0 6px 18px rgba(9,30,66,.04)}
     #rankTable{width:100%;border-collapse:collapse;font-size:14px;table-layout:fixed}#rankTable th,#rankTable td{padding:10px;border-bottom:1px dashed var(--border)}#rankTable th{text-align:center;color:var(--muted);font-weight:900}#rankTable td.left{text-align:left}#rankTable td.center{text-align:center}
     .donutwrap{display:grid;grid-auto-rows:minmax(120px,auto);row-gap:18px}.donutrow{display:grid;grid-template-columns:220px 1fr;column-gap:18px;align-items:center}.donutrow canvas{width:200px!important;height:200px!important;justify-self:center}.legend{display:flex;flex-direction:column;gap:8px;padding-left:10px}.legend .item{display:flex;align-items:center;gap:10px;justify-content:flex-end}.bullet{width:14px;height:14px;border-radius:50%;flex:0 0 14px}.legend .label{font-weight:900;color:var(--muted);flex:1;text-align:left}.legend .val{font-weight:900;color:var(--muted);width:90px;text-align:right}
+    /* Limble banner styles */
+    #limbleBanner{display:none;margin-bottom:12px;border-left:4px solid #ef4444;background:#fff6f6;padding:12px;border-radius:8px;color:#7a1b1b;font-weight:900;box-shadow:0 8px 18px rgba(0,0,0,0.06)}
+    #limbleBanner button{margin-left:14px;padding:6px 10px;border-radius:8px;border:0;background:#ef4444;color:#fff;font-weight:900;cursor:pointer}
     footer{display:flex;justify-content:space-between;align-items:center;margin-top:12px;color:var(--muted);font-weight:900}.clock{font-variant-numeric:tabular-nums;font-weight:900}
   </style>
 </head>
@@ -45,6 +48,9 @@
   </div>
 
   <div class="wrap">
+    <!-- Limble banner (hidden unless Limble endpoints are both unavailable) -->
+    <div id="limbleBanner" role="status" aria-live="polite"></div>
+
     <div class="app">
       <div class="toolbar">
         <div class="left" style="align-items:center;gap:12px">
@@ -196,6 +202,26 @@ function fmtH(v){ return Number.isFinite(Number(v)) ? Number(v).toFixed(1) : '0.
 async function fetchJSONQuiet(url, opts={}) { try { const r = await fetch(url + (url.includes('?') ? '&' : '?') + 'ts=' + Date.now(), {cache:'no-store', ...opts}); if(!r.ok) return null; return await r.json(); } catch(e){ return null; } }
 const endpointAvail = new Map();
 async function probeEndpointOnce(url) { if(endpointAvail.has(url)) return endpointAvail.get(url); try { const r = await fetch(url + (url.includes('?') ? '&' : '?') + 'probe=' + Date.now(), {method:'GET', cache:'no-store'}); const ok = r && r.ok; endpointAvail.set(url, ok); return ok; } catch(e){ endpointAvail.set(url, false); return false; } }
+
+/* Limble banner checker */
+async function checkLimbleBanner() {
+  const bannerEl = $('#limbleBanner');
+  try {
+    const okA = await probeEndpointOnce(ENDPOINTS.LIMBLE_ASSETFIELDS);
+    const okK = await probeEndpointOnce(ENDPOINTS.LIMBLE_KPIASSETFIELDS);
+    if (!okA && !okK) {
+      bannerEl.style.display = 'block';
+      bannerEl.innerHTML = `<strong>Limble endpoints unavailable</strong> — both <code>/api/limble/assetfields</code> and <code>/api/limble/kpiassetfields</code> returned not found or are unreachable. Data that depends on Limble will be missing. <button id="dismissLimble" aria-label="Dismiss Limble message">Dismiss</button>`;
+      const btn = document.getElementById('dismissLimble');
+      if(btn) btn.addEventListener('click', ()=> bannerEl.style.display='none');
+    } else {
+      bannerEl.style.display = 'none';
+    }
+  } catch(e) {
+    bannerEl.style.display = 'none';
+  }
+}
+
 function machineNameFromRow(r){ if(!r) return ''; return String(r.machine || r.asset || r.name || r.assetName || r.AssetName || r.machineName || r.device || r.Asset || '').trim(); }
 function poundsFromRow(r){ return Number(r.pounds ?? r.lbs ?? r.weight ?? r.total_lbs ?? r.pounds_total ?? 0) || 0; }
 function machineHoursFromRow(r){ return Number(r.machine_hours ?? r.run_h ?? r.runHours ?? r.runtime_h ?? r.run_time ?? r.runtime ?? 0) || 0; }
@@ -259,6 +285,7 @@ async function loadAssetStatusCandidates(filterFn){
 async function renderBlending(){
   setLoading(true);
   try{
+    await checkLimbleBanner();
     await loadMappings();
     $('#periodBadge').textContent = '• ' + (STATE.period || 'today');
     $$('.segBig button').forEach(b=>b.classList.toggle('active', b.dataset.period===STATE.period));
