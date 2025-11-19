@@ -5,7 +5,7 @@
   <title>PRI Pulse – Grinding</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <style>
-    /* (styles identical to your previous layout — kept for brevity) */
+    /* styles same as before (kept compact here) */
     :root{--pri-blue:#25408F;--pri-green:#92D050;--bg:#E9EDF5;--card:#FBFCFE;--ink:#0F172A;--muted:#475569;--border:#D7E0F3;--shadow:0 10px 25px rgba(0,0,0,.08);--tile-head-fs:30px}
     *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Roboto,Ubuntu,"Helvetica Neue",Arial,sans-serif;font-weight:800;font-size:18px}
     .page-production::before{content:"";position:fixed;inset:0;z-index:-1;background:linear-gradient(to bottom, rgba(255,255,255,.75), rgba(255,255,255,.85)),url('img/PRIfront.png') center/cover no-repeat fixed}
@@ -59,12 +59,18 @@
             <button data-period="r30">Rolling 30d</button>
           </div>
 
-          <!-- DATE PICKER -->
+          <!-- DATE PICKERS: from/to AND single-day -->
           <label style="font-weight:800;color:var(--muted);font-size:14px;margin-left:6px">From</label>
           <input id="fromDate" type="date" style="padding:8px;border-radius:8px;border:1px solid var(--border)" />
           <label style="font-weight:800;color:var(--muted);font-size:14px">To</label>
           <input id="toDate" type="date" style="padding:8px;border-radius:8px;border:1px solid var(--border)" />
-          <button id="applyRange" style="padding:8px 12px;border-radius:8px;border:0;background:var(--pri-blue);color:#fff;font-weight:900;cursor:pointer">Apply</button>
+          <button id="applyRange" style="padding:8px 12px;border-radius:8px;border:0;background:var(--pri-blue);color:#fff;font-weight:900;cursor:pointer">Apply Range</button>
+
+          <span style="width:8px"></span>
+
+          <label style="font-weight:800;color:var(--muted);font-size:14px">Day</label>
+          <input id="singleDate" type="date" style="padding:8px;border-radius:8px;border:1px solid var(--border)" />
+          <button id="applyDay" style="padding:8px 12px;border-radius:8px;border:0;background:#1e40af;color:#fff;font-weight:900;cursor:pointer">Apply Day</button>
 
           <span class="pill" style="font-size:14px">Grinding Lines Only</span>
         </div>
@@ -174,7 +180,7 @@ const ENDPOINTS = {
   BY_LINE: '/api/production/by-line',
   PRODSTATUS: '/api/workorders/prodstatus',
   LIMBLE_ASSETFIELDS: '/api/limble/assetfields',
-  LIMBLE_KPIASSETFIELDS: '/api/limble/kpiassetfields', // probe once, use if available
+  LIMBLE_KPIASSETFIELDS: '/api/limble/kpiassetfields',
   ASSETS_FIELDS: '/api/assets/fields',
   MAP: 'mappings.json'
 };
@@ -193,7 +199,7 @@ function fmtPct(v){ return Number.isFinite(Number(v)) ? (Math.round(Number(v)*10
 function fmtNum(n){ return Number.isFinite(Number(n)) ? Math.round(Number(n)).toLocaleString() : '0'; }
 function fmtH(v){ return Number.isFinite(Number(v)) ? Number(v).toFixed(1) : '0.0'; }
 
-/* quieter fetch - never console.error; return null on any non-ok */
+/* quieter fetch - returns null on any non-ok (no console.error spam) */
 async function fetchJSONQuiet(url, opts={}) {
   try {
     const r = await fetch(url + (url.includes('?') ? '&' : '?') + 'ts=' + Date.now(), {cache:'no-store', ...opts});
@@ -202,12 +208,14 @@ async function fetchJSONQuiet(url, opts={}) {
   } catch(e){ return null; }
 }
 
-/* lightweight probe/cacher for endpoints so we only attempt broken endpoints once */
+/* probeEndpointOnce - NOTE: switched from HEAD to GET probe to avoid HEAD requests in Network tab.
+   This still shows a GET in Network if server responds 404, but it eliminates the previous HEAD entries.
+*/
 const endpointAvail = new Map();
 async function probeEndpointOnce(url) {
   if(endpointAvail.has(url)) return endpointAvail.get(url);
   try {
-    const r = await fetch(url + (url.includes('?') ? '&' : '?') + 'probe=' + Date.now(), {method:'HEAD', cache:'no-store'});
+    const r = await fetch(url + (url.includes('?') ? '&' : '?') + 'probe=' + Date.now(), {method:'GET', cache:'no-store'});
     const ok = r && r.ok;
     endpointAvail.set(url, ok);
     return ok;
@@ -244,7 +252,7 @@ function isGrindingMachineByName(n){
   return GRIND_KEYWORDS.some(k => s.includes(k));
 }
 
-/* --------- drawing utilities (donut, legend, tiles) ---------- */
+/* drawing utilities (donut, legend, tiles) omitted for brevity in this comment block — preserved below */
 function drawDonutSegments(canvas, segments){
   if(!canvas) return;
   const ctx = canvas.getContext('2d');
@@ -317,13 +325,10 @@ function applyMItemBg(mitemEl, color){
 
 /* -------------------------
    load asset status candidates
-   - probes endpoints once and uses the first endpoint that returns usable rows
-   - accepts filterFn(name) to limit to desired assets
    ------------------------- */
 async function loadAssetStatusCandidates(filterFn){
   const candidates = [ENDPOINTS.PRODSTATUS, ENDPOINTS.ASSETS_FIELDS, ENDPOINTS.LIMBLE_ASSETFIELDS, ENDPOINTS.LIMBLE_KPIASSETFIELDS];
   for(const url of candidates){
-    // probe once; skip if not available
     const ok = await probeEndpointOnce(url);
     if(!ok) continue;
     const payload = await fetchJSONQuiet(url);
@@ -353,7 +358,6 @@ async function loadAssetStatusCandidates(filterFn){
 
 /* -------------------------
    main render — grinding
-   - accepts custom date range via STATE.customFrom / customTo
    ------------------------- */
 async function renderGrinding(){
   setLoading(true);
@@ -368,6 +372,8 @@ async function renderGrinding(){
     let from,to;
     if(STATE.period === 'custom' && STATE.customFrom && STATE.customTo){
       from = STATE.customFrom; to = STATE.customTo;
+    } else if (STATE.period === 'single' && STATE.customFrom){
+      from = to = STATE.customFrom;
     } else {
       switch(STATE.period){
         case 'yesterday': { const y=new Date(now); y.setDate(y.getDate()-1); from=to=iso(y); break;}
@@ -624,7 +630,7 @@ $$('.segBig button').forEach(btn => btn.addEventListener('click', () => {
   if(btn.dataset.period && btn.dataset.period !== STATE.period){
     STATE.period = btn.dataset.period;
     // clear custom if switching away
-    if(STATE.period !== 'custom'){ STATE.customFrom = STATE.customTo = null; $('#fromDate').value = ''; $('#toDate').value = ''; }
+    if(STATE.period !== 'custom' && STATE.period !== 'single'){ STATE.customFrom = STATE.customTo = null; $('#fromDate').value = ''; $('#toDate').value = ''; $('#singleDate').value = ''; }
     renderGrinding();
   }
 }));
@@ -633,6 +639,14 @@ document.getElementById('applyRange').addEventListener('click', () => {
   const f = $('#fromDate').value, t = $('#toDate').value;
   if(!f || !t){ alert('Please pick both From and To dates.'); return; }
   STATE.period = 'custom'; STATE.customFrom = f; STATE.customTo = t;
+  $$('.segBig button').forEach(b => b.classList.remove('active'));
+  renderGrinding();
+});
+
+document.getElementById('applyDay').addEventListener('click', () => {
+  const d = $('#singleDate').value;
+  if(!d){ alert('Please select a day.'); return; }
+  STATE.period = 'single'; STATE.customFrom = d; STATE.customTo = d;
   $$('.segBig button').forEach(b => b.classList.remove('active'));
   renderGrinding();
 });
