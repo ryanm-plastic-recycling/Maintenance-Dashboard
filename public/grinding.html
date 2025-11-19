@@ -84,11 +84,11 @@
           <span class="pill" style="font-size:14px">Auto-refresh: <strong id="refreshSec">600s</strong></span>
           <span class="pill" style="font-size:14px">Press <strong>F</strong> for Fullscreen</span>
 
-          <!-- NEW: Shift selector (planned hours per day) -->
+          <!-- Shift selector (planned hours per day) -->
           <div class="segBig" id="shiftButtons" aria-label="Planned Hours per Day">
-            <button data-shift="8">1 Shift – 8h</button>
+            <button data-shift="8" class="active">1 Shift – 8h</button>
             <button data-shift="16">2 Shifts – 16h</button>
-            <button data-shift="24" class="active">3 Shifts – 24h</button>
+            <button data-shift="24">3 Shifts – 24h</button>
           </div>
         </div>
       </div>
@@ -198,8 +198,8 @@ const COLOR_CONFIG = {
   lineHealth: { thresholds: { good: 0.80, warn: 0.60 }, hex: { good: '#10B981', warn: '#FBBF24', bad: '#EF4444' } }
 };
 
-/* NEW: shiftHours = planned hours/day (8,16,24) */
-const STATE = { period:'today', customFrom:null, customTo:null, shiftHours:24 };
+/* shiftHours = planned hours/day (8,16,24); default 8h / 1 shift */
+const STATE = { period:'today', customFrom:null, customTo:null, shiftHours:8 };
 
 const $ = s => document.querySelector(s), $$ = s => Array.from(document.querySelectorAll(s));
 
@@ -387,7 +387,7 @@ async function renderGrinding(){
     await checkLimbleBanner();
     await loadMappings();
     $('#periodBadge').textContent = '• ' + (STATE.period || 'today');
-    $$('.segBig button').forEach(b=>b.classList.toggle('active', b.dataset.period===STATE.period));
+    $$('#tfButtons button').forEach(b=>b.classList.toggle('active', b.dataset.period===STATE.period));
 
     const now=new Date(); now.setHours(0,0,0,0);
     function iso(d){ return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10); }
@@ -475,7 +475,7 @@ async function renderGrinding(){
 
       const plannedPotential = a.cap > 0 ? (a.cap * plannedH) : 0;
       const plannedMissed = Math.max(0, Math.round(plannedPotential - Number(a.lbs)));
-      const plannedMissed8 = Math.max(0, Math.round(plannedMissed / 3)); // leave 8h view relative
+      const plannedMissed8 = Math.max(0, Math.round(plannedMissed / 3));
 
       let perfAdj = 0;
       if (a.cap > 0 && runtimeH > 0) {
@@ -643,21 +643,19 @@ async function renderGrinding(){
 }
 
 /* UI wiring */
-$$('.segBig button').forEach(btn => {
-  if(btn.closest('#tfButtons')){
-    btn.addEventListener('click', () => {
-      if(btn.dataset.period && btn.dataset.period !== STATE.period){
-        STATE.period = btn.dataset.period;
-        if(STATE.period !== 'custom' && STATE.period !== 'single'){
-          STATE.customFrom = STATE.customTo = null;
-          $('#fromDate').value = '';
-          $('#toDate').value = '';
-          $('#singleDate').value = '';
-        }
-        renderGrinding();
+$$('#tfButtons button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if(btn.dataset.period && btn.dataset.period !== STATE.period){
+      STATE.period = btn.dataset.period;
+      if(STATE.period !== 'custom' && STATE.period !== 'single'){
+        STATE.customFrom = STATE.customTo = null;
+        $('#fromDate').value = '';
+        $('#toDate').value = '';
+        $('#singleDate').value = '';
       }
-    });
-  }
+      renderGrinding();
+    }
+  });
 });
 
 document.getElementById('applyRange').addEventListener('click', () => {
@@ -676,7 +674,7 @@ document.getElementById('applyDay').addEventListener('click', () => {
   renderGrinding();
 });
 
-/* NEW: shift buttons wiring */
+/* Shift buttons wiring */
 $$('#shiftButtons button').forEach(btn => {
   btn.addEventListener('click', () => {
     const h = Number(btn.dataset.shift) || 24;
@@ -698,6 +696,7 @@ setInterval(()=>{ const c=$('#clock'); if(c) c.textContent = new Date().toLocale
 renderGrinding();
 setInterval(() => { renderGrinding(); }, 10 * 60 * 1000);
 setInterval(() => { try { location.reload(true); } catch(e) { location.reload(); } }, 60 * 60 * 1000);
+
 document.addEventListener('DOMContentLoaded', () => {
   $$('#tfButtons button').forEach(b => b.classList.toggle('active', b.dataset.period === STATE.period));
   $$('#shiftButtons button').forEach(b => b.classList.toggle('active', Number(b.dataset.shift) === STATE.shiftHours));
