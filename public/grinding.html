@@ -185,8 +185,6 @@
 const ENDPOINTS = {
   BY_LINE: '/api/production/by-line',
   PRODSTATUS: '/api/workorders/prodstatus',
-  LIMBLE_ASSETFIELDS: '/api/limble/assetfields',
-  LIMBLE_KPIASSETFIELDS: '/api/limble/kpiassetfields',
   ASSETS_FIELDS: '/api/assets/fields',
   MAP: 'mappings.json'
 };
@@ -352,7 +350,7 @@ function applyMItemBg(mitemEl, color){
    load asset status candidates
    ------------------------- */
 async function loadAssetStatusCandidates(filterFn){
-  const candidates = [ENDPOINTS.PRODSTATUS, ENDPOINTS.ASSETS_FIELDS, ENDPOINTS.LIMBLE_ASSETFIELDS, ENDPOINTS.LIMBLE_KPIASSETFIELDS];
+  const candidates = [ENDPOINTS.PRODSTATUS, ENDPOINTS.ASSETS_FIELDS];
   for(const url of candidates){
     const ok = await probeEndpointOnce(url);
     if(!ok) continue;
