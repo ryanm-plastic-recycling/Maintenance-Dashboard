@@ -204,18 +204,27 @@ async function probeEndpointOnce(url) { if(endpointAvail.has(url)) return endpoi
 /* Limble banner checker */
 async function checkLimbleBanner() {
   const bannerEl = $('#limbleBanner');
+  if (!bannerEl) return;
+
   try {
-    const okA = await probeEndpointOnce(ENDPOINTS.LIMBLE_ASSETFIELDS);
-    const okK = await probeEndpointOnce(ENDPOINTS.LIMBLE_KPIASSETFIELDS);
-    if (!okA && !okK) {
+    // Only probe the real server endpoint that fronts Limble
+    const ok = await probeEndpointOnce(ENDPOINTS.ASSETS_FIELDS);
+
+    if (!ok) {
       bannerEl.style.display = 'block';
-      bannerEl.innerHTML = `<strong>Limble endpoints unavailable</strong> — both <code>/api/limble/assetfields</code> and <code>/api/limble/kpiassetfields</code> returned not found or are unreachable. Data that depends on Limble will be missing. <button id="dismissLimble" aria-label="Dismiss Limble message">Dismiss</button>`;
+      bannerEl.innerHTML = `
+        <strong>Limble live asset feed unavailable</strong> —
+        <code>/api/assets/fields</code> is returning an error or is unreachable.
+        Some live status & maintenance context may be missing.
+        <button id="dismissLimble" aria-label="Dismiss Limble message">Dismiss</button>
+      `;
       const btn = document.getElementById('dismissLimble');
-      if(btn) btn.addEventListener('click', ()=> bannerEl.style.display='none');
+      if (btn) btn.addEventListener('click', () => { bannerEl.style.display = 'none'; });
     } else {
       bannerEl.style.display = 'none';
     }
-  } catch(e) {
+  } catch {
+    // if the probe itself blows up, fail quiet
     bannerEl.style.display = 'none';
   }
 }
@@ -307,10 +316,10 @@ async function renderBlending(){
     }
     $('#rangeLabel').textContent = `${from} → ${to}`;
 
-    const [bylineRaw, limblePayload, assetStatusCandidate] = await Promise.all([
+    // Fetch data in parallel (no direct /api/limble calls from the browser)
+    const [bylineRaw, assetStatusCandidate] = await Promise.all([
       fetchJSONQuiet(`${ENDPOINTS.BY_LINE}?from=${from}&to=${to}`),
-      (await probeEndpointOnce(ENDPOINTS.LIMBLE_ASSETFIELDS)) ? fetchJSONQuiet(`${ENDPOINTS.LIMBLE_ASSETFIELDS}?from=${from}&to=${to}`) : null,
-      loadAssetStatusCandidates(isBlendingMachineByName)
+      loadAssetStatusCandidates(isGrindingMachineByName)
     ]);
 
     const rawRows = Array.isArray(bylineRaw) ? bylineRaw : (bylineRaw && (Array.isArray(bylineRaw.rows) ? bylineRaw.rows : (Array.isArray(bylineRaw.items) ? bylineRaw.items : [])));
@@ -332,7 +341,7 @@ async function renderBlending(){
     const blendingRows = parsed.filter(p => p.machine && isBlendingMachineByName(p.machine));
 
     // limble map
-    const limbleMaintMap = {};
+    //const limbleMaintMap = {};
     if(limblePayload){
       let lp = Array.isArray(limblePayload) ? limblePayload : (Array.isArray(limblePayload.rows) ? limblePayload.rows : (Array.isArray(limblePayload.items) ? limblePayload.items : []));
       if(!lp.length && typeof limblePayload === 'object'){
