@@ -28,7 +28,7 @@
     .top-border{position:fixed;top:0;left:0;width:100%;height:96px;background:var(--pri-green);z-index:10;display:flex;align-items:center;padding:0 20px}
     .top-border .logo{height:72px}
     .top-title{font-size:32px;font-weight:900;margin-left:20px;color:#0A2A12}
-    .tabs{margin-left:auto;display:flex;gap:8px}
+    .tabs{margin-left:auto;display:flex;gap:8px;align-items:center}
     .tab{background:#ffffffd9;padding:8px 12px;border-radius:10px;text-decoration:none;color:#0A2A12;font-weight:800}
     .tab.active{background:#fff}
 
@@ -185,6 +185,12 @@
   <div class="top-border">
     <img src="img/pri-logo.png" alt="PRI Logo" class="logo" />
     <div class="top-title">PACE – Production Analysis & Capacity Explorer</div>
+
+    <!-- Limble banner added -->
+    <a href="https://www.limblecmms.com" target="_blank" rel="noopener" title="Limble CMMS">
+      <img src="img/limble-banner.png" alt="Limble" style="height:64px;margin-left:12px;object-fit:contain"/>
+    </a>
+
     <div class="tabs">
       <a class="tab" href="index.html">Work Orders</a>
       <a class="tab" href="pm.html">PM</a>
@@ -223,6 +229,14 @@
       <span class="meta-range">Pick date:</span>
       <input id="dayPick" type="date" class="select" />
       <span id="dayPickLabel" class="meta-range"></span>
+
+      <!-- New: explicit From / To range fields -->
+      <span class="divider"></span>
+      <span class="meta-range">Or range:</span>
+      <input id="fromPick" type="date" class="select" title="From date (inclusive)" />
+      <input id="toPick"   type="date" class="select" title="To date (inclusive)" />
+      <span id="rangeHint" class="meta-range" style="display:inline-block">Leave blank to use timeframe selector</span>
+
       <span class="divider"></span>
       <label style="display:flex;align-items:center;gap:6px;font-weight:800">
         <input type="checkbox" id="wkndToggle"> Include Weekends
@@ -377,7 +391,7 @@
         <div class="tile" id="tile-mdt-pct">
           <div class="lab">Maint DT (%)
             <span class="tooltip"><span class="info" tabindex="0">i</span>
-              <span class="tooltip-panel"><b>Maintenance DT %</b><br>
+              <span class="tooltip-panel"><b>Maint&nbsp;DT %</b><br>
                 Maint&nbsp;DT ÷ Planned Hours. Lower is better.
               </span>
             </span>
@@ -556,6 +570,8 @@
     return {
       tf:   document.getElementById('tf')?.value || 'last30',
       day:  document.getElementById('dayPick')?.value || '',
+      from: document.getElementById('fromPick')?.value || '',
+      to:   document.getElementById('toPick')?.value || '',
       wknd: !!document.getElementById('wkndToggle')?.checked
     };
   }
@@ -569,6 +585,8 @@
       const s = JSON.parse(localStorage.getItem('pace:prodSel') || '{}');
       if (s.tf)   document.getElementById('tf').value = s.tf;
       if (s.day)  document.getElementById('dayPick').value = s.day;
+      if (s.from) document.getElementById('fromPick').value = s.from;
+      if (s.to)   document.getElementById('toPick').value = s.to;
       if (typeof s.wknd === 'boolean') document.getElementById('wkndToggle').checked = s.wknd;
     } catch {}
   }
@@ -581,9 +599,12 @@
         setLoading(true);
         document.getElementById('tf').value = sel.tf;
         document.getElementById('dayPick').value = sel.day;
+        document.getElementById('fromPick').value = sel.from;
+        document.getElementById('toPick').value = sel.to;
         document.getElementById('wkndToggle').checked = sel.wknd;
 
         if (sel.day) { await goSingleDay(); }
+        else if (sel.from && sel.to) { await goRange(sel.from, sel.to); }
         else { await goRange(); }
       } finally {
         setLoading(false);
@@ -1384,6 +1405,16 @@ function fmtH(n){ return (n||0).toFixed(1) + ' h'; }
     const thisY = {from:new Date(now.getFullYear(),0,1), to:new Date(now.getFullYear(),11,31)};
     const lastY = {from:new Date(now.getFullYear()-1,0,1), to:new Date(now.getFullYear()-1,11,31)};
 
+    // If a user supplied explicit from/to, prefer that (useful when sel==='custom')
+    const fromPick = document.getElementById('fromPick').value;
+    const toPick   = document.getElementById('toPick').value;
+    if (fromPick && toPick) {
+      return {from: fromPick, to: toPick, label: `Custom range ${fromPick} → ${toPick}`};
+    }
+    // if only one date selected, treat as single-day range
+    if (fromPick && !toPick) return {from: fromPick, to: fromPick, label: `Custom ${fromPick}`};
+    if (!fromPick && toPick) return {from: toPick, to: toPick, label: `Custom ${toPick}`};
+
     switch(sel){
       case 'today':     return {from:fmt(now), to:fmt(now), label:'Today'};
       case 'yesterday': return {from:fmt(y),   to:fmt(y),   label:'Yesterday'};
@@ -1406,17 +1437,24 @@ function fmtH(n){ return (n||0).toFixed(1) + ' h'; }
     const sel = document.getElementById('tf');
     const dayPick = document.getElementById('dayPick');
     const wkndToggle = document.getElementById('wkndToggle');
+    const fromPick = document.getElementById('fromPick');
+    const toPick = document.getElementById('toPick');
+
     wkndToggle.checked = false; // default to weekdays only
 
     // restore last selection (if any) before first render
     restoreSelectionFromLS();
     
-    async function goRange(){
-      const r = computeRange(sel.value);
-      document.getElementById('tfLabel').textContent = `${r.from} → ${r.to}`;
+    async function goRange(fromArg, toArg){
+      // if explicit args passed, use those; otherwise compute from selector + inputs
+      const computed = (fromArg && toArg) ? {from: fromArg, to: toArg, label: `${fromArg} → ${toArg}`} : computeRange(sel.value);
+      document.getElementById('tfLabel').textContent = `${computed.from} → ${computed.to}`;
+      // clear single-day (we're using range)
       document.getElementById('dayPick').value = '';
       document.getElementById('dayPickLabel').textContent = '';
-      await renderForRange(r.from, r.to, r.label);
+      // sync UI fields
+      if (fromArg && toArg) { fromPick.value = fromArg; toPick.value = toArg; sel.value = 'custom'; }
+      await renderForRange(computed.from, computed.to, computed.label);
       saveSelectionToLS();
     }
     async function goSingleDay(){
@@ -1424,6 +1462,9 @@ function fmtH(n){ return (n||0).toFixed(1) + ' h'; }
       if (!d) return;
       // ⬇️ make the timeframe look blank since we’re using a specific date
       sel.value = 'custom';
+      // clear range picks when using single date for clarity
+      document.getElementById('fromPick').value = '';
+      document.getElementById('toPick').value = '';
       document.getElementById('dayPickLabel').textContent = d;
       document.getElementById('tfLabel').textContent = `${d} → ${d}`;
       await renderForRange(d, d, `Specific date ${d}`);
@@ -1436,6 +1477,7 @@ function fmtH(n){ return (n||0).toFixed(1) + ' h'; }
       setLoading(true);
       try {
         if (selNow.day) await goSingleDay();
+        else if (selNow.from && selNow.to) await goRange(selNow.from, selNow.to);
         else await goRange();
       } finally {
         setLoading(false);
@@ -1444,12 +1486,34 @@ function fmtH(n){ return (n||0).toFixed(1) + ' h'; }
     
     await loadMappings();
     
-    sel.addEventListener('change', goRange);
+    sel.addEventListener('change', () => {
+      // clear explicit range when switching to a preset timeframe (except 'custom')
+      if (sel.value !== 'custom') { fromPick.value=''; toPick.value=''; dayPick.value=''; document.getElementById('dayPickLabel').textContent=''; }
+      goRange();
+    });
     dayPick.addEventListener('change', goSingleDay);
     wkndToggle.addEventListener('change', goRange);
 
-    // first paint
-    if (dayPick.value) await goSingleDay(); else await goRange();
+    // When user edits from/to, treat as custom range and render immediately
+    fromPick.addEventListener('change', () => { 
+      // if only from is set, leave 'to' blank until user chooses it; computeRange will handle single day if only one present
+      sel.value = 'custom';
+      goRange();
+    });
+    toPick.addEventListener('change', () => {
+      sel.value = 'custom';
+      goRange();
+    });
+
+    // first paint: prefer explicit from/to, then single date, then timeframe
+    const firstSel = currentSelection();
+    if (firstSel.from && firstSel.to) {
+      await goRange(firstSel.from, firstSel.to);
+    } else if (firstSel.day) {
+      await goSingleDay();
+    } else {
+      await goRange();
+    }
   
     // start the 10-minute auto-refresh
     scheduleAutoRefresh(goRange, goSingleDay);
