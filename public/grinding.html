@@ -5,7 +5,6 @@
   <title>PRI Pulse – Grinding</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <style>
-    /* styles same as before (kept compact here) */
     :root{--pri-blue:#25408F;--pri-green:#92D050;--bg:#E9EDF5;--card:#FBFCFE;--ink:#0F172A;--muted:#475569;--border:#D7E0F3;--shadow:0 10px 25px rgba(0,0,0,.08);--tile-head-fs:30px}
     *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Roboto,Ubuntu,"Helvetica Neue",Arial,sans-serif;font-weight:800;font-size:18px}
     .page-production::before{content:"";position:fixed;inset:0;z-index:-1;background:linear-gradient(to bottom, rgba(255,255,255,.75), rgba(255,255,255,.85)),url('img/PRIfront.png') center/cover no-repeat fixed}
@@ -179,31 +178,27 @@
   </div>
 
 <script>
-/* -------------------------
-   Config + small helpers
-   ------------------------- */
 const ENDPOINTS = {
-  BY_LINE: '/api/production/by-line',
-  PRODSTATUS: '/api/workorders/prodstatus',
-  ASSETS_FIELDS: '/api/assets/fields',
-  MAP: 'mappings.json'
+  BY_LINE:'/api/production/by-line',
+  PRODSTATUS:'/api/workorders/prodstatus',
+  ASSETS_FIELDS:'/api/assets/fields',
+  MAP:'mappings.json'
 };
 
 const COLOR_CONFIG = {
   overall: { thresholds: { good: 0.85, warn: 0.7 }, hex: { good: '#10B981', warn: '#FBBF24', bad: '#EF4444' } },
-  status: { available: '#10B981', other: '#FBBF24' },
+  status:  { available: '#10B981', other: '#FBBF24' },
   lineHealth: { thresholds: { good: 0.80, warn: 0.60 }, hex: { good: '#10B981', warn: '#FBBF24', bad: '#EF4444' } }
 };
 
 const STATE = { period:'today', customFrom:null, customTo:null };
 const $ = s => document.querySelector(s), $$ = s => Array.from(document.querySelectorAll(s));
 
-function setLoading(v){ const el = $('#loading'); if(el) el.style.display = v ? 'flex' : 'none'; }
+function setLoading(v){ const el=$('#loading'); if(el) el.style.display = v ? 'flex' : 'none'; }
 function fmtPct(v){ return Number.isFinite(Number(v)) ? (Math.round(Number(v)*100)+'%') : '0%'; }
 function fmtNum(n){ return Number.isFinite(Number(n)) ? Math.round(Number(n)).toLocaleString() : '0'; }
 function fmtH(v){ return Number.isFinite(Number(v)) ? Number(v).toFixed(1) : '0.0'; }
 
-/* quieter fetch - returns null on any non-ok (no console.error spam) */
 async function fetchJSONQuiet(url, opts={}) {
   try {
     const r = await fetch(url + (url.includes('?') ? '&' : '?') + 'ts=' + Date.now(), {cache:'no-store', ...opts});
@@ -212,9 +207,6 @@ async function fetchJSONQuiet(url, opts={}) {
   } catch(e){ return null; }
 }
 
-/* probeEndpointOnce - NOTE: switched from HEAD to GET probe to avoid HEAD requests in Network tab.
-   This still shows a GET in Network if server responds 404, but it eliminates the previous HEAD entries.
-*/
 const endpointAvail = new Map();
 async function probeEndpointOnce(url) {
   if(endpointAvail.has(url)) return endpointAvail.get(url);
@@ -233,11 +225,8 @@ async function probeEndpointOnce(url) {
 async function checkLimbleBanner() {
   const bannerEl = $('#limbleBanner');
   if (!bannerEl) return;
-
   try {
-    // Only probe the real server endpoint that fronts Limble
     const ok = await probeEndpointOnce(ENDPOINTS.ASSETS_FIELDS);
-
     if (!ok) {
       bannerEl.style.display = 'block';
       bannerEl.innerHTML = `
@@ -247,17 +236,16 @@ async function checkLimbleBanner() {
         <button id="dismissLimble" aria-label="Dismiss Limble message">Dismiss</button>
       `;
       const btn = document.getElementById('dismissLimble');
-      if (btn) btn.addEventListener('click', () => { bannerEl.style.display = 'none'; });
+      if(btn) btn.addEventListener('click', ()=> bannerEl.style.display='none');
     } else {
       bannerEl.style.display = 'none';
     }
   } catch {
-    // if the probe itself blows up, fail quiet
     bannerEl.style.display = 'none';
   }
 }
 
-/* machine name helpers */
+/* row helpers */
 function machineNameFromRow(r){ if(!r) return ''; return String(r.machine || r.asset || r.name || r.assetName || r.AssetName || r.machineName || r.device || r.Asset || '').trim(); }
 function poundsFromRow(r){ return Number(r.pounds ?? r.lbs ?? r.weight ?? r.total_lbs ?? r.pounds_total ?? 0) || 0; }
 function machineHoursFromRow(r){ return Number(r.machine_hours ?? r.run_h ?? r.runHours ?? r.runtime_h ?? r.run_time ?? r.runtime ?? 0) || 0; }
@@ -266,7 +254,6 @@ function prodDTFromRow(r){ return Number(r.prod_dt_h ?? r.prod_h ?? r.prod_dt ??
 function nameplateFromRow(r){ return Number(r.nameplate_lbs_hr ?? r.nameplate ?? r.cap ?? r.cap_lbs_hr ?? 0) || 0; }
 function materialFromRow(r){ return String(r.material || r.mat || r.resin || '').toUpperCase(); }
 
-/* mappings loader */
 let MAPPINGS = null;
 async function loadMappings(){ if(MAPPINGS) return MAPPINGS; try { const j = await fetchJSONQuiet(ENDPOINTS.MAP); MAPPINGS = j || {}; } catch(e){ MAPPINGS = {}; } return MAPPINGS; }
 function capacityFor(lineName, material){
@@ -276,7 +263,6 @@ function capacityFor(lineName, material){
   return (byMat[canon]?.[m]) ?? (byMat[canon]?.DEFAULT) ?? caps[canon] ?? 0;
 }
 
-/* grinding canonical list + quick keyword matching */
 const GRIND_KEYWORDS = ['shred','grind','weima','shredder','grinder','vistakon','shredding'];
 function isGrindingMachineByName(n){
   if(!n) return false;
@@ -284,7 +270,7 @@ function isGrindingMachineByName(n){
   return GRIND_KEYWORDS.some(k => s.includes(k));
 }
 
-/* drawing utilities (donut, legend, tiles) omitted for brevity in this comment block — preserved below */
+/* donut helpers */
 function drawDonutSegments(canvas, segments){
   if(!canvas) return;
   const ctx = canvas.getContext('2d');
@@ -355,9 +341,6 @@ function applyMItemBg(mitemEl, color){
   mitemEl.style.boxShadow = '0 8px 18px rgba(0,0,0,0.12)';
 }
 
-/* -------------------------
-   load asset status candidates
-   ------------------------- */
 async function loadAssetStatusCandidates(filterFn){
   const candidates = [ENDPOINTS.PRODSTATUS, ENDPOINTS.ASSETS_FIELDS];
   for(const url of candidates){
@@ -388,9 +371,7 @@ async function loadAssetStatusCandidates(filterFn){
   return { source:null, rows: [] };
 }
 
-/* -------------------------
-   main render — grinding
-   ------------------------- */
+/* main render — grinding */
 async function renderGrinding(){
   setLoading(true);
   try{
@@ -399,8 +380,7 @@ async function renderGrinding(){
     $('#periodBadge').textContent = '• ' + (STATE.period || 'today');
     $$('.segBig button').forEach(b=>b.classList.toggle('active', b.dataset.period===STATE.period));
 
-    // build from/to
-    const now = new Date(); now.setHours(0,0,0,0);
+    const now=new Date(); now.setHours(0,0,0,0);
     function iso(d){ return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10); }
     let from,to;
     if(STATE.period === 'custom' && STATE.customFrom && STATE.customTo){
@@ -421,7 +401,6 @@ async function renderGrinding(){
     }
     $('#rangeLabel').textContent = `${from} → ${to}`;
 
-    // Fetch data in parallel (no direct /api/limble calls from the browser)
     const [bylineRaw, assetStatusCandidate] = await Promise.all([
       fetchJSONQuiet(`${ENDPOINTS.BY_LINE}?from=${from}&to=${to}`),
       loadAssetStatusCandidates(isGrindingMachineByName)
@@ -442,10 +421,8 @@ async function renderGrinding(){
       };
     });
 
-    // only keep grinding machines by keyword
     const grindingRows = parsed.filter(p => p.machine && isGrindingMachineByName(p.machine));
 
-    // aggregate per canonical grinding name (coarse)
     const agg = {};
     grindingRows.forEach(r => {
       const name = r.machine.trim();
@@ -461,7 +438,6 @@ async function renderGrinding(){
       if(cap>0) agg[name].cap = cap;
     });
 
-    // days (workdays) estimate (Mon-Fri)
     const fromD = new Date(from + 'T00:00:00'), toD = new Date(to + 'T00:00:00');
     let days=0; for(let d=new Date(fromD); d<=toD; d.setDate(d.getDate()+1)){ const wd=d.getDay(); if(wd!==0 && wd!==6) days++; } days = Math.max(1, days);
     Object.values(agg).forEach(a => a.days = days);
@@ -469,12 +445,10 @@ async function renderGrinding(){
     const perLine = Object.values(agg).map(a => {
       const matEntries = Object.entries(a.matcount || {});
       const domMat = matEntries.length ? matEntries.sort((x, y) => y[1] - x[1])[0][0] : 'N/A';
-    
+
       const plannedH = 24 * a.days;
-    
-      // No Limble overlay here anymore – just use the maintenance hours coming from by-line
       const maint = Number(a.maint) || 0;
-    
+
       let runtimeH = 0;
       if (Number(a.mach) > 0) {
         runtimeH = Number(a.mach);
@@ -482,24 +456,24 @@ async function renderGrinding(){
         runtimeH = Number(a.lbs) / Number(a.cap);
       }
       runtimeH = Math.max(0, Math.min(runtimeH, plannedH));
-    
+
       const grindDowntime = Math.max(0, plannedH - runtimeH - maint);
-    
+
       const capPotentialDuringRuntime = a.cap > 0 ? (a.cap * runtimeH) : 0;
       const underPerfGap = Math.max(0, Math.round(capPotentialDuringRuntime - Number(a.lbs)));
-    
+
       const plannedPotential = a.cap > 0 ? (a.cap * plannedH) : 0;
       const plannedMissed = Math.max(0, Math.round(plannedPotential - Number(a.lbs)));
       const plannedMissed8 = Math.max(0, Math.round(plannedMissed / 3));
-    
+
       let perfAdj = 0;
       if (a.cap > 0 && runtimeH > 0) {
         perfAdj = Number(a.lbs) / (runtimeH * Number(a.cap));
       }
       perfAdj = Math.max(0, Math.min(perfAdj, 10));
-    
+
       const avail = plannedH > 0 ? (runtimeH / plannedH) : 0;
-    
+
       return {
         ...a,
         plannedH,
@@ -508,7 +482,7 @@ async function renderGrinding(){
         grindDowntime,
         perfAdj,
         oee: runtimeH > 0 ? (runtimeH / plannedH) * perfAdj : 0,
-        capPotential: capPotentialDuring nighttime,
+        capPotential: capPotentialDuringRuntime,
         missed: underPerfGap,
         plannedPotential,
         plannedMissed,
@@ -533,7 +507,6 @@ async function renderGrinding(){
     applyTileBg('tile-maint-dt', maintFrac, fmtPct(maintFrac), `${fmtH(totals.maint)} maint h • ${fmtH(totals.prod)} prod dt h`);
     applyTileBg('tile-performance', overallPerfAdj, fmtPct(overallPerfAdj), `${fmtNum(Math.round(totals.lbs))} lbs • avg cap ${fmtNum(Math.round(avgCap))} lbs/hr`);
 
-    // simple downtime reason aggregation (quiet)
     const prodReasonsMap = {}, maintCatsMap = {}, maintModesMap = {};
     (rawRows||[]).forEach(r=>{
       const rReason = r.reason || r.downtimeReason || r.dt_reason || r.DowntimeReason || r.prod_reason || '';
@@ -558,7 +531,6 @@ async function renderGrinding(){
     drawDonutSegments($('#donutMaintMode'), segMode);
     makeLegend($('#legendMaintMode'), maintModesArr, ['#071332','#ef6b2f','#1e40af','#94a3b8']);
 
-    // build line cards
     const linesGrid = $('#linesGrid'); linesGrid.innerHTML = '';
     perLine.sort((a,b)=> (b.perfAdj||0) - (a.perfAdj||0)).forEach(l=>{
       const div = document.createElement('div'); div.className='line';
@@ -592,10 +564,9 @@ async function renderGrinding(){
         const perfNode = m5.querySelector('.mkv[data-perf]');
         if(availNode) applyMItemBg(availNode.closest('.mitem'), pickColorForPct(l.avail, 'lineHealth'));
         if(perfNode) applyMItemBg(perfNode.closest('.mitem'), pickColorForPct(l.perfAdj, 'lineHealth'));
-      } catch(e){ /* silent */ }
+      } catch(e){}
     });
 
-    // rank table
     const tbody = $('#rankTable tbody'); tbody.innerHTML = '';
     perLine.sort((a,b) => ((b.perfAdj||0) - (a.perfAdj||0)) || ((b.avail||0) - (a.avail||0)));
     perLine.forEach(r=>{
@@ -613,7 +584,6 @@ async function renderGrinding(){
       tbody.appendChild(tr);
     });
 
-    // totals row
     const totalTr = document.createElement('tr'); totalTr.style.fontWeight='900';
     const t1 = document.createElement('td'); t1.className='left'; t1.textContent = 'TOTAL';
     const avgPerf = perLine.length ? perLine.reduce((s,x)=>s + (x.perfAdj||0),0) / Math.max(1, perLine.length) : 0;
@@ -626,7 +596,6 @@ async function renderGrinding(){
     totalTr.appendChild(t1); totalTr.appendChild(t2); totalTr.appendChild(t3); totalTr.appendChild(t4); totalTr.appendChild(t5); totalTr.appendChild(t6); totalTr.appendChild(t7);
     tbody.appendChild(totalTr);
 
-    // live status
     const statusEl = $('#grindStatusList'); statusEl.innerHTML = '';
     const statuses = (assetStatusCandidate?.rows || []);
     statuses.sort((a,b)=> a.name.localeCompare(b.name));
@@ -662,13 +631,10 @@ async function renderGrinding(){
   }
 }
 
-/* -------------------------
-   UI wiring
-   ------------------------- */
+/* UI wiring */
 $$('.segBig button').forEach(btn => btn.addEventListener('click', () => {
   if(btn.dataset.period && btn.dataset.period !== STATE.period){
     STATE.period = btn.dataset.period;
-    // clear custom if switching away
     if(STATE.period !== 'custom' && STATE.period !== 'single'){ STATE.customFrom = STATE.customTo = null; $('#fromDate').value = ''; $('#toDate').value = ''; $('#singleDate').value = ''; }
     renderGrinding();
   }
@@ -690,7 +656,6 @@ document.getElementById('applyDay').addEventListener('click', () => {
   renderGrinding();
 });
 
-// keyboard fullscreen
 document.addEventListener('keydown', (e)=>{
   if (e.key && e.key.toLowerCase()==='f') {
     if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(()=>{});
@@ -699,7 +664,6 @@ document.addEventListener('keydown', (e)=>{
 });
 setInterval(()=>{ const c=$('#clock'); if(c) c.textContent = new Date().toLocaleTimeString(); },1000);
 
-// initial render + refresh
 renderGrinding();
 setInterval(() => { renderGrinding(); }, 10 * 60 * 1000);
 setInterval(() => { try { location.reload(true); } catch(e) { location.reload(); } }, 60 * 60 * 1000);
