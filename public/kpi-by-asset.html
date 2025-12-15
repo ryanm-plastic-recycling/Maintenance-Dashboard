@@ -53,6 +53,34 @@
       line-height: 1.15;
       vertical-align: middle; /* avoid cutoff if anything is tall */
     }
+
+    /* --- PACE-like date selector (added) --- */
+    .controls {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 10px 0;
+    }
+    .controls .date-input {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .controls input[type="date"] {
+      padding: 6px 8px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 0.95rem;
+      background: #fff;
+    }
+    #apply-dates {
+      padding: 6px 10px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      background: #eee;
+      cursor: pointer;
+    }
   </style>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
@@ -179,6 +207,18 @@
         <option value="trailing30Days">Trailing 30 Days</option>
         <option value="trailing12Months">Trailing 12 Months</option>
       </select>
+
+      <!-- PACE-like date selector + range (added) -->
+      <span class="date-input">
+        <label for="start-date">Start:</label>
+        <input id="start-date" type="date" />
+      </span>
+      <span class="date-input">
+        <label for="end-date">End:</label>
+        <input id="end-date" type="date" />
+      </span>
+      <button id="apply-dates" type="button">Apply</button>
+
       <span id="date-range" style="margin-left:8px; opacity:.8;"></span>
     </div>
     <div>
@@ -385,13 +425,69 @@
       trailing12Months:'lastYear'    // approx until you add a true trailing-12
     };
 
+    // --- PACE-like date selector behavior (fixed) ---
+    const startDateEl = document.getElementById('start-date');
+    const endDateEl   = document.getElementById('end-date');
+    const applyDates  = document.getElementById('apply-dates');
+
+    function clearDateInputs() {
+      if (startDateEl) startDateEl.value = '';
+      if (endDateEl) endDateEl.value = '';
+    }
+
+    // Convert YYYY-MM-DD to ISO UTC midnight, and compute end-exclusive (+1 day)
+    function toUtcIsoMidnight(yyyyMmDd) {
+      // Safe parse: build UTC date explicitly
+      const [y,m,d] = yyyyMmDd.split('-').map(Number);
+      const dt = new Date(Date.UTC(y, (m || 1) - 1, d || 1, 0, 0, 0, 0));
+      return dt.toISOString();
+    }
+    function addDaysUtcIso(utcIso, days) {
+      const dt = new Date(utcIso);
+      dt.setUTCDate(dt.getUTCDate() + days);
+      return dt.toISOString();
+    }
+
+    applyDates?.addEventListener('click', () => {
+      // If user applies a custom range, fetch will prefer start/end when both are present.
+      loadByAsset();
+    });
+
+    // If user changes timeframe, treat that as leaving custom dates (PACE-style)
+    document.getElementById('timeframe-select')?.addEventListener('change', () => {
+      clearDateInputs();
+      const dr = document.getElementById('date-range'); if (dr) dr.textContent = '';
+    });
+
    async function loadByAsset() {
       // (1) map UI timeframe to API key
       const raw = (document.getElementById('timeframe-select')?.value || 'lastMonth');
       const tf  = TF_MAP[raw] || 'lastMonth';
-    
+
+      // (1b) custom date range
+      const startRaw = (startDateEl?.value || '').trim(); // YYYY-MM-DD
+      const endRaw   = (endDateEl?.value || '').trim();   // YYYY-MM-DD
+      const hasCustomRange = !!(startRaw && endRaw);
+
+      // Normalize for API: start=UTC midnight, end=exclusive UTC midnight of next day
+      let startIso = '';
+      let endIsoExclusive = '';
+      if (hasCustomRange) {
+        startIso = toUtcIsoMidnight(startRaw);
+        const endIso = toUtcIsoMidnight(endRaw);
+        endIsoExclusive = addDaysUtcIso(endIso, 1);
+      }
+
       // (2) fetch
-      const res  = await fetch(`/api/kpi/by-asset?tf=${encodeURIComponent(tf)}&t=${Date.now()}`, { cache: 'no-store' });
+      const url = hasCustomRange
+        ? `/api/kpi/by-asset?tf=${encodeURIComponent(tf)}`
+          + `&start=${encodeURIComponent(startIso)}&end=${encodeURIComponent(endIsoExclusive)}`
+          + `&startDate=${encodeURIComponent(startIso)}&endDate=${encodeURIComponent(endIsoExclusive)}`
+          + `&startUtc=${encodeURIComponent(startIso)}&endUtc=${encodeURIComponent(endIsoExclusive)}`
+          + `&t=${Date.now()}`
+        : `/api/kpi/by-asset?tf=${encodeURIComponent(tf)}&t=${Date.now()}`;
+
+      const res  = await fetch(url, { cache: 'no-store' });
       const data = await res.json();
       const rows = Array.isArray(data.rows) ? data.rows : [];
     
@@ -538,10 +634,14 @@
           .toLocaleString('en-US', { timeZone: 'America/Indiana/Indianapolis' });
       }
       const dr = document.getElementById('date-range');
-      if (dr && data.range) {
-        const rs = new Date(data.range.start);
-        const re = new Date(new Date(data.range.end).getTime() - 24*3600*1000); // exclusive → inclusive
-        dr.textContent = `${rs.toLocaleDateString('en-US',{timeZone:'America/Indiana/Indianapolis'})} — ${re.toLocaleDateString('en-US',{timeZone:'America/Indiana/Indianapolis'})}`;
+      if (dr) {
+        if (hasCustomRange) {
+          dr.textContent = `${startRaw} — ${endRaw}`;
+        } else if (data.range) {
+          const rs = new Date(data.range.start);
+          const re = new Date(new Date(data.range.end).getTime() - 24*3600*1000); // exclusive → inclusive
+          dr.textContent = `${rs.toLocaleDateString('en-US',{timeZone:'America/Indiana/Indianapolis'})} — ${re.toLocaleDateString('en-US',{timeZone:'America/Indiana/Indianapolis'})}`;
+        }
       }
     }
 
