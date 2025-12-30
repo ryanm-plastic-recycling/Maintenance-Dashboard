@@ -213,6 +213,16 @@
             background:#25408F;
             color:#fff;
         }
+        .stale-banner {
+            display: none;
+            background-color: #fff3cd;
+            color: #7a5a00;
+            padding: 8px 12px;
+            margin-bottom: 10px;
+            border: 1px solid #f0ad4e;
+            border-radius: 4px;
+            font-weight: bold;
+        }
     </style>
 	<meta name="viewport" content="width=device-width, initial-scale=1.0" charset="utf-8">
 </head>
@@ -248,6 +258,7 @@
     </div>
     <div class="container">
         <div id="alert-container" class="alert-container"></div>
+        <div id="stale-banner" class="stale-banner" aria-live="polite"></div>
         <h1>LIVE Production Line Status <small id="last-refresh-status" style="font-weight:normal;font-size:0.8rem;color:#555;"></small></h1>
         <div class="tabs">
             <a href="/index.html">Work Orders</a>
@@ -300,6 +311,12 @@ let consecutiveErrors = 0;
 let maxErrorsBeforeReload = 3; // default, may be overridden by config.json
 let autoReloadThresholdMs = 5 * 60 * 1000; // default 5 minutes (may be overridden)
 let autoReloadEnabled = true;
+const staleStrikesBeforeReload = 3;
+const reloadCooldownMs = 5 * 60 * 1000; // 5 minutes
+const reloadCooldownKey = 'prodstatus:lastReloadAt';
+let staleCount = 0;
+let reloadScheduled = false;
+let lastServerRefreshUtc = null;
 
     fetch('/config.json')
         .then(res => res.json())
@@ -454,6 +471,7 @@ let autoReloadEnabled = true;
         }
 		
       function scheduleRefresh(delay) {
+        if (reloadScheduled) return;
         clearTimeout(refreshTimeout);
         refreshCountdown = Math.floor(delay / 1000);
         updateRefreshTimer();
@@ -464,8 +482,66 @@ let autoReloadEnabled = true;
         await loadStatus();
       }
 
+      function getLastReloadAt() {
+        const raw = sessionStorage.getItem(reloadCooldownKey);
+        const n = Number(raw);
+        return Number.isFinite(n) ? n : 0;
+      }
+
+      function isWithinReloadCooldown() {
+        const last = getLastReloadAt();
+        return last > 0 && (Date.now() - last) < reloadCooldownMs;
+      }
+
+      function markReloadNow() {
+        sessionStorage.setItem(reloadCooldownKey, String(Date.now()));
+      }
+
+      function showStaleBanner(message) {
+        const el = document.getElementById('stale-banner');
+        if (el) {
+          el.textContent = message;
+          el.style.display = 'block';
+        }
+      }
+
+      function hideStaleBanner() {
+        const el = document.getElementById('stale-banner');
+        if (el) el.style.display = 'none';
+      }
+
+      function triggerAdminRefresh() {
+        fetch('/api/cache/refresh', { method: 'POST' }).catch(() => {});
+      }
+
+      function scheduleReload(reason, delay = 7000, meta = {}) {
+        if (reloadScheduled) return;
+        const inCooldown = isWithinReloadCooldown();
+        const warnMeta = {
+          reason,
+          lastRefreshUtc: meta.lastRefreshUtc ?? lastServerRefreshUtc,
+          ageMs: meta.ageMs ?? (lastServerRefreshUtc ? Date.now() - new Date(lastServerRefreshUtc).getTime() : null),
+          thresholdMs: autoReloadThresholdMs,
+          staleCount,
+          consecutiveErrors
+        };
+        if (inCooldown) {
+          console.warn('[prodstatus] reload suppressed during cooldown', warnMeta);
+          showStaleBanner('Data stale — waiting for server refresh');
+          scheduleRefresh(30_000);
+          return;
+        }
+        reloadScheduled = true;
+        console.warn('[prodstatus] scheduling reload', { delayMs: delay, ...warnMeta });
+        setTimeout(() => {
+          markReloadNow();
+          window.location.reload();
+        }, delay);
+      }
+
 	  async function loadStatus() {
 		  if (__ps_waiting) return;
+		  if (reloadScheduled) return;
 		  __ps_waiting = true;
 		  try {
               // fetch and validate status response
@@ -503,8 +579,14 @@ let autoReloadEnabled = true;
             consecutiveErrors = (consecutiveErrors || 0) + 1;
             // if too many consecutive errors, reload the page (attempt recover)
             if (consecutiveErrors >= maxErrorsBeforeReload) {
-                console.warn(`[prodstatus] ${consecutiveErrors} consecutive errors — reloading page`);
-                setTimeout(() => window.location.reload(), 2000);
+                console.warn(`[prodstatus] ${consecutiveErrors} consecutive errors — reload requested`, {
+                  reason: 'errors',
+                  lastRefreshUtc: lastServerRefreshUtc,
+                  thresholdMs: autoReloadThresholdMs,
+                  staleCount,
+                  consecutiveErrors
+                });
+                scheduleReload('errors', 2000);
                 return;
             }
             // otherwise schedule a retry
@@ -528,7 +610,10 @@ let autoReloadEnabled = true;
 		    lrEl.textContent = `· Last refresh: ${
 			  new Date(lastRefreshUtc).toLocaleString('en-US', { timeZone: 'America/Indiana/Indianapolis' })
 			}`;
-		  }
+            lastServerRefreshUtc = lastRefreshUtc;
+		  } else {
+            lastServerRefreshUtc = null;
+          }
 		
 		  const colorMap = mappings.statusColorMapping || {};
 		  const textMap  = mappings.statusTextMapping  || {};
@@ -578,11 +663,36 @@ let autoReloadEnabled = true;
                   if (!isNaN(lastMs)) {
                       const age = Date.now() - lastMs;
                       if (age > autoReloadThresholdMs) {
-                          console.warn('[prodstatus] server lastRefresh is stale (age ms):', age, 'threshold:', autoReloadThresholdMs);
-                          // reload once after short delay to give any pending UI updates a chance
-                          setTimeout(() => window.location.reload(), 1500);
+                          staleCount = Math.min(staleCount + 1, staleStrikesBeforeReload);
+                          const meta = { lastRefreshUtc, ageMs: age };
+                          console.warn('[prodstatus] stale server data detected', {
+                            reason: 'stale',
+                            lastRefreshUtc,
+                            ageMs: age,
+                            thresholdMs: autoReloadThresholdMs,
+                            staleCount,
+                            consecutiveErrors
+                          });
+                          if (staleCount >= staleStrikesBeforeReload) {
+                              if (staleCount === staleStrikesBeforeReload) {
+                                triggerAdminRefresh();
+                              }
+                              scheduleReload('stale', 7000, meta);
+                          } else {
+                              showStaleBanner('Data stale — waiting for server refresh');
+                              scheduleRefresh(30_000);
+                          }
+                      } else {
+                          staleCount = 0;
+                          hideStaleBanner();
                       }
+                  } else {
+                      staleCount = 0;
+                      hideStaleBanner();
                   }
+              } else {
+                  staleCount = 0;
+                  hideStaleBanner();
               }
           } catch (e) {
               console.error('stale-check failed', e);
@@ -602,7 +712,7 @@ let autoReloadEnabled = true;
 	refreshAll(); // or call loadStatus() directly if that’s your entry
 	
 	// fallback tick if server doesn’t provide nextRefresh
-	setInterval(() => { if (!__ps_waiting) loadStatus(); }, 60_000);
+	setInterval(() => { if (!__ps_waiting && !reloadScheduled) loadStatus(); }, 60_000);
 
     </script>
 <script>
