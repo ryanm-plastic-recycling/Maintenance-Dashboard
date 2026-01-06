@@ -1,115 +1,146 @@
 # Maintenance Dashboard
 
-This project provides a simple dashboard that displays data from the Limble CMMS
-API. It is built with Node and Express and serves a single-page dashboard that
-shows a live list of work orders for a configured location.
+This project provides a dashboard that displays data from the Limble CMMS API and local Azure SQL snapshots. It is built with Node.js and Express, serves static pages from `public/`, and exposes REST APIs plus scheduled jobs for KPI and production reporting.
 
-## Features
+## What’s inside
 
-- **Live work order table** – the dashboard pulls the latest tasks from Limble
-  whenever the page is loaded.
-- **Asset name mapping** – asset IDs are converted to human readable names by
-  first querying the `/api/assets` endpoint.
-- **KPI asset list** – the dashboard reads `public/mappings.json` at startup to
-  determine which asset IDs should be included when calculating KPIs. These IDs
-  are passed directly to Limble when fetching labor and task details.
-- **Status and priority decoding** – `public/mappings.json` translates status,
-  type, priority, team and location IDs into meaningful text.
-- **Refresh button** – quickly reload the data without restarting the server.
-- **REST endpoints** – the server exposes several endpoints used by the
-  frontend:
-  - `/api/assets` fetches asset information.
-  - `/api/task` returns recent open work orders.
-  - `/api/taskpm` returns open preventative maintenance tasks.
-  - `/api/hours` returns labor hour data.
-  - `/api/kpis/header` returns aggregate KPI values for dashboard headers.
-  - `/api/kpis/by-asset` returns KPI metrics grouped by asset.
-  These endpoints proxy requests to Limble using credentials provided through
-  environment variables.
-- **7‑day weather forecast** – a sidebar displays the week's forecast with large icons and
-  temperatures. Severe conditions such as heat, freeze or storms appear as alerts above the table.
-- **Large date and time** – the header shows the current date and time in a large
-  font centered in the banner.
-- **Page tabs** – navigation links at the top of each page allow switching between
-  the work order view, the PM view and the admin interface.
+- **Runtime & tooling**: Node 18, Express, Axios/fetch, helmet, CORS, lodash, moment, node-cron, and Jest/ESLint for testing and linting.
+- **Data sources**: Limble CMMS (`CLIENT_ID`, `CLIENT_SECRET`, `API_BASE_URL`) and Azure SQL (`AZURE_SQL_*`).
+- **Frontend**: Static HTML/JS in `public/` (`index.html`, `pm.html`, `prodstatus.html`, `kpi-by-asset.html`, `admin.html`, etc.).
+- **Background jobs**: Limble sync (`limbleSync.js`), KPI snapshot jobs (`kpiJobs.js`), production ingest/enrichment jobs, and ETL helpers (`etl.js`).
+- **Admin controls**: Basic/Bearer-protected routes for cache refresh, schedule edits, and one-off job runs; telemetry capture; Limble webhook verification.
 
-The dashboard itself lives in `public/index.html` and is styled with basic CSS.
-JavaScript in the page fetches data from the endpoints above and renders it in a
-table.
+## API reference
 
-## ETL & Scheduling
+Unless noted, routes are defined in `server.js`. Admin routes require Basic auth (`BASIC_AUTH_USER`, `BASIC_AUTH_PASS`) or a bearer token (`ADMIN_TOKEN`). Some config writes additionally expect `ADMIN_PASSWORD` in the request body.
 
-The `etl.js` script pulls data from Limble and merges it into Azure SQL. It now
-tracks incremental watermarks for tasks, labor and asset fields, writes failed
-rows to `bad_rows.json` and logs summary counts. A stub `notifyFailures()` is
-invoked if more than ten rows fail.
+### Public/read endpoints
 
-To automate runs there is a simple `cron.sh` and accompanying `Dockerfile`. The
-container installs cron and schedules the ETL to run daily at midnight.
+- `GET /api/config` – return `public/config.json`.
+- `GET /api/assets` – Limble assets for configured production assets.
+- `GET /api/assets/fields` – Limble asset fields (paged).
+- `GET /api/task` – recent open work orders (types 2,6) for location 13425.
+- `GET /api/taskpm` – open preventative maintenance tasks for location 13425.
+- `GET /api/hours` – labor hours since a fixed timestamp.
+- `GET /api/status` – alias for `/api/workorders/prodstatus`.
+- `GET /api/workorders/:page` – latest cached work orders for `index`, `pm`, or `prodstatus`.
+- `GET /api/kpis/header` – header KPIs (weekly + monthly snapshots).
+- `GET /api/kpis/by-asset` – KPI snapshot for a timeframe (`tf`/`timeframe` query).
+- `GET /api/kpis-by-asset` and `GET /api/kpi/by-asset` – aliases to `/api/kpis/by-asset`.
+- `GET /api/settings/kpi-theme` – current KPI color/threshold theme.
+- `GET /api/health` – health check.
 
-## Setup
+Production reporting (`server/routes/production.js`):
+- `GET /api/production/summary?from=YYYY-MM-DD&to=YYYY-MM-DD`
+- `GET /api/production/by-line?from=...&to=...`
+- `GET /api/production/validate?date=YYYY-MM-DD&machine=...`
+- `GET /api/production/dt-reasons?kind=prod|maint&dim=cat|fm&from=...&to=...&weekdaysOnly=1`
+
+### Admin/write endpoints
+
+- `POST /api/config` – replace `public/config.json` (requires `ADMIN_PASSWORD` in body).
+- `POST /api/mappings` – replace `public/mappings.json` (requires `ADMIN_PASSWORD` in body).
+- `PUT /api/settings/kpi-theme` – update KPI colors/thresholds (validates hex + numbers).
+- `GET /api/admin/schedules` – list cron expressions from `dbo.UpdateSchedules`.
+- `PUT /api/admin/schedules` – update cron expressions/enabled flags and reload scheduler.
+- `POST /api/admin/run` – run a named job now (e.g., `header_kpis`, `by_asset_kpis`, `work_orders_index`, `work_orders_pm`, `work_orders_status`, `etl_assets_fields`, `limble_sync`, `limble_sync_refresh`, `limble_sync_completed`, `full_refresh_daily`, `index_maintenance`, `prod-excel`).
+- `POST /api/admin/refresh-all` – refresh header/by-asset KPIs and all work-order snapshots.
+- `POST /api/admin/run-prod-excel?dry=1` – ingest production Excel (optionally dry run).
+- `POST /api/admin/full-refresh` – full refresh pipeline run.
+- `POST /api/cache/refresh` – force refresh KPI and work-order caches.
+- Diagnostics (admin only): `GET /api/production/cap-check`, `/production/debug-cap`, `/production/debug-material`, `/admin/cap-audit`.
+- Integrations:
+  - `POST /api/limble/webhook` – Limble webhook with HMAC signature check; triggers Windows PowerShell pulls.
+  - `POST /api/telemetry` – append JSONL telemetry events (size/shape validated).
+
+### Background jobs & schedules
+
+- Jobs are registered in `server.js` and scheduled via `node-cron` using `dbo.UpdateSchedules` rows (see `server/scheduler.js`).
+- Common jobs: `header_kpis`, `by_asset_kpis`, `work_orders_index|pm|status`, `etl_assets_fields`, `limble_sync`, `limble_sync_refresh`, `limble_sync_completed`, `full_refresh_daily`, `prod-excel`, `index_maintenance`.
+- Admins can view/update cron strings via `GET/PUT /api/admin/schedules` or trigger jobs via `POST /api/admin/run`.
+- The Docker image installs `cron` and runs `etl.js` nightly at 00:00 via `/etc/cron.d/etl-cron`.
+
+## Setup & installation
 
 1. Install dependencies:
    ```bash
    npm install
    ```
-2. Copy `.env.example` to `.env` and provide your Limble API credentials and base URL:
+2. Configure environment (no `.env.example` is committed; create `.env`):
+   - Limble: `CLIENT_ID`, `CLIENT_SECRET`, `API_BASE_URL` (default `https://api.limblecmms.com:443`).
+   - Azure SQL: `AZURE_SQL_SERVER`, `AZURE_SQL_DB`, `AZURE_SQL_USER`, `AZURE_SQL_PASS`.
+   - Server: `PORT` (default `3000`), `LOCAL_IP` (for logging), `NODE_ENV`.
+   - Admin auth: `BASIC_AUTH_USER`, `BASIC_AUTH_PASS` and/or `ADMIN_TOKEN`; `ADMIN_PASSWORD` for config/mappings POSTs.
+   - Cache: `CACHE_TTL_MINUTES`, `CACHE_CHECK_PERIOD_SECONDS`, `STATUS_REFRESH_ENDPOINT`.
+   - KPI windows: `KPI_WEEK_START`, `KPI_WEEK_END`, `KPI_MONTH_START`, `KPI_MONTH_END`.
+   - Operations: `EXPECTED_RUN_DAYS` (e.g., `Mon-Fri`), `EXPECTED_HOURS_PER_DAY`.
+   - Optional Limble sync tuning: `TASKS_URL`, `TASKS_LIMIT`, `LIMBLE_LOCATION_ID`.
+   - Webhook: `CLIENT_SECRET` also validates `/api/limble/webhook` signatures.
+3. Optional: PM2 process manager (see `ecosystem.config.cjs`):
    ```bash
-   cp .env.example .env
-   # edit .env and fill CLIENT_ID, CLIENT_SECRET and API_BASE_URL
+   npm install -g pm2
+   pm2 start ecosystem.config.cjs --env production
    ```
-3. (Optional) Adjust `PORT` and `LOCAL_IP` in `.env` to change where the server listens. Set `LOCAL_IP` to `192.168.48.255` to host on that address. Set `ADMIN_PASSWORD` for accessing the admin page.
-4. (Optional) Configure cache settings in `.env`:
+4. Optional: Docker ETL runner (cron):
    ```bash
-   CACHE_TTL_MINUTES=15
- CACHE_CHECK_PERIOD_SECONDS=1800
- STATUS_REFRESH_ENDPOINT=/api/cache/refresh
- API_BASE_URL=https://api.limblecmms.com:443
-   ```
-5. Start the server:
-   ```bash
-   npm start
+   docker build -t maintenance-dashboard-etl .
+   docker run --env-file .env maintenance-dashboard-etl
    ```
 
-### Cache settings
-The cache is controlled via environment variables:
-- `CACHE_TTL_MINUTES` – minutes before KPI and status data is refreshed (default `15`)
-- `CACHE_CHECK_PERIOD_SECONDS` – how often the cache trims expired items (default `1800`)
-- `STATUS_REFRESH_ENDPOINT` – route for manually forcing a refresh (default `/api/cache/refresh`)
-- `API_BASE_URL` – base URL for Limble API requests (default `https://api.limblecmms.com:443`)
+## How to start
 
-### Operational hours
-Machines are assumed to run 24 hours per day, Monday through Friday. Override this schedule with:
-
-- `EXPECTED_RUN_DAYS` – comma list or ranges like `Mon-Fri` (default `Mon-Fri`)
-- `EXPECTED_HOURS_PER_DAY` – hours counted for each run day (default `24`)
-
-### KPI time ranges
-KPI calculations default to the previous calendar week and previous calendar month. Override
-these ranges by setting any of the following environment variables to Unix timestamps:
-
-- `KPI_WEEK_START`
-- `KPI_WEEK_END`
-- `KPI_MONTH_START`
-- `KPI_MONTH_END`
-
-If only a start value is supplied, the end defaults to the end of that week or month.
-
-## Development
-
-- Lint code with:
+- **Local dev server**
   ```bash
-  npm run lint
+  npm start          # serves the dashboard on PORT (default 3000)
   ```
-- Run tests with:
+- **PM2 (production)**
   ```bash
-  npm test
+  pm2 start ecosystem.config.cjs --env production
+  pm2 logs maintenance-dashboard
+  ```
+- **Run background jobs once** (`scripts/run-jobs-once.mjs`):
+  ```bash
+  node scripts/run-jobs-once.mjs --all        # run all KPI + work-order jobs
+  node scripts/run-jobs-once.mjs --prod-excel # ingest production Excel + enrichment
   ```
 
-The dashboard will be available at `http://<LOCAL_IP>:<PORT>/` when running.
-The admin interface is available at `http://<LOCAL_IP>:<PORT>/admin`.
+## How to restart
 
-## KPI Calculation Logic
+- Local Node process: stop/restart the `npm start` process.
+- PM2-managed app: `pm2 restart maintenance-dashboard` (or `pm2 reload` for zero-downtime).
+- Docker ETL container: `docker restart <container>` (cron will keep scheduling nightly runs).
+
+## How to update
+
+1. Pull and install dependencies:
+   ```bash
+   git pull
+   npm ci   # or npm install
+   ```
+2. Restart the runtime:
+   - Local: stop and rerun `npm start`.
+   - PM2: `pm2 reload maintenance-dashboard`.
+   - Docker ETL: rebuild/pull the image and recreate the container.
+
+## How to refresh data or schedules
+
+- From the admin UI, use **Admin → Update Schedules** (backs `dbo.UpdateSchedules`).
+- API shortcuts:
+  - Refresh caches: `POST /api/cache/refresh` or `POST /api/admin/refresh-all`.
+  - Run a single job: `POST /api/admin/run` with `{"job":"header_kpis"}` (and other job names above).
+  - Force production Excel ingest: `POST /api/admin/run-prod-excel?dry=0`.
+
+## Cache & operations
+
+- Cache tuning via env:
+  - `CACHE_TTL_MINUTES` – minutes before KPI/status data is refreshed (default `15`).
+  - `CACHE_CHECK_PERIOD_SECONDS` – how often cache trims expired items (default `1800`).
+  - `STATUS_REFRESH_ENDPOINT` – route for manual refresh (default `/api/cache/refresh`).
+- Operational hours defaults: 24 hours/day, Monday–Friday.
+  - Override with `EXPECTED_RUN_DAYS` (e.g., `Mon-Fri`, `Sun-Sat`) and `EXPECTED_HOURS_PER_DAY`.
+- KPI time ranges default to last calendar week/month but can be overridden with `KPI_WEEK_START`, `KPI_WEEK_END`, `KPI_MONTH_START`, `KPI_MONTH_END` (Unix timestamps).
+
+## KPI calculation logic
 
 | KPI | Timeframe | Description |
 |-----|-----------|-------------|
@@ -119,19 +150,25 @@ The admin interface is available at `http://<LOCAL_IP>:<PORT>/admin`.
 | mtbfHrs | Last calendar month | `(workHours - downtimeHours) / count(unplanned tasks)` |
 | planned vs unplanned count | Last calendar week | Number of tasks of each type |
 
-* All assets are assumed to run 24/5 unless configured via `EXPECTED_RUN_DAYS`/`EXPECTED_HOURS_PER_DAY`.
-* Downtime percentage is computed as `(downtimeHours / operationalHours) * 100`.
-* Time ranges can be overridden via the `KPI_*` environment variables
-  (see [KPI time ranges](#kpi-time-ranges)). When unset, the server uses the
-  last calendar week and previous calendar month.
-* Per-asset metrics are returned alongside the overall values from `/api/kpis`.
+- Assets default to 24/5 unless overridden via `EXPECTED_RUN_DAYS`/`EXPECTED_HOURS_PER_DAY`.
+- KPI date ranges honor `KPI_*` overrides; otherwise last calendar week/month are used.
+- Per-asset metrics are returned alongside overall values from `/api/kpis` endpoints. The page `kpi-by-asset.html` calls `/api/kpis/by-asset?timeframe=...` with: `currentWeek`, `lastWeek`, `trailing7Days`, `currentMonth`, `lastMonth`, `trailing30Days`, `currentYear`, `lastYear`, `trailing12Months`. Results are cached per timeframe key.
 
-### KPIs by Asset timeframe
-The page `/kpi-by-asset.html` controls the date range via the “Timeframe” dropdown.
-The frontend calls `/api/kpis/by-asset?timeframe=...` where the values are:
-- currentWeek (Mon–Sun via ISO week), lastWeek, trailing7Days
-- currentMonth, lastMonth, trailing30Days
-- currentYear, lastYear, trailing12Months
+## ETL & scheduling details
 
-The server computes `{start, end}` using moment and returns KPIs for that range.
-Results are cached per timeframe key.
+- `etl.js` pulls Limble data and merges it into Azure SQL, using incremental watermarks for tasks, labor, and asset fields; failed rows are written to `bad_rows.json`, and a stub `notifyFailures()` is triggered when >10 rows fail.
+- `cron.sh` + `Dockerfile` install cron and schedule `etl.js` daily at midnight.
+- Snapshot caching and schedules are described in `docs/CACHING_AND_SCHEDULES.md` (TVs read from SQL cache tables only; jobs default to every 15 minutes, asset field ETL nightly).
+
+## Development
+
+- Lint code:
+  ```bash
+  npm run lint
+  ```
+- Run tests:
+  ```bash
+  npm test
+  ```
+
+The dashboard will be available at `http://<LOCAL_IP>:<PORT>/` when running. The admin interface lives at `http://<LOCAL_IP>:<PORT>/admin`.
