@@ -4,6 +4,7 @@
   <meta charset="utf-8" />
   <title>PRI Pulse – Grinding</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <script src="/telemetry.js"></script>
   <style>
     :root{--pri-blue:#25408F;--pri-green:#92D050;--bg:#E9EDF5;--card:#FBFCFE;--ink:#0F172A;--muted:#475569;--border:#D7E0F3;--shadow:0 10px 25px rgba(0,0,0,.08);--tile-head-fs:30px}
     *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Roboto,Ubuntu,"Helvetica Neue",Arial,sans-serif;font-weight:800;font-size:18px}
@@ -191,6 +192,15 @@ const ENDPOINTS = {
   ASSETS_FIELDS:'/api/assets/fields',
   MAP:'mappings.json'
 };
+const trackTelemetry = (event, props) => {
+  try { window.PRI_Telemetry?.track(event, props); } catch { /* noop */ }
+};
+
+document.querySelectorAll('.tabs a').forEach(link => {
+  link.addEventListener('click', () => {
+    trackTelemetry('tab_changed', { to: link.getAttribute('href') });
+  });
+});
 
 const COLOR_CONFIG = {
   overall: { thresholds: { good: 0.85, warn: 0.7 }, hex: { good: '#10B981', warn: '#FBBF24', bad: '#EF4444' } },
