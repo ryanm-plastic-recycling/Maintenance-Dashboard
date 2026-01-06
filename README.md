@@ -66,10 +66,11 @@ Production reporting (`server/routes/production.js`):
    ```bash
    npm install
    ```
-2. Configure environment (no `.env.example` is committed; create `.env`):
+2. Configure environment (no `.env.example` is committed; create `.env`).
+   Set `PORT=7601` for local runs and in PM2 env so the dashboard listens on the expected port:
    - Limble: `CLIENT_ID`, `CLIENT_SECRET`, `API_BASE_URL` (default `https://api.limblecmms.com:443`).
    - Azure SQL: `AZURE_SQL_SERVER`, `AZURE_SQL_DB`, `AZURE_SQL_USER`, `AZURE_SQL_PASS`.
-   - Server: `PORT` (default `3000`), `LOCAL_IP` (for logging), `NODE_ENV`.
+   - Server: `PORT` (default `3000`, recommend `7601`), `LOCAL_IP` (for logging), `NODE_ENV`.
    - Admin auth: `BASIC_AUTH_USER`, `BASIC_AUTH_PASS` and/or `ADMIN_TOKEN`; `ADMIN_PASSWORD` for config/mappings POSTs.
    - Cache: `CACHE_TTL_MINUTES`, `CACHE_CHECK_PERIOD_SECONDS`, `STATUS_REFRESH_ENDPOINT`.
    - KPI windows: `KPI_WEEK_START`, `KPI_WEEK_END`, `KPI_MONTH_START`, `KPI_MONTH_END`.
@@ -91,7 +92,7 @@ Production reporting (`server/routes/production.js`):
 
 - **Local dev server**
   ```bash
-  npm start          # serves the dashboard on PORT (default 3000)
+  PORT=7601 npm start          # serves the dashboard on PORT (default 3000; use 7601 in production)
   ```
 - **PM2 (production)**
   ```bash

@@ -609,19 +609,33 @@ const TELEMETRY_PAGE_PATHS = new Set([
   '/',
   '/pm',
   '/prodstatus',
-  '/kpi-by-asset.html',
   '/admin'
+]);
+const TELEMETRY_STATIC_EXTS = new Set([
+  '.js', '.css', '.png', '.jpg', '.jpeg', '.svg', '.ico', '.map', '.json', '.txt'
 ]);
 
 app.use((req, _res, next) => {
   try {
-    if (req.method === 'GET' && TELEMETRY_PAGE_PATHS.has(req.path)) {
-      appendTelemetry({
-        event: 'page_hit',
-        page: req.path,
-        ip: req.ip,
-        ua: req.get('user-agent')
-      });
+    if (req.method === 'GET' && !req.path.startsWith('/api')) {
+      const ext = path.extname(req.path || '').toLowerCase();
+      if (ext && TELEMETRY_STATIC_EXTS.has(ext)) {
+        return next();
+      }
+
+      const isHtmlPage =
+        req.path === '/' ||
+        req.path.endsWith('.html') ||
+        TELEMETRY_PAGE_PATHS.has(req.path);
+
+      if (isHtmlPage) {
+        appendTelemetry({
+          event: 'page_hit',
+          page: req.path,
+          ip: req.ip,
+          ua: req.get('user-agent')
+        });
+      }
     }
   } catch {
     // ignore telemetry failures

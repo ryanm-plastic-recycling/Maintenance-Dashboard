@@ -4,6 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>PACE – Production Analysis & Capacity Explorer</title>
+  <script src="/telemetry.js"></script>
   <style>
     :root{
       --pri-blue:#25408F; --pri-green:#92D050;
@@ -557,6 +558,18 @@
           </div>
      </section>
   </div>
+
+<script>
+  const trackTelemetry = (event, props) => {
+    try { window.PRI_Telemetry?.track(event, props); } catch { /* noop */ }
+  };
+
+  document.querySelectorAll('.tabs a').forEach(link => {
+    link.addEventListener('click', () => {
+      trackTelemetry('tab_changed', { to: link.getAttribute('href') });
+    });
+  });
+</script>
 
 <script>
   const REFRESH_MS = 10 * 60 * 1000;   // 10 minutes
