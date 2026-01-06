@@ -5,6 +5,7 @@
     <title>Admin</title>
     <link rel="stylesheet" href="style.css">
     <script src="burnin.js"></script>
+    <script src="/telemetry.js"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -343,6 +344,9 @@
         const burnSchedSpan = document.getElementById('burnin-sched');
         const burnCurrentSpan = document.getElementById('burnin-current');
         const burnOverrideSpan = document.getElementById('burnin-override');
+        const trackTelemetry = (event, props) => {
+            try { window.PRI_Telemetry?.track(event, props); } catch { /* noop */ }
+        };
         function updateRotateButton() {
             const paused = localStorage.getItem('rotationPaused') === 'true';
             rotateBtn.textContent = paused ? 'Resume Rotation' : 'Pause Rotation';
@@ -355,6 +359,11 @@
             updateRotateButton();
         });
         updateRotateButton();
+        document.querySelectorAll('.tabs a').forEach(link => {
+            link.addEventListener('click', () => {
+                trackTelemetry('tab_changed', { to: link.getAttribute('href') });
+            });
+        });
         let config = {};
         function isBurnActive(sched){
             const [sh,sm]=sched.start.split(':').map(Number);
@@ -397,24 +406,33 @@
         let adminPass = '';
         document.getElementById('login-btn').onclick = async () => {
             adminPass = document.getElementById('admin-pass').value;
-            // show protected area
-            document.getElementById('secure').style.display = 'block';
-            await import('/js/admin.js').then(m => {
-              // If admin.js exports an init, call it:
-              if (typeof m.init === 'function') m.init({ password: adminPass });
-            });
-            const res = await fetch('/api/config');
-            const cfg = await res.json();
-            config = cfg;
-            updateBurninUI();
-            document.getElementById('pages').value = cfg.pages.join(',');
-            document.getElementById('interval').value = cfg.interval;
-            document.getElementById('cols-index').value = (cfg.columns['index.html'] || []).join(',');
-            document.getElementById('cols-pm').value = (cfg.columns['pm.html'] || []).join(',');
-            document.getElementById('config-form').style.display = 'block';
-            document.getElementById('mapping-section').style.display = 'block';
-            document.getElementById('theme-section').style.display = 'block';
-            document.getElementById('login-section').style.display = 'none';
+            let loginOk = true;
+            try {
+                // show protected area
+                document.getElementById('secure').style.display = 'block';
+                await import('/js/admin.js').then(m => {
+                  // If admin.js exports an init, call it:
+                  if (typeof m.init === 'function') m.init({ password: adminPass });
+                });
+                const res = await fetch('/api/config');
+                const cfg = await res.json();
+                loginOk = res.ok;
+                config = cfg;
+                updateBurninUI();
+                document.getElementById('pages').value = (cfg.pages || []).join(',');
+                document.getElementById('interval').value = cfg.interval;
+                document.getElementById('cols-index').value = (cfg.columns?.['index.html'] || []).join(',');
+                document.getElementById('cols-pm').value = (cfg.columns?.['pm.html'] || []).join(',');
+                document.getElementById('config-form').style.display = 'block';
+                document.getElementById('mapping-section').style.display = 'block';
+                document.getElementById('theme-section').style.display = 'block';
+                document.getElementById('login-section').style.display = 'none';
+            } catch (err) {
+                loginOk = false;
+                console.error(err);
+            } finally {
+                trackTelemetry('admin_login_attempt', { ok: loginOk });
+            }
         };
         document.getElementById('config-form').onsubmit = async e => {
             e.preventDefault();

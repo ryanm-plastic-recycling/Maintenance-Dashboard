@@ -4,6 +4,7 @@
     <title>Preventive Maintenance Work Orders</title>
     <link rel="stylesheet" href="style.css">
     <script src="burnin.js"></script>
+    <script src="/telemetry.js"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -288,6 +289,9 @@
     const rotateBtn = document.getElementById('toggle-rotation');
     let mappings = {};
     let config = {};
+    const trackTelemetry = (event, props) => {
+      try { window.PRI_Telemetry?.track(event, props); } catch { /* noop */ }
+    };
 
 	console.log('[pm] v1.5 loaded');
 
@@ -337,6 +341,11 @@
         updateRotateButton();
     });
     updateRotateButton();
+    document.querySelectorAll('.tabs a').forEach(link => {
+        link.addEventListener('click', () => {
+            trackTelemetry('tab_changed', { to: link.getAttribute('href') });
+        });
+    });
 
     fetch('/mappings.json')
         .then(res => res.json())
@@ -514,7 +523,10 @@
 	setInterval(fetchData, REFRESH_MS);
 	
 	// manual refresh
-	refreshButton.addEventListener('click', fetchData);
+	refreshButton.addEventListener('click', () => {
+        trackTelemetry('refresh_clicked');
+        fetchData();
+    });
 
 </script>
 <script>
