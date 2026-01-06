@@ -4,6 +4,7 @@
     <title>Live Production Line Status</title>
     <link rel="stylesheet" href="style.css">
     <script src="burnin.js"></script>
+    <script src="/telemetry.js"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -305,6 +306,9 @@
  let mappings = {};
  let config = {};
  let __ps_waiting = false;
+ const trackTelemetry = (event, props) => {
+   try { window.PRI_Telemetry?.track(event, props); } catch { /* noop */ }
+ };
 
 // --- Auto-reload / error reload variables (new) ---
 let consecutiveErrors = 0;
@@ -352,6 +356,11 @@ let lastServerRefreshUtc = null;
         updateRotateButton();
     });
     updateRotateButton();
+    document.querySelectorAll('.tabs a').forEach(link => {
+        link.addEventListener('click', () => {
+            trackTelemetry('tab_changed', { to: link.getAttribute('href') });
+        });
+    });
 
      fetch('/mappings.json')
          .then(res => res.json())
@@ -697,13 +706,15 @@ let lastServerRefreshUtc = null;
           } catch (e) {
               console.error('stale-check failed', e);
           }
-		}
+      }
 
       refreshButton.addEventListener('click', () => {
+        trackTelemetry('refresh_clicked');
         clearTimeout(refreshTimeout);
         refreshAll();
       });
       refreshStatusButton.addEventListener('click', () => {
+        trackTelemetry('refresh_clicked', { target: 'status_refresh' });
         fetch('/api/cache/refresh', { method: 'POST' });
       });
 

@@ -20,6 +20,7 @@ import productionRoutes from './server/routes/production.js';
 import helmet from 'helmet';
 import { adminLimiter, adminSlowdown, adminAuthLimiter } from './server/lib/adminRateLimit.js';
 import { requireAdmin } from './server/lib/adminAuth.js';
+import { appendTelemetry } from './server/lib/telemetryJsonl.js';
 
 const API_V2 = `${process.env.API_BASE_URL}/v2`;
 
@@ -582,6 +583,9 @@ const ipv4 = Object.values(nets)
   .flat()
   .find(i => i.family === 'IPv4' && !i.internal)?.address;
 
+const isPlainObject = (val) =>
+  val !== null && typeof val === 'object' && !Array.isArray(val);
+
 // ─── express setup ────────────────────────────────────────────────────────
 const app = express();
 
@@ -598,6 +602,30 @@ app.use(express.json());
 // Ensure API responses are not cached by browsers/CDNs (prevents 304 + JSON mismatch)
 app.use('/api', (req, res, next) => {
   res.set('Cache-Control', 'no-store, max-age=0, must-revalidate');
+  next();
+});
+
+const TELEMETRY_PAGE_PATHS = new Set([
+  '/',
+  '/pm',
+  '/prodstatus',
+  '/kpi-by-asset.html',
+  '/admin'
+]);
+
+app.use((req, _res, next) => {
+  try {
+    if (req.method === 'GET' && TELEMETRY_PAGE_PATHS.has(req.path)) {
+      appendTelemetry({
+        event: 'page_hit',
+        page: req.path,
+        ip: req.ip,
+        ua: req.get('user-agent')
+      });
+    }
+  } catch {
+    // ignore telemetry failures
+  }
   next();
 });
 
@@ -1083,6 +1111,43 @@ app.get('/api/kpis/header', async (req, res) => {
     console.error('[kpis/header]', e);
     res.status(500).json({ error: String(e.message || e) });
   }
+});
+
+app.post('/api/telemetry', (req, res) => {
+  const body = req.body || {};
+  const eventName = typeof body.event === 'string' ? body.event.trim() : '';
+  if (!eventName || eventName.length > 80) {
+    return res.status(400).json({ ok: false, error: 'invalid event' });
+  }
+
+  if (body.page && (typeof body.page !== 'string' || body.page.length > 200)) {
+    return res.status(400).json({ ok: false, error: 'invalid page' });
+  }
+
+  if (body.props !== undefined) {
+    if (!isPlainObject(body.props)) {
+      return res.status(400).json({ ok: false, error: 'invalid props' });
+    }
+    try {
+      const propsSize = JSON.stringify(body.props).length;
+      if (propsSize > 8 * 1024) {
+        return res.status(400).json({ ok: false, error: 'props too large' });
+      }
+    } catch {
+      return res.status(400).json({ ok: false, error: 'invalid props' });
+    }
+  }
+
+  appendTelemetry({
+    event: eventName,
+    page: typeof body.page === 'string' ? body.page : undefined,
+    clientId: typeof body.clientId === 'string' ? body.clientId : undefined,
+    props: body.props,
+    ip: req.ip,
+    ua: req.get('user-agent')
+  });
+
+  res.json({ ok: true });
 });
 
 app.get('/api/health', (_req, res) => res.json({ ok: true, ts: new Date().toISOString() }));

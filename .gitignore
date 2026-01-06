@@ -7,6 +7,8 @@ node_modules/
 # Logs
 *.log
 log.txt
+logs/
+*.jsonl
 
 # Backups
 backups/

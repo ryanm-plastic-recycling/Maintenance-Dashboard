@@ -6,6 +6,7 @@
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="css/style.css">
     <script src="burnin.js" defer></script>
+  <script src="/telemetry.js"></script>
   <style>
     body { font-family: Arial, sans-serif; margin:0; padding:0; background:#f0f0f0; color:#333; position:relative; }
     .top-border { position:fixed; top:0; left:0; width:100%; height:96px; background:rgba(146,208,80,1); z-index:2; display:flex; align-items:center; padding-right:20px; }
@@ -327,6 +328,9 @@
     const refreshInterval = 900000; // 15 minutes
     let refreshCountdown = refreshInterval / 1000;
     let config = {};
+    const trackTelemetry = (event, props) => {
+      try { window.PRI_Telemetry?.track(event, props); } catch { /* noop */ }
+    };
 
     fetch('/config.json')
       .then(r => r.json())
@@ -345,6 +349,11 @@
       updateRotateButton();
     });
     updateRotateButton();
+    document.querySelectorAll('.tabs a').forEach(link => {
+      link.addEventListener('click', () => {
+        trackTelemetry('tab_changed', { to: link.getAttribute('href') });
+      });
+    });
 
     function updateRefreshTimer() {
       const m = Math.floor(refreshCountdown / 60);
@@ -370,6 +379,7 @@
 
     setInterval(() => { loadByAsset(); refreshCountdown = refreshInterval / 1000; }, refreshInterval);
     refreshButton.addEventListener('click', () => {
+     trackTelemetry('refresh_clicked');
      loadByAsset();
      refreshCountdown = refreshInterval / 1000;
    });
@@ -548,8 +558,11 @@
    // run once on load
   loadByAsset();  
   // manual refresh + react to timeframe changes
-  document.getElementById('refresh-button').addEventListener('click', loadByAsset);
-  document.getElementById('timeframe-select').addEventListener('change', loadByAsset);
+  document.getElementById('timeframe-select').addEventListener('change', (ev) => {
+    const timeframe = ev.target?.value;
+    trackTelemetry('kpi_timeframe_changed', { timeframe });
+    loadByAsset();
+  });
   </script>
   <script>
     // clock
