@@ -141,6 +141,12 @@ Production reporting (`server/routes/production.js`):
   - Override with `EXPECTED_RUN_DAYS` (e.g., `Mon-Fri`, `Sun-Sat`) and `EXPECTED_HOURS_PER_DAY`.
 - KPI time ranges default to last calendar week/month but can be overridden with `KPI_WEEK_START`, `KPI_WEEK_END`, `KPI_MONTH_START`, `KPI_MONTH_END` (Unix timestamps).
 
+## Reverse proxy notes
+
+- Set `TRUST_PROXY` to your reverse proxy hop count (`1`) or proxy IP/CIDR so Express trusts forwarded headers correctly.
+- Terminate TLS at the reverse proxy.
+- Ensure the proxy forwards both `X-Forwarded-For` and `X-Forwarded-Proto` headers to the app.
+
 ## KPI calculation logic
 
 | KPI | Timeframe | Description |

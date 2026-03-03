@@ -589,12 +589,12 @@ const isPlainObject = (val) =>
 // ─── express setup ────────────────────────────────────────────────────────
 const app = express();
 
-// (optional) if you prefer to explicitly clear any caches that *do* hit HTTPS:
-app.use((req, res, next) => {
-  // sends a “forget HSTS” if this ever goes over TLS later
-  res.setHeader('Strict-Transport-Security', 'max-age=0');
-  next();
-});
+const trustProxy = process.env.TRUST_PROXY?.trim();
+if (trustProxy === '1') {
+  app.set('trust proxy', 1);
+} else if (trustProxy) {
+  app.set('trust proxy', trustProxy);
+}
 
 app.use(cors({ origin: true }));
 app.use(express.json());
@@ -643,16 +643,14 @@ app.use((req, _res, next) => {
   next();
 });
 
-// If you’re behind a proxy (NGINX/Cloudflare):
-// app.set('trust proxy', 1);
 
 // 2) guards/rate limits BEFORE routers (protect the whole /api/admin surface)
 app.use('/api/admin', adminAuthLimiter, adminSlowdown, adminLimiter);
 
 // Put this BEFORE routers
 app.use(helmet({
-  // 1) no HSTS (we are serving over HTTP right now)
-  hsts: false,
+  // 1) no HSTS by default in HTTP mode; enable if TLS is terminated upstream
+  hsts: process.env.ENABLE_HSTS === '1',
 
   // 2) COOP can be dropped in HTTP mode to avoid “untrustworthy origin” noise
   crossOriginOpenerPolicy: false,
@@ -681,12 +679,6 @@ app.use(helmet({
   // 4) CORP in HTTP is fine as cross-origin; you already had cross-origin
   crossOriginResourcePolicy: { policy: 'cross-origin' },
 }));
-
-// Optional: explicitly clear any leftover HSTS
-app.use((req, res, next) => {
-  res.set('Strict-Transport-Security', 'max-age=0');
-  next();
-});
 
 // 3) API routers
 app.use('/api', productionRoutes(poolPromise));   // /api/production/...
